@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skills IR Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #f5f0e8;
+      --paper:       #fffdf8;
+      --ink:         #1a1714;
+      --ink-2:       #4a4139;
+      --muted:       #7a6e62;
+      --line:        #d8cbb9;
+      --line-soft:   #ece4d6;
+      --accent:      #14532d;
+      --accent-2:    #166534;
+      --accent-soft: #dcfce7;
+      --accent-text: #14532d;
+      --amber:       #92400e;
+      --amber-soft:  #fef3c7;
+      --red-soft:    #fee2e2;
+      --red-text:    #991b1b;
+      --blue-soft:   #dbeafe;
+      --blue-text:   #1e40af;
+
+      --font-sans: 'Fira Sans', system-ui, sans-serif;
+      --font-mono: 'Fira Code', 'Cascadia Code', monospace;
+
+      --radius-sm:  8px;
+      --radius-md:  14px;
+      --radius-lg:  20px;
+      --shadow-sm:  0 2px 8px rgba(60,45,25,.06);
+      --shadow-md:  0 6px 20px rgba(60,45,25,.09);
+      --shadow-lg:  0 12px 36px rgba(60,45,25,.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.6;
+      background:
+        radial-gradient(ellipse 60% 40% at 0% 0%, #f0dfc0 0, transparent 50%),
+        radial-gradient(ellipse 40% 30% at 100% 100%, #ddeedd 0, transparent 50%),
+        linear-gradient(160deg, #f8f2e6 0%, var(--bg) 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* ─── Hero / Search ─────────────────────────── */
+    .hero {
+      background: rgba(255,253,248,.92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 28px 32px;
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(10px);
+      margin-bottom: 22px;
+    }
+
+    .hero-header {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+
+    .version-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent-text);
+      background: var(--accent-soft);
+      padding: 3px 8px;
+      border-radius: 999px;
+      letter-spacing: .02em;
+    }
+
+    .lead {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ─── Search Form ───────────────────────────── */
+    form {
+      display: grid;
+      grid-template-columns: 1fr 90px 120px 110px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--line);
+      padding: 12px 16px 12px 42px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(20,83,45,.12);
+    }
+
+    input[type="number"] {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--line);
+      padding: 12px 12px;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(20,83,45,.12);
+    }
+
+    select {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--line);
+      padding: 12px 12px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      cursor: pointer;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(20,83,45,.12);
+    }
+
+    .input-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    button[type="submit"] {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: var(--radius-md);
+      border: none;
+      padding: 12px 16px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 2px 8px rgba(20,83,45,.25);
+      align-self: flex-end;
+    }
+
+    button[type="submit"]:hover {
+      background: var(--accent-2);
+      box-shadow: 0 4px 14px rgba(20,83,45,.32);
+    }
+
+    button[type="submit"]:active {
+      transform: translateY(1px);
+    }
+
+    /* ─── Two-column grid ───────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    /* ─── Panel ─────────────────────────────────── */
+    .panel {
+      background: rgba(255,253,248,.94);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel h2::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line-soft);
+    }
+
+    /* ─── Result card ───────────────────────────── */
+    .result {
+      padding: 16px 0;
+      border-top: 1px solid var(--line-soft);
+      transition: background .15s;
+    }
+
+    .result:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .rank {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--line-soft);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-variant-numeric: tabular-nums;
+      margin-top: 2px;
+    }
+
+    .result h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .result h3 a {
+      color: var(--ink);
+      text-decoration: none;
+      transition: color .15s;
+    }
+
+    .result h3 a:hover {
+      color: var(--accent);
+    }
+
+    /* Score badges */
+    .score-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .01em;
+      white-space: nowrap;
+    }
+
+    .badge-score {
+      background: var(--accent-soft);
+      color: var(--accent-text);
+    }
+
+    .badge-cosine {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .badge-bm25 {
+      background: var(--blue-soft);
+      color: var(--blue-text);
+    }
+
+    .badge-label {
+      font-family: var(--font-sans);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      opacity: .75;
+    }
+
+    /* Meta rows */
+    .meta-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+
+    .meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .meta-num {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+      color: var(--ink-2);
+      font-weight: 500;
+    }
+
+    .snippet {
+      font-size: 13.5px;
+      color: var(--ink-2);
+      line-height: 1.55;
+      margin-top: 8px;
+      padding-left: 36px;
+    }
+
+    /* ─── Relevance judge buttons ─────────────── */
+    .judge-row {
+      display: flex;
+      gap: 6px;
+      padding-left: 36px;
+      margin-top: 8px;
+      align-items: center;
+    }
+
+    .judge-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .judge-btn {
+      border: 1.5px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 12px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--paper);
+      color: var(--ink-2);
+      transition: all .15s;
+    }
+
+    .judge-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .judge-btn.active-relevant {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .judge-btn.active-partial {
+      background: var(--amber-soft);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .judge-btn.active-not_relevant {
+      background: var(--red-soft);
+      border-color: var(--red-text);
+      color: var(--red-text);
+    }
+
+    .judge-status {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 6px;
+    }
+
+    /* ─── Aside / Metrics ───────────────────────── */
+    aside.panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .aside-section h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .aside-section h2::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line-soft);
+    }
+
+    /* Metric table */
+    .metric-table {
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+    }
+
+    .metric-row:hover {
+      background: var(--line-soft);
+    }
+
+    .metric-key {
+      font-size: 12.5px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+      letter-spacing: .01em;
+    }
+
+    .metric-val.good   { color: var(--accent); }
+    .metric-val.warn   { color: var(--amber); }
+
+    /* Pills */
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: var(--line-soft);
+      color: var(--ink-2);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Small text */
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 4px 0;
+    }
+
+    .small strong {
+      color: var(--ink-2);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--line-soft);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--ink-2);
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 36px 20px;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 12px;
+      opacity: .35;
+    }
+
+    .bench-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    /* Finding badges */
+    .finding {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 5px 0;
+      font-size: 13px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .finding:first-child { border-top: none; }
+
+    .level-tag {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 2px 7px;
+      border-radius: 999px;
+    }
+
+    .level-tag.info  { background: #dbeafe; color: #1e40af; }
+    .level-tag.warn  { background: var(--amber-soft); color: var(--amber); }
+    .level-tag.error { background: var(--red-soft); color: var(--red-text); }
+    .level-tag.ok    { background: var(--accent-soft); color: var(--accent-text); }
+
+    /* Bucket list */
+    .bucket-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+    }
+
+    .bucket-row:hover { background: var(--line-soft); }
+
+    .bucket-name {
+      font-size: 13px;
+      color: var(--ink-2);
+      font-weight: 500;
+    }
+
+    .bucket-count {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--red-text);
+    }
+
+    a { color: inherit; }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      form {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 26px; }
+      .hero { padding: 20px; }
+      .bench-metrics { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- ── Hero / Search ── -->
+    <section class="hero">
+      <div class="hero-header">
+        <h1>Skills IR Workbench</h1>
+        <span class="version-tag">TF-IDF + BM25 Hybrid</span>
+      </div>
+      <p class="lead">搜索技能数据、查看排名细节，支持 TF-IDF / BM25 / 混合模式检索，并支持人工相关度评价。</p>
+      <form method="get" action="/">
+        <div>
+          <span class="input-label">查询关键词</span>
+          <div class="input-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" name="q" value="{{ query }}"
+                   placeholder="例如：小红书文案 / schema 结构化数据 / api design">
+          </div>
+        </div>
+        <div>
+          <span class="input-label">Top K</span>
+          <input type="number" name="top_k" min="1" max="20" value="{{ top_k }}">
+        </div>
+        <div>
+          <span class="input-label">检索模式</span>
+          <select name="mode">
+            <option value="hybrid" {% if mode == 'hybrid' %}selected{% endif %}>Hybrid</option>
+            <option value="tfidf" {% if mode == 'tfidf' %}selected{% endif %}>TF-IDF</option>
+            <option value="bm25" {% if mode == 'bm25' %}selected{% endif %}>BM25</option>
+          </select>
+        </div>
+        <div>
+          <span class="input-label">&nbsp;</span>
+          <button type="submit">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            搜索
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ── Main Grid ── -->
+    <div class="grid">
+
+      <!-- ── Left: Results ── -->
+      <section class="panel">
+        <h2>搜索结果{% if query %}：{{ query }}{% endif %}</h2>
+
+        {% if query and results %}
+          {% for item in results %}
+            <article class="result" data-skill="{{ item.skill_name }}" data-rank="{{ loop.index }}">
+              <div class="score-row">
+                <span class="badge badge-score">
+                  <span class="badge-label">score</span>
+                  {{ '%.4f'|format(item.score) }}
+                </span>
+                <span class="badge badge-cosine">
+                  <span class="badge-label">cosine</span>
+                  {{ '%.4f'|format(item.cosine_score) }}
+                </span>
+                <span class="badge badge-bm25">
+                  <span class="badge-label">bm25</span>
+                  {{ '%.4f'|format(item.bm25_score) }}
+                </span>
+              </div>
+
+              <div class="result-header">
+                <span class="rank">{{ loop.index }}</span>
+                <h3><a href="{{ item.detail_url }}" target="_blank" rel="noreferrer">{{ item.skill_name }}</a></h3>
+              </div>
+
+              <div class="meta-row" style="padding-left:36px">
+                <span class="meta-item">{{ item.category }}</span>
+                <span class="meta-item">{{ item.owner }} / {{ item.repo }}</span>
+              </div>
+
+              <div class="meta-row" style="padding-left:36px">
+                <span class="meta-item">
+                  installs&nbsp;<span class="meta-num">{{ item.weekly_installs_num }}</span>
+                </span>
+                <span class="meta-item">
+                  stars&nbsp;<span class="meta-num">{{ item.github_stars_num }}</span>
+                </span>
+                <span class="meta-item">
+                  first_seen&nbsp;<code>{{ item.first_seen }}</code>
+                </span>
+              </div>
+
+              <p class="snippet">{{ item.snippet }}</p>
+
+              <!-- 人工相关度评价按钮 -->
+              <div class="judge-row">
+                <span class="judge-label">相关度评价：</span>
+                <button class="judge-btn" data-label="relevant"
+                        onclick="submitJudge(this, '{{ query }}', '{{ item.skill_name }}', 'relevant', {{ loop.index }})">
+                  相关
+                </button>
+                <button class="judge-btn" data-label="partial"
+                        onclick="submitJudge(this, '{{ query }}', '{{ item.skill_name }}', 'partial', {{ loop.index }})">
+                  部分相关
+                </button>
+                <button class="judge-btn" data-label="not_relevant"
+                        onclick="submitJudge(this, '{{ query }}', '{{ item.skill_name }}', 'not_relevant', {{ loop.index }})">
+                  不相关
+                </button>
+                <span class="judge-status"></span>
+              </div>
+            </article>
+          {% endfor %}
+
+        {% elif query %}
+          <div class="empty">
+            <svg class="empty-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <p class="small">没有检索到结果，请尝试其他关键词。</p>
+          </div>
+        {% else %}
+          <div class="empty">
+            <svg class="empty-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <p class="small">输入 query 后会展示排名、分数、摘要和评测命中情况。</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <!-- ── Right: Eval & Metrics ── -->
+      <aside class="panel">
+
+        <!-- 人工评价统计 -->
+        <div class="aside-section">
+          <h2>人工评价统计</h2>
+          {% if manual_metrics and manual_metrics.query_count %}
+            <div class="metric-table">
+              <div class="metric-row">
+                <span class="metric-key">已评价 Query 数</span>
+                <span class="metric-val">{{ manual_metrics.query_count }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">总评价条目</span>
+                <span class="metric-val">{{ manual_metrics.total_judgments }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">相关</span>
+                <span class="metric-val good">{{ manual_metrics.total_relevant }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">部分相关</span>
+                <span class="metric-val warn">{{ manual_metrics.total_partial }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">不相关</span>
+                <span class="metric-val" style="color:var(--red-text)">{{ manual_metrics.total_not_relevant }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">人工准确率 (P)</span>
+                <span class="metric-val good">{{ '%.2f'|format(manual_metrics.precision * 100) }}%</span>
+              </div>
+            </div>
+          {% else %}
+            <p class="small">暂无人工评价记录。在搜索结果中点击"相关/部分相关/不相关"按钮进行评价。</p>
+          {% endif %}
+        </div>
+
+        <!-- 结果评估 -->
+        <div class="aside-section">
+          <h2>结果评估</h2>
+          {% if eval_matches %}
+            {% for match in eval_matches %}
+              <div class="pills">
+                <span class="pill">{{ match.eval_file }}</span>
+                <span class="pill">{{ match.query_type }}</span>
+              </div>
+              <p class="small">expected: {{ match.expected_skill_names|join(', ') }}</p>
+            {% endfor %}
+          {% else %}
+            <p class="small">当前 query 不在内置评测集里。</p>
+          {% endif %}
+        </div>
+
+        <!-- 离线 Snapshot -->
+        <div class="aside-section">
+          <h2>离线 Snapshot</h2>
+          {% if metrics %}
+            <p class="small" style="margin-bottom:8px">
+              <code>{{ metrics.eval_path }}</code><br>
+              generated: <code>{{ metrics.generated_at or 'unknown' }}</code>
+            </p>
+            <div class="metric-table">
+              <div class="metric-row">
+                <span class="metric-key">Hit@{{ metrics.top_k }}</span>
+                <span class="metric-val good">{{ '%.2f'|format(metrics.metrics.hit_at_k * 100) }}%</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">Top-1 Accuracy</span>
+                <span class="metric-val">{{ '%.2f'|format(metrics.metrics.top1_accuracy * 100) }}%</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">MRR@{{ metrics.top_k }}</span>
+                <span class="metric-val">{{ '%.4f'|format(metrics.metrics.mrr_at_k) }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">Recall@{{ metrics.top_k }}</span>
+                <span class="metric-val">{{ '%.2f'|format(metrics.metrics.recall_at_k * 100) }}%</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-key">Precision@{{ metrics.top_k }}</span>
+                <span class="metric-val">{{ '%.2f'|format(metrics.metrics.precision_at_k * 100) }}%</span>
+              </div>
+            </div>
+            {% for finding in runtime_findings %}
+              <p class="small" style="margin-top:6px">{{ finding }}</p>
+            {% endfor %}
+          {% else %}
+            <p class="small">还没有 metrics_report.json。</p>
+          {% endif %}
+        </div>
+
+        <!-- 实时 Benchmark -->
+        <div class="aside-section">
+          <h2>实时 Benchmark</h2>
+          {% if live_benchmarks and live_benchmarks.reports %}
+            {% for report in live_benchmarks.reports %}
+              <p class="small" style="margin-bottom:6px">
+                <strong>{{ report.eval_file }}</strong>&nbsp;
+                queries=<span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums">{{ report.query_count }}</span>&nbsp;
+                failures=<span style="font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--red-text)">{{ report.failure_count }}</span>
+              </p>
+              <div class="metric-table" style="margin-bottom:10px">
+                <div class="metric-row">
+                  <span class="metric-key">Hit@{{ report.top_k }}</span>
+                  <span class="metric-val good">{{ '%.2f'|format(report.metrics.hit_at_k * 100) }}%</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-key">Top-1</span>
+                  <span class="metric-val">{{ '%.2f'|format(report.metrics.top1_accuracy * 100) }}%</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-key">MRR@{{ report.top_k }}</span>
+                  <span class="metric-val">{{ '%.4f'|format(report.metrics.mrr_at_k) }}</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-key">Recall@{{ report.top_k }}</span>
+                  <span class="metric-val">{{ '%.2f'|format(report.metrics.recall_at_k * 100) }}%</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-key">Precision@{{ report.top_k }}</span>
+                  <span class="metric-val">{{ '%.2f'|format(report.metrics.precision_at_k * 100) }}%</span>
+                </div>
+              </div>
+            {% endfor %}
+            {% for finding in live_benchmarks.findings %}
+              <p class="small">{{ finding }}</p>
+            {% endfor %}
+          {% else %}
+            <p class="small">当前没有可用的实时 benchmark。</p>
+          {% endif %}
+        </div>
+
+        <!-- 当前 Query 审查 -->
+        <div class="aside-section">
+          <h2>Query 审查</h2>
+          {% if query_review and query_review.findings %}
+            <p class="small" style="margin-bottom:8px">
+              status: <code>{{ query_review.status }}</code>
+            </p>
+            {% for finding in query_review.findings %}
+              <div class="finding">
+                <span class="level-tag {{ finding.level|lower }}">{{ finding.level }}</span>
+                <span class="small" style="margin:0">{{ finding.message }}</span>
+              </div>
+            {% endfor %}
+          {% elif query %}
+            <p class="small">当前 query 暂无审查结论。</p>
+          {% else %}
+            <p class="small">输入 query 后会显示 completion-review 风格的结果审查。</p>
+          {% endif %}
+        </div>
+
+        <!-- 失败桶 -->
+        <div class="aside-section">
+          <h2>失败桶</h2>
+          {% if failure_buckets %}
+            <div class="metric-table">
+              {% for bucket, items in failure_buckets.items() %}
+                <div class="bucket-row">
+                  <span class="bucket-name">{{ bucket }}</span>
+                  <span class="bucket-count">{{ items|length }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="small">当前没有失败桶数据。</p>
+          {% endif %}
+        </div>
+
+      </aside>
+    </div><!-- /.grid -->
+
+  </div><!-- /.wrap -->
+
+  <script>
+    function submitJudge(btn, query, skillName, label, rank) {
+      const row = btn.closest('.judge-row');
+      const statusEl = row.querySelector('.judge-status');
+
+      // 清除同行其他按钮的 active 状态
+      row.querySelectorAll('.judge-btn').forEach(b => {
+        b.className = 'judge-btn';
+      });
+      btn.classList.add('active-' + label);
+
+      statusEl.textContent = '提交中...';
+
+      fetch('/api/judge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, skill_name: skillName, label, rank })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          statusEl.textContent = '已保存 (' + data.total_judgments + ' 条)';
+          statusEl.style.color = 'var(--accent)';
+        } else {
+          statusEl.textContent = '失败: ' + (data.error || 'unknown');
+          statusEl.style.color = 'var(--red-text)';
+        }
+      })
+      .catch(err => {
+        statusEl.textContent = '网络错误';
+        statusEl.style.color = 'var(--red-text)';
+      });
+    }
+  </script>
+</body>
+</html>

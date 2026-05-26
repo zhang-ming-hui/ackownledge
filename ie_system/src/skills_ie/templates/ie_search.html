@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skills IE - 信息抽取系统</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #f0f4f8;
+      --paper:       #ffffff;
+      --ink:         #1a1e2c;
+      --ink-2:       #3d4455;
+      --muted:       #6b7280;
+      --line:        #d1d5db;
+      --line-soft:   #e5e7eb;
+      --accent:      #2563eb;
+      --accent-2:    #1d4ed8;
+      --accent-soft: #dbeafe;
+      --accent-text: #1e40af;
+      --green:       #059669;
+      --green-soft:  #d1fae5;
+      --green-text:  #065f46;
+      --amber:       #d97706;
+      --amber-soft:  #fef3c7;
+      --red-soft:    #fee2e2;
+      --red-text:    #991b1b;
+      --purple:      #7c3aed;
+      --purple-soft: #ede9fe;
+      --purple-text: #5b21b6;
+
+      --font-sans: 'Fira Sans', system-ui, sans-serif;
+      --font-mono: 'Fira Code', 'Cascadia Code', monospace;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+      --shadow-md: 0 4px 14px rgba(0,0,0,.08);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,.1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.6;
+      background: linear-gradient(135deg, #e0e7ff 0%, var(--bg) 40%, #ecfdf5 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+
+    /* ─── Hero ─── */
+    .hero {
+      background: rgba(255,255,255,.95);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 28px 32px;
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(10px);
+      margin-bottom: 20px;
+    }
+    .hero-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+    h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -.5px; }
+    .version-tag {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+      color: var(--accent-text); background: var(--accent-soft);
+      padding: 3px 8px; border-radius: 999px;
+    }
+    .lead { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+
+    /* ─── Form ─── */
+    form {
+      display: grid;
+      grid-template-columns: 1fr 140px 80px 100px;
+      gap: 10px; align-items: center;
+    }
+    .input-wrap { position: relative; }
+    .input-wrap svg {
+      position: absolute; left: 14px; top: 50%;
+      transform: translateY(-50%); color: var(--muted); pointer-events: none;
+    }
+    input[type="text"] {
+      width: 100%; border-radius: var(--radius-md);
+      border: 1.5px solid var(--line); padding: 12px 16px 12px 42px;
+      font-family: var(--font-sans); font-size: 15px;
+      background: var(--paper); color: var(--ink); outline: none;
+    }
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    select, input[type="number"] {
+      width: 100%; border-radius: var(--radius-md);
+      border: 1.5px solid var(--line); padding: 12px;
+      font-family: var(--font-sans); font-size: 14px;
+      background: var(--paper); color: var(--ink); outline: none; cursor: pointer;
+    }
+    .input-label {
+      display: block; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 5px;
+    }
+    button[type="submit"] {
+      border-radius: var(--radius-md); border: none;
+      padding: 12px 16px; font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+      background: var(--accent); color: #fff; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(37,99,235,.25); align-self: flex-end;
+      transition: background .2s;
+    }
+    button[type="submit"]:hover { background: var(--accent-2); }
+
+    /* ─── Grid ─── */
+    .grid { display: grid; grid-template-columns: 3fr 2fr; gap: 18px; align-items: start; }
+
+    /* ─── Panel ─── */
+    .panel {
+      background: rgba(255,255,255,.96); border: 1px solid var(--line);
+      border-radius: var(--radius-lg); padding: 22px 24px; box-shadow: var(--shadow-md);
+    }
+    .panel h2 {
+      margin: 0 0 14px; font-size: 16px; font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel h2::after { content: ''; flex: 1; height: 1px; background: var(--line-soft); }
+
+    /* ─── Event Card ─── */
+    .event-card {
+      padding: 16px 0; border-top: 1px solid var(--line-soft);
+    }
+    .event-card:first-child { border-top: none; padding-top: 0; }
+    .event-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .rank {
+      flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+      background: var(--accent-soft); color: var(--accent-text);
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; margin-top: 2px;
+    }
+    .event-card h3 { margin: 0; font-size: 15px; font-weight: 600; }
+    .event-card h3 a { color: var(--ink); text-decoration: none; }
+    .event-card h3 a:hover { color: var(--accent); }
+
+    /* Tags */
+    .tag-group { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; padding-left: 36px; }
+    .tag-group-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em;
+      min-width: 50px; padding-top: 3px;
+    }
+    .tag {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 500;
+    }
+    .tag-platform   { background: var(--accent-soft); color: var(--accent-text); }
+    .tag-language   { background: var(--green-soft); color: var(--green-text); }
+    .tag-action     { background: var(--amber-soft); color: var(--amber); }
+    .tag-domain     { background: var(--purple-soft); color: var(--purple-text); }
+    .tag-format     { background: var(--line-soft); color: var(--ink-2); }
+    .tag-metric     { background: var(--red-soft); color: var(--red-text); }
+
+    .event-summary {
+      font-size: 13px; color: var(--ink-2); line-height: 1.5;
+      padding-left: 36px; margin-top: 6px;
+      border-left: 3px solid var(--accent-soft); padding: 6px 12px 6px 12px;
+      margin-left: 36px; background: var(--bg); border-radius: var(--radius-sm);
+    }
+
+    /* Judge buttons */
+    .judge-row {
+      display: flex; gap: 6px; padding-left: 36px; margin-top: 8px; align-items: center;
+      flex-wrap: wrap;
+    }
+    .judge-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+    .judge-btn {
+      border: 1.5px solid var(--line); border-radius: 999px;
+      padding: 2px 10px; font-size: 11px; font-weight: 500;
+      cursor: pointer; background: var(--paper); color: var(--ink-2);
+      transition: all .15s;
+    }
+    .judge-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .judge-btn.active-correct { background: var(--green-soft); border-color: var(--green); color: var(--green-text); }
+    .judge-btn.active-partial { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
+    .judge-btn.active-incorrect { background: var(--red-soft); border-color: var(--red-text); color: var(--red-text); }
+    .judge-status { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+    /* ─── Aside ─── */
+    aside.panel { display: flex; flex-direction: column; gap: 18px; }
+    .aside-section h2 {
+      margin: 0 0 8px; font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .aside-section h2::after { content: ''; flex: 1; height: 1px; background: var(--line-soft); }
+
+    .metric-table { display: grid; gap: 4px; }
+    .metric-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 10px; border-radius: var(--radius-sm); background: var(--bg);
+    }
+    .metric-row:hover { background: var(--line-soft); }
+    .metric-key { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+    .metric-val {
+      font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+      font-variant-numeric: tabular-nums; color: var(--ink);
+    }
+    .metric-val.good { color: var(--green); }
+    .metric-val.warn { color: var(--amber); }
+
+    .small { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 4px 0; }
+    .small strong { color: var(--ink-2); }
+    code {
+      font-family: var(--font-mono); font-size: 12px;
+      background: var(--line-soft); padding: 1px 5px; border-radius: 4px; color: var(--ink-2);
+    }
+    .empty { text-align: center; padding: 36px 20px; color: var(--muted); }
+    a { color: inherit; }
+
+    .top-values { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 680px) {
+      form { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      .hero { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="hero">
+    <div class="hero-header">
+      <h1>Skills IE Workbench</h1>
+      <span class="version-tag">Information Extraction</span>
+    </div>
+    <p class="lead">
+      从技能描述中抽取结构化事件：平台、技术、功能、领域、输出格式、数量指标。
+      共 {{ total_docs }} 篇文档，已抽取 {{ total_extractions }} 条事件。
+    </p>
+    <form method="get" action="/">
+      <div>
+        <span class="input-label">搜索抽取结果</span>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" name="q" value="{{ query }}"
+                 placeholder="例如：github / python / seo / audit">
+        </div>
+      </div>
+      <div>
+        <span class="input-label">信息点筛选</span>
+        <select name="field">
+          <option value="" {% if not field %}selected{% endif %}>全部字段</option>
+          <option value="platforms" {% if field == 'platforms' %}selected{% endif %}>平台</option>
+          <option value="languages" {% if field == 'languages' %}selected{% endif %}>技术</option>
+          <option value="action_types" {% if field == 'action_types' %}selected{% endif %}>功能</option>
+          <option value="target_domains" {% if field == 'target_domains' %}selected{% endif %}>领域</option>
+          <option value="output_formats" {% if field == 'output_formats' %}selected{% endif %}>格式</option>
+        </select>
+      </div>
+      <div>
+        <span class="input-label">Top K</span>
+        <input type="number" name="top_k" min="1" max="50" value="{{ top_k }}">
+      </div>
+      <div>
+        <span class="input-label">&nbsp;</span>
+        <button type="submit">搜索</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="grid">
+    <!-- Left: Results -->
+    <section class="panel">
+      <h2>抽取结果{% if query %}：{{ query }}{% endif %}</h2>
+
+      {% if query and results %}
+        {% for event in results %}
+          <article class="event-card" data-skill="{{ event.skill_name }}">
+            <div class="event-header">
+              <span class="rank">{{ loop.index }}</span>
+              <h3>
+                <a href="{{ event.detail_url }}" target="_blank" rel="noreferrer">{{ event.skill_name }}</a>
+                {% if event.match_score %}
+                  <span style="font-size:12px;color:var(--muted);font-weight:400;margin-left:6px">
+                    score={{ '%.2f'|format(event.match_score) }}
+                  </span>
+                {% endif %}
+              </h3>
+            </div>
+
+            <div style="padding-left:36px;margin-bottom:6px">
+              <span class="small">{{ event.category }} &middot; {{ event.owner }}</span>
+            </div>
+
+            {% set ext = event.extraction %}
+
+            {% if ext.platforms %}
+            <div class="tag-group">
+              <span class="tag-group-label">平台</span>
+              {% for p in ext.platforms %}<span class="tag tag-platform">{{ p }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if ext.languages %}
+            <div class="tag-group">
+              <span class="tag-group-label">技术</span>
+              {% for l in ext.languages %}<span class="tag tag-language">{{ l }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if ext.action_types %}
+            <div class="tag-group">
+              <span class="tag-group-label">功能</span>
+              {% for a in ext.action_types %}<span class="tag tag-action">{{ a }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if ext.target_domains %}
+            <div class="tag-group">
+              <span class="tag-group-label">领域</span>
+              {% for d in ext.target_domains %}<span class="tag tag-domain">{{ d }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if ext.output_formats %}
+            <div class="tag-group">
+              <span class="tag-group-label">格式</span>
+              {% for f in ext.output_formats %}<span class="tag tag-format">{{ f }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if ext.metrics %}
+            <div class="tag-group">
+              <span class="tag-group-label">指标</span>
+              {% for m in ext.metrics %}<span class="tag tag-metric">{{ m.value }} {{ m.unit }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="event-summary">{{ event.event_summary }}</div>
+
+            <!-- 人工评价 -->
+            <div class="judge-row">
+              <span class="judge-label">抽取准确度：</span>
+              <button class="judge-btn" onclick="submitIEJudge(this,'{{ event.skill_name }}','overall','correct')">准确</button>
+              <button class="judge-btn" onclick="submitIEJudge(this,'{{ event.skill_name }}','overall','partial')">部分准确</button>
+              <button class="judge-btn" onclick="submitIEJudge(this,'{{ event.skill_name }}','overall','incorrect')">不准确</button>
+              <span class="judge-status"></span>
+            </div>
+          </article>
+        {% endfor %}
+      {% elif query %}
+        <div class="empty">
+          <p class="small">未找到匹配的抽取结果，请尝试其他关键词。</p>
+        </div>
+      {% else %}
+        <div class="empty">
+          <p class="small">输入关键词搜索抽取结果，例如 "github"、"python"、"seo"。</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Right: Stats -->
+    <aside class="panel">
+      <!-- 抽取统计 -->
+      <div class="aside-section">
+        <h2>抽取覆盖率</h2>
+        {% if report %}
+        <div class="metric-table">
+          {% for field_name, field_data in report.field_extraction_rates.items() %}
+          <div class="metric-row">
+            <span class="metric-key">{{ field_name }}</span>
+            <span class="metric-val {% if field_data.rate > 0.5 %}good{% elif field_data.rate > 0.2 %}warn{% endif %}">
+              {{ '%.1f'|format(field_data.rate * 100) }}% ({{ field_data.count }})
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="metric-table" style="margin-top:8px">
+          <div class="metric-row">
+            <span class="metric-key">5项以上完整</span>
+            <span class="metric-val good">{{ report.documents_with_all_fields }}</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">无抽取结果</span>
+            <span class="metric-val" style="color:var(--red-text)">{{ report.documents_with_no_extraction }}</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 热门值 -->
+      <div class="aside-section">
+        <h2>热门抽取值</h2>
+        {% if report and report.top_values_per_field %}
+          {% for field_name, values in report.top_values_per_field.items() %}
+          <p class="small" style="margin-bottom:2px"><strong>{{ field_name }}</strong></p>
+          <div class="top-values" style="margin-bottom:8px">
+            {% for val, count in values[:8] %}
+            <span class="tag tag-{{ 'platform' if field_name == 'platforms' else 'language' if field_name == 'languages' else 'action' if field_name == 'action_types' else 'domain' if field_name == 'target_domains' else 'format' }}">
+              {{ val }} ({{ count }})
+            </span>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <!-- 自动评测 -->
+      <div class="aside-section">
+        <h2>自动评测</h2>
+        {% if auto_eval and auto_eval.overall %}
+          <div class="metric-table">
+            <div class="metric-row">
+              <span class="metric-key">Ground Truth 数</span>
+              <span class="metric-val">{{ auto_eval.ground_truth_count }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">匹配文档数</span>
+              <span class="metric-val">{{ auto_eval.matched_documents }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">Overall Precision</span>
+              <span class="metric-val good">{{ '%.1f'|format(auto_eval.overall.precision * 100) }}%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">Overall Recall</span>
+              <span class="metric-val">{{ '%.1f'|format(auto_eval.overall.recall * 100) }}%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">Overall F1</span>
+              <span class="metric-val good">{{ '%.1f'|format(auto_eval.overall.f1 * 100) }}%</span>
+            </div>
+          </div>
+          {% if auto_eval.field_metrics %}
+          <p class="small" style="margin-top:8px"><strong>各字段 F1：</strong></p>
+          <div class="metric-table">
+            {% for fname, fm in auto_eval.field_metrics.items() %}
+            <div class="metric-row">
+              <span class="metric-key">{{ fname }}</span>
+              <span class="metric-val {% if fm.avg_f1 > 0.5 %}good{% elif fm.avg_f1 > 0.2 %}warn{% endif %}">
+                {{ '%.1f'|format(fm.avg_f1 * 100) }}%
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% else %}
+          <p class="small">eval/ground_truth.json 不存在或无法评测。</p>
+        {% endif %}
+      </div>
+
+      <!-- 人工评价 -->
+      <div class="aside-section">
+        <h2>人工评价统计</h2>
+        {% if manual_metrics and manual_metrics.total_judgments %}
+          <div class="metric-table">
+            <div class="metric-row">
+              <span class="metric-key">总评价数</span>
+              <span class="metric-val">{{ manual_metrics.total_judgments }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">准确</span>
+              <span class="metric-val good">{{ manual_metrics.correct }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">部分准确</span>
+              <span class="metric-val warn">{{ manual_metrics.partial }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">不准确</span>
+              <span class="metric-val" style="color:var(--red-text)">{{ manual_metrics.incorrect }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">人工准确率</span>
+              <span class="metric-val good">{{ '%.1f'|format(manual_metrics.overall_accuracy * 100) }}%</span>
+            </div>
+          </div>
+        {% else %}
+          <p class="small">暂无人工评价。点击抽取结果中的评价按钮开始。</p>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+
+</div>
+
+<script>
+function submitIEJudge(btn, skillName, field, label) {
+  const row = btn.closest('.judge-row');
+  const statusEl = row.querySelector('.judge-status');
+  row.querySelectorAll('.judge-btn').forEach(b => b.className = 'judge-btn');
+  btn.classList.add('active-' + label);
+  statusEl.textContent = '提交中...';
+
+  fetch('/api/judge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ skill_name: skillName, field: field, label: label, value: '' })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      statusEl.textContent = '已保存';
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = '失败';
+      statusEl.style.color = 'var(--red-text)';
+    }
+  })
+  .catch(() => {
+    statusEl.textContent = '网络错误';
+    statusEl.style.color = 'var(--red-text)';
+  });
+}
+</script>
+</body>
+</html>
