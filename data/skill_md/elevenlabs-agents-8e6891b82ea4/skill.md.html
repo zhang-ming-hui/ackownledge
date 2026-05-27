@@ -1,0 +1,379 @@
+<h1>ElevenLabs Agent Builder</h1>
+<p>Build a production-ready conversational AI voice agent. Produces a configured agent with tools, knowledge base, and SDK integration.</p>
+<h2>Packages</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @elevenlabs/react           <span class="token comment"># React SDK</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @elevenlabs/client          <span class="token comment"># JavaScript SDK (browser + server)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @elevenlabs/react-native    <span class="token comment"># React Native SDK</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @elevenlabs/elevenlabs-js   <span class="token comment"># Full API (server only)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-g</span> @elevenlabs/agents-cli   <span class="token comment"># CLI ("Agents as Code")</span>
+</span></code></pre>
+<p><strong>DEPRECATED:</strong> <code>@11labs/react</code>, <code>@11labs/client</code> -- uninstall if present.</p>
+<p><strong>Server-only warning:</strong> <code>@elevenlabs/elevenlabs-js</code> uses Node.js <code>child_process</code> and won't work in browsers. Use <code>@elevenlabs/client</code> for browser environments, or create a proxy server.</p>
+<h2>Workflow</h2><h3>Step 1: Create Agent via Dashboard or CLI</h3>
+<p><strong>Dashboard:</strong> <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="ugc nofollow noopener">https://elevenlabs.io/app/conversational-ai</a> -> Create Agent</p>
+<p><strong>CLI (Agents as Code):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">elevenlabs agents init
+</span><span class="code-line">elevenlabs agents <span class="token function">add</span> <span class="token string">"Support Bot"</span> <span class="token parameter variable">--template</span> customer-service
+</span><span class="code-line"><span class="token comment"># Edit agent_configs/support-bot.json</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> dev
+</span></code></pre>
+<p>Templates: <code>default</code>, <code>minimal</code>, <code>voice-only</code>, <code>text-only</code>, <code>customer-service</code>, <code>assistant</code>.</p>
+<p>Configure:</p>
+<ul>
+<li><strong>Voice</strong> -- Choose from 5000+ voices or clone</li>
+<li><strong>LLM</strong> -- GPT, Claude, Gemini, or custom</li>
+<li><strong>System prompt</strong> -- Use the 6-component framework below</li>
+<li><strong>First message</strong> -- What the agent says when conversation starts</li>
+</ul>
+<h3>Step 2: Write the System Prompt</h3>
+<p>Use the 6-component framework for effective agent prompts:</p>
+<p><strong>1. Personality</strong> -- who the agent is:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">You are [NAME], a [ROLE] at [COMPANY].
+</span><span class="code-line">You have [EXPERIENCE]. Your traits: [LIST TRAITS].
+</span></code></pre>
+<p><strong>2. Environment</strong> -- communication context:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">You're communicating via [phone/chat/video].
+</span><span class="code-line">Consider [environmental factors]. Adapt to [context].
+</span></code></pre>
+<p><strong>3. Tone</strong> -- speech patterns and formality:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Tone: Professional yet warm. Use contractions for natural speech.
+</span><span class="code-line">Avoid jargon. Keep responses to 2-3 sentences. Ask one question at a time.
+</span></code></pre>
+<p><strong>4. Goal</strong> -- objectives and success criteria:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Primary Goal: Resolve customer issues on the first call.
+</span><span class="code-line">Success: Customer verbally confirms issue is resolved.
+</span></code></pre>
+<p><strong>5. Guardrails</strong> -- boundaries and ethics:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Never: provide medical/legal/financial advice, share confidential info.
+</span><span class="code-line">Always: verify identity before account access, document interactions.
+</span><span class="code-line">Escalation: customer requests manager, issue beyond knowledge base.
+</span></code></pre>
+<p><strong>6. Tools</strong> -- available functions and when to use them:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1. lookup_order(order_id) -- Use when customer mentions an order.
+</span><span class="code-line">2. transfer_to_supervisor() -- Use when issue requires manager approval.
+</span><span class="code-line">Always explain what you're doing before calling a tool.
+</span></code></pre>
+<h3>Step 3: Add Tools</h3>
+<p><strong>Client-side tools (run in browser):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> clientTools <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  updateCart<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    description<span class="token operator">:</span> <span class="token string">"Add or remove items from the shopping cart"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    parameters<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      action<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">enum</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'add'</span><span class="token punctuation">,</span> <span class="token string">'remove'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      item<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      quantity<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">min</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> action<span class="token punctuation">,</span> item<span class="token punctuation">,</span> quantity <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">const</span> cart <span class="token operator">=</span> <span class="token function">getCart</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      action <span class="token operator">===</span> <span class="token string">'add'</span> <span class="token operator">?</span> cart<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>item<span class="token punctuation">,</span> quantity<span class="token punctuation">)</span> <span class="token operator">:</span> cart<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span>item<span class="token punctuation">,</span> quantity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> total<span class="token operator">:</span> cart<span class="token punctuation">.</span>total<span class="token punctuation">,</span> items<span class="token operator">:</span> cart<span class="token punctuation">.</span>items<span class="token punctuation">.</span>length <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  navigate<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    description<span class="token operator">:</span> <span class="token string">"Navigate user to a different page"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    parameters<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> url<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">url</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> url <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span> window<span class="token punctuation">.</span>location<span class="token punctuation">.</span>href <span class="token operator">=</span> url<span class="token punctuation">;</span> <span class="token keyword">return</span> <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Server-side tools (webhooks):</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"get_weather"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Fetch current weather for a city"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://api.weather.com/v1/current"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"method"</span><span class="token operator">:</span> <span class="token string">"GET"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"city"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span> <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"City name"</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"required"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"city"</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"headers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"Authorization"</span><span class="token operator">:</span> <span class="token string">"Bearer {{secret__weather_api_key}}"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Use <code>{{secret__key_name}}</code> for API keys in webhook headers -- never hardcode.</p>
+<p><strong>MCP Tools -- CRITICAL COMPATIBILITY NOTE:</strong></p>
+<p>ElevenLabs labels their MCP integration as "Streamable HTTP" but does NOT support the actual MCP 2025-03-26 Streamable HTTP spec (SSE responses). ElevenLabs expects:</p>
+<ul>
+<li>Plain JSON responses (<code>application/json</code>), NOT SSE (<code>text/event-stream</code>)</li>
+<li>Protocol version <code>2024-11-05</code>, NOT <code>2025-03-26</code></li>
+<li>Simple JSON-RPC over HTTP with direct JSON responses</li>
+</ul>
+<p>What does NOT work:</p>
+<ul>
+<li>Official MCP SDK's <code>createMcpHandler</code> (returns SSE)</li>
+<li>Cloudflare Agents SDK <code>McpServer.serve()</code> (returns SSE)</li>
+<li>Any server returning <code>Content-Type: text/event-stream</code></li>
+</ul>
+<p>Working MCP server pattern for ElevenLabs:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Hono <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'hono'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> cors <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'hono/cors'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> tools <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token string">"my_tool"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  description<span class="token operator">:</span> <span class="token string">"Tool description"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  inputSchema<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    type<span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    properties<span class="token operator">:</span> <span class="token punctuation">{</span> param1<span class="token operator">:</span> <span class="token punctuation">{</span> type<span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span> description<span class="token operator">:</span> <span class="token string">"Description"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    required<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"param1"</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">handleMCPRequest</span><span class="token punctuation">(</span>request<span class="token punctuation">,</span> env<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> id<span class="token punctuation">,</span> method<span class="token punctuation">,</span> params <span class="token punctuation">}</span> <span class="token operator">=</span> request<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">switch</span> <span class="token punctuation">(</span>method<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token string">'initialize'</span><span class="token operator">:</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        jsonrpc<span class="token operator">:</span> <span class="token string">'2.0'</span><span class="token punctuation">,</span> id<span class="token punctuation">,</span>
+</span><span class="code-line">        result<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">          protocolVersion<span class="token operator">:</span> <span class="token string">'2024-11-05'</span><span class="token punctuation">,</span>  <span class="token comment">// MUST be 2024-11-05</span>
+</span><span class="code-line">          serverInfo<span class="token operator">:</span> <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'my-mcp'</span><span class="token punctuation">,</span> version<span class="token operator">:</span> <span class="token string">'1.0.0'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">          capabilities<span class="token operator">:</span> <span class="token punctuation">{</span> tools<span class="token operator">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token string">'tools/list'</span><span class="token operator">:</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> jsonrpc<span class="token operator">:</span> <span class="token string">'2.0'</span><span class="token punctuation">,</span> id<span class="token punctuation">,</span> result<span class="token operator">:</span> <span class="token punctuation">{</span> tools <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token string">'tools/call'</span><span class="token operator">:</span>
+</span><span class="code-line">      <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">handleTool</span><span class="token punctuation">(</span>params<span class="token punctuation">.</span>name<span class="token punctuation">,</span> params<span class="token punctuation">.</span>arguments<span class="token punctuation">,</span> env<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> jsonrpc<span class="token operator">:</span> <span class="token string">'2.0'</span><span class="token punctuation">,</span> id<span class="token punctuation">,</span> result <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">default</span><span class="token operator">:</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> jsonrpc<span class="token operator">:</span> <span class="token string">'2.0'</span><span class="token punctuation">,</span> id<span class="token punctuation">,</span> error<span class="token operator">:</span> <span class="token punctuation">{</span> code<span class="token operator">:</span> <span class="token operator">-</span><span class="token number">32601</span><span class="token punctuation">,</span> message<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Unknown: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>method<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Hono</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'/*'</span><span class="token punctuation">,</span> <span class="token function">cors</span><span class="token punctuation">(</span><span class="token punctuation">{</span> origin<span class="token operator">:</span> <span class="token string">'*'</span><span class="token punctuation">,</span> allowMethods<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'GET'</span><span class="token punctuation">,</span> <span class="token string">'POST'</span><span class="token punctuation">,</span> <span class="token string">'OPTIONS'</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">'/mcp'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>c<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> body <span class="token operator">=</span> <span class="token keyword">await</span> c<span class="token punctuation">.</span>req<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> c<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token keyword">await</span> <span class="token function">handleMCPRequest</span><span class="token punctuation">(</span>body<span class="token punctuation">,</span> c<span class="token punctuation">.</span>env<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Plain JSON, NOT SSE</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> app<span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Step 4: Add Knowledge Base (RAG)</h3>
+<p>Upload documents for the agent to reference:</p>
+<ul>
+<li>PDFs, text files, web URLs</li>
+<li>Configure via dashboard: Agent -> Knowledge Base -> Upload</li>
+<li>Or via API: <code>POST /v1/convai/knowledge-base/upload</code> (multipart/form-data)</li>
+<li>Agent automatically searches knowledge base during conversation</li>
+</ul>
+<h3>Step 5: Integrate SDK</h3>
+<p><strong>React</strong> -- copy and customise <code>assets/react-sdk-boilerplate.tsx</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useConversation <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@elevenlabs/react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> startConversation<span class="token punctuation">,</span> stopConversation<span class="token punctuation">,</span> status <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useConversation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  agentId<span class="token operator">:</span> <span class="token string">'your-agent-id'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  signedUrl<span class="token operator">:</span> <span class="token string">'/api/elevenlabs/auth'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  clientTools<span class="token punctuation">,</span>
+</span><span class="code-line">  dynamicVariables<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    user_name<span class="token operator">:</span> <span class="token string">'John'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    account_type<span class="token operator">:</span> <span class="token string">'premium'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">onEvent</span><span class="token operator">:</span> <span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span> <span class="token comment">/* transcript, agent_response, tool_call */</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>System prompt references dynamic variables as <code>{{user_name}}</code>.</p>
+<p><strong>React Native</strong> -- see <code>assets/react-native-boilerplate.tsx</code>
+<strong>Widget embed</strong> -- see <code>assets/widget-embed-template.html</code>
+<strong>Swift</strong> -- see <code>assets/swift-sdk-boilerplate.swift</code></p>
+<h3>Step 6: Test</h3>
+<p><strong>CLI testing:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run all tests for an agent</span>
+</span><span class="code-line">elevenlabs agents <span class="token builtin class-name">test</span> <span class="token string">"Support Agent"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add a test scenario</span>
+</span><span class="code-line">elevenlabs tests <span class="token function">add</span> <span class="token string">"Refund Request"</span> <span class="token parameter variable">--template</span> basic-llm
+</span></code></pre>
+<p><strong>Test configuration:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Refund Request Test"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"scenario"</span><span class="token operator">:</span> <span class="token string">"Customer requests refund for defective product"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"user_input"</span><span class="token operator">:</span> <span class="token string">"I want a refund for order #12345. The product arrived broken."</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"success_criteria"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"Agent acknowledges the issue empathetically"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"Agent asks for or uses provided order number"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"Agent verifies order details"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"Agent provides clear next steps or refund timeline"</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"evaluation_type"</span><span class="token operator">:</span> <span class="token string">"llm"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Tool call testing:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Order Lookup Test"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"scenario"</span><span class="token operator">:</span> <span class="token string">"Customer asks about order status"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"user_input"</span><span class="token operator">:</span> <span class="token string">"What's the status of order ORD-12345?"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"expected_tool_call"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"tool_name"</span><span class="token operator">:</span> <span class="token string">"lookup_order"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"order_id"</span><span class="token operator">:</span> <span class="token string">"ORD-12345"</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>API simulation:</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> simulation <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>agents<span class="token punctuation">.</span><span class="token function">simulate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  agent_id<span class="token operator">:</span> <span class="token string">'agent_123'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  scenario<span class="token operator">:</span> <span class="token string">'Customer requests refund'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  user_messages<span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"I want a refund for order #12345"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"It arrived broken"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"Yes, process the refund"</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  success_criteria<span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"Agent shows empathy"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"Agent verifies order"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"Agent provides timeline"</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Passed:'</span><span class="token punctuation">,</span> simulation<span class="token punctuation">.</span>passed<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>CI/CD integration:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">name</span><span class="token punctuation">:</span> Test Agent
+</span><span class="code-line"><span class="token key atrule">on</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>push<span class="token punctuation">,</span> pull_request<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key atrule">jobs</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">test</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">runs-on</span><span class="token punctuation">:</span> ubuntu<span class="token punctuation">-</span>latest
+</span><span class="code-line">    <span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/checkout@v3
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">run</span><span class="token punctuation">:</span> npm install <span class="token punctuation">-</span>g @elevenlabs/cli
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">run</span><span class="token punctuation">:</span> elevenlabs tests push
+</span><span class="code-line">        <span class="token key atrule">env</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">ELEVENLABS_API_KEY</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span><span class="token punctuation">{</span> secrets.ELEVENLABS_API_KEY <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">run</span><span class="token punctuation">:</span> elevenlabs agents test "Support Agent"
+</span><span class="code-line">        <span class="token key atrule">env</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">ELEVENLABS_API_KEY</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span><span class="token punctuation">{</span> secrets.ELEVENLABS_API_KEY <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Step 7: Deploy</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Dry run first (always)</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> prod --dry-run
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Deploy to production</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> prod
+</span></code></pre>
+<p>Multi-environment workflow:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> dev       <span class="token comment"># Development</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> staging   <span class="token comment"># Staging</span>
+</span><span class="code-line">elevenlabs agents <span class="token builtin class-name">test</span> <span class="token string">"Agent Name"</span>    <span class="token comment"># Test in staging</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> prod      <span class="token comment"># Production</span>
+</span></code></pre>
+<hr>
+<h2>Critical Patterns</h2>
+<h3>Signed URLs (Security)</h3>
+<p>Never expose API keys in client code. Use a server endpoint:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line">app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/api/elevenlabs/auth'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">'https://api.elevenlabs.io/v1/convai/conversation/get-signed-url'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      headers<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token string-property property">'xi-api-key'</span><span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">ELEVENLABS_API_KEY</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      body<span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token punctuation">{</span> agent_id<span class="token operator">:</span> <span class="token string">'your-agent-id'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      method<span class="token operator">:</span> <span class="token string">'POST'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> signed_url <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> signed_url <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Agent Versioning (A/B Testing)</h3>
+<p>Dashboard: Agent -> Versions -> Create Branch. Compare metrics, promote winner.</p>
+<h3>Post-Call Webhook</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"post_call_transcription"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"conversation_id"</span><span class="token operator">:</span> <span class="token string">"conv_xyz789"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"transcript"</span><span class="token operator">:</span> <span class="token string">"..."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"duration_seconds"</span><span class="token operator">:</span> <span class="token number">120</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"analysis"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"sentiment"</span><span class="token operator">:</span> <span class="token string">"positive"</span><span class="token punctuation">,</span> <span class="token property">"resolution"</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Verify with HMAC SHA-256:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> hmac <span class="token operator">=</span> crypto<span class="token punctuation">.</span><span class="token function">createHmac</span><span class="token punctuation">(</span><span class="token string">'sha256'</span><span class="token punctuation">,</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">WEBHOOK_SECRET</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>request<span class="token punctuation">.</span>body<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">digest</span><span class="token punctuation">(</span><span class="token string">'hex'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span>signature <span class="token operator">!==</span> hmac<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* reject */</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Cost Optimisation</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Cost/1M tokens</th>
+<th>Speed</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT-4o</td>
+<td>$5</td>
+<td>Medium</td>
+<td>Complex reasoning</td>
+</tr>
+<tr>
+<td>GPT-4o-mini</td>
+<td>$0.15</td>
+<td>Fast</td>
+<td>Most use cases</td>
+</tr>
+<tr>
+<td>Claude Sonnet 4.5</td>
+<td>$3</td>
+<td>Medium</td>
+<td>Long context</td>
+</tr>
+<tr>
+<td>Gemini 2.5 Flash</td>
+<td>$0.075</td>
+<td>Fastest</td>
+<td>Simple tasks</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Start with gpt-4o-mini</strong> for all agents. Upgrade only if quality requires it.</p>
+<p>Key savings:</p>
+<ul>
+<li><strong>LLM caching</strong>: up to 90% on repeated prompts (enable in config)</li>
+<li><strong>Prompt length</strong>: 150 tokens > 500 tokens for same instructions</li>
+<li><strong>RAG over context</strong>: use knowledge base instead of stuffing system prompt</li>
+<li><strong>Duration limits</strong>: set <code>max_duration_seconds</code> to prevent runaway conversations</li>
+<li><strong>Turn mode</strong>: "patient" mode = fewer LLM calls = lower cost</li>
+</ul>
+<hr>
+<h2>CLI Quick Reference</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">elevenlabs auth login                              <span class="token comment"># Authenticate</span>
+</span><span class="code-line">elevenlabs agents init                             <span class="token comment"># Init project</span>
+</span><span class="code-line">elevenlabs agents <span class="token function">add</span> <span class="token string">"Name"</span> <span class="token parameter variable">--template</span> default    <span class="token comment"># Add agent</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> dev                   <span class="token comment"># Deploy to dev</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> prod --dry-run        <span class="token comment"># Preview prod deploy</span>
+</span><span class="code-line">elevenlabs agents push <span class="token parameter variable">--env</span> prod                  <span class="token comment"># Deploy to prod</span>
+</span><span class="code-line">elevenlabs agents pull                             <span class="token comment"># Pull from platform</span>
+</span><span class="code-line">elevenlabs agents <span class="token builtin class-name">test</span> <span class="token string">"Name"</span>                      <span class="token comment"># Run tests</span>
+</span><span class="code-line">elevenlabs agents list                             <span class="token comment"># List agents</span>
+</span><span class="code-line">elevenlabs agents status                           <span class="token comment"># Check sync status</span>
+</span><span class="code-line">elevenlabs agents widget <span class="token string">"Name"</span>                    <span class="token comment"># Generate widget</span>
+</span><span class="code-line">elevenlabs tools add-webhook <span class="token string">"Name"</span> --config-path tool.json  <span class="token comment"># Add tool</span>
+</span><span class="code-line">elevenlabs tests <span class="token function">add</span> <span class="token string">"Name"</span> <span class="token parameter variable">--template</span> basic-llm   <span class="token comment"># Add test</span>
+</span></code></pre>
+<p>Environment: <code>ELEVENLABS_API_KEY</code> for CI/CD.</p>
+<hr>
+<h2>Optional References</h2>
+<p>For specialised use cases, see:</p>
+<ul>
+<li><code>references/api-reference.md</code> -- full REST API for programmatic agent management</li>
+<li><code>references/compliance-guide.md</code> -- GDPR, HIPAA, PCI DSS, data residency</li>
+<li><code>references/workflow-examples.md</code> -- multi-agent routing, escalation, multi-language</li>
+</ul>
+<hr>
+<h2>Asset Files</h2>
+<ul>
+<li><code>assets/react-sdk-boilerplate.tsx</code> -- React integration template</li>
+<li><code>assets/react-native-boilerplate.tsx</code> -- React Native template</li>
+<li><code>assets/swift-sdk-boilerplate.swift</code> -- Swift/iOS template</li>
+<li><code>assets/javascript-sdk-boilerplate.js</code> -- Vanilla JS template</li>
+<li><code>assets/widget-embed-template.html</code> -- Embeddable widget</li>
+<li><code>assets/system-prompt-template.md</code> -- System prompt guide</li>
+<li><code>assets/agent-config-schema.json</code> -- Config schema reference</li>
+<li><code>assets/ci-cd-example.yml</code> -- CI/CD pipeline template</li>
+</ul>

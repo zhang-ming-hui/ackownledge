@@ -1,0 +1,154 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Unit Testing Jakarta Bean Validation</h1>
+<h2>Overview</h2>
+<p>This skill provides executable patterns for unit testing Jakarta Bean Validation annotations and custom validators using JUnit 5. Covers built-in constraints (<code>@NotNull</code>, <code>@Email</code>, <code>@Min</code>, <code>@Max</code>, <code>@Size</code>), custom <code>@Constraint</code> implementations, cross-field validation, and validation groups. Tests run in isolation without Spring context.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Writing unit tests for Jakarta Bean Validation or JSR-380 constraints</li>
+<li>Testing custom <code>@Constraint</code> validators and constraint violation messages</li>
+<li>Testing bean validation logic in DTOs and request objects</li>
+<li>Verifying cross-field validation (e.g., password matching)</li>
+<li>Testing conditional validation with validation groups</li>
+<li>Fast validation tests without Spring Boot context</li>
+</ul>
+<h2>Instructions</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Add dependencies</strong>: Include <code>jakarta.validation-api</code> and <code>hibernate-validator</code> in test scope</li>
+<li><strong>Create base test class</strong>: Build <code>Validator</code> once in <code>@BeforeEach</code> using <code>Validation.buildDefaultValidatorFactory()</code></li>
+<li><strong>Test valid cases first</strong>: Verify objects pass without violations</li>
+<li><strong>Test invalid cases</strong>: Assert constraint violations include correct property path and message</li>
+<li><strong>Extract violation details</strong>: Use <code>getPropertyPath()</code>, <code>getMessage()</code>, <code>getInvalidValue()</code></li>
+<li><strong>Test custom validators</strong>: See <code>references/custom-validators.md</code> for patterns</li>
+<li><strong>Use parameterized tests</strong>: Test multiple inputs efficiently with <code>@ParameterizedTest</code></li>
+<li><strong>Group validation tests</strong>: Use validation groups for conditional rules (see <code>references/advanced-patterns.md</code>)</li>
+</ol>
+<h2>Examples</h2>
+<h3>Maven Setup</h3>
+<pre class="language-xml"><code class="language-xml code-highlight"><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>jakarta.validation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>jakarta.validation-api<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>org.hibernate.validator<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>hibernate-validator<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>scope</span><span class="token punctuation">&gt;</span></span>test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>scope</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>org.assertj<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>assertj-core<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>scope</span><span class="token punctuation">&gt;</span></span>test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>scope</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<h3>Common Test Setup</h3>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token import"><span class="token namespace">jakarta<span class="token punctuation">.</span>validation<span class="token punctuation">.</span></span><span class="token operator">*</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token import"><span class="token namespace">jakarta<span class="token punctuation">.</span>validation<span class="token punctuation">.</span></span><span class="token class-name">ConstraintViolation</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token import"><span class="token namespace">jakarta<span class="token punctuation">.</span>validation<span class="token punctuation">.</span>path<span class="token punctuation">.</span></span><span class="token class-name">Path</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>junit<span class="token punctuation">.</span>jupiter<span class="token punctuation">.</span>api<span class="token punctuation">.</span></span><span class="token class-name">BeforeEach</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>junit<span class="token punctuation">.</span>jupiter<span class="token punctuation">.</span>api<span class="token punctuation">.</span></span><span class="token class-name">Test</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token keyword">static</span> <span class="token import static"><span class="token namespace">org<span class="token punctuation">.</span>assertj<span class="token punctuation">.</span>core<span class="token punctuation">.</span>api<span class="token punctuation">.</span></span><span class="token class-name">Assertions</span><span class="token punctuation">.</span><span class="token operator">*</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">BaseValidationTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">protected</span> <span class="token class-name">Validator</span> validator<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token annotation punctuation">@BeforeEach</span>
+</span><span class="code-line">  <span class="token keyword">void</span> <span class="token function">setUpValidator</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    validator <span class="token operator">=</span> <span class="token class-name">Validation</span><span class="token punctuation">.</span><span class="token function">buildDefaultValidatorFactory</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">getValidator</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Testing Basic Constraints</h3>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserDtoTest</span> <span class="token keyword">extends</span> <span class="token class-name">BaseValidationTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">  <span class="token keyword">void</span> <span class="token function">shouldPassValidationWithValidUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">UserDto</span> user <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">UserDto</span><span class="token punctuation">(</span><span class="token string">"Alice"</span><span class="token punctuation">,</span> <span class="token string">"alice@example.com"</span><span class="token punctuation">,</span> <span class="token number">25</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">assertThat</span><span class="token punctuation">(</span>validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">  <span class="token keyword">void</span> <span class="token function">shouldFailWhenNameIsNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">UserDto</span> user <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">UserDto</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token string">"alice@example.com"</span><span class="token punctuation">,</span> <span class="token number">25</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">assertThat</span><span class="token punctuation">(</span>validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">extracting</span><span class="token punctuation">(</span><span class="token class-name">ConstraintViolation</span><span class="token operator">::</span><span class="token function">getMessage</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span><span class="token string">"must not be blank"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">  <span class="token keyword">void</span> <span class="token function">shouldFailWhenEmailIsInvalid</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">UserDto</span> user <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">UserDto</span><span class="token punctuation">(</span><span class="token string">"Alice"</span><span class="token punctuation">,</span> <span class="token string">"invalid-email"</span><span class="token punctuation">,</span> <span class="token number">25</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token class-name">Set</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">ConstraintViolation</span><span class="token punctuation">&lt;</span><span class="token class-name">UserDto</span><span class="token punctuation">&gt;</span><span class="token punctuation">&gt;</span></span> violations <span class="token operator">=</span> validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">assertThat</span><span class="token punctuation">(</span>violations<span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">extracting</span><span class="token punctuation">(</span><span class="token class-name">ConstraintViolation</span><span class="token operator">::</span><span class="token function">getPropertyPath</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">extracting</span><span class="token punctuation">(</span><span class="token class-name">Path</span><span class="token operator">::</span><span class="token function">toString</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span><span class="token string">"email"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">  <span class="token keyword">void</span> <span class="token function">shouldFailWhenAgeIsBelowMinimum</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">UserDto</span> user <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">UserDto</span><span class="token punctuation">(</span><span class="token string">"Alice"</span><span class="token punctuation">,</span> <span class="token string">"alice@example.com"</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">assertThat</span><span class="token punctuation">(</span>validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">extracting</span><span class="token punctuation">(</span><span class="token class-name">ConstraintViolation</span><span class="token operator">::</span><span class="token function">getMessage</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span><span class="token string">"must be greater than or equal to 0"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">  <span class="token keyword">void</span> <span class="token function">shouldFailWhenMultipleConstraintsViolated</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">UserDto</span> user <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">UserDto</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token string">"invalid"</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">assertThat</span><span class="token punctuation">(</span>validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">hasSize</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Testing Custom Validators</h3>
+<p>For custom constraint patterns, see <code>references/custom-validators.md</code>:</p>
+<ul>
+<li>Creating <code>@Constraint</code> annotations</li>
+<li>Implementing <code>ConstraintValidator</code></li>
+<li>Cross-field validation (password matching)</li>
+<li>Stateless validator best practices</li>
+</ul>
+<h3>Testing Validation Groups</h3>
+<p>For validation groups and parameterized tests, see <code>references/advanced-patterns.md</code>:</p>
+<ul>
+<li>Defining validation group interfaces</li>
+<li>Conditional validation with <code>groups</code> parameter</li>
+<li><code>@ParameterizedTest</code> with <code>@ValueSource</code> and <code>@CsvSource</code></li>
+<li>Debugging failed validation tests</li>
+</ul>
+<h2>Best Practices</h2>
+<ul>
+<li><strong>Test both valid and invalid</strong>: Every constraint needs both passing and failing test cases</li>
+<li><strong>Assert violation details</strong>: Verify property path, message, and constraint type</li>
+<li><strong>Test edge cases</strong>: null, empty string, whitespace-only, boundary values</li>
+<li><strong>Keep validators stateless</strong>: Custom validators must not maintain state</li>
+<li><strong>Use clear messages</strong>: Constraint messages should be user-friendly</li>
+<li><strong>Group related tests</strong>: Extend <code>BaseValidationTest</code> to share validator setup</li>
+<li><strong>Test error messages</strong>: Ensure messages match requirements</li>
+</ul>
+<h2>Common Pitfalls</h2>
+<ul>
+<li>Forgetting to test null values (most constraints ignore null by default)</li>
+<li>Not verifying the property path in constraint violations</li>
+<li>Testing validation at service/controller level instead of unit level</li>
+<li>Creating overly complex custom validators</li>
+<li>Missing <code>@NotNull</code> for mandatory fields combined with other constraints</li>
+</ul>
+<h2>Constraints and Warnings</h2>
+<ul>
+<li><strong>Null handling</strong>: Most constraints ignore null by default — combine <code>@NotNull</code> with other constraints for mandatory fields</li>
+<li><strong>Thread safety</strong>: <code>Validator</code> instances are thread-safe and can be shared</li>
+<li><strong>Message localization</strong>: Test with different locales if i18n is required</li>
+<li><strong>Cascading validation</strong>: Use <code>@Valid</code> on nested objects for recursive validation</li>
+<li><strong>Custom validators</strong>: Must be stateless and return <code>true</code> for null values</li>
+<li><strong>Test isolation</strong>: Validation unit tests should not depend on Spring context or database</li>
+</ul>
+<h2>Troubleshooting</h2>
+<p><strong>ValidatorFactory not found</strong>: Ensure <code>jakarta.validation-api</code> and <code>hibernate-validator</code> are on test classpath.</p>
+<p><strong>Custom validator not invoked</strong>: Verify <code>@Constraint(validatedBy = YourValidator.class)</code> annotation is correct.</p>
+<p><strong>Null values pass validation</strong>: This is expected behavior — constraints ignore null unless <code>@NotNull</code> is present.</p>
+<p><strong>Wrong violation count</strong>: Use <code>hasSize()</code> to verify exact count, check all fields in the object.</p>
+<p><strong>Property path incorrect</strong>: Ensure the field, not the getter, has the constraint annotation.</p>
+<h2>References</h2>
+<ul>
+<li><a href="https://jakarta.ee/specifications/bean-validation/" target="_blank" rel="ugc nofollow noopener">Jakarta Bean Validation Spec</a></li>
+<li><a href="https://hibernate.org/validator/" target="_blank" rel="ugc nofollow noopener">Hibernate Validator</a></li>
+<li>Custom validators and cross-field validation: <code>references/custom-validators.md</code></li>
+<li>Validation groups and parameterized tests: <code>references/advanced-patterns.md</code></li>
+</ul></div>

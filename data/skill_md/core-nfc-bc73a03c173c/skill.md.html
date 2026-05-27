@@ -1,0 +1,456 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>CoreNFC</h1>
+<p>Read and write NFC tags on iPhone using the CoreNFC framework. Covers NDEF
+reader sessions, tag reader sessions, NDEF message construction, entitlements,
+and background tag reading. Targets Swift 6.3 / iOS 26+.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#setup" target="_blank" rel="ugc nofollow noopener">Setup</a></li>
+<li><a href="#ndef-reader-session" target="_blank" rel="ugc nofollow noopener">NDEF Reader Session</a></li>
+<li><a href="#tag-reader-session" target="_blank" rel="ugc nofollow noopener">Tag Reader Session</a></li>
+<li><a href="#writing-ndef-messages" target="_blank" rel="ugc nofollow noopener">Writing NDEF Messages</a></li>
+<li><a href="#ndef-payload-types" target="_blank" rel="ugc nofollow noopener">NDEF Payload Types</a></li>
+<li><a href="#background-tag-reading" target="_blank" rel="ugc nofollow noopener">Background Tag Reading</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul>
+<h2>Setup</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Project Configuration</h3>
+<ol>
+<li>Add the <strong>Near Field Communication Tag Reading</strong> capability in Xcode</li>
+<li>Add <code>NFCReaderUsageDescription</code> to Info.plist with a user-facing reason string</li>
+<li>Add the <code>com.apple.developer.nfc.readersession.formats</code> entitlement with the tag types your app reads (e.g., <code>NDEF</code>, <code>TAG</code>)</li>
+<li>For ISO 7816 tags, add supported application identifiers to <code>com.apple.developer.nfc.readersession.iso7816.select-identifiers</code> in Info.plist</li>
+</ol>
+<h3>Device Requirements</h3>
+<p>NFC reading requires iPhone 7 or later. Always check for reader session
+availability before presenting NFC UI.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">CoreNFC</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">guard</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">.</span>readingAvailable <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Device does not support NFC or feature is restricted</span>
+</span><span class="code-line">    <span class="token function">showUnsupportedMessage</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Key Types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NFCNDEFReaderSession</code></td>
+<td>Scans for NDEF-formatted tags</td>
+</tr>
+<tr>
+<td><code>NFCTagReaderSession</code></td>
+<td>Scans for ISO7816, ISO15693, FeliCa, MIFARE tags</td>
+</tr>
+<tr>
+<td><code>NFCNDEFMessage</code></td>
+<td>Collection of NDEF payload records</td>
+</tr>
+<tr>
+<td><code>NFCNDEFPayload</code></td>
+<td>Single record within an NDEF message</td>
+</tr>
+<tr>
+<td><code>NFCNDEFTag</code></td>
+<td>Protocol for interacting with an NDEF-capable tag</td>
+</tr>
+</tbody>
+</table>
+<h2>NDEF Reader Session</h2>
+<p>Use <code>NFCNDEFReaderSession</code> to read NDEF-formatted data from tags. This is the
+simplest path for reading standard tag content like URLs, text, and MIME data.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">CoreNFC</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">NDEFReader</span><span class="token punctuation">:</span> <span class="token class-name">NSObject</span><span class="token punctuation">,</span> <span class="token class-name">NFCNDEFReaderSessionDelegate</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token operator">?</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">beginScanning</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">.</span>readingAvailable <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        session <span class="token operator">=</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">            delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span>
+</span><span class="code-line">            queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span>
+</span><span class="code-line">            invalidateAfterFirstRead<span class="token punctuation">:</span> <span class="token boolean">false</span>
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span><span class="code-line">        session<span class="token operator">?</span><span class="token punctuation">.</span>alertMessage <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Hold your iPhone near an NFC tag."</span></span>
+</span><span class="code-line">        session<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">begin</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// MARK: - NFCNDEFReaderSessionDelegate</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">readerSessionDidBecomeActive</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Session is scanning</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">readerSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">        didDetectNDEFs messages<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">NFCNDEFMessage</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">for</span> message <span class="token keyword">in</span> messages <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">for</span> record <span class="token keyword">in</span> message<span class="token punctuation">.</span>records <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">processRecord</span><span class="token punctuation">(</span>record<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">readerSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">        didInvalidateWithError error<span class="token punctuation">:</span> <span class="token class-name">Error</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> nfcError <span class="token operator">=</span> error <span class="token keyword">as</span><span class="token operator">?</span> <span class="token class-name">NFCReaderError</span>
+</span><span class="code-line">        <span class="token keyword">if</span> nfcError<span class="token operator">?</span><span class="token punctuation">.</span>code <span class="token operator">!=</span> <span class="token punctuation">.</span>readerSessionInvalidationErrorFirstNDEFTagRead<span class="token punctuation">,</span>
+</span><span class="code-line">           nfcError<span class="token operator">?</span><span class="token punctuation">.</span>code <span class="token operator">!=</span> <span class="token punctuation">.</span>readerSessionInvalidationErrorUserCanceled <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Session invalidated: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">error<span class="token punctuation">.</span>localizedDescription</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>session <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Reading with Tag Connection</h3>
+<p>For read-write operations, use the tag-detection delegate method to connect
+to individual tags:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">readerSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">    didDetect tags<span class="token punctuation">:</span> <span class="token punctuation">[</span>any <span class="token class-name">NFCNDEFTag</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> tag <span class="token operator">=</span> tags<span class="token punctuation">.</span>first <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        session<span class="token punctuation">.</span><span class="token function">restartPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    session<span class="token punctuation">.</span><span class="token function">connect</span><span class="token punctuation">(</span>to<span class="token punctuation">:</span> tag<span class="token punctuation">)</span> <span class="token punctuation">{</span> error <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> error <span class="token punctuation">{</span>
+</span><span class="code-line">            session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Connection failed: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">error</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">return</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        tag<span class="token punctuation">.</span>queryNDEFStatus <span class="token punctuation">{</span> status<span class="token punctuation">,</span> capacity<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token keyword">guard</span> error <span class="token operator">==</span> <span class="token nil constant">nil</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Query failed."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token keyword">return</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">switch</span> status <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span>notSupported<span class="token punctuation">:</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Tag is not NDEF compliant."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span>readOnly<span class="token punctuation">:</span>
+</span><span class="code-line">                tag<span class="token punctuation">.</span>readNDEF <span class="token punctuation">{</span> message<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">                    <span class="token keyword">if</span> <span class="token keyword">let</span> message <span class="token punctuation">{</span>
+</span><span class="code-line">                        <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">processMessage</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token punctuation">}</span>
+</span><span class="code-line">                    session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span>readWrite<span class="token punctuation">:</span>
+</span><span class="code-line">                tag<span class="token punctuation">.</span>readNDEF <span class="token punctuation">{</span> message<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">                    <span class="token keyword">if</span> <span class="token keyword">let</span> message <span class="token punctuation">{</span>
+</span><span class="code-line">                        <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">processMessage</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token punctuation">}</span>
+</span><span class="code-line">                    session<span class="token punctuation">.</span>alertMessage <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Tag read successfully."</span></span>
+</span><span class="code-line">                    session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token attribute atrule">@unknown</span> <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Tag Reader Session</h2>
+<p>Use <code>NFCTagReaderSession</code> when you need direct access to the native tag
+protocol (ISO 7816, ISO 15693, FeliCa, or MIFARE).</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">TagReader</span><span class="token punctuation">:</span> <span class="token class-name">NSObject</span><span class="token punctuation">,</span> <span class="token class-name">NFCTagReaderSessionDelegate</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCTagReaderSession</span><span class="token operator">?</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">beginScanning</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        session <span class="token operator">=</span> <span class="token class-name">NFCTagReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">            pollingOption<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">.</span>iso14443<span class="token punctuation">,</span> <span class="token punctuation">.</span>iso15693<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">            delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span>
+</span><span class="code-line">            queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span><span class="code-line">        session<span class="token operator">?</span><span class="token punctuation">.</span>alertMessage <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Hold your iPhone near a tag."</span></span>
+</span><span class="code-line">        session<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">begin</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">tagReaderSessionDidBecomeActive</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCTagReaderSession</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">tagReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCTagReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">        didDetect tags<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">NFCTag</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> tag <span class="token operator">=</span> tags<span class="token punctuation">.</span>first <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        session<span class="token punctuation">.</span><span class="token function">connect</span><span class="token punctuation">(</span>to<span class="token punctuation">:</span> tag<span class="token punctuation">)</span> <span class="token punctuation">{</span> error <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token keyword">guard</span> error <span class="token operator">==</span> <span class="token nil constant">nil</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>
+</span><span class="code-line">                    errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Connection failed."</span></span>
+</span><span class="code-line">                <span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token keyword">return</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">switch</span> tag <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">iso7816</span><span class="token punctuation">(</span><span class="token keyword">let</span> iso7816Tag<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">readISO7816</span><span class="token punctuation">(</span>tag<span class="token punctuation">:</span> iso7816Tag<span class="token punctuation">,</span> session<span class="token punctuation">:</span> session<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">miFare</span><span class="token punctuation">(</span><span class="token keyword">let</span> miFareTag<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">readMiFare</span><span class="token punctuation">(</span>tag<span class="token punctuation">:</span> miFareTag<span class="token punctuation">,</span> session<span class="token punctuation">:</span> session<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">iso15693</span><span class="token punctuation">(</span><span class="token keyword">let</span> iso15693Tag<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">readISO15693</span><span class="token punctuation">(</span>tag<span class="token punctuation">:</span> iso15693Tag<span class="token punctuation">,</span> session<span class="token punctuation">:</span> session<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">feliCa</span><span class="token punctuation">(</span><span class="token keyword">let</span> feliCaTag<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">readFeliCa</span><span class="token punctuation">(</span>tag<span class="token punctuation">:</span> feliCaTag<span class="token punctuation">,</span> session<span class="token punctuation">:</span> session<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token attribute atrule">@unknown</span> <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Unsupported tag type."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">tagReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCTagReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">        didInvalidateWithError error<span class="token punctuation">:</span> <span class="token class-name">Error</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>session <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Writing NDEF Messages</h2>
+<p>Write NDEF data to a connected tag. Always check <code>readWrite</code> status first.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">writeToTag</span><span class="token punctuation">(</span>
+</span><span class="code-line">    tag<span class="token punctuation">:</span> any <span class="token class-name">NFCNDEFTag</span><span class="token punctuation">,</span>
+</span><span class="code-line">    session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">    url<span class="token punctuation">:</span> <span class="token constant">URL</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    tag<span class="token punctuation">.</span>queryNDEFStatus <span class="token punctuation">{</span> status<span class="token punctuation">,</span> capacity<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> status <span class="token operator">==</span> <span class="token punctuation">.</span>readWrite <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Tag is read-only."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">return</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> payload <span class="token operator">=</span> <span class="token class-name">NFCNDEFPayload</span><span class="token punctuation">.</span><span class="token function">wellKnownTypeURIPayload</span><span class="token punctuation">(</span>
+</span><span class="code-line">            url<span class="token punctuation">:</span> url
+</span><span class="code-line">        <span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Invalid URL."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">return</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">let</span> message <span class="token operator">=</span> <span class="token class-name">NFCNDEFMessage</span><span class="token punctuation">(</span>records<span class="token punctuation">:</span> <span class="token punctuation">[</span>payload<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        tag<span class="token punctuation">.</span><span class="token function">writeNDEF</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span> <span class="token punctuation">{</span> error <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token keyword">let</span> error <span class="token punctuation">{</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>
+</span><span class="code-line">                    errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Write failed: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">error<span class="token punctuation">.</span>localizedDescription</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span>
+</span><span class="code-line">                <span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                session<span class="token punctuation">.</span>alertMessage <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Tag written successfully."</span></span>
+</span><span class="code-line">                session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>NDEF Payload Types</h2>
+<h3>Creating Common Payloads</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// URL payload</span>
+</span><span class="code-line"><span class="token keyword">let</span> urlPayload <span class="token operator">=</span> <span class="token class-name">NFCNDEFPayload</span><span class="token punctuation">.</span><span class="token function">wellKnownTypeURIPayload</span><span class="token punctuation">(</span>
+</span><span class="code-line">    url<span class="token punctuation">:</span> <span class="token function">URL</span><span class="token punctuation">(</span>string<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"https://example.com"</span></span><span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Text payload</span>
+</span><span class="code-line"><span class="token keyword">let</span> textPayload <span class="token operator">=</span> <span class="token class-name">NFCNDEFPayload</span><span class="token punctuation">.</span><span class="token function">wellKnownTypeTextPayload</span><span class="token punctuation">(</span>
+</span><span class="code-line">    string<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Hello NFC"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    locale<span class="token punctuation">:</span> <span class="token class-name">Locale</span><span class="token punctuation">(</span>identifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"en"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Custom payload</span>
+</span><span class="code-line"><span class="token keyword">let</span> customPayload <span class="token operator">=</span> <span class="token class-name">NFCNDEFPayload</span><span class="token punctuation">(</span>
+</span><span class="code-line">    format<span class="token punctuation">:</span> <span class="token punctuation">.</span>nfcExternal<span class="token punctuation">,</span>
+</span><span class="code-line">    type<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"com.example:mytype"</span></span><span class="token punctuation">.</span><span class="token function">data</span><span class="token punctuation">(</span>using<span class="token punctuation">:</span> <span class="token punctuation">.</span>utf8<span class="token punctuation">)</span><span class="token operator">!</span><span class="token punctuation">,</span>
+</span><span class="code-line">    identifier<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    payload<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"custom-data"</span></span><span class="token punctuation">.</span><span class="token function">data</span><span class="token punctuation">(</span>using<span class="token punctuation">:</span> <span class="token punctuation">.</span>utf8<span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Parsing Payload Content</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">processRecord</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> record<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFPayload</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">switch</span> record<span class="token punctuation">.</span>typeNameFormat <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>nfcWellKnown<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> url <span class="token operator">=</span> record<span class="token punctuation">.</span><span class="token function">wellKnownTypeURIPayload</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"URL: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">url</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token keyword">let</span> <span class="token punctuation">(</span>text<span class="token punctuation">,</span> locale<span class="token punctuation">)</span> <span class="token operator">=</span> record<span class="token punctuation">.</span><span class="token function">wellKnownTypeTextPayload</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Text (</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">locale</span><span class="token interpolation-punctuation punctuation">)</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">text</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>absoluteURI<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> uri <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> record<span class="token punctuation">.</span>payload<span class="token punctuation">,</span> encoding<span class="token punctuation">:</span> <span class="token punctuation">.</span>utf8<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Absolute URI: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">uri</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>media<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">let</span> mimeType <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> record<span class="token punctuation">.</span>type<span class="token punctuation">,</span> encoding<span class="token punctuation">:</span> <span class="token punctuation">.</span>utf8<span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token string-literal"><span class="token string">""</span></span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"MIME type: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">mimeType</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">, size: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">record<span class="token punctuation">.</span>payload<span class="token punctuation">.</span>count</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>nfcExternal<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">let</span> type <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> record<span class="token punctuation">.</span>type<span class="token punctuation">,</span> encoding<span class="token punctuation">:</span> <span class="token punctuation">.</span>utf8<span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token string-literal"><span class="token string">""</span></span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"External type: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">type</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>empty<span class="token punctuation">,</span> <span class="token punctuation">.</span>unknown<span class="token punctuation">,</span> <span class="token punctuation">.</span>unchanged<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">break</span>
+</span><span class="code-line">    <span class="token attribute atrule">@unknown</span> <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">break</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Background Tag Reading</h2>
+<p>On iPhone XS and later, iOS can read NFC tags in the background without
+opening your app. To opt in:</p>
+<ol>
+<li>Add associated domains or universal links that match the URL on your tags</li>
+<li>Register your app for the tag's NDEF content type</li>
+<li>Include your app's bundle ID in the tag's NDEF record</li>
+</ol>
+<p>When a user taps a compatible tag, iOS displays a notification that opens
+your app. Handle the tag data via <code>NSUserActivity</code>:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">scene</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token omit keyword">_</span> scene<span class="token punctuation">:</span> <span class="token class-name">UIScene</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token keyword">continue</span><span class="token label important"> userActivity</span><span class="token punctuation">:</span> <span class="token class-name">NSUserActivity</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> userActivity<span class="token punctuation">.</span>activityType <span class="token operator">==</span>
+</span><span class="code-line">        <span class="token class-name">NSUserActivityTypeBrowsingWeb</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token keyword">let</span> message <span class="token operator">=</span> userActivity<span class="token punctuation">.</span>ndefMessagePayload <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">for</span> record <span class="token keyword">in</span> message<span class="token punctuation">.</span>records <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">processRecord</span><span class="token punctuation">(</span>record<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Common Mistakes</h2>
+<h3>DON'T: Forget the NFC entitlement</h3>
+<p>Without the <code>com.apple.developer.nfc.readersession.formats</code> entitlement,
+session creation crashes at runtime.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- entitlement not added, crashes</span>
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">    delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span> queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> invalidateAfterFirstRead<span class="token punctuation">:</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT -- add entitlement in Signing &amp; Capabilities first</span>
+</span><span class="code-line"><span class="token comment">// Then the same code works:</span>
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">    delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span> queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> invalidateAfterFirstRead<span class="token punctuation">:</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Skip the readingAvailable check</h3>
+<p>Attempting to create an NFC session on an unsupported device (iPad, iPod
+touch, or iPhone 6s and earlier) crashes.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">scan</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span> queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> invalidateAfterFirstRead<span class="token punctuation">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    session<span class="token punctuation">.</span><span class="token function">begin</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">scan</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">.</span>readingAvailable <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">showUnsupportedAlert</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span> queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> invalidateAfterFirstRead<span class="token punctuation">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    session<span class="token punctuation">.</span><span class="token function">begin</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>DON'T: Ignore session invalidation errors</h3>
+<p>The session invalidates for multiple reasons. Distinguishing user cancellation
+from real errors prevents false error alerts.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- shows error when user cancels</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">readerSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">    didInvalidateWithError error<span class="token punctuation">:</span> <span class="token class-name">Error</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">showAlert</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"NFC Error: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">error<span class="token punctuation">.</span>localizedDescription</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT -- filter expected invalidation reasons</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">readerSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token omit keyword">_</span> session<span class="token punctuation">:</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">,</span>
+</span><span class="code-line">    didInvalidateWithError error<span class="token punctuation">:</span> <span class="token class-name">Error</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> nfcError <span class="token operator">=</span> error <span class="token keyword">as</span><span class="token operator">?</span> <span class="token class-name">NFCReaderError</span>
+</span><span class="code-line">    <span class="token keyword">switch</span> nfcError<span class="token operator">?</span><span class="token punctuation">.</span>code <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>readerSessionInvalidationErrorUserCanceled<span class="token punctuation">,</span>
+</span><span class="code-line">         <span class="token punctuation">.</span>readerSessionInvalidationErrorFirstNDEFTagRead<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">break</span>  <span class="token comment">// Normal termination</span>
+</span><span class="code-line">    <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token function">showAlert</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"NFC Error: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">error<span class="token punctuation">.</span>localizedDescription</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">self</span><span class="token punctuation">.</span>session <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>DON'T: Hold a strong reference to a stale session</h3>
+<p>Once a session is invalidated, it cannot be restarted. Nil out your reference
+and create a new session for the next scan.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- reusing invalidated session</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">scanAgain</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    session<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">begin</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment">// Does nothing, session is dead</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT -- create a new session</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">scanAgain</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    session <span class="token operator">=</span> <span class="token class-name">NFCNDEFReaderSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">        delegate<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">,</span> queue<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> invalidateAfterFirstRead<span class="token punctuation">:</span> <span class="token boolean">false</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    session<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">begin</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>DON'T: Write without checking tag status</h3>
+<p>Writing to a read-only tag silently fails or produces confusing errors.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- writes without checking status</span>
+</span><span class="code-line">tag<span class="token punctuation">.</span><span class="token function">writeNDEF</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span> <span class="token punctuation">{</span> error <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token comment">// May fail on read-only tags</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT -- check status first</span>
+</span><span class="code-line">tag<span class="token punctuation">.</span>queryNDEFStatus <span class="token punctuation">{</span> status<span class="token punctuation">,</span> capacity<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> status <span class="token operator">==</span> <span class="token punctuation">.</span>readWrite <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        session<span class="token punctuation">.</span><span class="token function">invalidate</span><span class="token punctuation">(</span>errorMessage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Tag is read-only."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    tag<span class="token punctuation">.</span><span class="token function">writeNDEF</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span> <span class="token punctuation">{</span> error <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token comment">// Handle result</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> NFC capability added in Signing &amp; Capabilities</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>NFCReaderUsageDescription</code> set in Info.plist</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>com.apple.developer.nfc.readersession.formats</code> entitlement configured with correct tag types</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>NFCNDEFReaderSession.readingAvailable</code> checked before creating sessions</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Session delegate set before calling <code>begin()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Session reference set to nil after invalidation</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>didInvalidateWithError</code> distinguishes user cancellation from actual errors</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> NDEF status queried before write operations</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tag capacity checked before writing large messages</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> ISO 7816 application identifiers listed in Info.plist if using <code>NFCTagReaderSession</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Background tag reading configured with associated domains if needed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Only one reader session active at a time</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li>Extended patterns (ISO 7816 commands, multi-tag scanning, NDEF locking): <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/core-nfc/references/nfc-patterns.md" target="_blank" rel="ugc nofollow noopener">references/nfc-patterns.md</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc" target="_blank" rel="ugc nofollow noopener">Core NFC framework</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfcndefreadersession" target="_blank" rel="ugc nofollow noopener">NFCNDEFReaderSession</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfctagreadersession" target="_blank" rel="ugc nofollow noopener">NFCTagReaderSession</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfcndefmessage" target="_blank" rel="ugc nofollow noopener">NFCNDEFMessage</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfcndefpayload" target="_blank" rel="ugc nofollow noopener">NFCNDEFPayload</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfcndeftag" target="_blank" rel="ugc nofollow noopener">NFCNDEFTag</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfcndefreadersessiondelegate" target="_blank" rel="ugc nofollow noopener">NFCNDEFReaderSessionDelegate</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/nfctagreadersessiondelegate" target="_blank" rel="ugc nofollow noopener">NFCTagReaderSessionDelegate</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/building_an_nfc_tag-reader_app" target="_blank" rel="ugc nofollow noopener">Building an NFC Tag-Reader App</a></li>
+<li><a href="https://sosumi.ai/documentation/corenfc/adding-support-for-background-tag-reading" target="_blank" rel="ugc nofollow noopener">Adding Support for Background Tag Reading</a></li>
+<li><a href="https://sosumi.ai/documentation/bundleresources/entitlements/com.apple.developer.nfc.readersession.formats" target="_blank" rel="ugc nofollow noopener">Near Field Communication Tag Reader Session Formats Entitlement</a></li>
+</ul></div>

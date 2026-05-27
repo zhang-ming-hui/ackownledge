@@ -1,0 +1,410 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>iOS Localization &amp; Internationalization</h1>
+<p>Localize iOS 26+ apps using String Catalogs, modern string types, FormatStyle, and RTL-aware layout. Localization mistakes cause App Store rejections in non-English markets, mistranslated UI, and broken layouts. Ship with correct localization from the start.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#string-catalogs-xcstrings" target="_blank" rel="ugc nofollow noopener">String Catalogs (.xcstrings)</a></li>
+<li><a href="#generated-localizable-symbols-xcode-26" target="_blank" rel="ugc nofollow noopener">Generated Localizable Symbols (Xcode 26+)</a></li>
+<li><a href="#string-types-decision-guide" target="_blank" rel="ugc nofollow noopener">String Types -- Decision Guide</a></li>
+<li><a href="#string-interpolation-in-localized-strings" target="_blank" rel="ugc nofollow noopener">String Interpolation in Localized Strings</a></li>
+<li><a href="#pluralization" target="_blank" rel="ugc nofollow noopener">Pluralization</a></li>
+<li><a href="#formatstyle-locale-aware-formatting" target="_blank" rel="ugc nofollow noopener">FormatStyle -- Locale-Aware Formatting</a></li>
+<li><a href="#right-to-left-rtl-layout" target="_blank" rel="ugc nofollow noopener">Right-to-Left (RTL) Layout</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Localization Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul>
+<h2>String Catalogs (.xcstrings)</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>String Catalogs replaced <code>.strings</code> and <code>.stringsdict</code> files starting in Xcode 15 / iOS 17. They unify all localizable strings, pluralization rules, and device variations into a single JSON-based file with a visual editor.</p>
+<p><strong>Why String Catalogs exist:</strong></p>
+<ul>
+<li><code>.strings</code> files required manual key management and fell out of sync</li>
+<li><code>.stringsdict</code> required complex XML for plurals</li>
+<li>String Catalogs auto-extract strings from code, track translation state, and support plurals natively</li>
+</ul>
+<p><strong>How automatic extraction works:</strong></p>
+<p>Xcode scans for these patterns on each build:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// SwiftUI -- automatically extracted (LocalizedStringKey)</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Welcome back"</span></span><span class="token punctuation">)</span>              <span class="token comment">// key: "Welcome back"</span>
+</span><span class="code-line"><span class="token class-name">Label</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Settings"</span></span><span class="token punctuation">,</span> systemImage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"gear"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token class-name">Button</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Save"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token class-name">Toggle</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Dark Mode"</span></span><span class="token punctuation">,</span> isOn<span class="token punctuation">:</span> $dark<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Programmatic -- automatically extracted</span>
+</span><span class="code-line"><span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"No items found"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token class-name">LocalizedStringResource</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Order placed"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// NOT extracted -- plain String, not localized</span>
+</span><span class="code-line"><span class="token keyword">let</span> msg <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Hello"</span></span>                 <span class="token comment">// just a String, invisible to Xcode</span>
+</span></code></pre>
+<p>Xcode adds discovered keys to the String Catalog automatically. Mark translations as Needs Review, Translated, or Stale in the editor.</p>
+<p>For detailed String Catalog workflows, migration, and testing strategies, see <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-localization/references/string-catalogs.md" target="_blank" rel="ugc nofollow noopener">references/string-catalogs.md</a>.</p>
+<h2>Generated Localizable Symbols (Xcode 26+)</h2>
+<p>Xcode 26 can generate type-safe <code>LocalizedStringResource</code> symbols from String Catalog keys, replacing stringly-typed localization with compiler-checked access.</p>
+<p><strong>Enable:</strong> Build Settings &gt; Localization &gt; Generate String Catalog Symbols → <code>Yes</code> (on by default in new Xcode 26 projects). Requires catalog format version <code>1.1</code>.</p>
+<p><strong>Workflow:</strong> Add a key manually via the (+) button in the String Catalog editor — manual keys have the <strong>Generate Swift Symbol</strong> checkbox enabled by default. Auto-extracted keys can also opt in via Refactor &gt; Convert Strings to Symbols. Use stable symbol-style key names — not English text — so renaming UI copy never breaks code references.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Generated from key "room_available" in Localizable.xcstrings</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token punctuation">.</span>roomAvailable<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Parameterized key "landmarks_count" with %(count)lld</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">landmarksCount</span><span class="token punctuation">(</span>count<span class="token punctuation">:</span> <span class="token number">42</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Non-default table "Booking.xcstrings"</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token class-name">Booking</span><span class="token punctuation">.</span>confirmBookingCta<span class="token punctuation">)</span>
+</span></code></pre>
+<p>Xcode derives symbol names by camelCasing the key: <code>settings.notifications.toggle</code> → <code>.settingsNotificationsToggle</code>. You can convert existing extracted strings to symbols via Refactor &gt; Convert Strings to Symbols (reversible).</p>
+<p>Generated symbols are <code>internal</code>. For cross-module access, create a public wrapper extension. For heavier multi-module setups, use <a href="https://github.com/liamnichols/xcstrings-tool" target="_blank" rel="ugc nofollow noopener">xcstrings-tool</a> instead.</p>
+<p>For the full generated symbols reference — extraction states, symbol derivation rules, and cross-module patterns — see <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-localization/references/string-catalogs.md" target="_blank" rel="ugc nofollow noopener">references/string-catalogs.md</a>.</p>
+<h2>String Types -- Decision Guide</h2>
+<h3>LocalizedStringKey (SwiftUI default)</h3>
+<p>SwiftUI views accept <code>LocalizedStringKey</code> for their text parameters. String literals are implicitly converted -- no extra work needed.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// These all create a LocalizedStringKey lookup automatically:</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Welcome back"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token class-name">Label</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Profile"</span></span><span class="token punctuation">,</span> systemImage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"person"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token class-name">Button</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Delete"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token function">deleteItem</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">.</span><span class="token function">navigationTitle</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Home"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>Use <code>LocalizedStringKey</code> when passing strings directly to SwiftUI view initializers. Do not construct <code>LocalizedStringKey</code> manually in most cases.</p>
+<h3>String(localized:) -- Modern NSLocalizedString replacement</h3>
+<p>Use for any localized string outside a SwiftUI view initializer. Returns a plain <code>String</code>. Available iOS 16+.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Basic</span>
+</span><span class="code-line"><span class="token keyword">let</span> title <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Welcome back"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// With default value (key differs from English text)</span>
+</span><span class="code-line"><span class="token keyword">let</span> msg <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"error.network"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                 defaultValue<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Check your internet connection"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// With table and bundle</span>
+</span><span class="code-line"><span class="token keyword">let</span> label <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"onboarding.title"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                   table<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Onboarding"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                   bundle<span class="token punctuation">:</span> <span class="token punctuation">.</span>module<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// With comment for translators</span>
+</span><span class="code-line"><span class="token keyword">let</span> btn <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Save"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                 comment<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Button title to save the current document"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>LocalizedStringResource -- Pass localization info without resolving</h3>
+<p>Use when you need to pass a localized string to an API that resolves it later (App Intents, widgets, notifications, system frameworks). Available iOS 16+.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// App Intents require LocalizedStringResource</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">OrderCoffeeIntent</span><span class="token punctuation">:</span> <span class="token class-name">AppIntent</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">var</span> title<span class="token punctuation">:</span> <span class="token class-name">LocalizedStringResource</span> <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Order Coffee"</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Widgets</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">MyWidget</span><span class="token punctuation">:</span> <span class="token class-name">Widget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">WidgetConfiguration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">StaticConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"timer"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                            provider<span class="token punctuation">:</span> <span class="token class-name">Provider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> entry <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">TimerView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">configurationDisplayName</span><span class="token punctuation">(</span><span class="token class-name">LocalizedStringResource</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Timer"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Pass around without resolving yet</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">showAlert</span><span class="token punctuation">(</span>title<span class="token punctuation">:</span> <span class="token class-name">LocalizedStringResource</span><span class="token punctuation">,</span> message<span class="token punctuation">:</span> <span class="token class-name">LocalizedStringResource</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Resolved at display time with the user's current locale</span>
+</span><span class="code-line">    <span class="token keyword">let</span> resolved <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> title<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>When to use each type</h3>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SwiftUI view text parameters</td>
+<td><code>LocalizedStringKey</code> (implicit)</td>
+<td>SwiftUI handles lookup automatically</td>
+</tr>
+<tr>
+<td>Computed strings in view models / services</td>
+<td><code>String(localized:)</code></td>
+<td>Returns resolved <code>String</code> for logic</td>
+</tr>
+<tr>
+<td>App Intents, widgets, system APIs</td>
+<td><code>LocalizedStringResource</code></td>
+<td>Framework resolves at display time</td>
+</tr>
+<tr>
+<td>Error messages shown to users</td>
+<td><code>String(localized:)</code></td>
+<td>Resolved in catch blocks</td>
+</tr>
+<tr>
+<td>Logging / analytics (not user-facing)</td>
+<td>Plain <code>String</code></td>
+<td>No localization needed</td>
+</tr>
+</tbody>
+</table>
+<h2>String Interpolation in Localized Strings</h2>
+<p>Interpolated values in localized strings become positional arguments that translators can reorder.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// English: "Welcome, Alice! You have 3 new messages."</span>
+</span><span class="code-line"><span class="token comment">// German:  "Willkommen, Alice! Sie haben 3 neue Nachrichten."</span>
+</span><span class="code-line"><span class="token comment">// Japanese: "Alice さん、新しいメッセージが 3 件あります。"</span>
+</span><span class="code-line"><span class="token keyword">let</span> text <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Welcome, </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">name</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">! You have </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">count</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string"> new messages."</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>In the String Catalog, this appears with <code>%@</code> and <code>%lld</code> placeholders that translators can reorder:</p>
+<ul>
+<li>English: <code>"Welcome, %@! You have %lld new messages."</code></li>
+<li>Japanese: <code>"%@さん、新しいメッセージが%lld件あります。"</code></li>
+</ul>
+<p><strong>Type-safe interpolation</strong> (preferred over format specifiers):</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Interpolation provides type safety</span>
+</span><span class="code-line"><span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Score: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">score<span class="token punctuation">,</span> format<span class="token punctuation">:</span> <span class="token punctuation">.</span>number</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Due: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">date<span class="token punctuation">,</span> format<span class="token punctuation">:</span> <span class="token punctuation">.</span>dateTime<span class="token punctuation">.</span><span class="token function">month</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">day</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Pluralization</h2>
+<p>String Catalogs handle pluralization natively -- no <code>.stringsdict</code> XML required.</p>
+<h3>Setup in String Catalog</h3>
+<p>When a localized string contains an integer interpolation, Xcode detects it and offers plural variants in the String Catalog editor. Supply translations for each CLDR plural category:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>English example</th>
+<th>Arabic example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>zero</td>
+<td>(not used)</td>
+<td>0 items</td>
+</tr>
+<tr>
+<td>one</td>
+<td>1 item</td>
+<td>1 item</td>
+</tr>
+<tr>
+<td>two</td>
+<td>(not used)</td>
+<td>2 items (dual)</td>
+</tr>
+<tr>
+<td>few</td>
+<td>(not used)</td>
+<td>3-10 items</td>
+</tr>
+<tr>
+<td>many</td>
+<td>(not used)</td>
+<td>11-99 items</td>
+</tr>
+<tr>
+<td>other</td>
+<td>2+ items</td>
+<td>100+ items</td>
+</tr>
+</tbody>
+</table>
+<p>English uses only <code>one</code> and <code>other</code>. Arabic uses all six. Always supply <code>other</code> as the fallback.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Code -- single interpolation triggers plural support</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">unreadCount</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string"> unread messages"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// String Catalog entries (English):</span>
+</span><span class="code-line"><span class="token comment">//   one:   "%lld unread message"</span>
+</span><span class="code-line"><span class="token comment">//   other: "%lld unread messages"</span>
+</span></code></pre>
+<h3>Device Variations</h3>
+<p>String Catalogs support device-specific text (iPhone vs iPad vs Mac):</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// In String Catalog editor, enable "Vary by Device" for a key</span>
+</span><span class="code-line"><span class="token comment">// iPhone: "Tap to continue"</span>
+</span><span class="code-line"><span class="token comment">// iPad:   "Tap or click to continue"</span>
+</span><span class="code-line"><span class="token comment">// Mac:    "Click to continue"</span>
+</span></code></pre>
+<h3>Grammar Agreement (iOS 17+)</h3>
+<p>Use <code>^[...]</code> inflection syntax for automatic grammatical agreement:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Automatically adjusts for gender/number in supported languages</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"^[</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">count</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string"> </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation"><span class="token string-literal"><span class="token string">"photo"</span></span></span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">](inflect: true) added"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// English: "1 photo added" / "3 photos added"</span>
+</span><span class="code-line"><span class="token comment">// Spanish: "1 foto agregada" / "3 fotos agregadas"</span>
+</span></code></pre>
+<h2>FormatStyle -- Locale-Aware Formatting</h2>
+<p>Never hard-code date, number, or measurement formats. Use <code>FormatStyle</code> (iOS 15+) so formatting adapts to the user's locale automatically.</p>
+<h3>Dates</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> now <span class="token operator">=</span> <span class="token class-name">Date</span><span class="token punctuation">.</span>now
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Preset styles</span>
+</span><span class="code-line">now<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>long<span class="token punctuation">,</span> time<span class="token punctuation">:</span> <span class="token punctuation">.</span>shortened<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// US: "January 15, 2026 at 3:30 PM"</span>
+</span><span class="code-line"><span class="token comment">// DE: "15. Januar 2026 um 15:30"</span>
+</span><span class="code-line"><span class="token comment">// JP: "2026年1月15日 15:30"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Component-based</span>
+</span><span class="code-line">now<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span>dateTime<span class="token punctuation">.</span><span class="token function">month</span><span class="token punctuation">(</span><span class="token punctuation">.</span>wide<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">day</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">year</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// US: "January 15, 2026"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// In SwiftUI</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span>now<span class="token punctuation">,</span> format<span class="token punctuation">:</span> <span class="token punctuation">.</span>dateTime<span class="token punctuation">.</span><span class="token function">month</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">day</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">year</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Numbers</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> count <span class="token operator">=</span> <span class="token number">1234567</span>
+</span><span class="code-line">count<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">)</span>                     <span class="token comment">// "1,234,567" (US) / "1.234.567" (DE)</span>
+</span><span class="code-line">count<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span>number<span class="token punctuation">.</span><span class="token function">precision</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">fractionLength</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">count<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span>percent<span class="token punctuation">)</span>             <span class="token comment">// For 0.85 -&gt; "85%" (US) / "85 %" (FR)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Currency</span>
+</span><span class="code-line"><span class="token keyword">let</span> price <span class="token operator">=</span> <span class="token class-name">Decimal</span><span class="token punctuation">(</span><span class="token number">29.99</span><span class="token punctuation">)</span>
+</span><span class="code-line">price<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">currency</span><span class="token punctuation">(</span>code<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"USD"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment">// "$29.99" (US) / "29,99 $US" (FR)</span>
+</span><span class="code-line">price<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">currency</span><span class="token punctuation">(</span>code<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"EUR"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment">// "29,99 EUR" (DE)</span>
+</span></code></pre>
+<h3>Measurements</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> distance <span class="token operator">=</span> <span class="token class-name">Measurement</span><span class="token punctuation">(</span>value<span class="token punctuation">:</span> <span class="token number">5</span><span class="token punctuation">,</span> unit<span class="token punctuation">:</span> <span class="token class-name">UnitLength</span><span class="token punctuation">.</span>kilometers<span class="token punctuation">)</span>
+</span><span class="code-line">distance<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">measurement</span><span class="token punctuation">(</span>width<span class="token punctuation">:</span> <span class="token punctuation">.</span>wide<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// US: "3.1 miles" (auto-converts!) / DE: "5 Kilometer"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> temp <span class="token operator">=</span> <span class="token class-name">Measurement</span><span class="token punctuation">(</span>value<span class="token punctuation">:</span> <span class="token number">22</span><span class="token punctuation">,</span> unit<span class="token punctuation">:</span> <span class="token class-name">UnitTemperature</span><span class="token punctuation">.</span>celsius<span class="token punctuation">)</span>
+</span><span class="code-line">temp<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">measurement</span><span class="token punctuation">(</span>width<span class="token punctuation">:</span> <span class="token punctuation">.</span>abbreviated<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// US: "72 F" (auto-converts!) / FR: "22 C"</span>
+</span></code></pre>
+<h3>Duration, PersonName, Lists</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Duration</span>
+</span><span class="code-line"><span class="token keyword">let</span> dur <span class="token operator">=</span> <span class="token class-name">Duration</span><span class="token punctuation">.</span><span class="token function">seconds</span><span class="token punctuation">(</span><span class="token number">3661</span><span class="token punctuation">)</span>
+</span><span class="code-line">dur<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">time</span><span class="token punctuation">(</span>pattern<span class="token punctuation">:</span> <span class="token punctuation">.</span>hourMinuteSecond<span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment">// "1:01:01"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Person names</span>
+</span><span class="code-line"><span class="token keyword">let</span> name <span class="token operator">=</span> <span class="token class-name">PersonNameComponents</span><span class="token punctuation">(</span>givenName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"John"</span></span><span class="token punctuation">,</span> familyName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Doe"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">name<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">name</span><span class="token punctuation">(</span>style<span class="token punctuation">:</span> <span class="token punctuation">.</span>long<span class="token punctuation">)</span><span class="token punctuation">)</span>   <span class="token comment">// "John Doe" (US) / "Doe John" (JP)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Lists</span>
+</span><span class="code-line"><span class="token keyword">let</span> items <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string-literal"><span class="token string">"Apples"</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">"Oranges"</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">"Bananas"</span></span><span class="token punctuation">]</span>
+</span><span class="code-line">items<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token function">list</span><span class="token punctuation">(</span>type<span class="token punctuation">:</span> <span class="token punctuation">.</span>and<span class="token punctuation">)</span><span class="token punctuation">)</span>    <span class="token comment">// "Apples, Oranges, and Bananas" (EN)</span>
+</span><span class="code-line">                                      <span class="token comment">// "Apples, Oranges et Bananas" (FR)</span>
+</span></code></pre>
+<p>For the complete FormatStyle reference, custom styles, and RTL layout, see <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-localization/references/formatstyle-locale.md" target="_blank" rel="ugc nofollow noopener">references/formatstyle-locale.md</a>.</p>
+<h2>Right-to-Left (RTL) Layout</h2>
+<p>SwiftUI automatically mirrors layouts for RTL languages (Arabic, Hebrew, Urdu, Persian). Most views require zero changes.</p>
+<h3>What SwiftUI auto-mirrors</h3>
+<ul>
+<li><code>HStack</code> children reverse order</li>
+<li><code>.leading</code> / <code>.trailing</code> alignment and padding swap sides</li>
+<li><code>NavigationStack</code> back button moves to trailing edge</li>
+<li><code>List</code> disclosure indicators flip</li>
+<li>Text alignment follows reading direction</li>
+</ul>
+<h3>What needs manual attention</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Testing RTL in previews</span>
+</span><span class="code-line"><span class="token class-name">MyView</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">environment</span><span class="token punctuation">(</span><span class="token punctuation">\</span><span class="token punctuation">.</span>layoutDirection<span class="token punctuation">,</span> <span class="token punctuation">.</span>rightToLeft<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">environment</span><span class="token punctuation">(</span><span class="token punctuation">\</span><span class="token punctuation">.</span>locale<span class="token punctuation">,</span> <span class="token class-name">Locale</span><span class="token punctuation">(</span>identifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"ar"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Images that should mirror (directional arrows, progress indicators)</span>
+</span><span class="code-line"><span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"chevron.right"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">flipsForRightToLeftLayoutDirection</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Images that should NOT mirror: logos, photos, clocks, music notes</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Forced LTR for specific content (phone numbers, code)</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"+1 (555) 123-4567"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">environment</span><span class="token punctuation">(</span><span class="token punctuation">\</span><span class="token punctuation">.</span>layoutDirection<span class="token punctuation">,</span> <span class="token punctuation">.</span>leftToRight<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Layout rules</h3>
+<ul>
+<li><strong>DO</strong> use <code>.leading</code> / <code>.trailing</code> -- they auto-flip for RTL</li>
+<li><strong>DON'T</strong> use <code>.left</code> / <code>.right</code> -- they are fixed and break RTL</li>
+<li><strong>DO</strong> use <code>HStack</code> / <code>VStack</code> -- they respect layout direction</li>
+<li><strong>DON'T</strong> use absolute <code>offset(x:)</code> for directional positioning</li>
+</ul>
+<h2>Common Mistakes</h2>
+<h3>DON'T: Use NSLocalizedString in new code</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- legacy API, verbose, no compiler integration with String Catalogs</span>
+</span><span class="code-line"><span class="token keyword">let</span> title <span class="token operator">=</span> <span class="token class-name">NSLocalizedString</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"welcome_title"</span></span><span class="token punctuation">,</span> comment<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Welcome screen title"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DO: Use String(localized:) or let SwiftUI handle it</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token keyword">let</span> title <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"welcome_title"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                   defaultValue<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Welcome!"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">                   comment<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Welcome screen title"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// Or in SwiftUI, just:</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Welcome!"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Concatenate localized strings</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- word order varies by language</span>
+</span><span class="code-line"><span class="token keyword">let</span> greeting <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Hello"</span></span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token string-literal"><span class="token string">", "</span></span> <span class="token operator">+</span> name <span class="token operator">+</span> <span class="token string-literal"><span class="token string">"!"</span></span>
+</span></code></pre>
+<h3>DO: Use string interpolation</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT -- translators can reorder placeholders</span>
+</span><span class="code-line"><span class="token keyword">let</span> greeting <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Hello, </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">name</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">!"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Hard-code date/number formats</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- US-only format</span>
+</span><span class="code-line"><span class="token keyword">let</span> formatter <span class="token operator">=</span> <span class="token class-name">DateFormatter</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">formatter<span class="token punctuation">.</span>dateFormat <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"MM/dd/yyyy"</span></span>  <span class="token comment">// Meaningless in most countries</span>
+</span></code></pre>
+<h3>DO: Use FormatStyle</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT -- adapts to user locale</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span>date<span class="token punctuation">,</span> format<span class="token punctuation">:</span> <span class="token punctuation">.</span>dateTime<span class="token punctuation">.</span><span class="token function">month</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">day</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">year</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Use fixed-width layouts</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- German text is ~30% longer than English</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span>title<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">frame</span><span class="token punctuation">(</span>width<span class="token punctuation">:</span> <span class="token number">120</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DO: Use flexible layouts</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span>title<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">fixedSize</span><span class="token punctuation">(</span>horizontal<span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span> vertical<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// Or use VStack/wrapping that accommodates expansion</span>
+</span></code></pre>
+<h3>DON'T: Use .left / .right for alignment</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- does not flip for RTL</span>
+</span><span class="code-line"><span class="token class-name">HStack</span> <span class="token punctuation">{</span> <span class="token class-name">Spacer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> text <span class="token punctuation">}</span><span class="token punctuation">.</span><span class="token function">padding</span><span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token keyword">left</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DO: Use .leading / .trailing</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token class-name">HStack</span> <span class="token punctuation">{</span> <span class="token class-name">Spacer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> text <span class="token punctuation">}</span><span class="token punctuation">.</span><span class="token function">padding</span><span class="token punctuation">(</span><span class="token punctuation">.</span>leading<span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Put user-facing strings as plain String outside SwiftUI</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- not localized</span>
+</span><span class="code-line"><span class="token keyword">let</span> errorMessage <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Something went wrong"</span></span>
+</span><span class="code-line"><span class="token function">showAlert</span><span class="token punctuation">(</span>message<span class="token punctuation">:</span> errorMessage<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DO: Use LocalizedStringResource for deferred resolution</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token keyword">let</span> errorMessage <span class="token operator">=</span> <span class="token class-name">LocalizedStringResource</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Something went wrong"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token function">showAlert</span><span class="token punctuation">(</span>message<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> errorMessage<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Use natural-language text as the key for manually-managed strings</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG -- typo silently creates a new key, stales the old one, no compiler error</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Wlecome Back"</span></span><span class="token punctuation">)</span>  <span class="token comment">// was "Welcome Back" -- silent localization break</span>
+</span></code></pre>
+<h3>DO: Use stable symbol-style keys and enable generated symbols</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// CORRECT -- key is stable; UI text lives in the catalog's default value</span>
+</span><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token punctuation">.</span>welcomeBack<span class="token punctuation">)</span>  <span class="token comment">// generated from key "welcome_back" in String Catalog</span>
+</span><span class="code-line"><span class="token comment">// Or without generated symbols:</span>
+</span><span class="code-line"><span class="token class-name">String</span><span class="token punctuation">(</span>localized<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"welcome_back"</span></span><span class="token punctuation">,</span> defaultValue<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Welcome Back"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>DON'T: Skip pseudolocalization testing</h3>
+<p>Testing only in English hides truncation, layout, and RTL bugs.</p>
+<h3>DO: Test with German (long) and Arabic (RTL) at minimum</h3>
+<p>Use Xcode scheme settings to override the app language without changing device locale.</p>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All user-facing strings use localization (<code>LocalizedStringKey</code> in SwiftUI or <code>String(localized:)</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No string concatenation for user-visible text</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dates and numbers use <code>FormatStyle</code>, not hardcoded formats</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Pluralization handled via String Catalog plural variants (not manual if/else)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Layout uses <code>.leading</code> / <code>.trailing</code>, not <code>.left</code> / <code>.right</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> UI tested with long text (German) and RTL (Arabic)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> String Catalog includes all target languages</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Images needing RTL mirroring use <code>.flipsForRightToLeftLayoutDirection(true)</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> App Intents and widgets use <code>LocalizedStringResource</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No <code>NSLocalizedString</code> usage in new code</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Comments provided for ambiguous keys (context for translators)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>@ScaledMetric</code> used for spacing that must scale with Dynamic Type</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Currency formatting uses explicit currency code, not locale default</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Pseudolocalization tested (accented, right-to-left, double-length)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Manually-managed keys use stable symbol-style names, not English text as the key</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Generate String Catalog Symbols enabled for targets with manually-managed keys</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Ensure localized string types are Sendable; use @MainActor for locale-change UI updates</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li>FormatStyle patterns: <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-localization/references/formatstyle-locale.md" target="_blank" rel="ugc nofollow noopener">references/formatstyle-locale.md</a></li>
+<li>String Catalogs guide: <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-localization/references/string-catalogs.md" target="_blank" rel="ugc nofollow noopener">references/string-catalogs.md</a></li>
+</ul></div>

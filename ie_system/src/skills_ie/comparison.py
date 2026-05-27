@@ -1,3 +1,5 @@
+"""IE 变体比较与说明性报告生成工具。"""
+
 from __future__ import annotations
 
 import tempfile
@@ -9,6 +11,7 @@ from .evaluation import evaluate_extraction
 
 
 def _save_text_atomic(path: Path, text: str) -> None:
+    """以原子方式写入文本报告。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         "w",
@@ -24,6 +27,7 @@ def _save_text_atomic(path: Path, text: str) -> None:
 
 
 def _summarize_events(events: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """从事件记录中汇总覆盖率与证据分布。"""
     info_point_distribution = Counter()
     field_coverage = Counter()
     field_evidence_docs = Counter()
@@ -96,6 +100,7 @@ def compare_extraction_variants(
     eval_path: Path,
     variants: Iterable[str] = ("baseline", "enhanced"),
 ) -> Dict[str, Any]:
+    """比较多个 IE 抽取变体。"""
     variants = list(variants)
     variant_reports: Dict[str, Dict[str, Any]] = {}
     variant_summaries: Dict[str, Dict[str, Any]] = {}
@@ -162,6 +167,7 @@ def compare_extraction_variants(
 
 
 def render_comparison_markdown(report: Dict[str, Any], title: str = "IE rule comparison report") -> str:
+    """将 IE 规则比较结果渲染为 Markdown。"""
     lines: List[str] = []
     lines.append(f"# {title}")
     lines.append("")
@@ -219,6 +225,7 @@ def render_comparison_markdown(report: Dict[str, Any], title: str = "IE rule com
 
 
 def print_comparison_report(report: Dict[str, Any]) -> None:
+    """打印 IE 规则比较摘要。"""
     print(f"Eval file: {Path(report.get('eval_path', '')).name}")
     print(f"Variants: {', '.join(report.get('variants', []))}")
     if report.get("overall_delta"):

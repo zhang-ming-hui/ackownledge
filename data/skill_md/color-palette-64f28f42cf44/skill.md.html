@@ -1,0 +1,734 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Colour Palette Generator</h1>
+<p>Generate a complete, accessible colour system from a single brand hex. Produces Tailwind v4 CSS ready to paste into your project.</p>
+<h2>Workflow</h2>
+<h3>Step 1: Get the Brand Hex</h3>
+<p>Ask for the primary brand colour. A single hex like <code>#0D9488</code> is enough.</p>
+<h3>Step 2: Generate 11-Shade Scale</h3>
+<p>Convert hex to HSL, then generate shades by varying lightness while keeping hue constant.</p>
+<h4>Hex to HSL Conversion</h4></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">hexToHSL</span><span class="token punctuation">(</span><span class="token parameter">hex</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  hex <span class="token operator">=</span> hex<span class="token punctuation">.</span><span class="token method function property-access">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex"><span class="token anchor function">^</span>#</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> r <span class="token operator">=</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token method function property-access">substring</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">255</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> g <span class="token operator">=</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token method function property-access">substring</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">255</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> b <span class="token operator">=</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token method function property-access">substring</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">255</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> max <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">max</span><span class="token punctuation">(</span>r<span class="token punctuation">,</span> g<span class="token punctuation">,</span> b<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> min <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">min</span><span class="token punctuation">(</span>r<span class="token punctuation">,</span> g<span class="token punctuation">,</span> b<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> diff <span class="token operator">=</span> max <span class="token operator">-</span> min<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">let</span> l <span class="token operator">=</span> <span class="token punctuation">(</span>max <span class="token operator">+</span> min<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">let</span> s <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>diff <span class="token operator">!==</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    s <span class="token operator">=</span> l <span class="token operator">&gt;</span> <span class="token number">0.5</span> <span class="token operator">?</span> diff <span class="token operator">/</span> <span class="token punctuation">(</span><span class="token number">2</span> <span class="token operator">-</span> max <span class="token operator">-</span> min<span class="token punctuation">)</span> <span class="token operator">:</span> diff <span class="token operator">/</span> <span class="token punctuation">(</span>max <span class="token operator">+</span> min<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">let</span> h <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>diff <span class="token operator">!==</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>max <span class="token operator">===</span> r<span class="token punctuation">)</span> h <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>g <span class="token operator">-</span> b<span class="token punctuation">)</span> <span class="token operator">/</span> diff <span class="token operator">+</span> <span class="token punctuation">(</span>g <span class="token operator">&lt;</span> b <span class="token operator">?</span> <span class="token number">6</span> <span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">6</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword control-flow">else</span> <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>max <span class="token operator">===</span> g<span class="token punctuation">)</span> h <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>b <span class="token operator">-</span> r<span class="token punctuation">)</span> <span class="token operator">/</span> diff <span class="token operator">+</span> <span class="token number">2</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">6</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword control-flow">else</span> h <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>r <span class="token operator">-</span> g<span class="token punctuation">)</span> <span class="token operator">/</span> diff <span class="token operator">+</span> <span class="token number">4</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">6</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> <span class="token punctuation">{</span> <span class="token literal-property property">h</span><span class="token operator">:</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span>h <span class="token operator">*</span> <span class="token number">360</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token literal-property property">s</span><span class="token operator">:</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span>s <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span>l <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>Lightness and Saturation Values</h4>
+<table>
+<thead>
+<tr>
+<th>Shade</th>
+<th>Lightness</th>
+<th>Saturation Mult</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>97%</td>
+<td>0.80</td>
+<td>Subtle backgrounds</td>
+</tr>
+<tr>
+<td>100</td>
+<td>94%</td>
+<td>0.80</td>
+<td>Hover states</td>
+</tr>
+<tr>
+<td>200</td>
+<td>87%</td>
+<td>0.85</td>
+<td>Borders, dividers</td>
+</tr>
+<tr>
+<td>300</td>
+<td>75%</td>
+<td>0.90</td>
+<td>Disabled states</td>
+</tr>
+<tr>
+<td>400</td>
+<td>62%</td>
+<td>0.95</td>
+<td>Placeholder text</td>
+</tr>
+<tr>
+<td>500</td>
+<td>48%</td>
+<td>1.00</td>
+<td><strong>Brand colour baseline</strong></td>
+</tr>
+<tr>
+<td>600</td>
+<td>40%</td>
+<td>1.00</td>
+<td>Primary actions (often the brand colour)</td>
+</tr>
+<tr>
+<td>700</td>
+<td>33%</td>
+<td>1.00</td>
+<td>Hover on primary</td>
+</tr>
+<tr>
+<td>800</td>
+<td>27%</td>
+<td>1.00</td>
+<td>Active states</td>
+</tr>
+<tr>
+<td>900</td>
+<td>20%</td>
+<td>1.00</td>
+<td>Text on light bg</td>
+</tr>
+<tr>
+<td>950</td>
+<td>10%</td>
+<td>1.00</td>
+<td>Darkest accents</td>
+</tr>
+</tbody>
+</table>
+<p>Reduce saturation for lighter shades (50-200 by 15-20%, 300-400 by 5-10%) to prevent overly vibrant pastels. Keep full saturation for 500-950.</p>
+<h4>Complete Scale Generator</h4>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">generateShadeScale</span><span class="token punctuation">(</span><span class="token parameter">brandHex</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> h<span class="token punctuation">,</span> s <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">hexToHSL</span><span class="token punctuation">(</span>brandHex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> shades <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token number">50</span><span class="token operator">:</span>  <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">97</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">0.8</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>  <span class="token number">100</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">94</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">0.8</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token number">200</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">87</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">0.85</span> <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">300</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">75</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">0.9</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token number">400</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">62</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">0.95</span> <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">500</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">48</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token number">600</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">40</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>  <span class="token number">700</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">33</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token number">800</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">27</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>  <span class="token number">900</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token number">950</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">l</span><span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span> <span class="token literal-property property">sMul</span><span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token punctuation">[</span>shade<span class="token punctuation">,</span> <span class="token punctuation">{</span> l<span class="token punctuation">,</span> sMul <span class="token punctuation">}</span><span class="token punctuation">]</span> <span class="token keyword">of</span> <span class="token known-class-name class-name">Object</span><span class="token punctuation">.</span><span class="token method function property-access">entries</span><span class="token punctuation">(</span>shades<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    result<span class="token punctuation">[</span>shade<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">hsl(</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>h<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">, </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span>s <span class="token operator">*</span> sMul<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">%, </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>l<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">%)</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> result<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>HSL to Hex Conversion</h4>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">hslToHex</span><span class="token punctuation">(</span><span class="token parameter">h<span class="token punctuation">,</span> s<span class="token punctuation">,</span> l</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  s <span class="token operator">=</span> s <span class="token operator">/</span> <span class="token number">100</span><span class="token punctuation">;</span> l <span class="token operator">=</span> l <span class="token operator">/</span> <span class="token number">100</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> c <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token number">1</span> <span class="token operator">-</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">abs</span><span class="token punctuation">(</span><span class="token number">2</span> <span class="token operator">*</span> l <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">*</span> s<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> x <span class="token operator">=</span> c <span class="token operator">*</span> <span class="token punctuation">(</span><span class="token number">1</span> <span class="token operator">-</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">abs</span><span class="token punctuation">(</span><span class="token punctuation">(</span>h <span class="token operator">/</span> <span class="token number">60</span><span class="token punctuation">)</span> <span class="token operator">%</span> <span class="token number">2</span> <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> m <span class="token operator">=</span> l <span class="token operator">-</span> c <span class="token operator">/</span> <span class="token number">2</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">let</span> r <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">,</span> g <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">,</span> b <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>h <span class="token operator">&lt;</span> <span class="token number">60</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> r <span class="token operator">=</span> c<span class="token punctuation">;</span> g <span class="token operator">=</span> x<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword control-flow">else</span> <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>h <span class="token operator">&lt;</span> <span class="token number">120</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> r <span class="token operator">=</span> x<span class="token punctuation">;</span> g <span class="token operator">=</span> c<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword control-flow">else</span> <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>h <span class="token operator">&lt;</span> <span class="token number">180</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> g <span class="token operator">=</span> c<span class="token punctuation">;</span> b <span class="token operator">=</span> x<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword control-flow">else</span> <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>h <span class="token operator">&lt;</span> <span class="token number">240</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> g <span class="token operator">=</span> x<span class="token punctuation">;</span> b <span class="token operator">=</span> c<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword control-flow">else</span> <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>h <span class="token operator">&lt;</span> <span class="token number">300</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> r <span class="token operator">=</span> x<span class="token punctuation">;</span> b <span class="token operator">=</span> c<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword control-flow">else</span> <span class="token punctuation">{</span> r <span class="token operator">=</span> c<span class="token punctuation">;</span> b <span class="token operator">=</span> x<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  r <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span><span class="token punctuation">(</span>r <span class="token operator">+</span> m<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">255</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  g <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span><span class="token punctuation">(</span>g <span class="token operator">+</span> m<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">255</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  b <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span><span class="token punctuation">(</span>b <span class="token operator">+</span> m<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">255</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">#</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>r<span class="token punctuation">.</span><span class="token method function property-access">toString</span><span class="token punctuation">(</span><span class="token number">16</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">padStart</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">'0'</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>g<span class="token punctuation">.</span><span class="token method function property-access">toString</span><span class="token punctuation">(</span><span class="token number">16</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">padStart</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">'0'</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>b<span class="token punctuation">.</span><span class="token method function property-access">toString</span><span class="token punctuation">(</span><span class="token number">16</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">padStart</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">'0'</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">.</span><span class="token method function property-access">toUpperCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>Verification</h4>
+<p>Generated shades should look like the same colour family with smooth progression. Light shades (50-300) usable for backgrounds, dark shades (700-950) usable for text. Brand colour recognisable in 500-700.</p>
+<hr>
+<h3>Step 3: Map Semantic Tokens</h3>
+<p>Every background token MUST have a paired foreground token. Never use a background without its pair or dark mode will break.</p>
+<h4>Light Mode Tokens</h4>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Shade</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>background</code></td>
+<td>white</td>
+<td>Page backgrounds</td>
+</tr>
+<tr>
+<td><code>foreground</code></td>
+<td>950</td>
+<td>Body text</td>
+</tr>
+<tr>
+<td><code>card</code></td>
+<td>white</td>
+<td>Card backgrounds</td>
+</tr>
+<tr>
+<td><code>card-foreground</code></td>
+<td>900</td>
+<td>Card text</td>
+</tr>
+<tr>
+<td><code>popover</code></td>
+<td>white</td>
+<td>Dropdown/tooltip backgrounds</td>
+</tr>
+<tr>
+<td><code>popover-foreground</code></td>
+<td>950</td>
+<td>Dropdown text</td>
+</tr>
+<tr>
+<td><code>primary</code></td>
+<td>600</td>
+<td>Primary buttons, links</td>
+</tr>
+<tr>
+<td><code>primary-foreground</code></td>
+<td>white</td>
+<td>Text on primary buttons</td>
+</tr>
+<tr>
+<td><code>secondary</code></td>
+<td>100</td>
+<td>Secondary buttons</td>
+</tr>
+<tr>
+<td><code>secondary-foreground</code></td>
+<td>900</td>
+<td>Text on secondary buttons</td>
+</tr>
+<tr>
+<td><code>muted</code></td>
+<td>50</td>
+<td>Disabled backgrounds, subtle sections</td>
+</tr>
+<tr>
+<td><code>muted-foreground</code></td>
+<td>600</td>
+<td>Muted text, captions</td>
+</tr>
+<tr>
+<td><code>accent</code></td>
+<td>100</td>
+<td>Hover states, subtle highlights</td>
+</tr>
+<tr>
+<td><code>accent-foreground</code></td>
+<td>900</td>
+<td>Text on accent backgrounds</td>
+</tr>
+<tr>
+<td><code>destructive</code></td>
+<td>red-600</td>
+<td>Delete buttons, errors</td>
+</tr>
+<tr>
+<td><code>destructive-foreground</code></td>
+<td>white</td>
+<td>Text on destructive buttons</td>
+</tr>
+<tr>
+<td><code>border</code></td>
+<td>200</td>
+<td>Input borders, dividers</td>
+</tr>
+<tr>
+<td><code>input</code></td>
+<td>200</td>
+<td>Input field borders</td>
+</tr>
+<tr>
+<td><code>ring</code></td>
+<td>600</td>
+<td>Focus rings</td>
+</tr>
+</tbody>
+</table>
+<h4>Dark Mode Tokens</h4>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Shade</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>background</code></td>
+<td>950</td>
+<td>Page backgrounds</td>
+</tr>
+<tr>
+<td><code>foreground</code></td>
+<td>50</td>
+<td>Body text</td>
+</tr>
+<tr>
+<td><code>card</code></td>
+<td>900</td>
+<td>Card backgrounds</td>
+</tr>
+<tr>
+<td><code>card-foreground</code></td>
+<td>50</td>
+<td>Card text</td>
+</tr>
+<tr>
+<td><code>popover</code></td>
+<td>900</td>
+<td>Dropdown backgrounds</td>
+</tr>
+<tr>
+<td><code>popover-foreground</code></td>
+<td>50</td>
+<td>Dropdown text</td>
+</tr>
+<tr>
+<td><code>primary</code></td>
+<td>500</td>
+<td>Primary buttons (brighter in dark)</td>
+</tr>
+<tr>
+<td><code>primary-foreground</code></td>
+<td>white</td>
+<td>Text on primary buttons</td>
+</tr>
+<tr>
+<td><code>secondary</code></td>
+<td>800</td>
+<td>Secondary buttons</td>
+</tr>
+<tr>
+<td><code>secondary-foreground</code></td>
+<td>50</td>
+<td>Text on secondary buttons</td>
+</tr>
+<tr>
+<td><code>muted</code></td>
+<td>800</td>
+<td>Disabled backgrounds</td>
+</tr>
+<tr>
+<td><code>muted-foreground</code></td>
+<td>400</td>
+<td>Muted text</td>
+</tr>
+<tr>
+<td><code>accent</code></td>
+<td>800</td>
+<td>Hover states</td>
+</tr>
+<tr>
+<td><code>accent-foreground</code></td>
+<td>50</td>
+<td>Text on accent backgrounds</td>
+</tr>
+<tr>
+<td><code>destructive</code></td>
+<td>red-500</td>
+<td>Delete buttons (brighter)</td>
+</tr>
+<tr>
+<td><code>destructive-foreground</code></td>
+<td>white</td>
+<td>Text on destructive</td>
+</tr>
+<tr>
+<td><code>border</code></td>
+<td>800</td>
+<td>Borders</td>
+</tr>
+<tr>
+<td><code>input</code></td>
+<td>800</td>
+<td>Input borders</td>
+</tr>
+<tr>
+<td><code>ring</code></td>
+<td>500</td>
+<td>Focus rings</td>
+</tr>
+</tbody>
+</table>
+<h4>Dark Mode Inversion Pattern</h4>
+<p>Dark mode inverts lightness while preserving hue and saturation. Swap extremes (50 becomes 950, 950 becomes 50), preserve middle (500 stays near 500).</p>
+<table>
+<thead>
+<tr>
+<th>Light Shade</th>
+<th>Dark Equivalent</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>950</td>
+<td>Backgrounds</td>
+</tr>
+<tr>
+<td>100</td>
+<td>900</td>
+<td>Subtle backgrounds</td>
+</tr>
+<tr>
+<td>200</td>
+<td>800</td>
+<td>Borders</td>
+</tr>
+<tr>
+<td>500</td>
+<td>500 (slightly brighter)</td>
+<td>Brand baseline</td>
+</tr>
+<tr>
+<td>600</td>
+<td>400</td>
+<td>Primary actions</td>
+</tr>
+<tr>
+<td>950</td>
+<td>50</td>
+<td>Text colour</td>
+</tr>
+</tbody>
+</table>
+<p>Key dark mode principles:</p>
+<ul>
+<li>Use shade 500 (not 600) for primary -- brighter for visibility on dark backgrounds</li>
+<li>Use shade 50 (off-white) for text instead of pure <code>#FFFFFF</code> -- easier on eyes</li>
+<li>Borders need ~10-15% lighter than background (e.g. 800 border on 950 background)</li>
+<li>Higher elevation = lighter colour (opposite of light mode shadows)</li>
+<li>Always update foreground when changing background</li>
+</ul>
+<hr>
+<h3>Step 4: Check Contrast</h3>
+<h4>WCAG Minimum Ratios</h4>
+<table>
+<thead>
+<tr>
+<th>Content Type</th>
+<th>AA</th>
+<th>AAA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal text (&lt;18px or &lt;14px bold)</td>
+<td>4.5:1</td>
+<td>7:1</td>
+</tr>
+<tr>
+<td>Large text (&gt;=18px or &gt;=14px bold)</td>
+<td>3:1</td>
+<td>4.5:1</td>
+</tr>
+<tr>
+<td>UI components (buttons, borders)</td>
+<td>3:1</td>
+<td>Not defined</td>
+</tr>
+<tr>
+<td>Graphical objects (icons, charts)</td>
+<td>3:1</td>
+<td>Not defined</td>
+</tr>
+</tbody>
+</table>
+<p>Target AA for most projects, AAA for high-accessibility needs (government, healthcare).</p>
+<h4>Luminance and Contrast Formulas</h4>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">getLuminance</span><span class="token punctuation">(</span><span class="token parameter">hex</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  hex <span class="token operator">=</span> hex<span class="token punctuation">.</span><span class="token method function property-access">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex"><span class="token anchor function">^</span>#</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> r <span class="token operator">=</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token method function property-access">substring</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">255</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> g <span class="token operator">=</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token method function property-access">substring</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">255</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> b <span class="token operator">=</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>hex<span class="token punctuation">.</span><span class="token method function property-access">substring</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">16</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">255</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> rsRGB <span class="token operator">=</span> r <span class="token operator">&lt;=</span> <span class="token number">0.03928</span> <span class="token operator">?</span> r <span class="token operator">/</span> <span class="token number">12.92</span> <span class="token operator">:</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">pow</span><span class="token punctuation">(</span><span class="token punctuation">(</span>r <span class="token operator">+</span> <span class="token number">0.055</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">1.055</span><span class="token punctuation">,</span> <span class="token number">2.4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> gsRGB <span class="token operator">=</span> g <span class="token operator">&lt;=</span> <span class="token number">0.03928</span> <span class="token operator">?</span> g <span class="token operator">/</span> <span class="token number">12.92</span> <span class="token operator">:</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">pow</span><span class="token punctuation">(</span><span class="token punctuation">(</span>g <span class="token operator">+</span> <span class="token number">0.055</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">1.055</span><span class="token punctuation">,</span> <span class="token number">2.4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> bsRGB <span class="token operator">=</span> b <span class="token operator">&lt;=</span> <span class="token number">0.03928</span> <span class="token operator">?</span> b <span class="token operator">/</span> <span class="token number">12.92</span> <span class="token operator">:</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">pow</span><span class="token punctuation">(</span><span class="token punctuation">(</span>b <span class="token operator">+</span> <span class="token number">0.055</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">1.055</span><span class="token punctuation">,</span> <span class="token number">2.4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> <span class="token number">0.2126</span> <span class="token operator">*</span> rsRGB <span class="token operator">+</span> <span class="token number">0.7152</span> <span class="token operator">*</span> gsRGB <span class="token operator">+</span> <span class="token number">0.0722</span> <span class="token operator">*</span> bsRGB<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">getContrastRatio</span><span class="token punctuation">(</span><span class="token parameter">hex1<span class="token punctuation">,</span> hex2</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> lum1 <span class="token operator">=</span> <span class="token function">getLuminance</span><span class="token punctuation">(</span>hex1<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> lum2 <span class="token operator">=</span> <span class="token function">getLuminance</span><span class="token punctuation">(</span>hex2<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> lighter <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">max</span><span class="token punctuation">(</span>lum1<span class="token punctuation">,</span> lum2<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> darker <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">min</span><span class="token punctuation">(</span>lum1<span class="token punctuation">,</span> lum2<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> <span class="token punctuation">(</span>lighter <span class="token operator">+</span> <span class="token number">0.05</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token punctuation">(</span>darker <span class="token operator">+</span> <span class="token number">0.05</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>Quick Check Table -- Light Mode</h4>
+<table>
+<thead>
+<tr>
+<th>Foreground</th>
+<th>Background</th>
+<th>Ratio</th>
+<th>Pass?</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>950</td>
+<td>white</td>
+<td>18.5:1</td>
+<td>AAA</td>
+<td>Body text</td>
+</tr>
+<tr>
+<td>900</td>
+<td>white</td>
+<td>14.2:1</td>
+<td>AAA</td>
+<td>Card text</td>
+</tr>
+<tr>
+<td>700</td>
+<td>white</td>
+<td>8.1:1</td>
+<td>AAA</td>
+<td>Text</td>
+</tr>
+<tr>
+<td>600</td>
+<td>white</td>
+<td>5.7:1</td>
+<td>AA</td>
+<td>Text, buttons</td>
+</tr>
+<tr>
+<td>500</td>
+<td>white</td>
+<td>3.9:1</td>
+<td>Fail</td>
+<td>Too light for text</td>
+</tr>
+<tr>
+<td>white</td>
+<td>600</td>
+<td>5.7:1</td>
+<td>AA</td>
+<td>Button text</td>
+</tr>
+<tr>
+<td>white</td>
+<td>700</td>
+<td>8.1:1</td>
+<td>AAA</td>
+<td>Button text</td>
+</tr>
+<tr>
+<td>600</td>
+<td>50</td>
+<td>5.4:1</td>
+<td>AA</td>
+<td>Muted section text</td>
+</tr>
+</tbody>
+</table>
+<h4>Quick Check Table -- Dark Mode</h4>
+<table>
+<thead>
+<tr>
+<th>Foreground</th>
+<th>Background</th>
+<th>Ratio</th>
+<th>Pass?</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>950</td>
+<td>18.5:1</td>
+<td>AAA</td>
+<td>Body text</td>
+</tr>
+<tr>
+<td>50</td>
+<td>900</td>
+<td>14.2:1</td>
+<td>AAA</td>
+<td>Card text</td>
+</tr>
+<tr>
+<td>400</td>
+<td>950</td>
+<td>8.2:1</td>
+<td>AAA</td>
+<td>Muted text</td>
+</tr>
+<tr>
+<td>400</td>
+<td>900</td>
+<td>6.3:1</td>
+<td>AA</td>
+<td>Muted text</td>
+</tr>
+<tr>
+<td>white</td>
+<td>600</td>
+<td>5.7:1</td>
+<td>AA</td>
+<td>Button text</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rule of thumb</strong>: For text, aim for 50%+ lightness difference between foreground and background.</p>
+<h4>Essential Pairs to Verify</h4>
+<ol>
+<li><strong>Body text</strong>: foreground on background (light: 950 on white = 18.5:1, dark: 50 on 950 = 18.5:1)</li>
+<li><strong>Primary button</strong>: primary-foreground on primary (light: white on 600 = 5.7:1, dark: white on 500 = 3.9:1 -- borderline)</li>
+<li><strong>Muted text</strong>: muted-foreground on muted (light: 600 on 50 = 5.4:1, dark: 400 on 800 = 4.1:1 -- may fail)</li>
+<li><strong>Card text</strong>: card-foreground on card (light: 900 on white = 14.2:1, dark: 50 on 900 = 14.2:1)</li>
+</ol>
+<h4>Fixing Common Contrast Failures</h4>
+<p><strong>White on primary-500 fails (3.9:1)</strong>: Use primary-600 instead (5.7:1), or use dark text on the button.</p>
+<p><strong>Muted text in dark mode fails (400 on 800 = 4.1:1)</strong>: Use 300 on 900 = 6.8:1.</p>
+<p><strong>Links hard to see (500 on white = 3.9:1)</strong>: Use primary-700 (8.1:1), or add underline decoration.</p>
+<hr>
+<h3>Step 5: Output Tailwind v4 CSS</h3>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token atrule"><span class="token rule">@import</span> <span class="token string">"tailwindcss"</span><span class="token punctuation">;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@theme</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">/* Shade scale */</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-50</span><span class="token punctuation">:</span> <span class="token hexcode color">#F0FDFA</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-100</span><span class="token punctuation">:</span> <span class="token hexcode color">#CCFBF1</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-200</span><span class="token punctuation">:</span> <span class="token hexcode color">#99F6E4</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-300</span><span class="token punctuation">:</span> <span class="token hexcode color">#5EEAD4</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-400</span><span class="token punctuation">:</span> <span class="token hexcode color">#2DD4BF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-500</span><span class="token punctuation">:</span> <span class="token hexcode color">#14B8A6</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-600</span><span class="token punctuation">:</span> <span class="token hexcode color">#0D9488</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-700</span><span class="token punctuation">:</span> <span class="token hexcode color">#0F766E</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-800</span><span class="token punctuation">:</span> <span class="token hexcode color">#115E59</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-900</span><span class="token punctuation">:</span> <span class="token hexcode color">#134E4A</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-950</span><span class="token punctuation">:</span> <span class="token hexcode color">#042F2E</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">/* Light mode semantic tokens */</span>
+</span><span class="code-line">  <span class="token variable">--color-background</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-950</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-card</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-card-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-900</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-popover</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-popover-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-950</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-600</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-foreground</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-secondary</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-100</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-secondary-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-900</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-muted</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-50</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-muted-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-600</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-accent</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-100</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-accent-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-900</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-destructive</span><span class="token punctuation">:</span> <span class="token hexcode color">#DC2626</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-destructive-foreground</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-border</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-200</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-input</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-200</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-ring</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-600</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--radius</span><span class="token punctuation">:</span> <span class="token number">0.5</span><span class="token unit">rem</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">/* Dark mode overrides */</span>
+</span><span class="code-line"><span class="token selector"><span class="token class">.dark</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token variable">--color-background</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-950</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-50</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-card</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-900</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-card-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-50</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-popover</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-900</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-popover-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-50</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-500</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-foreground</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-secondary</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-800</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-secondary-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-50</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-muted</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-800</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-muted-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-400</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-accent</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-800</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-accent-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-50</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-destructive</span><span class="token punctuation">:</span> <span class="token hexcode color">#EF4444</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-destructive-foreground</span><span class="token punctuation">:</span> <span class="token hexcode color">#FFFFFF</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-border</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-800</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-input</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-800</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-ring</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--color-primary-500</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Copy <code>assets/tailwind-colors.css</code> as a starting template.</p>
+<hr>
+<h2>Component Usage Examples</h2>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token comment">// Primary button</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>bg-primary text-primary-foreground hover:bg-primary/90<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">Click me</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Secondary button</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>bg-secondary text-secondary-foreground hover:bg-secondary/80<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">Cancel</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Card</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>bg-card text-card-foreground border-border rounded-lg<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">  </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h2</span><span class="token punctuation">&gt;</span></span><span class="token plain-text">Title</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h2</span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">  </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span> <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text-muted-foreground<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">Description</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Input</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>bg-background text-foreground border-input focus:ring-ring<span class="token punctuation">"</span></span> <span class="token punctuation">/&gt;</span></span>
+</span></code></pre>
+<hr>
+<h2>Common Adjustments</h2>
+<ul>
+<li><strong>Too vibrant at light shades</strong>: Reduce saturation by 10-20%</li>
+<li><strong>Poor contrast on primary</strong>: Use shade 700+ for text</li>
+<li><strong>Dark mode too dark</strong>: Use shade 900 instead of 950 for backgrounds</li>
+<li><strong>Brand colour too light/dark</strong>: Adjust to shade 500-600 range</li>
+<li><strong>Dark mode looks washed out</strong>: Use shade 500 for primary (brighter than light mode's 600)</li>
+<li><strong>Pure white text too harsh in dark mode</strong>: Use shade 50 (off-white) instead</li>
+<li><strong>Dark mode muted text fails contrast</strong>: Use more extreme shades (300 on 900 instead of 400 on 800)</li>
+</ul>
+<h3>Brand Identity Adjustments</h3>
+<ul>
+<li><strong>Conservative brands</strong> (finance, law): Use primary-700 for buttons, reduce saturation in light shades</li>
+<li><strong>Vibrant brands</strong> (creative, tech): Use primary-500-600, keep full saturation</li>
+<li><strong>Minimal brands</strong> (design, architecture): Use primary sparingly, emphasise muted tones, subtle borders (primary-100)</li>
+</ul>
+<hr>
+<h2>Verification Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Body text: &gt;=4.5:1 (normal) or &gt;=3:1 (large)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Primary button text: &gt;=4.5:1</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Secondary button text: &gt;=4.5:1</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Muted text: &gt;=4.5:1</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Links: &gt;=4.5:1 (or underlined)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> UI elements (borders): &gt;=3:1</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Focus indicators: &gt;=3:1</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Error text: &gt;=4.5:1</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dark mode: All above checks pass</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Every background has a foreground pair</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Brand colour recognisable in both modes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Borders visible but not harsh</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Cards/sections have clear boundaries</li>
+</ul>
+<p><strong>Test both modes before shipping.</strong></p>
+<hr>
+<h2>Optional References</h2>
+<ul>
+<li><strong>Online contrast checkers</strong>: WebAIM (webaim.org/resources/contrastchecker), Coolors (coolors.co/contrast-checker), Accessible Colors (accessible-colors.com)</li>
+<li><strong>CI/CD contrast tests</strong>: Use <code>getContrastRatio()</code> in test suites to assert minimum ratios for all token pairs</li>
+<li><strong>Transparent/gradient edge cases</strong>: For colours with opacity, calculate against final rendered colour. For gradients, check both endpoints.</li>
+<li><strong>OLED dark mode</strong>: Use <code>@media (prefers-contrast: high)</code> with <code>#000000</code> background for battery savings on AMOLED screens</li>
+<li><strong>Multi-colour palettes</strong>: Generate separate shade scales for each brand colour, map to different semantic roles (primary, accent)</li>
+<li><strong>Palette visualisation tools</strong>: coolors.co, paletton.com, Figma swatches</li>
+<li><code>assets/tailwind-colors.css</code> — Complete CSS output template</li>
+</ul></div>

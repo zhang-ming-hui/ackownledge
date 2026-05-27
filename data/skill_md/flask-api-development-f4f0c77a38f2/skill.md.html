@@ -1,0 +1,109 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Flask API Development</h1>
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#overview" target="_blank" rel="ugc nofollow noopener">Overview</a></li>
+<li><a href="#when-to-use" target="_blank" rel="ugc nofollow noopener">When to Use</a></li>
+<li><a href="#quick-start" target="_blank" rel="ugc nofollow noopener">Quick Start</a></li>
+<li><a href="#reference-guides" target="_blank" rel="ugc nofollow noopener">Reference Guides</a></li>
+<li><a href="#best-practices" target="_blank" rel="ugc nofollow noopener">Best Practices</a></li>
+</ul>
+<h2>Overview</h2>
+<p>Create efficient Flask APIs with blueprints for modular organization, SQLAlchemy for ORM, JWT authentication, comprehensive error handling, and proper request validation following REST principles.</p>
+<h2>When to Use</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Building RESTful APIs with Flask</li>
+<li>Creating microservices with minimal overhead</li>
+<li>Implementing lightweight authentication systems</li>
+<li>Designing API endpoints with proper validation</li>
+<li>Integrating with relational databases</li>
+<li>Building request/response handling systems</li>
+</ul>
+<h2>Quick Start</h2>
+<p>Minimal working example:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># app.py</span>
+</span><span class="code-line"><span class="token keyword">from</span> flask <span class="token keyword">import</span> Flask<span class="token punctuation">,</span> request<span class="token punctuation">,</span> jsonify
+</span><span class="code-line"><span class="token keyword">from</span> flask_cors <span class="token keyword">import</span> CORS
+</span><span class="code-line"><span class="token keyword">from</span> flask_sqlalchemy <span class="token keyword">import</span> SQLAlchemy
+</span><span class="code-line"><span class="token keyword">from</span> flask_jwt_extended <span class="token keyword">import</span> JWTManager
+</span><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line">
+</span><span class="code-line">app <span class="token operator">=</span> Flask<span class="token punctuation">(</span>__name__<span class="token punctuation">)</span>
+</span><span class="code-line">app<span class="token punctuation">.</span>config<span class="token punctuation">[</span><span class="token string">'SQLALCHEMY_DATABASE_URI'</span><span class="token punctuation">]</span> <span class="token operator">=</span> os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">'DATABASE_URL'</span><span class="token punctuation">,</span> <span class="token string">'sqlite:///app.db'</span><span class="token punctuation">)</span>
+</span><span class="code-line">app<span class="token punctuation">.</span>config<span class="token punctuation">[</span><span class="token string">'JWT_SECRET_KEY'</span><span class="token punctuation">]</span> <span class="token operator">=</span> os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">'JWT_SECRET_KEY'</span><span class="token punctuation">,</span> <span class="token string">'dev-secret'</span><span class="token punctuation">)</span>
+</span><span class="code-line">app<span class="token punctuation">.</span>config<span class="token punctuation">[</span><span class="token string">'JSON_SORT_KEYS'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">False</span>
+</span><span class="code-line">
+</span><span class="code-line">db <span class="token operator">=</span> SQLAlchemy<span class="token punctuation">(</span>app<span class="token punctuation">)</span>
+</span><span class="code-line">jwt <span class="token operator">=</span> JWTManager<span class="token punctuation">(</span>app<span class="token punctuation">)</span>
+</span><span class="code-line">CORS<span class="token punctuation">(</span>app<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Request ID middleware</span>
+</span><span class="code-line"><span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>before_request</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">assign_request_id</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">import</span> uuid
+</span><span class="code-line">    request<span class="token punctuation">.</span>request_id <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>uuid<span class="token punctuation">.</span>uuid4<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Error handlers</span>
+</span><span class="code-line"><span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>errorhandler</span><span class="token punctuation">(</span><span class="token number">400</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">bad_request</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line"><span class="token operator">//</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span> <span class="token punctuation">(</span>see reference guides <span class="token keyword">for</span> full implementation<span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Reference Guides</h2>
+<p>Detailed implementations in the <code>references/</code> directory:</p>
+<table>
+<thead>
+<tr>
+<th>Guide</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/flask-api-development/references/flask-application-setup.md" target="_blank" rel="ugc nofollow noopener">Flask Application Setup</a></td>
+<td>Flask Application Setup</td>
+</tr>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/flask-api-development/references/database-models-with-sqlalchemy.md" target="_blank" rel="ugc nofollow noopener">Database Models with SQLAlchemy</a></td>
+<td>Database Models with SQLAlchemy</td>
+</tr>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/flask-api-development/references/authentication-and-jwt.md" target="_blank" rel="ugc nofollow noopener">Authentication and JWT</a></td>
+<td>Authentication and JWT</td>
+</tr>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/flask-api-development/references/blueprints-for-modular-api-design.md" target="_blank" rel="ugc nofollow noopener">Blueprints for Modular API Design</a></td>
+<td>Blueprints for Modular API Design</td>
+</tr>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/flask-api-development/references/request-validation.md" target="_blank" rel="ugc nofollow noopener">Request Validation</a></td>
+<td>Request Validation</td>
+</tr>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/flask-api-development/references/application-factory-and-configuration.md" target="_blank" rel="ugc nofollow noopener">Application Factory and Configuration</a></td>
+<td>Application Factory and Configuration</td>
+</tr>
+</tbody>
+</table>
+<h2>Best Practices</h2>
+<h3>✅ DO</h3>
+<ul>
+<li>Use blueprints for modular organization</li>
+<li>Implement proper authentication with JWT</li>
+<li>Validate all user input</li>
+<li>Use SQLAlchemy ORM for database operations</li>
+<li>Implement comprehensive error handling</li>
+<li>Use pagination for collection endpoints</li>
+<li>Log errors and important events</li>
+<li>Return appropriate HTTP status codes</li>
+<li>Implement CORS properly</li>
+<li>Use environment variables for configuration</li>
+</ul>
+<h3>❌ DON'T</h3>
+<ul>
+<li>Store secrets in code</li>
+<li>Use global variables for shared state</li>
+<li>Ignore database transactions</li>
+<li>Trust user input without validation</li>
+<li>Return stack traces in production</li>
+<li>Use mutable default arguments</li>
+<li>Forget to handle database connection errors</li>
+<li>Implement authentication in route handlers</li>
+</ul></div>

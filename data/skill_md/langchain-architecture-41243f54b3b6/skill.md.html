@@ -1,0 +1,563 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>LangChain &amp; LangGraph Architecture</h1>
+<p>Master modern LangChain 1.x and LangGraph for building sophisticated LLM applications with agents, state management, memory, and tool integration.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Building autonomous AI agents with tool access</li>
+<li>Implementing complex multi-step LLM workflows</li>
+<li>Managing conversation memory and state</li>
+<li>Integrating LLMs with external data sources and APIs</li>
+<li>Creating modular, reusable LLM application components</li>
+<li>Implementing document processing pipelines</li>
+<li>Building production-grade LLM applications</li>
+</ul>
+<h2>Package Structure (LangChain 1.x)</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">langchain (1.2.x)         # High-level orchestration
+</span><span class="code-line">langchain-core (1.2.x)    # Core abstractions (messages, prompts, tools)
+</span><span class="code-line">langchain-community       # Third-party integrations
+</span><span class="code-line">langgraph                 # Agent orchestration and state management
+</span><span class="code-line">langchain-openai          # OpenAI integrations
+</span><span class="code-line">langchain-anthropic       # Anthropic/Claude integrations
+</span><span class="code-line">langchain-voyageai        # Voyage AI embeddings
+</span><span class="code-line">langchain-pinecone        # Pinecone vector store
+</span></code></pre>
+<h2>Core Concepts</h2>
+<h3>1. LangGraph Agents</h3>
+<p>LangGraph is the standard for building agents in 2026. It provides:</p>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>StateGraph</strong>: Explicit state management with typed state</li>
+<li><strong>Durable Execution</strong>: Agents persist through failures</li>
+<li><strong>Human-in-the-Loop</strong>: Inspect and modify state at any point</li>
+<li><strong>Memory</strong>: Short-term and long-term memory across sessions</li>
+<li><strong>Checkpointing</strong>: Save and resume agent state</li>
+</ul>
+<p><strong>Agent Patterns:</strong></p>
+<ul>
+<li><strong>ReAct</strong>: Reasoning + Acting with <code>create_react_agent</code></li>
+<li><strong>Plan-and-Execute</strong>: Separate planning and execution nodes</li>
+<li><strong>Multi-Agent</strong>: Supervisor routing between specialized agents</li>
+<li><strong>Tool-Calling</strong>: Structured tool invocation with Pydantic schemas</li>
+</ul>
+<h3>2. State Management</h3>
+<p>LangGraph uses TypedDict for explicit state:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated<span class="token punctuation">,</span> TypedDict
+</span><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> MessagesState
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Simple message-based state</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">AgentState</span><span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Extends MessagesState with custom fields."""</span>
+</span><span class="code-line">    context<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">,</span> <span class="token string">"retrieved documents"</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Custom state for complex agents</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">CustomState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    messages<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">,</span> <span class="token string">"conversation history"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    context<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">dict</span><span class="token punctuation">,</span> <span class="token string">"retrieved context"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    current_step<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    results<span class="token punctuation">:</span> <span class="token builtin">list</span>
+</span></code></pre>
+<h3>3. Memory Systems</h3>
+<p>Modern memory implementations:</p>
+<ul>
+<li><strong>ConversationBufferMemory</strong>: Stores all messages (short conversations)</li>
+<li><strong>ConversationSummaryMemory</strong>: Summarizes older messages (long conversations)</li>
+<li><strong>ConversationTokenBufferMemory</strong>: Token-based windowing</li>
+<li><strong>VectorStoreRetrieverMemory</strong>: Semantic similarity retrieval</li>
+<li><strong>LangGraph Checkpointers</strong>: Persistent state across sessions</li>
+</ul>
+<h3>4. Document Processing</h3>
+<p>Loading, transforming, and storing documents:</p>
+<p><strong>Components:</strong></p>
+<ul>
+<li><strong>Document Loaders</strong>: Load from various sources</li>
+<li><strong>Text Splitters</strong>: Chunk documents intelligently</li>
+<li><strong>Vector Stores</strong>: Store and retrieve embeddings</li>
+<li><strong>Retrievers</strong>: Fetch relevant documents</li>
+</ul>
+<h3>5. Callbacks &amp; Tracing</h3>
+<p>LangSmith is the standard for observability:</p>
+<ul>
+<li>Request/response logging</li>
+<li>Token usage tracking</li>
+<li>Latency monitoring</li>
+<li>Error tracking</li>
+<li>Trace visualization</li>
+</ul>
+<h2>Quick Start</h2>
+<h3>Modern ReAct Agent with LangGraph</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>prebuilt <span class="token keyword">import</span> create_react_agent
+</span><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>memory <span class="token keyword">import</span> MemorySaver
+</span><span class="code-line"><span class="token keyword">from</span> langchain_anthropic <span class="token keyword">import</span> ChatAnthropic
+</span><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
+</span><span class="code-line"><span class="token keyword">import</span> ast
+</span><span class="code-line"><span class="token keyword">import</span> operator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Initialize LLM (Claude Sonnet 4.6 recommended)</span>
+</span><span class="code-line">llm <span class="token operator">=</span> ChatAnthropic<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"claude-sonnet-4-6"</span><span class="token punctuation">,</span> temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Define tools with Pydantic schemas</span>
+</span><span class="code-line"><span class="token decorator annotation punctuation">@tool</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">search_database</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Search internal database for information."""</span>
+</span><span class="code-line">    <span class="token comment"># Your database search logic</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Results for: </span><span class="token interpolation"><span class="token punctuation">{</span>query<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@tool</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">calculate</span><span class="token punctuation">(</span>expression<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Safely evaluate a mathematical expression.
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    Supports: +, -, *, /, **, %, parentheses
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    Example: '(2 + 3) * 4' returns '20'
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    """</span>
+</span><span class="code-line">    <span class="token comment"># Safe math evaluation using ast</span>
+</span><span class="code-line">    allowed_operators <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>Add<span class="token punctuation">:</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">,</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>Sub<span class="token punctuation">:</span> operator<span class="token punctuation">.</span>sub<span class="token punctuation">,</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>Mult<span class="token punctuation">:</span> operator<span class="token punctuation">.</span>mul<span class="token punctuation">,</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>Div<span class="token punctuation">:</span> operator<span class="token punctuation">.</span>truediv<span class="token punctuation">,</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>Pow<span class="token punctuation">:</span> operator<span class="token punctuation">.</span><span class="token builtin">pow</span><span class="token punctuation">,</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>Mod<span class="token punctuation">:</span> operator<span class="token punctuation">.</span>mod<span class="token punctuation">,</span>
+</span><span class="code-line">        ast<span class="token punctuation">.</span>USub<span class="token punctuation">:</span> operator<span class="token punctuation">.</span>neg<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">_eval</span><span class="token punctuation">(</span>node<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>node<span class="token punctuation">,</span> ast<span class="token punctuation">.</span>Constant<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> node<span class="token punctuation">.</span>value
+</span><span class="code-line">        <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>node<span class="token punctuation">,</span> ast<span class="token punctuation">.</span>BinOp<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">            left <span class="token operator">=</span> _eval<span class="token punctuation">(</span>node<span class="token punctuation">.</span>left<span class="token punctuation">)</span>
+</span><span class="code-line">            right <span class="token operator">=</span> _eval<span class="token punctuation">(</span>node<span class="token punctuation">.</span>right<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">return</span> allowed_operators<span class="token punctuation">[</span><span class="token builtin">type</span><span class="token punctuation">(</span>node<span class="token punctuation">.</span>op<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">(</span>left<span class="token punctuation">,</span> right<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>node<span class="token punctuation">,</span> ast<span class="token punctuation">.</span>UnaryOp<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">            operand <span class="token operator">=</span> _eval<span class="token punctuation">(</span>node<span class="token punctuation">.</span>operand<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">return</span> allowed_operators<span class="token punctuation">[</span><span class="token builtin">type</span><span class="token punctuation">(</span>node<span class="token punctuation">.</span>op<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">(</span>operand<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">else</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Unsupported operation: </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token builtin">type</span><span class="token punctuation">(</span>node<span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">        tree <span class="token operator">=</span> ast<span class="token punctuation">.</span>parse<span class="token punctuation">(</span>expression<span class="token punctuation">,</span> mode<span class="token operator">=</span><span class="token string">'eval'</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>_eval<span class="token punctuation">(</span>tree<span class="token punctuation">.</span>body<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Error: </span><span class="token interpolation"><span class="token punctuation">{</span>e<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span><span class="code-line">
+</span><span class="code-line">tools <span class="token operator">=</span> <span class="token punctuation">[</span>search_database<span class="token punctuation">,</span> calculate<span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create checkpointer for memory persistence</span>
+</span><span class="code-line">checkpointer <span class="token operator">=</span> MemorySaver<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create ReAct agent</span>
+</span><span class="code-line">agent <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>
+</span><span class="code-line">    llm<span class="token punctuation">,</span>
+</span><span class="code-line">    tools<span class="token punctuation">,</span>
+</span><span class="code-line">    checkpointer<span class="token operator">=</span>checkpointer
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run agent with thread ID for memory</span>
+</span><span class="code-line">config <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"user-123"</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">result <span class="token operator">=</span> <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"Search for Python tutorials and calculate 25 * 4"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    config<span class="token operator">=</span>config
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Architecture Patterns</h2>
+<h3>Pattern 1: RAG with LangGraph</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> StateGraph<span class="token punctuation">,</span> START<span class="token punctuation">,</span> END
+</span><span class="code-line"><span class="token keyword">from</span> langchain_anthropic <span class="token keyword">import</span> ChatAnthropic
+</span><span class="code-line"><span class="token keyword">from</span> langchain_voyageai <span class="token keyword">import</span> VoyageAIEmbeddings
+</span><span class="code-line"><span class="token keyword">from</span> langchain_pinecone <span class="token keyword">import</span> PineconeVectorStore
+</span><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>documents <span class="token keyword">import</span> Document
+</span><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>prompts <span class="token keyword">import</span> ChatPromptTemplate
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> TypedDict<span class="token punctuation">,</span> Annotated
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">RAGState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    question<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    context<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span>Document<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">"retrieved documents"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    answer<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Initialize components</span>
+</span><span class="code-line">llm <span class="token operator">=</span> ChatAnthropic<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"claude-sonnet-4-6"</span><span class="token punctuation">)</span>
+</span><span class="code-line">embeddings <span class="token operator">=</span> VoyageAIEmbeddings<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"voyage-3-large"</span><span class="token punctuation">)</span>
+</span><span class="code-line">vectorstore <span class="token operator">=</span> PineconeVectorStore<span class="token punctuation">(</span>index_name<span class="token operator">=</span><span class="token string">"docs"</span><span class="token punctuation">,</span> embedding<span class="token operator">=</span>embeddings<span class="token punctuation">)</span>
+</span><span class="code-line">retriever <span class="token operator">=</span> vectorstore<span class="token punctuation">.</span>as_retriever<span class="token punctuation">(</span>search_kwargs<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"k"</span><span class="token punctuation">:</span> <span class="token number">4</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Define nodes</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">retrieve</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> RAGState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> RAGState<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Retrieve relevant documents."""</span>
+</span><span class="code-line">    docs <span class="token operator">=</span> <span class="token keyword">await</span> retriever<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>state<span class="token punctuation">[</span><span class="token string">"question"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"context"</span><span class="token punctuation">:</span> docs<span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">generate</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> RAGState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> RAGState<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Generate answer from context."""</span>
+</span><span class="code-line">    prompt <span class="token operator">=</span> ChatPromptTemplate<span class="token punctuation">.</span>from_template<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token triple-quoted-string string">"""Answer based on the context below. If you cannot answer, say so.
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">        Context: {context}
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">        Question: {question}
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">        Answer:"""</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    context_text <span class="token operator">=</span> <span class="token string">"\n\n"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>doc<span class="token punctuation">.</span>page_content <span class="token keyword">for</span> doc <span class="token keyword">in</span> state<span class="token punctuation">[</span><span class="token string">"context"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    response <span class="token operator">=</span> <span class="token keyword">await</span> llm<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>
+</span><span class="code-line">        prompt<span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span>context<span class="token operator">=</span>context_text<span class="token punctuation">,</span> question<span class="token operator">=</span>state<span class="token punctuation">[</span><span class="token string">"question"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"answer"</span><span class="token punctuation">:</span> response<span class="token punctuation">.</span>content<span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Build graph</span>
+</span><span class="code-line">builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>RAGState<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"retrieve"</span><span class="token punctuation">,</span> retrieve<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"generate"</span><span class="token punctuation">,</span> generate<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"retrieve"</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"retrieve"</span><span class="token punctuation">,</span> <span class="token string">"generate"</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"generate"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">rag_chain <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use the chain</span>
+</span><span class="code-line">result <span class="token operator">=</span> <span class="token keyword">await</span> rag_chain<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"question"</span><span class="token punctuation">:</span> <span class="token string">"What is the main topic?"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 2: Custom Agent with Structured Tools</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> StructuredTool
+</span><span class="code-line"><span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">SearchInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Input for database search."""</span>
+</span><span class="code-line">    query<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"Search query"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    filters<span class="token punctuation">:</span> <span class="token builtin">dict</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>default<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span> description<span class="token operator">=</span><span class="token string">"Optional filters"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">EmailInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Input for sending email."""</span>
+</span><span class="code-line">    recipient<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"Email recipient"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    subject<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"Email subject"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    content<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"Email body"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">search_database</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> filters<span class="token punctuation">:</span> <span class="token builtin">dict</span> <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Search internal database for information."""</span>
+</span><span class="code-line">    <span class="token comment"># Your database search logic</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Results for '</span><span class="token interpolation"><span class="token punctuation">{</span>query<span class="token punctuation">}</span></span><span class="token string">' with filters </span><span class="token interpolation"><span class="token punctuation">{</span>filters<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">send_email</span><span class="token punctuation">(</span>recipient<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> subject<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> content<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Send an email to specified recipient."""</span>
+</span><span class="code-line">    <span class="token comment"># Email sending logic</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Email sent to </span><span class="token interpolation"><span class="token punctuation">{</span>recipient<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span><span class="code-line">
+</span><span class="code-line">tools <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    StructuredTool<span class="token punctuation">.</span>from_function<span class="token punctuation">(</span>
+</span><span class="code-line">        coroutine<span class="token operator">=</span>search_database<span class="token punctuation">,</span>
+</span><span class="code-line">        name<span class="token operator">=</span><span class="token string">"search_database"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        description<span class="token operator">=</span><span class="token string">"Search internal database"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        args_schema<span class="token operator">=</span>SearchInput
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    StructuredTool<span class="token punctuation">.</span>from_function<span class="token punctuation">(</span>
+</span><span class="code-line">        coroutine<span class="token operator">=</span>send_email<span class="token punctuation">,</span>
+</span><span class="code-line">        name<span class="token operator">=</span><span class="token string">"send_email"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        description<span class="token operator">=</span><span class="token string">"Send an email"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        args_schema<span class="token operator">=</span>EmailInput
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">agent <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>llm<span class="token punctuation">,</span> tools<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 3: Multi-Step Workflow with StateGraph</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> StateGraph<span class="token punctuation">,</span> START<span class="token punctuation">,</span> END
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> TypedDict<span class="token punctuation">,</span> Literal
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">WorkflowState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    text<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    entities<span class="token punctuation">:</span> <span class="token builtin">list</span>
+</span><span class="code-line">    analysis<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    summary<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    current_step<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">extract_entities</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> WorkflowState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> WorkflowState<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Extract key entities from text."""</span>
+</span><span class="code-line">    prompt <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"Extract key entities from: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'text'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">\n\nReturn as JSON list."</span></span>
+</span><span class="code-line">    response <span class="token operator">=</span> <span class="token keyword">await</span> llm<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"entities"</span><span class="token punctuation">:</span> response<span class="token punctuation">.</span>content<span class="token punctuation">,</span> <span class="token string">"current_step"</span><span class="token punctuation">:</span> <span class="token string">"analyze"</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">analyze_entities</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> WorkflowState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> WorkflowState<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Analyze extracted entities."""</span>
+</span><span class="code-line">    prompt <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"Analyze these entities: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'entities'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">\n\nProvide insights."</span></span>
+</span><span class="code-line">    response <span class="token operator">=</span> <span class="token keyword">await</span> llm<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"analysis"</span><span class="token punctuation">:</span> response<span class="token punctuation">.</span>content<span class="token punctuation">,</span> <span class="token string">"current_step"</span><span class="token punctuation">:</span> <span class="token string">"summarize"</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">generate_summary</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> WorkflowState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> WorkflowState<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Generate final summary."""</span>
+</span><span class="code-line">    prompt <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""Summarize:
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    Entities: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'entities'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    Analysis: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'analysis'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    Provide a concise summary."""</span></span>
+</span><span class="code-line">    response <span class="token operator">=</span> <span class="token keyword">await</span> llm<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"summary"</span><span class="token punctuation">:</span> response<span class="token punctuation">.</span>content<span class="token punctuation">,</span> <span class="token string">"current_step"</span><span class="token punctuation">:</span> <span class="token string">"complete"</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">route_step</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> WorkflowState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> Literal<span class="token punctuation">[</span><span class="token string">"analyze"</span><span class="token punctuation">,</span> <span class="token string">"summarize"</span><span class="token punctuation">,</span> <span class="token string">"end"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Route to next step based on current state."""</span>
+</span><span class="code-line">    step <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"current_step"</span><span class="token punctuation">,</span> <span class="token string">"extract"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> step <span class="token operator">==</span> <span class="token string">"analyze"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string">"analyze"</span>
+</span><span class="code-line">    <span class="token keyword">elif</span> step <span class="token operator">==</span> <span class="token string">"summarize"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string">"summarize"</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string">"end"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Build workflow</span>
+</span><span class="code-line">builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>WorkflowState<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"extract"</span><span class="token punctuation">,</span> extract_entities<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"analyze"</span><span class="token punctuation">,</span> analyze_entities<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"summarize"</span><span class="token punctuation">,</span> generate_summary<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"extract"</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"extract"</span><span class="token punctuation">,</span> route_step<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string">"analyze"</span><span class="token punctuation">:</span> <span class="token string">"analyze"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"summarize"</span><span class="token punctuation">:</span> <span class="token string">"summarize"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"end"</span><span class="token punctuation">:</span> END
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"analyze"</span><span class="token punctuation">,</span> route_step<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string">"summarize"</span><span class="token punctuation">:</span> <span class="token string">"summarize"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"end"</span><span class="token punctuation">:</span> END
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"summarize"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">workflow <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 4: Multi-Agent Orchestration</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> StateGraph<span class="token punctuation">,</span> START<span class="token punctuation">,</span> END
+</span><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>prebuilt <span class="token keyword">import</span> create_react_agent
+</span><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> HumanMessage
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">MultiAgentState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    messages<span class="token punctuation">:</span> <span class="token builtin">list</span>
+</span><span class="code-line">    next_agent<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create specialized agents</span>
+</span><span class="code-line">researcher <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>llm<span class="token punctuation">,</span> research_tools<span class="token punctuation">)</span>
+</span><span class="code-line">writer <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>llm<span class="token punctuation">,</span> writing_tools<span class="token punctuation">)</span>
+</span><span class="code-line">reviewer <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>llm<span class="token punctuation">,</span> review_tools<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">supervisor</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> MultiAgentState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> MultiAgentState<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Route to appropriate agent based on task."""</span>
+</span><span class="code-line">    prompt <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""Based on the conversation, which agent should handle this?
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    Options:
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    - researcher: For finding information
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    - writer: For creating content
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    - reviewer: For reviewing and editing
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    - FINISH: Task is complete
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    Messages: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">
+</span></span></span><span class="code-line"><span class="token string-interpolation"><span class="token string">    Respond with just the agent name."""</span></span>
+</span><span class="code-line">
+</span><span class="code-line">    response <span class="token operator">=</span> <span class="token keyword">await</span> llm<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"next_agent"</span><span class="token punctuation">:</span> response<span class="token punctuation">.</span>content<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">route_to_agent</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> MultiAgentState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> Literal<span class="token punctuation">[</span><span class="token string">"researcher"</span><span class="token punctuation">,</span> <span class="token string">"writer"</span><span class="token punctuation">,</span> <span class="token string">"reviewer"</span><span class="token punctuation">,</span> <span class="token string">"end"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Route based on supervisor decision."""</span>
+</span><span class="code-line">    next_agent <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"next_agent"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> next_agent <span class="token operator">==</span> <span class="token string">"finish"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string">"end"</span>
+</span><span class="code-line">    <span class="token keyword">return</span> next_agent <span class="token keyword">if</span> next_agent <span class="token keyword">in</span> <span class="token punctuation">[</span><span class="token string">"researcher"</span><span class="token punctuation">,</span> <span class="token string">"writer"</span><span class="token punctuation">,</span> <span class="token string">"reviewer"</span><span class="token punctuation">]</span> <span class="token keyword">else</span> <span class="token string">"end"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Build multi-agent graph</span>
+</span><span class="code-line">builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MultiAgentState<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"supervisor"</span><span class="token punctuation">,</span> supervisor<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"researcher"</span><span class="token punctuation">,</span> researcher<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"writer"</span><span class="token punctuation">,</span> writer<span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"reviewer"</span><span class="token punctuation">,</span> reviewer<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"supervisor"</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"supervisor"</span><span class="token punctuation">,</span> route_to_agent<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string">"researcher"</span><span class="token punctuation">:</span> <span class="token string">"researcher"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"writer"</span><span class="token punctuation">:</span> <span class="token string">"writer"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"reviewer"</span><span class="token punctuation">:</span> <span class="token string">"reviewer"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"end"</span><span class="token punctuation">:</span> END
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Each agent returns to supervisor</span>
+</span><span class="code-line"><span class="token keyword">for</span> agent <span class="token keyword">in</span> <span class="token punctuation">[</span><span class="token string">"researcher"</span><span class="token punctuation">,</span> <span class="token string">"writer"</span><span class="token punctuation">,</span> <span class="token string">"reviewer"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+</span><span class="code-line">    builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>agent<span class="token punctuation">,</span> <span class="token string">"supervisor"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">multi_agent <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Memory Management</h2>
+<h3>Token-Based Memory with LangGraph</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>memory <span class="token keyword">import</span> MemorySaver
+</span><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>prebuilt <span class="token keyword">import</span> create_react_agent
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># In-memory checkpointer (development)</span>
+</span><span class="code-line">checkpointer <span class="token operator">=</span> MemorySaver<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create agent with persistent memory</span>
+</span><span class="code-line">agent <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>llm<span class="token punctuation">,</span> tools<span class="token punctuation">,</span> checkpointer<span class="token operator">=</span>checkpointer<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Each thread_id maintains separate conversation</span>
+</span><span class="code-line">config <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"session-abc123"</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Messages persist across invocations with same thread_id</span>
+</span><span class="code-line">result1 <span class="token operator">=</span> <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"My name is Alice"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span> config<span class="token punctuation">)</span>
+</span><span class="code-line">result2 <span class="token operator">=</span> <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"What's my name?"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span> config<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment"># Agent remembers: "Your name is Alice"</span>
+</span></code></pre>
+<h3>Production Memory with PostgreSQL</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>postgres <span class="token keyword">import</span> PostgresSaver
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Production checkpointer</span>
+</span><span class="code-line">checkpointer <span class="token operator">=</span> PostgresSaver<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"postgresql://user:pass@localhost/langgraph"</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">agent <span class="token operator">=</span> create_react_agent<span class="token punctuation">(</span>llm<span class="token punctuation">,</span> tools<span class="token punctuation">,</span> checkpointer<span class="token operator">=</span>checkpointer<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Vector Store Memory for Long-Term Context</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_community<span class="token punctuation">.</span>vectorstores <span class="token keyword">import</span> Chroma
+</span><span class="code-line"><span class="token keyword">from</span> langchain_voyageai <span class="token keyword">import</span> VoyageAIEmbeddings
+</span><span class="code-line">
+</span><span class="code-line">embeddings <span class="token operator">=</span> VoyageAIEmbeddings<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"voyage-3-large"</span><span class="token punctuation">)</span>
+</span><span class="code-line">memory_store <span class="token operator">=</span> Chroma<span class="token punctuation">(</span>
+</span><span class="code-line">    collection_name<span class="token operator">=</span><span class="token string">"conversation_memory"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    embedding_function<span class="token operator">=</span>embeddings<span class="token punctuation">,</span>
+</span><span class="code-line">    persist_directory<span class="token operator">=</span><span class="token string">"./memory_db"</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">retrieve_relevant_memory</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> k<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">5</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">list</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Retrieve relevant past conversations."""</span>
+</span><span class="code-line">    docs <span class="token operator">=</span> <span class="token keyword">await</span> memory_store<span class="token punctuation">.</span>asimilarity_search<span class="token punctuation">(</span>query<span class="token punctuation">,</span> k<span class="token operator">=</span>k<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">[</span>doc<span class="token punctuation">.</span>page_content <span class="token keyword">for</span> doc <span class="token keyword">in</span> docs<span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">store_memory</span><span class="token punctuation">(</span>content<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> metadata<span class="token punctuation">:</span> <span class="token builtin">dict</span> <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Store conversation in long-term memory."""</span>
+</span><span class="code-line">    <span class="token keyword">await</span> memory_store<span class="token punctuation">.</span>aadd_texts<span class="token punctuation">(</span><span class="token punctuation">[</span>content<span class="token punctuation">]</span><span class="token punctuation">,</span> metadatas<span class="token operator">=</span><span class="token punctuation">[</span>metadata<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Callback System &amp; LangSmith</h2>
+<h3>LangSmith Tracing</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line"><span class="token keyword">from</span> langchain_anthropic <span class="token keyword">import</span> ChatAnthropic
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Enable LangSmith tracing</span>
+</span><span class="code-line">os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"LANGCHAIN_TRACING_V2"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"true"</span>
+</span><span class="code-line">os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"LANGCHAIN_API_KEY"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"your-api-key"</span>
+</span><span class="code-line">os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"LANGCHAIN_PROJECT"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"my-project"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># All LangChain/LangGraph operations are automatically traced</span>
+</span><span class="code-line">llm <span class="token operator">=</span> ChatAnthropic<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"claude-sonnet-4-6"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Custom Callback Handler</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>callbacks <span class="token keyword">import</span> BaseCallbackHandler
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Any<span class="token punctuation">,</span> Dict<span class="token punctuation">,</span> List
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">CustomCallbackHandler</span><span class="token punctuation">(</span>BaseCallbackHandler<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">on_llm_start</span><span class="token punctuation">(</span>
+</span><span class="code-line">        self<span class="token punctuation">,</span> serialized<span class="token punctuation">:</span> Dict<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Any<span class="token punctuation">]</span><span class="token punctuation">,</span> prompts<span class="token punctuation">:</span> List<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token operator">**</span>kwargs
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"LLM started with </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token builtin">len</span><span class="token punctuation">(</span>prompts<span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string"> prompts"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">on_llm_end</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> response<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"LLM completed: </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token builtin">len</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>generations<span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string"> generations"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">on_llm_error</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> error<span class="token punctuation">:</span> Exception<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"LLM error: </span><span class="token interpolation"><span class="token punctuation">{</span>error<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">on_tool_start</span><span class="token punctuation">(</span>
+</span><span class="code-line">        self<span class="token punctuation">,</span> serialized<span class="token punctuation">:</span> Dict<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Any<span class="token punctuation">]</span><span class="token punctuation">,</span> input_str<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token operator">**</span>kwargs
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Tool started: </span><span class="token interpolation"><span class="token punctuation">{</span>serialized<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">on_tool_end</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> output<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Tool completed: </span><span class="token interpolation"><span class="token punctuation">{</span>output<span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token format-spec">100]</span><span class="token punctuation">}</span></span><span class="token string">..."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use callbacks</span>
+</span><span class="code-line">result <span class="token operator">=</span> <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"query"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    config<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"callbacks"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>CustomCallbackHandler<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Streaming Responses</h2>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_anthropic <span class="token keyword">import</span> ChatAnthropic
+</span><span class="code-line">
+</span><span class="code-line">llm <span class="token operator">=</span> ChatAnthropic<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"claude-sonnet-4-6"</span><span class="token punctuation">,</span> streaming<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Stream tokens</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">for</span> chunk <span class="token keyword">in</span> llm<span class="token punctuation">.</span>astream<span class="token punctuation">(</span><span class="token string">"Tell me a story"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span>chunk<span class="token punctuation">.</span>content<span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Stream agent events</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">for</span> event <span class="token keyword">in</span> agent<span class="token punctuation">.</span>astream_events<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"Search and summarize"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    version<span class="token operator">=</span><span class="token string">"v2"</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">if</span> event<span class="token punctuation">[</span><span class="token string">"event"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"on_chat_model_stream"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span>event<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"chunk"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">elif</span> event<span class="token punctuation">[</span><span class="token string">"event"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"on_tool_start"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n[Using tool: </span><span class="token interpolation"><span class="token punctuation">{</span>event<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">]"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Testing Strategies</h2>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> pytest
+</span><span class="code-line"><span class="token keyword">from</span> unittest<span class="token punctuation">.</span>mock <span class="token keyword">import</span> AsyncMock<span class="token punctuation">,</span> patch
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@pytest<span class="token punctuation">.</span>mark<span class="token punctuation">.</span>asyncio</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">test_agent_tool_selection</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Test agent selects correct tool."""</span>
+</span><span class="code-line">    <span class="token keyword">with</span> patch<span class="token punctuation">.</span><span class="token builtin">object</span><span class="token punctuation">(</span>llm<span class="token punctuation">,</span> <span class="token string">'ainvoke'</span><span class="token punctuation">)</span> <span class="token keyword">as</span> mock_llm<span class="token punctuation">:</span>
+</span><span class="code-line">        mock_llm<span class="token punctuation">.</span>return_value <span class="token operator">=</span> AsyncMock<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"Using search_database"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        result <span class="token operator">=</span> <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"search for documents"</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment"># Verify tool was called</span>
+</span><span class="code-line">        <span class="token keyword">assert</span> <span class="token string">"search_database"</span> <span class="token keyword">in</span> <span class="token builtin">str</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@pytest<span class="token punctuation">.</span>mark<span class="token punctuation">.</span>asyncio</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">test_memory_persistence</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Test memory persists across invocations."""</span>
+</span><span class="code-line">    config <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"test-thread"</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># First message</span>
+</span><span class="code-line">    <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"Remember: the code is 12345"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        config
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Second message should remember</span>
+</span><span class="code-line">    result <span class="token operator">=</span> <span class="token keyword">await</span> agent<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"What was the code?"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        config
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">assert</span> <span class="token string">"12345"</span> <span class="token keyword">in</span> result<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content
+</span></code></pre>
+<h2>Performance Optimization</h2>
+<h3>1. Caching with Redis</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_community<span class="token punctuation">.</span>cache <span class="token keyword">import</span> RedisCache
+</span><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span><span class="token builtin">globals</span> <span class="token keyword">import</span> set_llm_cache
+</span><span class="code-line"><span class="token keyword">import</span> redis
+</span><span class="code-line">
+</span><span class="code-line">redis_client <span class="token operator">=</span> redis<span class="token punctuation">.</span>Redis<span class="token punctuation">.</span>from_url<span class="token punctuation">(</span><span class="token string">"redis://localhost:6379"</span><span class="token punctuation">)</span>
+</span><span class="code-line">set_llm_cache<span class="token punctuation">(</span>RedisCache<span class="token punctuation">(</span>redis_client<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>2. Async Batch Processing</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> asyncio
+</span><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>documents <span class="token keyword">import</span> Document
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">process_documents</span><span class="token punctuation">(</span>documents<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span>Document<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">list</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Process documents in parallel."""</span>
+</span><span class="code-line">    tasks <span class="token operator">=</span> <span class="token punctuation">[</span>process_single<span class="token punctuation">(</span>doc<span class="token punctuation">)</span> <span class="token keyword">for</span> doc <span class="token keyword">in</span> documents<span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>gather<span class="token punctuation">(</span><span class="token operator">*</span>tasks<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">process_single</span><span class="token punctuation">(</span>doc<span class="token punctuation">:</span> Document<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Process a single document."""</span>
+</span><span class="code-line">    chunks <span class="token operator">=</span> text_splitter<span class="token punctuation">.</span>split_documents<span class="token punctuation">(</span><span class="token punctuation">[</span>doc<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    embeddings <span class="token operator">=</span> <span class="token keyword">await</span> embeddings_model<span class="token punctuation">.</span>aembed_documents<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token punctuation">[</span>c<span class="token punctuation">.</span>page_content <span class="token keyword">for</span> c <span class="token keyword">in</span> chunks<span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"doc_id"</span><span class="token punctuation">:</span> doc<span class="token punctuation">.</span>metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"embeddings"</span><span class="token punctuation">:</span> embeddings<span class="token punctuation">}</span>
+</span></code></pre>
+<h3>3. Connection Pooling</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_pinecone <span class="token keyword">import</span> PineconeVectorStore
+</span><span class="code-line"><span class="token keyword">from</span> pinecone <span class="token keyword">import</span> Pinecone
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Reuse Pinecone client</span>
+</span><span class="code-line">pc <span class="token operator">=</span> Pinecone<span class="token punctuation">(</span>api_key<span class="token operator">=</span>os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"PINECONE_API_KEY"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">index <span class="token operator">=</span> pc<span class="token punctuation">.</span>Index<span class="token punctuation">(</span><span class="token string">"my-index"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create vector store with existing index</span>
+</span><span class="code-line">vectorstore <span class="token operator">=</span> PineconeVectorStore<span class="token punctuation">(</span>index<span class="token operator">=</span>index<span class="token punctuation">,</span> embedding<span class="token operator">=</span>embeddings<span class="token punctuation">)</span>
+</span></code></pre></div>

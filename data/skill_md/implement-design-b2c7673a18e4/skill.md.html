@@ -1,0 +1,186 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Implement Design</h1>
+<h2>Overview</h2>
+<p>This skill provides a structured workflow for translating Figma designs into production-ready code with pixel-perfect accuracy. It ensures consistent integration with the Figma MCP server, proper use of design tokens, and 1:1 visual parity with designs.</p>
+<h2>Prerequisites</h2>
+<ul>
+<li>Figma MCP server must be connected and accessible
+<ul>
+<li>Before proceeding, verify the Figma MCP server is connected by checking if Figma MCP tools (e.g., <code>get_design_context</code>) are available.</li>
+<li>If the tools are not available, the Figma MCP server may not be enabled. Guide the user to enable the Figma MCP server that is included with the plugin. They may need to restart their MCP client afterward.</li>
+</ul>
+</li>
+<li>User must provide a Figma URL in the format: <code>https://figma.com/design/:fileKey/:fileName?node-id=1-2</code>
+<ul>
+<li><code>:fileKey</code> is the file key</li>
+<li><code>1-2</code> is the node ID (the specific component or frame to implement)</li>
+</ul>
+</li>
+<li>Project should have an established design system or component library (preferred)</li>
+</ul>
+<h2>Required Workflow</h2>
+<p><strong>Follow these steps in order. Do not skip steps.</strong></p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Step 1: Get Node ID</h3>
+<h4>Option A: Parse from Figma URL</h4>
+<p>When the user provides a Figma URL, extract the file key and node ID to pass as arguments to MCP tools.</p>
+<p><strong>URL format:</strong> <code>https://figma.com/design/:fileKey/:fileName?node-id=1-2</code></p>
+<p><strong>Extract:</strong></p>
+<ul>
+<li><strong>File key:</strong> <code>:fileKey</code> (the segment after <code>/design/</code>)</li>
+<li><strong>Node ID:</strong> <code>1-2</code> (the value of the <code>node-id</code> query parameter)</li>
+</ul>
+<p><strong>Example:</strong></p>
+<ul>
+<li>URL: <code>https://figma.com/design/kL9xQn2VwM8pYrTb4ZcHjF/DesignSystem?node-id=42-15</code></li>
+<li>File key: <code>kL9xQn2VwM8pYrTb4ZcHjF</code></li>
+<li>Node ID: <code>42-15</code></li>
+</ul>
+<h3>Step 2: Fetch Design Context</h3>
+<p>Run <code>get_design_context</code> with the extracted file key and node ID.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">get_design_context(fileKey=":fileKey", nodeId="1-2")
+</span></code></pre>
+<p>This provides the structured data including:</p>
+<ul>
+<li>Layout properties (Auto Layout, constraints, sizing)</li>
+<li>Typography specifications</li>
+<li>Color values and design tokens</li>
+<li>Component structure and variants</li>
+<li>Spacing and padding values</li>
+</ul>
+<p><strong>If the response is too large or truncated:</strong></p>
+<ol>
+<li>Run <code>get_metadata(fileKey=":fileKey", nodeId="1-2")</code> to get the high-level node map</li>
+<li>Identify the specific child nodes needed from the metadata</li>
+<li>Fetch individual child nodes with <code>get_design_context(fileKey=":fileKey", nodeId=":childNodeId")</code></li>
+</ol>
+<h3>Step 3: Capture Visual Reference</h3>
+<p>Run <code>get_screenshot</code> with the same file key and node ID for a visual reference.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">get_screenshot(fileKey=":fileKey", nodeId="1-2")
+</span></code></pre>
+<p>This screenshot serves as the source of truth for visual validation. Keep it accessible throughout implementation.</p>
+<h3>Step 4: Download Required Assets</h3>
+<p>Download any assets (images, icons, SVGs) returned by the Figma MCP server.</p>
+<p><strong>IMPORTANT:</strong> Follow these asset rules:</p>
+<ul>
+<li>If the Figma MCP server returns a <code>localhost</code> source for an image or SVG, use that source directly</li>
+<li>DO NOT import or add new icon packages - all assets should come from the Figma payload</li>
+<li>DO NOT use or create placeholders if a <code>localhost</code> source is provided</li>
+<li>Assets are served through the Figma MCP server's built-in assets endpoint</li>
+</ul>
+<h3>Step 5: Translate to Project Conventions</h3>
+<p>Translate the Figma output into this project's framework, styles, and conventions.</p>
+<p><strong>Key principles:</strong></p>
+<ul>
+<li>Treat the Figma MCP output (typically React + Tailwind) as a representation of design and behavior, not as final code style</li>
+<li>Replace Tailwind utility classes with the project's preferred utilities or design system tokens</li>
+<li>Reuse existing components (buttons, inputs, typography, icon wrappers) instead of duplicating functionality</li>
+<li>Use the project's color system, typography scale, and spacing tokens consistently</li>
+<li>Respect existing routing, state management, and data-fetch patterns</li>
+</ul>
+<h3>Step 6: Achieve 1:1 Visual Parity</h3>
+<p>Strive for pixel-perfect visual parity with the Figma design.</p>
+<p><strong>Guidelines:</strong></p>
+<ul>
+<li>Prioritize Figma fidelity to match designs exactly</li>
+<li>Avoid hardcoded values - use design tokens from Figma where available</li>
+<li>When conflicts arise between design system tokens and Figma specs, prefer design system tokens but adjust spacing or sizes minimally to match visuals</li>
+<li>Follow WCAG requirements for accessibility</li>
+<li>Add component documentation as needed</li>
+</ul>
+<h3>Step 7: Validate Against Figma</h3>
+<p>Before marking complete, validate the final UI against the Figma screenshot.</p>
+<p><strong>Validation checklist:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Layout matches (spacing, alignment, sizing)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Typography matches (font, size, weight, line height)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Colors match exactly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Interactive states work as designed (hover, active, disabled)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Responsive behavior follows Figma constraints</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Assets render correctly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Accessibility standards met</li>
+</ul>
+<h2>Implementation Rules</h2>
+<h3>Component Organization</h3>
+<ul>
+<li>Place UI components in the project's designated design system directory</li>
+<li>Follow the project's component naming conventions</li>
+<li>Avoid inline styles unless truly necessary for dynamic values</li>
+</ul>
+<h3>Design System Integration</h3>
+<ul>
+<li>ALWAYS use components from the project's design system when possible</li>
+<li>Map Figma design tokens to project design tokens</li>
+<li>When a matching component exists, extend it rather than creating a new one</li>
+<li>Document any new components added to the design system</li>
+</ul>
+<h3>Code Quality</h3>
+<ul>
+<li>Avoid hardcoded values - extract to constants or design tokens</li>
+<li>Keep components composable and reusable</li>
+<li>Add TypeScript types for component props</li>
+<li>Include JSDoc comments for exported components</li>
+</ul>
+<h2>Examples</h2>
+<h3>Example 1: Implementing a Button Component</h3>
+<p>User says: "Implement this Figma button component: <a href="https://figma.com/design/kL9xQn2VwM8pYrTb4ZcHjF/DesignSystem?node-id=42-15" target="_blank" rel="ugc nofollow noopener">https://figma.com/design/kL9xQn2VwM8pYrTb4ZcHjF/DesignSystem?node-id=42-15</a>"</p>
+<p><strong>Actions:</strong></p>
+<ol>
+<li>Parse URL to extract fileKey=<code>kL9xQn2VwM8pYrTb4ZcHjF</code> and nodeId=<code>42-15</code></li>
+<li>Run <code>get_design_context(fileKey="kL9xQn2VwM8pYrTb4ZcHjF", nodeId="42-15")</code></li>
+<li>Run <code>get_screenshot(fileKey="kL9xQn2VwM8pYrTb4ZcHjF", nodeId="42-15")</code> for visual reference</li>
+<li>Download any button icons from the assets endpoint</li>
+<li>Check if project has existing button component</li>
+<li>If yes, extend it with new variant; if no, create new component using project conventions</li>
+<li>Map Figma colors to project design tokens (e.g., <code>primary-500</code>, <code>primary-hover</code>)</li>
+<li>Validate against screenshot for padding, border radius, typography</li>
+</ol>
+<p><strong>Result:</strong> Button component matching Figma design, integrated with project design system.</p>
+<h3>Example 2: Building a Dashboard Layout</h3>
+<p>User says: "Build this dashboard: <a href="https://figma.com/design/pR8mNv5KqXzGwY2JtCfL4D/Dashboard?node-id=10-5" target="_blank" rel="ugc nofollow noopener">https://figma.com/design/pR8mNv5KqXzGwY2JtCfL4D/Dashboard?node-id=10-5</a>"</p>
+<p><strong>Actions:</strong></p>
+<ol>
+<li>Parse URL to extract fileKey=<code>pR8mNv5KqXzGwY2JtCfL4D</code> and nodeId=<code>10-5</code></li>
+<li>Run <code>get_metadata(fileKey="pR8mNv5KqXzGwY2JtCfL4D", nodeId="10-5")</code> to understand the page structure</li>
+<li>Identify main sections from metadata (header, sidebar, content area, cards) and their child node IDs</li>
+<li>Run <code>get_design_context(fileKey="pR8mNv5KqXzGwY2JtCfL4D", nodeId=":childNodeId")</code> for each major section</li>
+<li>Run <code>get_screenshot(fileKey="pR8mNv5KqXzGwY2JtCfL4D", nodeId="10-5")</code> for the full page</li>
+<li>Download all assets (logos, icons, charts)</li>
+<li>Build layout using project's layout primitives</li>
+<li>Implement each section using existing components where possible</li>
+<li>Validate responsive behavior against Figma constraints</li>
+</ol>
+<p><strong>Result:</strong> Complete dashboard matching Figma design with responsive layout.</p>
+<h2>Best Practices</h2>
+<h3>Always Start with Context</h3>
+<p>Never implement based on assumptions. Always fetch <code>get_design_context</code> and <code>get_screenshot</code> first.</p>
+<h3>Incremental Validation</h3>
+<p>Validate frequently during implementation, not just at the end. This catches issues early.</p>
+<h3>Document Deviations</h3>
+<p>If you must deviate from the Figma design (e.g., for accessibility or technical constraints), document why in code comments.</p>
+<h3>Reuse Over Recreation</h3>
+<p>Always check for existing components before creating new ones. Consistency across the codebase is more important than exact Figma replication.</p>
+<h3>Design System First</h3>
+<p>When in doubt, prefer the project's design system patterns over literal Figma translation.</p>
+<h2>Common Issues and Solutions</h2>
+<h3>Issue: Figma output is truncated</h3>
+<p><strong>Cause:</strong> The design is too complex or has too many nested layers to return in a single response.
+<strong>Solution:</strong> Use <code>get_metadata</code> to get the node structure, then fetch specific nodes individually with <code>get_design_context</code>.</p>
+<h3>Issue: Design doesn't match after implementation</h3>
+<p><strong>Cause:</strong> Visual discrepancies between the implemented code and the original Figma design.
+<strong>Solution:</strong> Compare side-by-side with the screenshot from Step 3. Check spacing, colors, and typography values in the design context data.</p>
+<h3>Issue: Assets not loading</h3>
+<p><strong>Cause:</strong> The Figma MCP server's assets endpoint is not accessible or the URLs are being modified.
+<strong>Solution:</strong> Verify the Figma MCP server's assets endpoint is accessible. The server serves assets at <code>localhost</code> URLs. Use these directly without modification.</p>
+<h3>Issue: Design token values differ from Figma</h3>
+<p><strong>Cause:</strong> The project's design system tokens have different values than those specified in the Figma design.
+<strong>Solution:</strong> When project tokens differ from Figma values, prefer project tokens for consistency but adjust spacing/sizing to maintain visual fidelity.</p>
+<h2>Understanding Design Implementation</h2>
+<p>The Figma implementation workflow establishes a reliable process for translating designs to code:</p>
+<p><strong>For designers:</strong> Confidence that implementations will match their designs with pixel-perfect accuracy.
+<strong>For developers:</strong> A structured approach that eliminates guesswork and reduces back-and-forth revisions.
+<strong>For teams:</strong> Consistent, high-quality implementations that maintain design system integrity.</p>
+<p>By following this workflow, you ensure that every Figma design is implemented with the same level of care and attention to detail.</p>
+<h2>Additional Resources</h2>
+<ul>
+<li><a href="https://developers.figma.com/docs/figma-mcp-server/" target="_blank" rel="ugc nofollow noopener">Figma MCP Server Documentation</a></li>
+<li><a href="https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/" target="_blank" rel="ugc nofollow noopener">Figma MCP Server Tools and Prompts</a></li>
+<li><a href="https://help.figma.com/hc/en-us/articles/15339657135383-Guide-to-variables-in-Figma" target="_blank" rel="ugc nofollow noopener">Figma Variables and Design Tokens</a></li>
+</ul></div>

@@ -1,0 +1,450 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Helm Chart Scaffolding</h1>
+<p>Comprehensive guidance for creating, organizing, and managing Helm charts for packaging and deploying Kubernetes applications.</p>
+<h2>Purpose</h2>
+<p>This skill provides step-by-step instructions for building production-ready Helm charts, including chart structure, templating patterns, values management, and validation strategies.</p>
+<h2>When to Use This Skill</h2>
+<p>Use this skill when you need to:</p>
+<ul>
+<li>Create new Helm charts from scratch</li>
+<li>Package Kubernetes applications for distribution</li>
+<li>Manage multi-environment deployments with Helm</li>
+<li>Implement templating for reusable Kubernetes manifests</li>
+<li>Set up Helm chart repositories</li>
+<li>Follow Helm best practices and conventions</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Helm Overview</h2>
+<p><strong>Helm</strong> is the package manager for Kubernetes that:</p>
+<ul>
+<li>Templates Kubernetes manifests for reusability</li>
+<li>Manages application releases and rollbacks</li>
+<li>Handles dependencies between charts</li>
+<li>Provides version control for deployments</li>
+<li>Simplifies configuration management across environments</li>
+</ul>
+<h2>Step-by-Step Workflow</h2>
+<h3>1. Initialize Chart Structure</h3>
+<p><strong>Create new chart:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm create my-app
+</span></code></pre>
+<p><strong>Standard chart structure:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my-app/
+</span><span class="code-line">├── Chart.yaml           # Chart metadata
+</span><span class="code-line">├── values.yaml          # Default configuration values
+</span><span class="code-line">├── charts/              # Chart dependencies
+</span><span class="code-line">├── templates/           # Kubernetes manifest templates
+</span><span class="code-line">│   ├── NOTES.txt       # Post-install notes
+</span><span class="code-line">│   ├── _helpers.tpl    # Template helpers
+</span><span class="code-line">│   ├── deployment.yaml
+</span><span class="code-line">│   ├── service.yaml
+</span><span class="code-line">│   ├── ingress.yaml
+</span><span class="code-line">│   ├── serviceaccount.yaml
+</span><span class="code-line">│   ├── hpa.yaml
+</span><span class="code-line">│   └── tests/
+</span><span class="code-line">│       └── test-connection.yaml
+</span><span class="code-line">└── .helmignore         # Files to ignore
+</span></code></pre>
+<h3>2. Configure Chart.yaml</h3>
+<p><strong>Chart metadata defines the package:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v2
+</span><span class="code-line"><span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line"><span class="token key atrule">description</span><span class="token punctuation">:</span> A Helm chart for My Application
+</span><span class="code-line"><span class="token key atrule">type</span><span class="token punctuation">:</span> application
+</span><span class="code-line"><span class="token key atrule">version</span><span class="token punctuation">:</span> 1.0.0 <span class="token comment"># Chart version</span>
+</span><span class="code-line"><span class="token key atrule">appVersion</span><span class="token punctuation">:</span> <span class="token string">"2.1.0"</span> <span class="token comment"># Application version</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Keywords for chart discovery</span>
+</span><span class="code-line"><span class="token key atrule">keywords</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> web
+</span><span class="code-line">  <span class="token punctuation">-</span> api
+</span><span class="code-line">  <span class="token punctuation">-</span> backend
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Maintainer information</span>
+</span><span class="code-line"><span class="token key atrule">maintainers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> DevOps Team
+</span><span class="code-line">    <span class="token key atrule">email</span><span class="token punctuation">:</span> devops@example.com
+</span><span class="code-line">    <span class="token key atrule">url</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//github.com/example/my<span class="token punctuation">-</span>app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Source code repository</span>
+</span><span class="code-line"><span class="token key atrule">sources</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> https<span class="token punctuation">:</span>//github.com/example/my<span class="token punctuation">-</span>app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Homepage</span>
+</span><span class="code-line"><span class="token key atrule">home</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//example.com
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Chart icon</span>
+</span><span class="code-line"><span class="token key atrule">icon</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//example.com/icon.png
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dependencies</span>
+</span><span class="code-line"><span class="token key atrule">dependencies</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> postgresql
+</span><span class="code-line">    <span class="token key atrule">version</span><span class="token punctuation">:</span> <span class="token string">"12.0.0"</span>
+</span><span class="code-line">    <span class="token key atrule">repository</span><span class="token punctuation">:</span> <span class="token string">"https://charts.bitnami.com/bitnami"</span>
+</span><span class="code-line">    <span class="token key atrule">condition</span><span class="token punctuation">:</span> postgresql.enabled
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> redis
+</span><span class="code-line">    <span class="token key atrule">version</span><span class="token punctuation">:</span> <span class="token string">"17.0.0"</span>
+</span><span class="code-line">    <span class="token key atrule">repository</span><span class="token punctuation">:</span> <span class="token string">"https://charts.bitnami.com/bitnami"</span>
+</span><span class="code-line">    <span class="token key atrule">condition</span><span class="token punctuation">:</span> redis.enabled
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>assets/Chart.yaml.template</code> for complete example</p>
+<h3>3. Design values.yaml Structure</h3>
+<p><strong>Organize values hierarchically:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># Image configuration</span>
+</span><span class="code-line"><span class="token key atrule">image</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">repository</span><span class="token punctuation">:</span> myapp
+</span><span class="code-line">  <span class="token key atrule">tag</span><span class="token punctuation">:</span> <span class="token string">"1.0.0"</span>
+</span><span class="code-line">  <span class="token key atrule">pullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Number of replicas</span>
+</span><span class="code-line"><span class="token key atrule">replicaCount</span><span class="token punctuation">:</span> <span class="token number">3</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Service configuration</span>
+</span><span class="code-line"><span class="token key atrule">service</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> ClusterIP
+</span><span class="code-line">  <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">80</span>
+</span><span class="code-line">  <span class="token key atrule">targetPort</span><span class="token punctuation">:</span> <span class="token number">8080</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Ingress configuration</span>
+</span><span class="code-line"><span class="token key atrule">ingress</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span><span class="code-line">  <span class="token key atrule">className</span><span class="token punctuation">:</span> nginx
+</span><span class="code-line">  <span class="token key atrule">hosts</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">host</span><span class="token punctuation">:</span> app.example.com
+</span><span class="code-line">      <span class="token key atrule">paths</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">path</span><span class="token punctuation">:</span> /
+</span><span class="code-line">          <span class="token key atrule">pathType</span><span class="token punctuation">:</span> Prefix
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Resources</span>
+</span><span class="code-line"><span class="token key atrule">resources</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">requests</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">memory</span><span class="token punctuation">:</span> <span class="token string">"256Mi"</span>
+</span><span class="code-line">    <span class="token key atrule">cpu</span><span class="token punctuation">:</span> <span class="token string">"250m"</span>
+</span><span class="code-line">  <span class="token key atrule">limits</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">memory</span><span class="token punctuation">:</span> <span class="token string">"512Mi"</span>
+</span><span class="code-line">    <span class="token key atrule">cpu</span><span class="token punctuation">:</span> <span class="token string">"500m"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Autoscaling</span>
+</span><span class="code-line"><span class="token key atrule">autoscaling</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span><span class="code-line">  <span class="token key atrule">minReplicas</span><span class="token punctuation">:</span> <span class="token number">2</span>
+</span><span class="code-line">  <span class="token key atrule">maxReplicas</span><span class="token punctuation">:</span> <span class="token number">10</span>
+</span><span class="code-line">  <span class="token key atrule">targetCPUUtilizationPercentage</span><span class="token punctuation">:</span> <span class="token number">80</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Environment variables</span>
+</span><span class="code-line"><span class="token key atrule">env</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> LOG_LEVEL
+</span><span class="code-line">    <span class="token key atrule">value</span><span class="token punctuation">:</span> <span class="token string">"info"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ConfigMap data</span>
+</span><span class="code-line"><span class="token key atrule">configMap</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">APP_MODE</span><span class="token punctuation">:</span> production
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dependencies</span>
+</span><span class="code-line"><span class="token key atrule">postgresql</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">auth</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">database</span><span class="token punctuation">:</span> myapp
+</span><span class="code-line">    <span class="token key atrule">username</span><span class="token punctuation">:</span> myapp
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">redis</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>assets/values.yaml.template</code> for complete structure</p>
+<h3>4. Create Template Files</h3>
+<p><strong>Use Go templating with Helm functions:</strong></p>
+<p><strong>templates/deployment.yaml:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> apps/v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Deployment
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.fullname" . <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> include "my<span class="token punctuation">-</span>app.labels" . <span class="token punctuation">|</span> nindent 4 <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> if not .Values.autoscaling.enabled <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">replicas</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Values.replicaCount <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">selector</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">matchLabels</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> include "my<span class="token punctuation">-</span>app.selectorLabels" . <span class="token punctuation">|</span> nindent 6 <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">template</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> include "my<span class="token punctuation">-</span>app.selectorLabels" . <span class="token punctuation">|</span> nindent 8 <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Chart.Name <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">image</span><span class="token punctuation">:</span> <span class="token string">"{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"</span>
+</span><span class="code-line">        <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Values.image.pullPolicy <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
+</span><span class="code-line">          <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Values.service.targetPort <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">resources</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> toYaml .Values.resources <span class="token punctuation">|</span> nindent 12 <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">env</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> toYaml .Values.env <span class="token punctuation">|</span> nindent 12 <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>5. Create Template Helpers</h3>
+<p><strong>templates/_helpers.tpl:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span>/*
+</span><span class="code-line">Expand the name of the chart.
+</span><span class="code-line"><span class="token important">*/</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> define "my<span class="token punctuation">-</span>app.name" <span class="token punctuation">-</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> default .Chart.Name .Values.nameOverride <span class="token punctuation">|</span> trunc 63 <span class="token punctuation">|</span> trimSuffix "<span class="token punctuation">-</span>" <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span>/*
+</span><span class="code-line">Create a default fully qualified app name.
+</span><span class="code-line"><span class="token important">*/</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> define "my<span class="token punctuation">-</span>app.fullname" <span class="token punctuation">-</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> if .Values.fullnameOverride <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> .Values.fullnameOverride <span class="token punctuation">|</span> trunc 63 <span class="token punctuation">|</span> trimSuffix "<span class="token punctuation">-</span>" <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> else <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> $name <span class="token punctuation">:</span>= default .Chart.Name .Values.nameOverride <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> if contains $name .Release.Name <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> .Release.Name <span class="token punctuation">|</span> trunc 63 <span class="token punctuation">|</span> trimSuffix "<span class="token punctuation">-</span>" <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> else <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> printf "%s<span class="token punctuation">-</span>%s" .Release.Name $name <span class="token punctuation">|</span> trunc 63 <span class="token punctuation">|</span> trimSuffix "<span class="token punctuation">-</span>" <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span>/*
+</span><span class="code-line">Common labels
+</span><span class="code-line"><span class="token important">*/</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> define "my<span class="token punctuation">-</span>app.labels" <span class="token punctuation">-</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">helm.sh/chart</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.chart" . <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.selectorLabels" . <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> if .Chart.AppVersion <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">app.kubernetes.io/version</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Chart.AppVersion <span class="token punctuation">|</span> quote <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">app.kubernetes.io/managed-by</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Release.Service <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span>/*
+</span><span class="code-line">Selector labels
+</span><span class="code-line"><span class="token important">*/</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> define "my<span class="token punctuation">-</span>app.selectorLabels" <span class="token punctuation">-</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">app.kubernetes.io/name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.name" . <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">app.kubernetes.io/instance</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Release.Name <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>6. Manage Dependencies</h3>
+<p><strong>Add dependencies in Chart.yaml:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">dependencies</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> postgresql
+</span><span class="code-line">    <span class="token key atrule">version</span><span class="token punctuation">:</span> <span class="token string">"12.0.0"</span>
+</span><span class="code-line">    <span class="token key atrule">repository</span><span class="token punctuation">:</span> <span class="token string">"https://charts.bitnami.com/bitnami"</span>
+</span><span class="code-line">    <span class="token key atrule">condition</span><span class="token punctuation">:</span> postgresql.enabled
+</span></code></pre>
+<p><strong>Update dependencies:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm dependency update
+</span><span class="code-line">helm dependency build
+</span></code></pre>
+<p><strong>Override dependency values:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># values.yaml</span>
+</span><span class="code-line"><span class="token key atrule">postgresql</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">auth</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">database</span><span class="token punctuation">:</span> myapp
+</span><span class="code-line">    <span class="token key atrule">username</span><span class="token punctuation">:</span> myapp
+</span><span class="code-line">    <span class="token key atrule">password</span><span class="token punctuation">:</span> changeme
+</span><span class="code-line">  <span class="token key atrule">primary</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">persistence</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">      <span class="token key atrule">size</span><span class="token punctuation">:</span> 10Gi
+</span></code></pre>
+<h3>7. Test and Validate</h3>
+<p><strong>Validation commands:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Lint the chart</span>
+</span><span class="code-line">helm lint my-app/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dry-run installation</span>
+</span><span class="code-line">helm <span class="token function">install</span> my-app ./my-app --dry-run <span class="token parameter variable">--debug</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Template rendering</span>
+</span><span class="code-line">helm template my-app ./my-app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Template with values</span>
+</span><span class="code-line">helm template my-app ./my-app <span class="token parameter variable">-f</span> values-prod.yaml
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Show computed values</span>
+</span><span class="code-line">helm show values ./my-app
+</span></code></pre>
+<p><strong>Validation script:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line"><span class="token builtin class-name">set</span> <span class="token parameter variable">-e</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"Linting chart..."</span>
+</span><span class="code-line">helm lint <span class="token builtin class-name">.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"Testing template rendering..."</span>
+</span><span class="code-line">helm template test-release <span class="token builtin class-name">.</span> --dry-run
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"Checking for required values..."</span>
+</span><span class="code-line">helm template test-release <span class="token builtin class-name">.</span> <span class="token parameter variable">--validate</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"All validations passed!"</span>
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>scripts/validate-chart.sh</code></p>
+<h3>8. Package and Distribute</h3>
+<p><strong>Package the chart:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm package my-app/
+</span><span class="code-line"><span class="token comment"># Creates: my-app-1.0.0.tgz</span>
+</span></code></pre>
+<p><strong>Create chart repository:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create index</span>
+</span><span class="code-line">helm repo index <span class="token builtin class-name">.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Upload to repository</span>
+</span><span class="code-line"><span class="token comment"># AWS S3 example</span>
+</span><span class="code-line">aws s3 <span class="token function">sync</span> <span class="token builtin class-name">.</span> s3://my-helm-charts/ <span class="token parameter variable">--exclude</span> <span class="token string">"*"</span> <span class="token parameter variable">--include</span> <span class="token string">"*.tgz"</span> <span class="token parameter variable">--include</span> <span class="token string">"index.yaml"</span>
+</span></code></pre>
+<p><strong>Use the chart:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm repo <span class="token function">add</span> my-repo https://charts.example.com
+</span><span class="code-line">helm repo update
+</span><span class="code-line">helm <span class="token function">install</span> my-app my-repo/my-app
+</span></code></pre>
+<h3>9. Multi-Environment Configuration</h3>
+<p><strong>Environment-specific values files:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my-app/
+</span><span class="code-line">├── values.yaml          # Defaults
+</span><span class="code-line">├── values-dev.yaml      # Development
+</span><span class="code-line">├── values-staging.yaml  # Staging
+</span><span class="code-line">└── values-prod.yaml     # Production
+</span></code></pre>
+<p><strong>values-prod.yaml:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">replicaCount</span><span class="token punctuation">:</span> <span class="token number">5</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">image</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">tag</span><span class="token punctuation">:</span> <span class="token string">"2.1.0"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">resources</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">requests</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">memory</span><span class="token punctuation">:</span> <span class="token string">"512Mi"</span>
+</span><span class="code-line">    <span class="token key atrule">cpu</span><span class="token punctuation">:</span> <span class="token string">"500m"</span>
+</span><span class="code-line">  <span class="token key atrule">limits</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">memory</span><span class="token punctuation">:</span> <span class="token string">"1Gi"</span>
+</span><span class="code-line">    <span class="token key atrule">cpu</span><span class="token punctuation">:</span> <span class="token string">"1000m"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">autoscaling</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">minReplicas</span><span class="token punctuation">:</span> <span class="token number">3</span>
+</span><span class="code-line">  <span class="token key atrule">maxReplicas</span><span class="token punctuation">:</span> <span class="token number">20</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">ingress</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">hosts</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">host</span><span class="token punctuation">:</span> app.example.com
+</span><span class="code-line">      <span class="token key atrule">paths</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">path</span><span class="token punctuation">:</span> /
+</span><span class="code-line">          <span class="token key atrule">pathType</span><span class="token punctuation">:</span> Prefix
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">postgresql</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">primary</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">persistence</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">size</span><span class="token punctuation">:</span> 100Gi
+</span></code></pre>
+<p><strong>Install with environment:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm <span class="token function">install</span> my-app ./my-app <span class="token parameter variable">-f</span> values-prod.yaml <span class="token parameter variable">--namespace</span> production
+</span></code></pre>
+<h3>10. Implement Hooks and Tests</h3>
+<p><strong>Pre-install hook:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># templates/pre-install-job.yaml</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> batch/v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Job
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.fullname" . <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token punctuation">-</span>db<span class="token punctuation">-</span>setup
+</span><span class="code-line">  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">"helm.sh/hook"</span><span class="token punctuation">:</span> pre<span class="token punctuation">-</span>install
+</span><span class="code-line">    <span class="token key atrule">"helm.sh/hook-weight"</span><span class="token punctuation">:</span> <span class="token string">"-5"</span>
+</span><span class="code-line">    <span class="token key atrule">"helm.sh/hook-delete-policy"</span><span class="token punctuation">:</span> hook<span class="token punctuation">-</span>succeeded
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">template</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> db<span class="token punctuation">-</span>setup
+</span><span class="code-line">        <span class="token key atrule">image</span><span class="token punctuation">:</span> postgres<span class="token punctuation">:</span><span class="token number">15</span>
+</span><span class="code-line">        <span class="token key atrule">command</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"psql"</span><span class="token punctuation">,</span> <span class="token string">"-c"</span><span class="token punctuation">,</span> <span class="token string">"CREATE DATABASE myapp"</span><span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token key atrule">restartPolicy</span><span class="token punctuation">:</span> Never
+</span></code></pre>
+<p><strong>Test connection:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># templates/tests/test-connection.yaml</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> "<span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.fullname" . <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token punctuation">-</span>test<span class="token punctuation">-</span>connection"
+</span><span class="code-line">  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">"helm.sh/hook"</span><span class="token punctuation">:</span> test
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> wget
+</span><span class="code-line">    <span class="token key atrule">image</span><span class="token punctuation">:</span> busybox
+</span><span class="code-line">    <span class="token key atrule">command</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">'wget'</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token key atrule">args</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">'{{ include "my-app.fullname" . }}:{{ .Values.service.port }}'</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token key atrule">restartPolicy</span><span class="token punctuation">:</span> Never
+</span></code></pre>
+<p><strong>Run tests:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm <span class="token builtin class-name">test</span> my-app
+</span></code></pre>
+<h2>Common Patterns</h2>
+<h3>Pattern 1: Conditional Resources</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> if .Values.ingress.enabled <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> networking.k8s.io/v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Ingress
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> include "my<span class="token punctuation">-</span>app.fullname" . <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token comment"># ...</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern 2: Iterating Over Lists</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">env</span><span class="token punctuation">:</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> range .Values.env <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .name <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">value</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .value <span class="token punctuation">|</span> quote <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">{</span><span class="token punctuation">-</span> end <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern 3: Including Files</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">config.yaml</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">    {{- .Files.Get "config/application.yaml" | nindent 4 }}</span>
+</span></code></pre>
+<h3>Pattern 4: Global Values</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">global</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">imageRegistry</span><span class="token punctuation">:</span> docker.io
+</span><span class="code-line">  <span class="token key atrule">imagePullSecrets</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> regcred
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use in templates:</span>
+</span><span class="code-line"><span class="token key atrule">image</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">{</span> .Values.global.imageRegistry <span class="token punctuation">}</span><span class="token punctuation">}</span>/<span class="token punctuation">{</span><span class="token punctuation">{</span> .Values.image.repository <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Use semantic versioning</strong> for chart and app versions</li>
+<li><strong>Document all values</strong> in values.yaml with comments</li>
+<li><strong>Use template helpers</strong> for repeated logic</li>
+<li><strong>Validate charts</strong> before packaging</li>
+<li><strong>Pin dependency versions</strong> explicitly</li>
+<li><strong>Use conditions</strong> for optional resources</li>
+<li><strong>Follow naming conventions</strong> (lowercase, hyphens)</li>
+<li><strong>Include NOTES.txt</strong> with usage instructions</li>
+<li><strong>Add labels</strong> consistently using helpers</li>
+<li><strong>Test installations</strong> in all environments</li>
+</ol>
+<h2>Troubleshooting</h2>
+<p><strong>Template rendering errors:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm template my-app ./my-app <span class="token parameter variable">--debug</span>
+</span></code></pre>
+<p><strong>Dependency issues:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm dependency update
+</span><span class="code-line">helm dependency list
+</span></code></pre>
+<p><strong>Installation failures:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">helm <span class="token function">install</span> my-app ./my-app --dry-run <span class="token parameter variable">--debug</span>
+</span><span class="code-line">kubectl get events --sort-by<span class="token operator">=</span><span class="token string">'.lastTimestamp'</span>
+</span></code></pre>
+<h2>Related Skills</h2>
+<ul>
+<li><code>k8s-manifest-generator</code> - For creating base Kubernetes manifests</li>
+<li><code>gitops-workflow</code> - For automated Helm chart deployments</li>
+</ul></div>

@@ -1,0 +1,141 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Lesson Learned</h1>
+<p>Extract specific, grounded software engineering lessons from actual code changes. Not a lecture -- a mirror. Show the user what their code already demonstrates.</p>
+<h2>Before You Begin</h2>
+<p><strong>Load the principles reference first.</strong></p>
+<ol>
+<li>Read <code>references/se-principles.md</code> to have the principle catalog available</li>
+<li>Optionally read <code>references/anti-patterns.md</code> if you suspect the changes include areas for improvement</li>
+<li>Determine the scope of analysis (see Phase 1)</li>
+</ol>
+<p><strong>Do not proceed until you've loaded at least <code>se-principles.md</code>.</strong></p>
+<h2>Phase 1: Determine Scope</h2>
+<p>Ask the user or infer from context what to analyze.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Git Commands</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature branch</td>
+<td><code>git log main..HEAD --oneline</code> + <code>git diff main...HEAD</code></td>
+<td>User is on a non-main branch (default)</td>
+</tr>
+<tr>
+<td>Last N commits</td>
+<td><code>git log --oneline -N</code> + <code>git diff HEAD~N..HEAD</code></td>
+<td>User specifies a range, or on main (default N=5)</td>
+</tr>
+<tr>
+<td>Specific commit</td>
+<td><code>git show &lt;sha&gt;</code></td>
+<td>User references a specific commit</td>
+</tr>
+<tr>
+<td>Working changes</td>
+<td><code>git diff</code> + <code>git diff --cached</code></td>
+<td>User says "what about these changes?" before committing</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Default behavior:</strong></p>
+<ul>
+<li>If on a feature branch: analyze branch commits vs main</li>
+<li>If on main: analyze the last 5 commits</li>
+<li>If the user provides a different scope, use that</li>
+</ul>
+<h2>Phase 2: Gather Changes</h2>
+<ol>
+<li>Run <code>git log</code> with the determined scope to get the commit list and messages</li>
+<li>Run <code>git diff</code> for the full diff of the scope</li>
+<li>If the diff is large (&gt;500 lines), use <code>git diff --stat</code> first, then selectively read the top 3-5 most-changed files</li>
+<li><strong>Read commit messages carefully</strong> -- they contain intent that raw diffs miss</li>
+<li>Only read changed files. Do not read the entire repo.</li>
+</ol>
+<h2>Phase 3: Analyze</h2>
+<p>Identify the <strong>dominant pattern</strong> -- the single most instructive thing about these changes.</p>
+<p>Look for:</p>
+<ul>
+<li><strong>Structural decisions</strong> -- How was the code organized? Why those boundaries?</li>
+<li><strong>Trade-offs made</strong> -- What was gained vs. sacrificed? (readability vs. performance, DRY vs. clarity, speed vs. correctness)</li>
+<li><strong>Problems solved</strong> -- What was the before/after? What made the "after" better?</li>
+<li><strong>Missed opportunities</strong> -- Where could the code improve? (present gently as "next time, consider...")</li>
+</ul>
+<p>Map findings to specific principles from <code>references/se-principles.md</code>. Be specific -- quote actual code, reference actual file names and line changes.</p>
+<h2>Phase 4: Present the Lesson</h2>
+<p>Use this template:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Lesson: [Principle Name]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">What happened in the code:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line">[2-3 sentences describing the specific change, referencing files and commits]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">The principle at work:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line">[1-2 sentences explaining the SE principle]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Why it matters:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line">[1-2 sentences on the practical consequence -- what would go wrong without this, or what goes right because of it]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Takeaway for next time:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line">[One concrete, actionable sentence the user can apply to future work]
+</span></code></pre>
+<p>If there is a second lesson worth noting (maximum 2 additional):</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token hr punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Also worth noting: [Principle Name]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">In the code:</span><span class="token punctuation">**</span></span> [1 sentence]
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">The principle:</span><span class="token punctuation">**</span></span> [1 sentence]
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Takeaway:</span><span class="token punctuation">**</span></span> [1 sentence]
+</span></code></pre>
+<h2>What NOT to Do</h2>
+<table>
+<thead>
+<tr>
+<th>Avoid</th>
+<th>Why</th>
+<th>Instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Listing every principle that vaguely applies</td>
+<td>Overwhelming and generic</td>
+<td>Pick the 1-2 most relevant</td>
+</tr>
+<tr>
+<td>Analyzing files that were not changed</td>
+<td>Scope creep</td>
+<td>Stick to the diff</td>
+</tr>
+<tr>
+<td>Ignoring commit messages</td>
+<td>They contain intent that diffs miss</td>
+<td>Read them as primary context</td>
+</tr>
+<tr>
+<td>Abstract advice disconnected from the code</td>
+<td>Not actionable</td>
+<td>Always reference specific files/lines</td>
+</tr>
+<tr>
+<td>Negative-only feedback</td>
+<td>Demoralizing</td>
+<td>Lead with what works, then suggest improvements</td>
+</tr>
+<tr>
+<td>More than 3 lessons</td>
+<td>Dilutes the insight</td>
+<td>One well-grounded lesson beats seven vague ones</td>
+</tr>
+</tbody>
+</table>
+<h2>Conversation Style</h2>
+<ul>
+<li><strong>Reflective, not prescriptive.</strong> Use the user's own code as primary evidence.</li>
+<li><strong>Never say "you should have..."</strong> -- instead use "the approach here shows..." or "next time you face this, consider..."</li>
+<li><strong>If the code is good, say so.</strong> Not every lesson is about what went wrong. Recognizing good patterns reinforces them.</li>
+<li><strong>If the changes are trivial</strong> (a single config tweak, a typo fix), say so honestly rather than forcing a lesson. "These changes are straightforward -- no deep lesson here, just good housekeeping."</li>
+<li><strong>Be specific.</strong> Generic advice is worthless. Every claim must point to a concrete code change.</li>
+</ul></div>

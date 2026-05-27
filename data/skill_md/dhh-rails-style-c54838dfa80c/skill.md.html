@@ -1,0 +1,208 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><p>&lt;essential_principles&gt;</p>
+<h2>Core Philosophy</h2>
+<p>"The best code is the code you don't write. The second best is the code that's obviously correct."</p>
+<p><strong>Vanilla Rails is plenty:</strong></p>
+<ul>
+<li>Rich domain models over service objects</li>
+<li>CRUD controllers over custom actions</li>
+<li>Concerns for horizontal code sharing</li>
+<li>Records as state instead of boolean columns</li>
+<li>Database-backed everything (no Redis)</li>
+<li>Build solutions before reaching for gems</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>What they deliberately avoid:</strong></p>
+<ul>
+<li>devise (custom ~150-line auth instead)</li>
+<li>pundit/cancancan (simple role checks in models)</li>
+<li>sidekiq (Solid Queue uses database)</li>
+<li>redis (database for everything)</li>
+<li>view_component (partials work fine)</li>
+<li>GraphQL (REST with Turbo sufficient)</li>
+<li>factory_bot (fixtures are simpler)</li>
+<li>rspec (Minitest ships with Rails)</li>
+<li>Tailwind (native CSS with layers)</li>
+</ul>
+<p><strong>Development Philosophy:</strong></p>
+<ul>
+<li>Ship, Validate, Refine - prototype-quality code to production to learn</li>
+<li>Fix root causes, not symptoms</li>
+<li>Write-time operations over read-time computations</li>
+<li>Database constraints over ActiveRecord validations
+&lt;/essential_principles&gt;</li>
+</ul>
+<ol>
+<li><strong>Controllers</strong> - REST mapping, concerns, Turbo responses, API patterns</li>
+<li><strong>Models</strong> - Concerns, state records, callbacks, scopes, POROs</li>
+<li><strong>Views &amp; Frontend</strong> - Turbo, Stimulus, CSS, partials</li>
+<li><strong>Architecture</strong> - Routing, multi-tenancy, authentication, jobs, caching</li>
+<li><strong>Testing</strong> - Minitest, fixtures, integration tests</li>
+<li><strong>Gems &amp; Dependencies</strong> - What to use vs avoid</li>
+<li><strong>Code Review</strong> - Review code against DHH style</li>
+<li><strong>General Guidance</strong> - Philosophy and conventions</li>
+</ol>
+<p><strong>Specify a number or describe your task.</strong>
+</p>
+<table>
+<thead>
+<tr>
+<th>Response</th>
+<th>Reference to Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1, controller</td>
+<td><code>references/controllers.md</code></td>
+</tr>
+<tr>
+<td>2, model</td>
+<td><code>references/models.md</code></td>
+</tr>
+<tr>
+<td>3, view, frontend, turbo, stimulus, css</td>
+<td><code>references/frontend.md</code></td>
+</tr>
+<tr>
+<td>4, architecture, routing, auth, job, cache</td>
+<td><code>references/architecture.md</code></td>
+</tr>
+<tr>
+<td>5, test, testing, minitest, fixture</td>
+<td><code>references/testing.md</code></td>
+</tr>
+<tr>
+<td>6, gem, dependency, library</td>
+<td><code>references/gems.md</code></td>
+</tr>
+<tr>
+<td>7, review</td>
+<td>Read all references, then review code</td>
+</tr>
+<tr>
+<td>8, general task</td>
+<td>Read relevant references based on context</td>
+</tr>
+</tbody>
+</table>
+<p><strong>After reading relevant references, apply patterns to the user's code.</strong>
+</p>
+<p>&lt;quick_reference&gt;</p>
+<h2>Naming Conventions</h2>
+<p><strong>Verbs:</strong> <code>card.close</code>, <code>card.gild</code>, <code>board.publish</code> (not <code>set_style</code> methods)</p>
+<p><strong>Predicates:</strong> <code>card.closed?</code>, <code>card.golden?</code> (derived from presence of related record)</p>
+<p><strong>Concerns:</strong> Adjectives describing capability (<code>Closeable</code>, <code>Publishable</code>, <code>Watchable</code>)</p>
+<p><strong>Controllers:</strong> Nouns matching resources (<code>Cards::ClosuresController</code>)</p>
+<p><strong>Scopes:</strong></p>
+<ul>
+<li><code>chronologically</code>, <code>reverse_chronologically</code>, <code>alphabetically</code>, <code>latest</code></li>
+<li><code>preloaded</code> (standard eager loading name)</li>
+<li><code>indexed_by</code>, <code>sorted_by</code> (parameterized)</li>
+<li><code>active</code>, <code>unassigned</code> (business terms, not SQL-ish)</li>
+</ul>
+<h2>REST Mapping</h2>
+<p>Instead of custom actions, create new resources:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">POST /cards/:id/close    → POST /cards/:id/closure
+</span><span class="code-line">DELETE /cards/:id/close  → DELETE /cards/:id/closure
+</span><span class="code-line">POST /cards/:id/archive  → POST /cards/:id/archival
+</span></code></pre>
+<h2>Ruby Syntax Preferences</h2>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token comment"># Symbol arrays with spaces inside brackets</span>
+</span><span class="code-line">before_action <span class="token symbol">:set_message</span><span class="token punctuation">,</span> <span class="token symbol">only</span><span class="token operator">:</span> <span class="token string-literal"><span class="token string">%i[ show edit update destroy ]</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Private method indentation</span>
+</span><span class="code-line">  <span class="token keyword">private</span>
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">set_message</span></span>
+</span><span class="code-line">      <span class="token variable">@message</span> <span class="token operator">=</span> Message<span class="token punctuation">.</span>find<span class="token punctuation">(</span>params<span class="token punctuation">[</span><span class="token symbol">:id</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">end</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Expression-less case for conditionals</span>
+</span><span class="code-line"><span class="token keyword">case</span>
+</span><span class="code-line"><span class="token keyword">when</span> params<span class="token punctuation">[</span><span class="token symbol">:before</span><span class="token punctuation">]</span><span class="token punctuation">.</span>present<span class="token operator">?</span>
+</span><span class="code-line">  messages<span class="token punctuation">.</span>page_before<span class="token punctuation">(</span>params<span class="token punctuation">[</span><span class="token symbol">:before</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">else</span>
+</span><span class="code-line">  messages<span class="token punctuation">.</span>last_page
+</span><span class="code-line"><span class="token keyword">end</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Bang methods for fail-fast</span>
+</span><span class="code-line"><span class="token variable">@message</span> <span class="token operator">=</span> Message<span class="token punctuation">.</span>create<span class="token operator">!</span><span class="token punctuation">(</span>params<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Ternaries for simple conditionals</span>
+</span><span class="code-line"><span class="token variable">@room</span><span class="token punctuation">.</span>direct<span class="token operator">?</span> <span class="token operator">?</span> <span class="token variable">@room</span><span class="token punctuation">.</span>users <span class="token operator">:</span> <span class="token variable">@message</span><span class="token punctuation">.</span>mentionees
+</span></code></pre>
+<h2>Key Patterns</h2>
+<p><strong>State as Records:</strong></p>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line">Card<span class="token punctuation">.</span>joins<span class="token punctuation">(</span><span class="token symbol">:closure</span><span class="token punctuation">)</span>         <span class="token comment"># closed cards</span>
+</span><span class="code-line">Card<span class="token punctuation">.</span>where<span class="token punctuation">.</span>missing<span class="token punctuation">(</span><span class="token symbol">:closure</span><span class="token punctuation">)</span> <span class="token comment"># open cards</span>
+</span></code></pre>
+<p><strong>Current Attributes:</strong></p>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line">belongs_to <span class="token symbol">:creator</span><span class="token punctuation">,</span> <span class="token symbol">default</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span> Current<span class="token punctuation">.</span>user <span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Authorization on Models:</strong></p>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">User</span> <span class="token operator">&lt;</span> ApplicationRecord
+</span><span class="code-line">  <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">can_administer</span></span><span class="token operator">?</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span>
+</span><span class="code-line">    message<span class="token punctuation">.</span>creator <span class="token operator">==</span> <span class="token keyword">self</span> <span class="token operator">||</span> admin<span class="token operator">?</span>
+</span><span class="code-line">  <span class="token keyword">end</span>
+</span><span class="code-line"><span class="token keyword">end</span>
+</span></code></pre>
+<p>&lt;/quick_reference&gt;</p>
+<p>&lt;reference_index&gt;</p>
+<h2>Domain Knowledge</h2>
+<p>All detailed patterns in <code>references/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Topics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>references/controllers.md</code></td>
+<td>REST mapping, concerns, Turbo responses, API patterns, HTTP caching</td>
+</tr>
+<tr>
+<td><code>references/models.md</code></td>
+<td>Concerns, state records, callbacks, scopes, POROs, authorization, broadcasting</td>
+</tr>
+<tr>
+<td><code>references/frontend.md</code></td>
+<td>Turbo Streams, Stimulus controllers, CSS layers, OKLCH colors, partials</td>
+</tr>
+<tr>
+<td><code>references/architecture.md</code></td>
+<td>Routing, authentication, jobs, Current attributes, caching, database patterns</td>
+</tr>
+<tr>
+<td><code>references/testing.md</code></td>
+<td>Minitest, fixtures, unit/integration/system tests, testing patterns</td>
+</tr>
+<tr>
+<td><code>references/gems.md</code></td>
+<td>What they use vs avoid, decision framework, Gemfile examples</td>
+</tr>
+<tr>
+<td>&lt;/reference_index&gt;</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>&lt;success_criteria&gt;
+Code follows DHH style when:</p>
+<ul>
+<li>Controllers map to CRUD verbs on resources</li>
+<li>Models use concerns for horizontal behavior</li>
+<li>State is tracked via records, not booleans</li>
+<li>No unnecessary service objects or abstractions</li>
+<li>Database-backed solutions preferred over external services</li>
+<li>Tests use Minitest with fixtures</li>
+<li>Turbo/Stimulus for interactivity (no heavy JS frameworks)</li>
+<li>Native CSS with modern features (layers, OKLCH, nesting)</li>
+<li>Authorization logic lives on User model</li>
+<li>Jobs are shallow wrappers calling model methods
+&lt;/success_criteria&gt;</li>
+</ul>
+<p><strong>Important Disclaimers:</strong></p>
+<ul>
+<li>LLM-generated guide - may contain inaccuracies</li>
+<li>Code examples from Fizzy are licensed under the O'Saasy License</li>
+<li>Not affiliated with or endorsed by 37signals</li>
+</ul></div>

@@ -1,0 +1,549 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Stable Diffusion Image Generation</h1>
+<p>Comprehensive guide to generating images with Stable Diffusion using the HuggingFace Diffusers library.</p>
+<h2>When to use Stable Diffusion</h2>
+<p><strong>Use Stable Diffusion when:</strong></p>
+<ul>
+<li>Generating images from text descriptions</li>
+<li>Performing image-to-image translation (style transfer, enhancement)</li>
+<li>Inpainting (filling in masked regions)</li>
+<li>Outpainting (extending images beyond boundaries)</li>
+<li>Creating variations of existing images</li>
+<li>Building custom image generation workflows</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Key features:</strong></p>
+<ul>
+<li><strong>Text-to-Image</strong>: Generate images from natural language prompts</li>
+<li><strong>Image-to-Image</strong>: Transform existing images with text guidance</li>
+<li><strong>Inpainting</strong>: Fill masked regions with context-aware content</li>
+<li><strong>ControlNet</strong>: Add spatial conditioning (edges, poses, depth)</li>
+<li><strong>LoRA Support</strong>: Efficient fine-tuning and style adaptation</li>
+<li><strong>Multiple Models</strong>: SD 1.5, SDXL, SD 3.0, Flux support</li>
+</ul>
+<p><strong>Use alternatives instead:</strong></p>
+<ul>
+<li><strong>DALL-E 3</strong>: For API-based generation without GPU</li>
+<li><strong>Midjourney</strong>: For artistic, stylized outputs</li>
+<li><strong>Imagen</strong>: For Google Cloud integration</li>
+<li><strong>Leonardo.ai</strong>: For web-based creative workflows</li>
+</ul>
+<h2>Quick start</h2>
+<h3>Installation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> diffusers transformers accelerate torch
+</span><span class="code-line">pip <span class="token function">install</span> xformers  <span class="token comment"># Optional: memory-efficient attention</span>
+</span></code></pre>
+<h3>Basic text-to-image</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> DiffusionPipeline
+</span><span class="code-line"><span class="token keyword">import</span> torch
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load pipeline (auto-detects model type)</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> DiffusionPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stable-diffusion-v1-5/stable-diffusion-v1-5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Generate image</span>
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"A serene mountain landscape at sunset, highly detailed"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">50</span><span class="token punctuation">,</span>
+</span><span class="code-line">    guidance_scale<span class="token operator">=</span><span class="token number">7.5</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">image<span class="token punctuation">.</span>save<span class="token punctuation">(</span><span class="token string">"output.png"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Using SDXL (higher quality)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> AutoPipelineForText2Image
+</span><span class="code-line"><span class="token keyword">import</span> torch
+</span><span class="code-line">
+</span><span class="code-line">pipe <span class="token operator">=</span> AutoPipelineForText2Image<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stabilityai/stable-diffusion-xl-base-1.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16<span class="token punctuation">,</span>
+</span><span class="code-line">    variant<span class="token operator">=</span><span class="token string">"fp16"</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Enable memory optimization</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_model_cpu_offload<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"A futuristic city with flying cars, cinematic lighting"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    height<span class="token operator">=</span><span class="token number">1024</span><span class="token punctuation">,</span>
+</span><span class="code-line">    width<span class="token operator">=</span><span class="token number">1024</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">30</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Architecture overview</h2>
+<h3>Three-pillar design</h3>
+<p>Diffusers is built around three core components:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Pipeline (orchestration)
+</span><span class="code-line">├── Model (neural networks)
+</span><span class="code-line">│   ├── UNet / Transformer (noise prediction)
+</span><span class="code-line">│   ├── VAE (latent encoding/decoding)
+</span><span class="code-line">│   └── Text Encoder (CLIP/T5)
+</span><span class="code-line">└── Scheduler (denoising algorithm)
+</span></code></pre>
+<h3>Pipeline inference flow</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Text Prompt → Text Encoder → Text Embeddings
+</span><span class="code-line">                                    ↓
+</span><span class="code-line">Random Noise → [Denoising Loop] ← Scheduler
+</span><span class="code-line">                      ↓
+</span><span class="code-line">               Predicted Noise
+</span><span class="code-line">                      ↓
+</span><span class="code-line">              VAE Decoder → Final Image
+</span></code></pre>
+<h2>Core concepts</h2>
+<h3>Pipelines</h3>
+<p>Pipelines orchestrate complete workflows:</p>
+<table>
+<thead>
+<tr>
+<th>Pipeline</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>StableDiffusionPipeline</code></td>
+<td>Text-to-image (SD 1.x/2.x)</td>
+</tr>
+<tr>
+<td><code>StableDiffusionXLPipeline</code></td>
+<td>Text-to-image (SDXL)</td>
+</tr>
+<tr>
+<td><code>StableDiffusion3Pipeline</code></td>
+<td>Text-to-image (SD 3.0)</td>
+</tr>
+<tr>
+<td><code>FluxPipeline</code></td>
+<td>Text-to-image (Flux models)</td>
+</tr>
+<tr>
+<td><code>StableDiffusionImg2ImgPipeline</code></td>
+<td>Image-to-image</td>
+</tr>
+<tr>
+<td><code>StableDiffusionInpaintPipeline</code></td>
+<td>Inpainting</td>
+</tr>
+</tbody>
+</table>
+<h3>Schedulers</h3>
+<p>Schedulers control the denoising process:</p>
+<table>
+<thead>
+<tr>
+<th>Scheduler</th>
+<th>Steps</th>
+<th>Quality</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EulerDiscreteScheduler</code></td>
+<td>20-50</td>
+<td>Good</td>
+<td>Default choice</td>
+</tr>
+<tr>
+<td><code>EulerAncestralDiscreteScheduler</code></td>
+<td>20-50</td>
+<td>Good</td>
+<td>More variation</td>
+</tr>
+<tr>
+<td><code>DPMSolverMultistepScheduler</code></td>
+<td>15-25</td>
+<td>Excellent</td>
+<td>Fast, high quality</td>
+</tr>
+<tr>
+<td><code>DDIMScheduler</code></td>
+<td>50-100</td>
+<td>Good</td>
+<td>Deterministic</td>
+</tr>
+<tr>
+<td><code>LCMScheduler</code></td>
+<td>4-8</td>
+<td>Good</td>
+<td>Very fast</td>
+</tr>
+<tr>
+<td><code>UniPCMultistepScheduler</code></td>
+<td>15-25</td>
+<td>Excellent</td>
+<td>Fast convergence</td>
+</tr>
+</tbody>
+</table>
+<h3>Swapping schedulers</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> DPMSolverMultistepScheduler
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Swap for faster generation</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>scheduler <span class="token operator">=</span> DPMSolverMultistepScheduler<span class="token punctuation">.</span>from_config<span class="token punctuation">(</span>
+</span><span class="code-line">    pipe<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>config
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Now generate with fewer steps</span>
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>prompt<span class="token punctuation">,</span> num_inference_steps<span class="token operator">=</span><span class="token number">20</span><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Generation parameters</h2>
+<h3>Key parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prompt</code></td>
+<td>Required</td>
+<td>Text description of desired image</td>
+</tr>
+<tr>
+<td><code>negative_prompt</code></td>
+<td>None</td>
+<td>What to avoid in the image</td>
+</tr>
+<tr>
+<td><code>num_inference_steps</code></td>
+<td>50</td>
+<td>Denoising steps (more = better quality)</td>
+</tr>
+<tr>
+<td><code>guidance_scale</code></td>
+<td>7.5</td>
+<td>Prompt adherence (7-12 typical)</td>
+</tr>
+<tr>
+<td><code>height</code>, <code>width</code></td>
+<td>512/1024</td>
+<td>Output dimensions (multiples of 8)</td>
+</tr>
+<tr>
+<td><code>generator</code></td>
+<td>None</td>
+<td>Torch generator for reproducibility</td>
+</tr>
+<tr>
+<td><code>num_images_per_prompt</code></td>
+<td>1</td>
+<td>Batch size</td>
+</tr>
+</tbody>
+</table>
+<h3>Reproducible generation</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> torch
+</span><span class="code-line">
+</span><span class="code-line">generator <span class="token operator">=</span> torch<span class="token punctuation">.</span>Generator<span class="token punctuation">(</span>device<span class="token operator">=</span><span class="token string">"cuda"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>manual_seed<span class="token punctuation">(</span><span class="token number">42</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"A cat wearing a top hat"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    generator<span class="token operator">=</span>generator<span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">50</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h3>Negative prompts</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"Professional photo of a dog in a garden"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    negative_prompt<span class="token operator">=</span><span class="token string">"blurry, low quality, distorted, ugly, bad anatomy"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    guidance_scale<span class="token operator">=</span><span class="token number">7.5</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Image-to-image</h2>
+<p>Transform existing images with text guidance:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> AutoPipelineForImage2Image
+</span><span class="code-line"><span class="token keyword">from</span> PIL <span class="token keyword">import</span> Image
+</span><span class="code-line">
+</span><span class="code-line">pipe <span class="token operator">=</span> AutoPipelineForImage2Image<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stable-diffusion-v1-5/stable-diffusion-v1-5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">init_image <span class="token operator">=</span> Image<span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"input.jpg"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>resize<span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token number">512</span><span class="token punctuation">,</span> <span class="token number">512</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"A watercolor painting of the scene"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    image<span class="token operator">=</span>init_image<span class="token punctuation">,</span>
+</span><span class="code-line">    strength<span class="token operator">=</span><span class="token number">0.75</span><span class="token punctuation">,</span>  <span class="token comment"># How much to transform (0-1)</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">50</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Inpainting</h2>
+<p>Fill masked regions:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> AutoPipelineForInpainting
+</span><span class="code-line"><span class="token keyword">from</span> PIL <span class="token keyword">import</span> Image
+</span><span class="code-line">
+</span><span class="code-line">pipe <span class="token operator">=</span> AutoPipelineForInpainting<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"runwayml/stable-diffusion-inpainting"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">image <span class="token operator">=</span> Image<span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"photo.jpg"</span><span class="token punctuation">)</span>
+</span><span class="code-line">mask <span class="token operator">=</span> Image<span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"mask.png"</span><span class="token punctuation">)</span>  <span class="token comment"># White = inpaint region</span>
+</span><span class="code-line">
+</span><span class="code-line">result <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"A red car parked on the street"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    image<span class="token operator">=</span>image<span class="token punctuation">,</span>
+</span><span class="code-line">    mask_image<span class="token operator">=</span>mask<span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">50</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>ControlNet</h2>
+<p>Add spatial conditioning for precise control:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> StableDiffusionControlNetPipeline<span class="token punctuation">,</span> ControlNetModel
+</span><span class="code-line"><span class="token keyword">import</span> torch
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load ControlNet for edge conditioning</span>
+</span><span class="code-line">controlnet <span class="token operator">=</span> ControlNetModel<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"lllyasviel/control_v11p_sd15_canny"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">pipe <span class="token operator">=</span> StableDiffusionControlNetPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stable-diffusion-v1-5/stable-diffusion-v1-5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    controlnet<span class="token operator">=</span>controlnet<span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use Canny edge image as control</span>
+</span><span class="code-line">control_image <span class="token operator">=</span> get_canny_image<span class="token punctuation">(</span>input_image<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"A beautiful house in the style of Van Gogh"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    image<span class="token operator">=</span>control_image<span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">30</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h3>Available ControlNets</h3>
+<table>
+<thead>
+<tr>
+<th>ControlNet</th>
+<th>Input Type</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>canny</code></td>
+<td>Edge maps</td>
+<td>Preserve structure</td>
+</tr>
+<tr>
+<td><code>openpose</code></td>
+<td>Pose skeletons</td>
+<td>Human poses</td>
+</tr>
+<tr>
+<td><code>depth</code></td>
+<td>Depth maps</td>
+<td>3D-aware generation</td>
+</tr>
+<tr>
+<td><code>normal</code></td>
+<td>Normal maps</td>
+<td>Surface details</td>
+</tr>
+<tr>
+<td><code>mlsd</code></td>
+<td>Line segments</td>
+<td>Architectural lines</td>
+</tr>
+<tr>
+<td><code>scribble</code></td>
+<td>Rough sketches</td>
+<td>Sketch-to-image</td>
+</tr>
+</tbody>
+</table>
+<h2>LoRA adapters</h2>
+<p>Load fine-tuned style adapters:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> DiffusionPipeline
+</span><span class="code-line">
+</span><span class="code-line">pipe <span class="token operator">=</span> DiffusionPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stable-diffusion-v1-5/stable-diffusion-v1-5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load LoRA weights</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>load_lora_weights<span class="token punctuation">(</span><span class="token string">"path/to/lora"</span><span class="token punctuation">,</span> weight_name<span class="token operator">=</span><span class="token string">"style.safetensors"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Generate with LoRA style</span>
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span><span class="token string">"A portrait in the trained style"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Adjust LoRA strength</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>fuse_lora<span class="token punctuation">(</span>lora_scale<span class="token operator">=</span><span class="token number">0.8</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Unload LoRA</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>unload_lora_weights<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Multiple LoRAs</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Load multiple LoRAs</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>load_lora_weights<span class="token punctuation">(</span><span class="token string">"lora1"</span><span class="token punctuation">,</span> adapter_name<span class="token operator">=</span><span class="token string">"style"</span><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>load_lora_weights<span class="token punctuation">(</span><span class="token string">"lora2"</span><span class="token punctuation">,</span> adapter_name<span class="token operator">=</span><span class="token string">"character"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Set weights for each</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>set_adapters<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"style"</span><span class="token punctuation">,</span> <span class="token string">"character"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> adapter_weights<span class="token operator">=</span><span class="token punctuation">[</span><span class="token number">0.7</span><span class="token punctuation">,</span> <span class="token number">0.5</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span><span class="token string">"A portrait"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Memory optimization</h2>
+<h3>Enable CPU offloading</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Model CPU offload - moves models to CPU when not in use</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_model_cpu_offload<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Sequential CPU offload - more aggressive, slower</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_sequential_cpu_offload<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Attention slicing</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Reduce memory by computing attention in chunks</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_attention_slicing<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or specific chunk size</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_attention_slicing<span class="token punctuation">(</span><span class="token string">"max"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>xFormers memory-efficient attention</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Requires xformers package</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_xformers_memory_efficient_attention<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>VAE slicing for large images</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Decode latents in tiles for large images</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_vae_slicing<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_vae_tiling<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Model variants</h2>
+<h3>Loading different precisions</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># FP16 (recommended for GPU)</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> DiffusionPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"model-id"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16<span class="token punctuation">,</span>
+</span><span class="code-line">    variant<span class="token operator">=</span><span class="token string">"fp16"</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># BF16 (better precision, requires Ampere+ GPU)</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> DiffusionPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"model-id"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>bfloat16
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Loading specific components</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> UNet2DConditionModel<span class="token punctuation">,</span> AutoencoderKL
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load custom VAE</span>
+</span><span class="code-line">vae <span class="token operator">=</span> AutoencoderKL<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span><span class="token string">"stabilityai/sd-vae-ft-mse"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use with pipeline</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> DiffusionPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stable-diffusion-v1-5/stable-diffusion-v1-5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    vae<span class="token operator">=</span>vae<span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Batch generation</h2>
+<p>Generate multiple images efficiently:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Multiple prompts</span>
+</span><span class="code-line">prompts <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"A cat playing piano"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"A dog reading a book"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"A bird painting a picture"</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">images <span class="token operator">=</span> pipe<span class="token punctuation">(</span>prompts<span class="token punctuation">,</span> num_inference_steps<span class="token operator">=</span><span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">.</span>images
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Multiple images per prompt</span>
+</span><span class="code-line">images <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"A beautiful sunset"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_images_per_prompt<span class="token operator">=</span><span class="token number">4</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">30</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images
+</span></code></pre>
+<h2>Common workflows</h2>
+<h3>Workflow 1: High-quality generation</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> StableDiffusionXLPipeline<span class="token punctuation">,</span> DPMSolverMultistepScheduler
+</span><span class="code-line"><span class="token keyword">import</span> torch
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 1. Load SDXL with optimizations</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> StableDiffusionXLPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stabilityai/stable-diffusion-xl-base-1.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16<span class="token punctuation">,</span>
+</span><span class="code-line">    variant<span class="token operator">=</span><span class="token string">"fp16"</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>scheduler <span class="token operator">=</span> DPMSolverMultistepScheduler<span class="token punctuation">.</span>from_config<span class="token punctuation">(</span>pipe<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>config<span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_model_cpu_offload<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Generate with quality settings</span>
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    prompt<span class="token operator">=</span><span class="token string">"A majestic lion in the savanna, golden hour lighting, 8k, detailed fur"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    negative_prompt<span class="token operator">=</span><span class="token string">"blurry, low quality, cartoon, anime, sketch"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">30</span><span class="token punctuation">,</span>
+</span><span class="code-line">    guidance_scale<span class="token operator">=</span><span class="token number">7.5</span><span class="token punctuation">,</span>
+</span><span class="code-line">    height<span class="token operator">=</span><span class="token number">1024</span><span class="token punctuation">,</span>
+</span><span class="code-line">    width<span class="token operator">=</span><span class="token number">1024</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h3>Workflow 2: Fast prototyping</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> AutoPipelineForText2Image<span class="token punctuation">,</span> LCMScheduler
+</span><span class="code-line"><span class="token keyword">import</span> torch
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use LCM for 4-8 step generation</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> AutoPipelineForText2Image<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"stabilityai/stable-diffusion-xl-base-1.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>to<span class="token punctuation">(</span><span class="token string">"cuda"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load LCM LoRA for fast generation</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>load_lora_weights<span class="token punctuation">(</span><span class="token string">"latent-consistency/lcm-lora-sdxl"</span><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>scheduler <span class="token operator">=</span> LCMScheduler<span class="token punctuation">.</span>from_config<span class="token punctuation">(</span>pipe<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>config<span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>fuse_lora<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Generate in ~1 second</span>
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"A beautiful landscape"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_inference_steps<span class="token operator">=</span><span class="token number">4</span><span class="token punctuation">,</span>
+</span><span class="code-line">    guidance_scale<span class="token operator">=</span><span class="token number">1.0</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Common issues</h2>
+<p><strong>CUDA out of memory:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Enable memory optimizations</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_model_cpu_offload<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_attention_slicing<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>enable_vae_slicing<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or use lower precision</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> DiffusionPipeline<span class="token punctuation">.</span>from_pretrained<span class="token punctuation">(</span>model_id<span class="token punctuation">,</span> torch_dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16<span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Black/noise images:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Check VAE configuration</span>
+</span><span class="code-line"><span class="token comment"># Use safety checker bypass if needed</span>
+</span><span class="code-line">pipe<span class="token punctuation">.</span>safety_checker <span class="token operator">=</span> <span class="token boolean">None</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Ensure proper dtype consistency</span>
+</span><span class="code-line">pipe <span class="token operator">=</span> pipe<span class="token punctuation">.</span>to<span class="token punctuation">(</span>dtype<span class="token operator">=</span>torch<span class="token punctuation">.</span>float16<span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Slow generation:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Use faster scheduler</span>
+</span><span class="code-line"><span class="token keyword">from</span> diffusers <span class="token keyword">import</span> DPMSolverMultistepScheduler
+</span><span class="code-line">pipe<span class="token punctuation">.</span>scheduler <span class="token operator">=</span> DPMSolverMultistepScheduler<span class="token punctuation">.</span>from_config<span class="token punctuation">(</span>pipe<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>config<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Reduce steps</span>
+</span><span class="code-line">image <span class="token operator">=</span> pipe<span class="token punctuation">(</span>prompt<span class="token punctuation">,</span> num_inference_steps<span class="token operator">=</span><span class="token number">20</span><span class="token punctuation">)</span><span class="token punctuation">.</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>References</h2>
+<ul>
+<li><strong><a href="https://github.com/davila7/claude-code-templates/blob/HEAD/cli-tool/components/skills/ai-research/multimodal-stable-diffusion/references/advanced-usage.md" target="_blank" rel="ugc nofollow noopener">Advanced Usage</a></strong> - Custom pipelines, fine-tuning, deployment</li>
+<li><strong><a href="https://github.com/davila7/claude-code-templates/blob/HEAD/cli-tool/components/skills/ai-research/multimodal-stable-diffusion/references/troubleshooting.md" target="_blank" rel="ugc nofollow noopener">Troubleshooting</a></strong> - Common issues and solutions</li>
+</ul>
+<h2>Resources</h2>
+<ul>
+<li><strong>Documentation</strong>: <a href="https://huggingface.co/docs/diffusers" target="_blank" rel="ugc nofollow noopener">https://huggingface.co/docs/diffusers</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/huggingface/diffusers" target="_blank" rel="ugc nofollow noopener">https://github.com/huggingface/diffusers</a></li>
+<li><strong>Model Hub</strong>: <a href="https://huggingface.co/models?library=diffusers" target="_blank" rel="ugc nofollow noopener">https://huggingface.co/models?library=diffusers</a></li>
+<li><strong>Discord</strong>: <a href="https://discord.gg/diffusers" target="_blank" rel="ugc nofollow noopener">https://discord.gg/diffusers</a></li>
+</ul></div>

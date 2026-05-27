@@ -1,0 +1,486 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Claude Automation Recommender</h1>
+<p>Analyze codebase patterns to recommend tailored Claude Code automations across all extensibility options.</p>
+<p><strong>This skill is read-only.</strong> It analyzes the codebase and outputs recommendations. It does NOT create or modify any files. Users implement the recommendations themselves or ask Claude separately to help build them.</p>
+<h2>Output Guidelines</h2>
+<ul>
+<li><strong>Recommend 1-2 of each type</strong>: Don't overwhelm - surface the top 1-2 most valuable automations per category</li>
+<li><strong>If user asks for a specific type</strong>: Focus only on that type and provide more options (3-5 recommendations)</li>
+<li><strong>Go beyond the reference lists</strong>: The reference files contain common patterns, but use web search to find recommendations specific to the codebase's tools, frameworks, and libraries</li>
+<li><strong>Tell users they can ask for more</strong>: End by noting they can request more recommendations for any specific category</li>
+</ul>
+<h2>Automation Types Overview</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hooks</strong></td>
+<td>Automatic actions on tool events (format on save, lint, block edits)</td>
+</tr>
+<tr>
+<td><strong>Subagents</strong></td>
+<td>Specialized reviewers/analyzers that run in parallel</td>
+</tr>
+<tr>
+<td><strong>Skills</strong></td>
+<td>Packaged expertise, workflows, and repeatable tasks (invoked by Claude or user via <code>/skill-name</code>)</td>
+</tr>
+<tr>
+<td><strong>Plugins</strong></td>
+<td>Collections of skills that can be installed</td>
+</tr>
+<tr>
+<td><strong>MCP Servers</strong></td>
+<td>External tool integrations (databases, APIs, browsers, docs)</td>
+</tr>
+</tbody>
+</table>
+<h2>Workflow</h2>
+<h3>Phase 1: Codebase Analysis</h3>
+<p>Gather project context:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Detect project type and tools</span>
+</span><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> package.json pyproject.toml Cargo.toml go.mod pom.xml <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null
+</span><span class="code-line"><span class="token function">cat</span> package.json <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-50</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check dependencies for MCP server recommendations</span>
+</span><span class="code-line"><span class="token function">cat</span> package.json <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-E</span> <span class="token string">'"(react|vue|angular|next|express|fastapi|django|prisma|supabase|stripe)"'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check for existing Claude Code config</span>
+</span><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> .claude/ CLAUDE.md <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Analyze project structure</span>
+</span><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> src/ app/ lib/ tests/ components/ pages/ api/ <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null
+</span></code></pre>
+<p><strong>Key Indicators to Capture:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>What to Look For</th>
+<th>Informs Recommendations For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language/Framework</td>
+<td>package.json, pyproject.toml, import patterns</td>
+<td>Hooks, MCP servers</td>
+</tr>
+<tr>
+<td>Frontend stack</td>
+<td>React, Vue, Angular, Next.js</td>
+<td>Playwright MCP, frontend skills</td>
+</tr>
+<tr>
+<td>Backend stack</td>
+<td>Express, FastAPI, Django</td>
+<td>API documentation tools</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>Prisma, Supabase, raw SQL</td>
+<td>Database MCP servers</td>
+</tr>
+<tr>
+<td>External APIs</td>
+<td>Stripe, OpenAI, AWS SDKs</td>
+<td>context7 MCP for docs</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>Jest, pytest, Playwright configs</td>
+<td>Testing hooks, subagents</td>
+</tr>
+<tr>
+<td>CI/CD</td>
+<td>GitHub Actions, CircleCI</td>
+<td>GitHub MCP server</td>
+</tr>
+<tr>
+<td>Issue tracking</td>
+<td>Linear, Jira references</td>
+<td>Issue tracker MCP</td>
+</tr>
+<tr>
+<td>Docs patterns</td>
+<td>OpenAPI, JSDoc, docstrings</td>
+<td>Documentation skills</td>
+</tr>
+</tbody>
+</table>
+<h3>Phase 2: Generate Recommendations</h3>
+<p>Based on analysis, generate recommendations across all categories:</p>
+<h4>A. MCP Server Recommendations</h4>
+<p>See <a href="https://github.com/anthropics/claude-plugins-official/blob/HEAD/plugins/claude-code-setup/skills/claude-automation-recommender/references/mcp-servers.md" target="_blank" rel="ugc nofollow noopener">references/mcp-servers.md</a> for detailed patterns.</p>
+<table>
+<thead>
+<tr>
+<th>Codebase Signal</th>
+<th>Recommended MCP Server</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Uses popular libraries (React, Express, etc.)</td>
+<td><strong>context7</strong> - Live documentation lookup</td>
+</tr>
+<tr>
+<td>Frontend with UI testing needs</td>
+<td><strong>Playwright</strong> - Browser automation/testing</td>
+</tr>
+<tr>
+<td>Uses Supabase</td>
+<td><strong>Supabase MCP</strong> - Direct database operations</td>
+</tr>
+<tr>
+<td>PostgreSQL/MySQL database</td>
+<td><strong>Database MCP</strong> - Query and schema tools</td>
+</tr>
+<tr>
+<td>GitHub repository</td>
+<td><strong>GitHub MCP</strong> - Issues, PRs, actions</td>
+</tr>
+<tr>
+<td>Uses Linear for issues</td>
+<td><strong>Linear MCP</strong> - Issue management</td>
+</tr>
+<tr>
+<td>AWS infrastructure</td>
+<td><strong>AWS MCP</strong> - Cloud resource management</td>
+</tr>
+<tr>
+<td>Slack workspace</td>
+<td><strong>Slack MCP</strong> - Team notifications</td>
+</tr>
+<tr>
+<td>Memory/context persistence</td>
+<td><strong>Memory MCP</strong> - Cross-session memory</td>
+</tr>
+<tr>
+<td>Sentry error tracking</td>
+<td><strong>Sentry MCP</strong> - Error investigation</td>
+</tr>
+<tr>
+<td>Docker containers</td>
+<td><strong>Docker MCP</strong> - Container management</td>
+</tr>
+</tbody>
+</table>
+<h4>B. Skills Recommendations</h4>
+<p>See <a href="https://github.com/anthropics/claude-plugins-official/blob/HEAD/plugins/claude-code-setup/skills/claude-automation-recommender/references/skills-reference.md" target="_blank" rel="ugc nofollow noopener">references/skills-reference.md</a> for details.</p>
+<p>Create skills in <code>.claude/skills/&lt;name&gt;/SKILL.md</code>. Some are also available via plugins:</p>
+<table>
+<thead>
+<tr>
+<th>Codebase Signal</th>
+<th>Skill</th>
+<th>Plugin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Building plugins</td>
+<td>skill-development</td>
+<td>plugin-dev</td>
+</tr>
+<tr>
+<td>Git commits</td>
+<td>commit</td>
+<td>commit-commands</td>
+</tr>
+<tr>
+<td>React/Vue/Angular</td>
+<td>frontend-design</td>
+<td>frontend-design</td>
+</tr>
+<tr>
+<td>Automation rules</td>
+<td>writing-rules</td>
+<td>hookify</td>
+</tr>
+<tr>
+<td>Feature planning</td>
+<td>feature-dev</td>
+<td>feature-dev</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Custom skills to create</strong> (with templates, scripts, examples):</p>
+<table>
+<thead>
+<tr>
+<th>Codebase Signal</th>
+<th>Skill to Create</th>
+<th>Invocation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API routes</td>
+<td><strong>api-doc</strong> (with OpenAPI template)</td>
+<td>Both</td>
+</tr>
+<tr>
+<td>Database project</td>
+<td><strong>create-migration</strong> (with validation script)</td>
+<td>User-only</td>
+</tr>
+<tr>
+<td>Test suite</td>
+<td><strong>gen-test</strong> (with example tests)</td>
+<td>User-only</td>
+</tr>
+<tr>
+<td>Component library</td>
+<td><strong>new-component</strong> (with templates)</td>
+<td>User-only</td>
+</tr>
+<tr>
+<td>PR workflow</td>
+<td><strong>pr-check</strong> (with checklist)</td>
+<td>User-only</td>
+</tr>
+<tr>
+<td>Releases</td>
+<td><strong>release-notes</strong> (with git context)</td>
+<td>User-only</td>
+</tr>
+<tr>
+<td>Code style</td>
+<td><strong>project-conventions</strong></td>
+<td>Claude-only</td>
+</tr>
+<tr>
+<td>Onboarding</td>
+<td><strong>setup-dev</strong> (with prereq script)</td>
+<td>User-only</td>
+</tr>
+</tbody>
+</table>
+<h4>C. Hooks Recommendations</h4>
+<p>See <a href="https://github.com/anthropics/claude-plugins-official/blob/HEAD/plugins/claude-code-setup/skills/claude-automation-recommender/references/hooks-patterns.md" target="_blank" rel="ugc nofollow noopener">references/hooks-patterns.md</a> for configurations.</p>
+<table>
+<thead>
+<tr>
+<th>Codebase Signal</th>
+<th>Recommended Hook</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prettier configured</td>
+<td>PostToolUse: auto-format on edit</td>
+</tr>
+<tr>
+<td>ESLint/Ruff configured</td>
+<td>PostToolUse: auto-lint on edit</td>
+</tr>
+<tr>
+<td>TypeScript project</td>
+<td>PostToolUse: type-check on edit</td>
+</tr>
+<tr>
+<td>Tests directory exists</td>
+<td>PostToolUse: run related tests</td>
+</tr>
+<tr>
+<td><code>.env</code> files present</td>
+<td>PreToolUse: block <code>.env</code> edits</td>
+</tr>
+<tr>
+<td>Lock files present</td>
+<td>PreToolUse: block lock file edits</td>
+</tr>
+<tr>
+<td>Security-sensitive code</td>
+<td>PreToolUse: require confirmation</td>
+</tr>
+</tbody>
+</table>
+<h4>D. Subagent Recommendations</h4>
+<p>See <a href="https://github.com/anthropics/claude-plugins-official/blob/HEAD/plugins/claude-code-setup/skills/claude-automation-recommender/references/subagent-templates.md" target="_blank" rel="ugc nofollow noopener">references/subagent-templates.md</a> for templates.</p>
+<table>
+<thead>
+<tr>
+<th>Codebase Signal</th>
+<th>Recommended Subagent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Large codebase (&gt;500 files)</td>
+<td><strong>code-reviewer</strong> - Parallel code review</td>
+</tr>
+<tr>
+<td>Auth/payments code</td>
+<td><strong>security-reviewer</strong> - Security audits</td>
+</tr>
+<tr>
+<td>API project</td>
+<td><strong>api-documenter</strong> - OpenAPI generation</td>
+</tr>
+<tr>
+<td>Performance critical</td>
+<td><strong>performance-analyzer</strong> - Bottleneck detection</td>
+</tr>
+<tr>
+<td>Frontend heavy</td>
+<td><strong>ui-reviewer</strong> - Accessibility review</td>
+</tr>
+<tr>
+<td>Needs more tests</td>
+<td><strong>test-writer</strong> - Test generation</td>
+</tr>
+</tbody>
+</table>
+<h4>E. Plugin Recommendations</h4>
+<p>See <a href="https://github.com/anthropics/claude-plugins-official/blob/HEAD/plugins/claude-code-setup/skills/claude-automation-recommender/references/plugins-reference.md" target="_blank" rel="ugc nofollow noopener">references/plugins-reference.md</a> for available plugins.</p>
+<table>
+<thead>
+<tr>
+<th>Codebase Signal</th>
+<th>Recommended Plugin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>General productivity</td>
+<td><strong>anthropic-agent-skills</strong> - Core skills bundle</td>
+</tr>
+<tr>
+<td>Document workflows</td>
+<td>Install docx, xlsx, pdf skills</td>
+</tr>
+<tr>
+<td>Frontend development</td>
+<td><strong>frontend-design</strong> plugin</td>
+</tr>
+<tr>
+<td>Building AI tools</td>
+<td><strong>mcp-builder</strong> for MCP development</td>
+</tr>
+</tbody>
+</table>
+<h3>Phase 3: Output Recommendations Report</h3>
+<p>Format recommendations clearly. <strong>Only include 1-2 recommendations per category</strong> - the most valuable ones for this specific codebase. Skip categories that aren't relevant.</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Claude Code Automation Recommendations</span>
+</span><span class="code-line">
+</span><span class="code-line">I've analyzed your codebase and identified the top automations for each category. Here are my top 1-2 recommendations per type:
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Codebase Profile</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Type</span><span class="token punctuation">**</span></span>: [detected language/runtime]
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Framework</span><span class="token punctuation">**</span></span>: [detected framework]
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Key Libraries</span><span class="token punctuation">**</span></span>: [relevant libraries detected]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token hr punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> 🔌 MCP Servers</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">####</span> context7</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Why</span><span class="token punctuation">**</span></span>: [specific reason based on detected libraries]
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Install</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`claude mcp add context7`</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token hr punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> 🎯 Skills</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">####</span> [skill name]</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Why</span><span class="token punctuation">**</span></span>: [specific reason]
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Create</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`.claude/skills/[name]/SKILL.md`</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Invocation</span><span class="token punctuation">**</span></span>: User-only / Both / Claude-only
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Also available in</span><span class="token punctuation">**</span></span>: [plugin-name] plugin (if applicable)
+</span><span class="code-line"><span class="token title important">```yaml
+</span></span><span class="code-line"><span class="token title important"><span class="token punctuation">---</span></span>
+</span><span class="code-line">name: [skill-name]
+</span><span class="code-line">description: [what it does]
+</span><span class="code-line"><span class="token title important">disable-model-invocation: true  # for user-only
+</span></span><span class="code-line"><span class="token title important"><span class="token punctuation">---</span></span>
+</span></code></pre>
+<hr>
+<h3>⚡ Hooks</h3>
+<h4>[hook name]</h4>
+<p><strong>Why</strong>: [specific reason based on detected config]
+<strong>Where</strong>: <code>.claude/settings.json</code></p>
+<hr>
+<h3>🤖 Subagents</h3>
+<h4>[agent name]</h4>
+<p><strong>Why</strong>: [specific reason based on codebase patterns]
+<strong>Where</strong>: <code>.claude/agents/[name].md</code></p>
+<hr>
+<p><strong>Want more?</strong> Ask for additional recommendations for any specific category (e.g., "show me more MCP server options" or "what other hooks would help?").</p>
+<p><strong>Want help implementing any of these?</strong> Just ask and I can help you set up any of the recommendations above.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">## Decision Framework
+</span><span class="code-line">
+</span><span class="code-line">### When to Recommend MCP Servers
+</span><span class="code-line">- External service integration needed (databases, APIs)
+</span><span class="code-line">- Documentation lookup for libraries/SDKs
+</span><span class="code-line">- Browser automation or testing
+</span><span class="code-line">- Team tool integration (GitHub, Linear, Slack)
+</span><span class="code-line">- Cloud infrastructure management
+</span><span class="code-line">
+</span><span class="code-line">### When to Recommend Skills
+</span><span class="code-line">
+</span><span class="code-line">- Document generation (docx, xlsx, pptx, pdf — also in plugins)
+</span><span class="code-line">- Frequently repeated prompts or workflows
+</span><span class="code-line">- Project-specific tasks with arguments
+</span><span class="code-line">- Applying templates or scripts to tasks (skills can bundle supporting files)
+</span><span class="code-line">- Quick actions invoked with `/skill-name`
+</span><span class="code-line">- Workflows that should run in isolation (`context: fork`)
+</span><span class="code-line">
+</span><span class="code-line">**Invocation control:**
+</span><span class="code-line">- `disable-model-invocation: true` — User-only (for side effects: deploy, commit, send)
+</span><span class="code-line">- `user-invocable: false` — Claude-only (for background knowledge)
+</span><span class="code-line">- Default (omit both) — Both can invoke
+</span><span class="code-line">
+</span><span class="code-line">### When to Recommend Hooks
+</span><span class="code-line">- Repetitive post-edit actions (formatting, linting)
+</span><span class="code-line">- Protection rules (block sensitive file edits)
+</span><span class="code-line">- Validation checks (tests, type checks)
+</span><span class="code-line">
+</span><span class="code-line">### When to Recommend Subagents
+</span><span class="code-line">- Specialized expertise needed (security, performance)
+</span><span class="code-line">- Parallel review workflows
+</span><span class="code-line">- Background quality checks
+</span><span class="code-line">
+</span><span class="code-line">### When to Recommend Plugins
+</span><span class="code-line">- Need multiple related skills
+</span><span class="code-line">- Want pre-packaged automation bundles
+</span><span class="code-line">- Team-wide standardization
+</span><span class="code-line">
+</span><span class="code-line">---
+</span><span class="code-line">
+</span><span class="code-line">## Configuration Tips
+</span><span class="code-line">
+</span><span class="code-line">### MCP Server Setup
+</span><span class="code-line">
+</span><span class="code-line">**Team sharing**: Check `.mcp.json` into repo so entire team gets same MCP servers
+</span><span class="code-line">
+</span><span class="code-line">**Debugging**: Use `--mcp-debug` flag to identify configuration issues
+</span><span class="code-line">
+</span><span class="code-line">**Prerequisites to recommend:**
+</span><span class="code-line">- GitHub CLI (`gh`) - enables native GitHub operations
+</span><span class="code-line">- Puppeteer/Playwright CLI - for browser MCP servers
+</span><span class="code-line">
+</span><span class="code-line">### Headless Mode (for CI/Automation)
+</span><span class="code-line">
+</span><span class="code-line">Recommend headless Claude for automated pipelines:
+</span><span class="code-line">
+</span><span class="code-line">```bash
+</span><span class="code-line"># Pre-commit hook example
+</span><span class="code-line">claude -p "fix lint errors in src/" --allowedTools Edit,Write
+</span><span class="code-line">
+</span><span class="code-line"># CI pipeline with structured output
+</span><span class="code-line">claude -p "&lt;prompt&gt;" --output-format stream-json | your_command
+</span></code></pre>
+<h3>Permissions for Hooks</h3>
+<p>Configure allowed tools in <code>.claude/settings.json</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"permissions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"allow"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"Edit"</span><span class="token punctuation">,</span> <span class="token string">"Write"</span><span class="token punctuation">,</span> <span class="token string">"Bash(npm test:*)"</span><span class="token punctuation">,</span> <span class="token string">"Bash(git commit:*)"</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

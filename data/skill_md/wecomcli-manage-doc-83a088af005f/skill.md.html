@@ -1,0 +1,81 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>企业微信文档管理</h1>
+<blockquote>
+<p><code>wecom-cli</code> 是企业微信提供的命令行程序，所有操作通过执行 <code>wecom-cli</code> 命令完成。</p>
+</blockquote>
+<p>管理企业微信文档的创建、读取和编辑。所有接口支持通过 <code>docid</code> 或 <code>url</code> 二选一定位文档。</p>
+<h2>调用方式</h2>
+<p>通过 <code>wecom-cli</code> 调用，品类为 <code>doc</code>：</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc <span class="token operator">&lt;</span>tool_name<span class="token operator">&gt;</span> <span class="token string">'&lt;json_params&gt;'</span>
+</span></code></pre>
+<h2>返回格式说明</h2>
+<p>所有接口返回 JSON 对象，包含以下公共字段：</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>errcode</code></td>
+<td>integer</td>
+<td>返回码，<code>0</code> 表示成功，非 <code>0</code> 表示失败</td>
+</tr>
+<tr>
+<td><code>errmsg</code></td>
+<td>string</td>
+<td>错误信息，成功时为 <code>"ok"</code></td>
+</tr>
+</tbody>
+</table>
+<p>当 <code>errcode</code> 不为 <code>0</code> 时，说明接口调用失败，可重试 1 次；若仍失败，将 <code>errcode</code> 和 <code>errmsg</code> 展示给用户。</p>
+<h3>get_doc_content</h3>
+<p>获取文档完整内容数据，只能以 Markdown 格式返回。采用<strong>异步轮询机制</strong>：首次调用无需传 <code>task_id</code>，接口返回 <code>task_id</code>；若 <code>task_done</code> 为 false，需携带该 <code>task_id</code> 再次调用，直到 <code>task_done</code> 为 true 时返回完整内容。</p>
+<ul>
+<li>首次调用（不传 task_id）：</li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc get_doc_content <span class="token string">'{"docid": "DOCID", "type": 2}'</span>
+</span></code></pre>
+<ul>
+<li>轮询（携带上次返回的 task_id）：</li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc get_doc_content <span class="token string">'{"docid": "DOCID", "type": 2, "task_id": "xxx"}'</span>
+</span></code></pre>
+<ul>
+<li>或通过 URL：</li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc get_doc_content <span class="token string">'{"url": "https://doc.weixin.qq.com/doc/xxx", "type": 2}'</span>
+</span></code></pre>
+<p>参见 <a href="https://github.com/wecomteam/wecom-cli/blob/HEAD/skills/wecomcli-manage-doc/references/api-export-document.md" target="_blank" rel="ugc nofollow noopener">API 详情</a>。</p>
+<h3>create_doc</h3>
+<p>新建文档（doc_type=3）或智能表格（doc_type=10）。创建成功返回 url 和 docid。</p>
+<ul>
+<li></li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc create_doc <span class="token string">'{"doc_type": 3, "doc_name": "项目周报"}'</span>
+</span></code></pre>
+<ul>
+<li></li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc create_doc <span class="token string">'{"doc_type": 10, "doc_name": "任务跟踪表"}'</span>
+</span></code></pre>
+<p><strong>注意</strong>：docid 仅在创建时返回，需妥善保存。创建智能表格时默认包含一个子表，可通过 <code>smartsheet_get_sheet</code> 查询其 sheet_id。</p>
+<p>参见 <a href="https://github.com/wecomteam/wecom-cli/blob/HEAD/skills/wecomcli-manage-doc/references/api-create-doc.md" target="_blank" rel="ugc nofollow noopener">API 详情</a>。</p>
+<h3>edit_doc_content</h3>
+<p>用 Markdown 内容覆写文档正文。<code>content_type</code> 固定为 <code>1</code>（Markdown）。</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc edit_doc_content <span class="token string">'{"docid": "DOCID", "content": "# 标题\n\n正文内容", "content_type": 1}'</span>
+</span></code></pre>
+<p>参见 <a href="https://github.com/wecomteam/wecom-cli/blob/HEAD/skills/wecomcli-manage-doc/references/api-edit-doc-content.md" target="_blank" rel="ugc nofollow noopener">API 详情</a>。</p>
+<h2>典型工作流</h2>
+<ol>
+<li><strong>读取文档</strong> →</li>
+</ol>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc get_doc_content <span class="token string">'{"docid": "DOCID", "type": 2}'</span>
+</span></code></pre>
+<p>，若 <code>task_done</code> 为 false 则携带 <code>task_id</code> 继续轮询
+2. <strong>创建新文档</strong> →</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">wecom-cli doc create_doc <span class="token string">'{"doc_type": 3, "doc_name": "文档名"}'</span>
+</span></code></pre>
+<p>，保存返回的 docid
+3. <strong>编辑文档</strong> → 先 get_doc_content 了解当前内容，再 edit_doc_content 覆写</p></div>

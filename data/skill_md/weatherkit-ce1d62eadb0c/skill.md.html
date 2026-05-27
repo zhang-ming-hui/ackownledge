@@ -1,0 +1,384 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>WeatherKit</h1>
+<p>Fetch current conditions, hourly and daily forecasts, weather alerts, and
+historical statistics using <code>WeatherService</code>. Display required Apple Weather
+attribution. Targets Swift 6.3 / iOS 26+.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#setup" target="_blank" rel="ugc nofollow noopener">Setup</a></li>
+<li><a href="#fetching-current-weather" target="_blank" rel="ugc nofollow noopener">Fetching Current Weather</a></li>
+<li><a href="#forecasts" target="_blank" rel="ugc nofollow noopener">Forecasts</a></li>
+<li><a href="#weather-alerts" target="_blank" rel="ugc nofollow noopener">Weather Alerts</a></li>
+<li><a href="#selective-queries" target="_blank" rel="ugc nofollow noopener">Selective Queries</a></li>
+<li><a href="#attribution" target="_blank" rel="ugc nofollow noopener">Attribution</a></li>
+<li><a href="#availability" target="_blank" rel="ugc nofollow noopener">Availability</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Setup</h2>
+<h3>Project Configuration</h3>
+<ol>
+<li>Enable the <strong>WeatherKit</strong> capability in Xcode (adds the entitlement)</li>
+<li>Enable WeatherKit for your App ID in the Apple Developer portal</li>
+<li>Add <code>NSLocationWhenInUseUsageDescription</code> to Info.plist if using device location</li>
+<li>WeatherKit requires an active Apple Developer Program membership</li>
+</ol>
+<h3>Import</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">WeatherKit</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">CoreLocation</span>
+</span></code></pre>
+<h3>Creating the Service</h3>
+<p>Use the shared singleton or create an instance. The service is <code>Sendable</code> and
+thread-safe.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> weatherService <span class="token operator">=</span> <span class="token class-name">WeatherService</span><span class="token punctuation">.</span>shared
+</span><span class="code-line"><span class="token comment">// or</span>
+</span><span class="code-line"><span class="token keyword">let</span> weatherService <span class="token operator">=</span> <span class="token class-name">WeatherService</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Fetching Current Weather</h2>
+<p>Fetch current conditions for a location. Returns a <code>Weather</code> object with all
+available datasets.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchCurrentWeather</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">CurrentWeather</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> weather<span class="token punctuation">.</span>currentWeather
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Using the result</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">displayCurrent</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> current<span class="token punctuation">:</span> <span class="token class-name">CurrentWeather</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> temp <span class="token operator">=</span> current<span class="token punctuation">.</span>temperature  <span class="token comment">// Measurement&lt;UnitTemperature&gt;</span>
+</span><span class="code-line">    <span class="token keyword">let</span> condition <span class="token operator">=</span> current<span class="token punctuation">.</span>condition  <span class="token comment">// WeatherCondition enum</span>
+</span><span class="code-line">    <span class="token keyword">let</span> symbol <span class="token operator">=</span> current<span class="token punctuation">.</span>symbolName  <span class="token comment">// SF Symbol name</span>
+</span><span class="code-line">    <span class="token keyword">let</span> humidity <span class="token operator">=</span> current<span class="token punctuation">.</span>humidity  <span class="token comment">// Double (0-1)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> wind <span class="token operator">=</span> current<span class="token punctuation">.</span>wind  <span class="token comment">// Wind (speed, direction, gust)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> uvIndex <span class="token operator">=</span> current<span class="token punctuation">.</span>uvIndex  <span class="token comment">// UVIndex</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">condition</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">temp<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Forecasts</h2>
+<h3>Hourly Forecast</h3>
+<p>Returns 25 contiguous hours starting from the current hour by default.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchHourlyForecast</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">Forecast</span><span class="token operator">&lt;</span><span class="token class-name">HourWeather</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> weather<span class="token punctuation">.</span>hourlyForecast
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Iterate hours</span>
+</span><span class="code-line"><span class="token keyword">for</span> hour <span class="token keyword">in</span> hourlyForecast <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">hour<span class="token punctuation">.</span>date</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">hour<span class="token punctuation">.</span>temperature<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">, </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">hour<span class="token punctuation">.</span>condition</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Daily Forecast</h3>
+<p>Returns 10 contiguous days starting from the current day by default.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchDailyForecast</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">Forecast</span><span class="token operator">&lt;</span><span class="token class-name">DayWeather</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> weather<span class="token punctuation">.</span>dailyForecast
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Iterate days</span>
+</span><span class="code-line"><span class="token keyword">for</span> day <span class="token keyword">in</span> dailyForecast <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">day<span class="token punctuation">.</span>date</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">day<span class="token punctuation">.</span>lowTemperature<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token interpolation-punctuation punctuation">)</span><span class="token string"> - </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">day<span class="token punctuation">.</span>highTemperature<span class="token punctuation">.</span><span class="token function">formatted</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"  Condition: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">day<span class="token punctuation">.</span>condition</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">, Precipitation: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">day<span class="token punctuation">.</span>precipitationChance</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Custom Date Range</h3>
+<p>Request forecasts for specific date ranges using <code>WeatherQuery</code>.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchExtendedForecast</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">Forecast</span><span class="token operator">&lt;</span><span class="token class-name">DayWeather</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> startDate <span class="token operator">=</span> <span class="token class-name">Date</span><span class="token punctuation">.</span>now
+</span><span class="code-line">    <span class="token keyword">let</span> endDate <span class="token operator">=</span> <span class="token class-name">Calendar</span><span class="token punctuation">.</span>current<span class="token punctuation">.</span><span class="token function">date</span><span class="token punctuation">(</span>byAdding<span class="token punctuation">:</span> <span class="token punctuation">.</span>day<span class="token punctuation">,</span> value<span class="token punctuation">:</span> <span class="token number">10</span><span class="token punctuation">,</span> to<span class="token punctuation">:</span> startDate<span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> forecast <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span>
+</span><span class="code-line">        including<span class="token punctuation">:</span> <span class="token punctuation">.</span><span class="token function">daily</span><span class="token punctuation">(</span>startDate<span class="token punctuation">:</span> startDate<span class="token punctuation">,</span> endDate<span class="token punctuation">:</span> endDate<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> forecast
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Weather Alerts</h2>
+<p>Fetch active weather alerts for a location. Alerts include severity, summary,
+and affected regions.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchAlerts</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token punctuation">[</span><span class="token class-name">WeatherAlert</span><span class="token punctuation">]</span><span class="token operator">?</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> weather<span class="token punctuation">.</span>weatherAlerts
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Process alerts</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token keyword">let</span> alerts <span class="token operator">=</span> weatherAlerts <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">for</span> alert <span class="token keyword">in</span> alerts <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Alert: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">alert<span class="token punctuation">.</span>summary</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Severity: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">alert<span class="token punctuation">.</span>severity</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Region: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">alert<span class="token punctuation">.</span>region</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> detailsURL <span class="token operator">=</span> alert<span class="token punctuation">.</span>detailsURL <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// Link to full alert details</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Selective Queries</h2>
+<p>Fetch only the datasets you need to minimize API usage and response size. Each
+<code>WeatherQuery</code> type maps to one dataset.</p>
+<h3>Single Dataset</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> current <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span>
+</span><span class="code-line">    including<span class="token punctuation">:</span> <span class="token punctuation">.</span>current
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// current is CurrentWeather</span>
+</span></code></pre>
+<h3>Multiple Datasets</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>current<span class="token punctuation">,</span> hourly<span class="token punctuation">,</span> daily<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span>
+</span><span class="code-line">    including<span class="token punctuation">:</span> <span class="token punctuation">.</span>current<span class="token punctuation">,</span> <span class="token punctuation">.</span>hourly<span class="token punctuation">,</span> <span class="token punctuation">.</span>daily
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// current: CurrentWeather, hourly: Forecast&lt;HourWeather&gt;, daily: Forecast&lt;DayWeather&gt;</span>
+</span></code></pre>
+<h3>Minute Forecast</h3>
+<p>Available in limited regions. Returns precipitation forecasts at minute
+granularity for the next hour.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> minuteForecast <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span>
+</span><span class="code-line">    including<span class="token punctuation">:</span> <span class="token punctuation">.</span>minute
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// minuteForecast: Forecast&lt;MinuteWeather&gt;?  (nil if unavailable)</span>
+</span></code></pre>
+<h3>Available Query Types</h3>
+<table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Return Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.current</code></td>
+<td><code>CurrentWeather</code></td>
+<td>Current observed conditions</td>
+</tr>
+<tr>
+<td><code>.hourly</code></td>
+<td><code>Forecast&lt;HourWeather&gt;</code></td>
+<td>25 hours from current hour</td>
+</tr>
+<tr>
+<td><code>.daily</code></td>
+<td><code>Forecast&lt;DayWeather&gt;</code></td>
+<td>10 days from today</td>
+</tr>
+<tr>
+<td><code>.minute</code></td>
+<td><code>Forecast&lt;MinuteWeather&gt;?</code></td>
+<td>Next-hour precipitation (limited regions)</td>
+</tr>
+<tr>
+<td><code>.alerts</code></td>
+<td><code>[WeatherAlert]?</code></td>
+<td>Active weather alerts</td>
+</tr>
+<tr>
+<td><code>.availability</code></td>
+<td><code>WeatherAvailability</code></td>
+<td>Dataset availability for location</td>
+</tr>
+</tbody>
+</table>
+<h2>Attribution</h2>
+<p>Apple requires apps using WeatherKit to display attribution. This is a
+legal requirement.</p>
+<h3>Fetching Attribution</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchAttribution</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">WeatherAttribution</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span>attribution
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Displaying Attribution in SwiftUI</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">SwiftUI</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">WeatherKit</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">WeatherAttributionView</span><span class="token punctuation">:</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> attribution<span class="token punctuation">:</span> <span class="token class-name">WeatherAttribution</span>
+</span><span class="code-line">    <span class="token attribute atrule">@Environment</span><span class="token punctuation">(</span><span class="token punctuation">\</span><span class="token punctuation">.</span>colorScheme<span class="token punctuation">)</span> <span class="token keyword">private</span> <span class="token keyword">var</span> colorScheme
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">VStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// Display the Apple Weather mark</span>
+</span><span class="code-line">            <span class="token class-name">AsyncImage</span><span class="token punctuation">(</span>url<span class="token punctuation">:</span> markURL<span class="token punctuation">)</span> <span class="token punctuation">{</span> image <span class="token keyword">in</span>
+</span><span class="code-line">                image
+</span><span class="code-line">                    <span class="token punctuation">.</span><span class="token function">resizable</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token punctuation">.</span><span class="token function">scaledToFit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token punctuation">.</span><span class="token function">frame</span><span class="token punctuation">(</span>height<span class="token punctuation">:</span> <span class="token number">20</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span> placeholder<span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">EmptyView</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token comment">// Link to the legal attribution page</span>
+</span><span class="code-line">            <span class="token class-name">Link</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Weather data sources"</span></span><span class="token punctuation">,</span> destination<span class="token punctuation">:</span> attribution<span class="token punctuation">.</span>legalPageURL<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>caption2<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">.</span><span class="token function">foregroundStyle</span><span class="token punctuation">(</span><span class="token punctuation">.</span>secondary<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> markURL<span class="token punctuation">:</span> <span class="token constant">URL</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        colorScheme <span class="token operator">==</span> <span class="token punctuation">.</span>dark
+</span><span class="code-line">            <span class="token operator">?</span> attribution<span class="token punctuation">.</span>combinedMarkDarkURL
+</span><span class="code-line">            <span class="token punctuation">:</span> attribution<span class="token punctuation">.</span>combinedMarkLightURL
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Attribution Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>combinedMarkLightURL</code></td>
+<td>Apple Weather mark for light backgrounds</td>
+</tr>
+<tr>
+<td><code>combinedMarkDarkURL</code></td>
+<td>Apple Weather mark for dark backgrounds</td>
+</tr>
+<tr>
+<td><code>squareMarkURL</code></td>
+<td>Square Apple Weather logo</td>
+</tr>
+<tr>
+<td><code>legalPageURL</code></td>
+<td>URL to the legal attribution web page</td>
+</tr>
+<tr>
+<td><code>legalAttributionText</code></td>
+<td>Text alternative when a web view is not feasible</td>
+</tr>
+<tr>
+<td><code>serviceName</code></td>
+<td>Weather data provider name</td>
+</tr>
+</tbody>
+</table>
+<h2>Availability</h2>
+<p>Check which weather datasets are available for a given location. Not all datasets
+are available in all countries.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">checkAvailability</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> availability <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span>
+</span><span class="code-line">        including<span class="token punctuation">:</span> <span class="token punctuation">.</span>availability
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Check specific dataset availability</span>
+</span><span class="code-line">    <span class="token keyword">if</span> availability<span class="token punctuation">.</span>alertAvailability <span class="token operator">==</span> <span class="token punctuation">.</span>available <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Safe to fetch alerts</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> availability<span class="token punctuation">.</span>minuteAvailability <span class="token operator">==</span> <span class="token punctuation">.</span>available <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Minute forecast available for this region</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Common Mistakes</h2>
+<h3>DON'T: Ship without Apple Weather attribution</h3>
+<p>Omitting attribution violates the WeatherKit terms of service and risks App Review
+rejection.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG: Show weather data without attribution</span>
+</span><span class="code-line"><span class="token class-name">VStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"72F, Sunny"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Always include attribution</span>
+</span><span class="code-line"><span class="token class-name">VStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"72F, Sunny"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token class-name">WeatherAttributionView</span><span class="token punctuation">(</span>attribution<span class="token punctuation">:</span> attribution<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>DON'T: Fetch all datasets when you only need current conditions</h3>
+<p>Each dataset query counts against your API quota. Fetch only what you display.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG: Fetches everything</span>
+</span><span class="code-line"><span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> temp <span class="token operator">=</span> weather<span class="token punctuation">.</span>currentWeather<span class="token punctuation">.</span>temperature
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Fetch only current conditions</span>
+</span><span class="code-line"><span class="token keyword">let</span> current <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span>
+</span><span class="code-line">    including<span class="token punctuation">:</span> <span class="token punctuation">.</span>current
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> temp <span class="token operator">=</span> current<span class="token punctuation">.</span>temperature
+</span></code></pre>
+<h3>DON'T: Ignore minute forecast unavailability</h3>
+<p>Minute forecasts return <code>nil</code> in unsupported regions. Force-unwrapping crashes.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG: Force-unwrap minute forecast</span>
+</span><span class="code-line"><span class="token keyword">let</span> minutes <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span> including<span class="token punctuation">:</span> <span class="token punctuation">.</span>minute<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">for</span> m <span class="token keyword">in</span> minutes<span class="token operator">!</span> <span class="token punctuation">{</span> <span class="token operator">...</span> <span class="token punctuation">}</span> <span class="token comment">// Crash in unsupported regions</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Handle nil</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token keyword">let</span> minutes <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span> including<span class="token punctuation">:</span> <span class="token punctuation">.</span>minute<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">for</span> m <span class="token keyword">in</span> minutes <span class="token punctuation">{</span> <span class="token operator">...</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Minute forecast not available for this region</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>DON'T: Forget the WeatherKit entitlement</h3>
+<p>Without the capability enabled, <code>WeatherService</code> calls throw at runtime.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG: No WeatherKit capability configured</span>
+</span><span class="code-line"><span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> weatherService<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">)</span> <span class="token comment">// Throws</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Enable WeatherKit in Xcode Signing &amp; Capabilities</span>
+</span><span class="code-line"><span class="token comment">// and in the Apple Developer portal for your App ID</span>
+</span></code></pre>
+<h3>DON'T: Make repeated requests without caching</h3>
+<p>Weather data updates every few minutes, not every second. Cache responses
+to stay within API quotas and improve performance.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// WRONG: Fetch on every view appearance</span>
+</span><span class="code-line"><span class="token punctuation">.</span>task <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span><span class="token operator">?</span> <span class="token keyword">await</span> <span class="token function">fetchWeather</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Cache with a staleness interval</span>
+</span><span class="code-line"><span class="token keyword">actor</span> <span class="token class-name">WeatherCache</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> cached<span class="token punctuation">:</span> <span class="token class-name">CurrentWeather</span><span class="token operator">?</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> lastFetch<span class="token punctuation">:</span> <span class="token class-name">Date</span><span class="token operator">?</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">current</span><span class="token punctuation">(</span><span class="token keyword">for</span> location<span class="token punctuation">:</span> <span class="token class-name">CLLocation</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">CurrentWeather</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> cached<span class="token punctuation">,</span> <span class="token keyword">let</span> lastFetch<span class="token punctuation">,</span>
+</span><span class="code-line">           <span class="token class-name">Date</span><span class="token punctuation">.</span>now<span class="token punctuation">.</span><span class="token function">timeIntervalSince</span><span class="token punctuation">(</span>lastFetch<span class="token punctuation">)</span> <span class="token operator">&lt;</span> <span class="token number">600</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">return</span> cached
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">let</span> fresh <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">WeatherService</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">weather</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token keyword">for</span><span class="token punctuation">:</span> location<span class="token punctuation">,</span> including<span class="token punctuation">:</span> <span class="token punctuation">.</span>current
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span><span class="code-line">        cached <span class="token operator">=</span> fresh
+</span><span class="code-line">        lastFetch <span class="token operator">=</span> <span class="token punctuation">.</span>now
+</span><span class="code-line">        <span class="token keyword">return</span> fresh
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> WeatherKit capability enabled in Xcode and Apple Developer portal</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Active Apple Developer Program membership (required for WeatherKit)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Apple Weather attribution displayed wherever weather data appears</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Attribution mark uses correct color scheme variant (light/dark)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Legal attribution page linked or <code>legalAttributionText</code> displayed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Only needed <code>WeatherQuery</code> datasets fetched (not full <code>weather(for:)</code> when unnecessary)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Minute forecast handled as optional (nil in unsupported regions)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Weather alerts checked for nil before iteration</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Responses cached with a reasonable staleness interval (5-15 minutes)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>WeatherAvailability</code> checked before fetching region-limited datasets</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Location permission requested before passing <code>CLLocation</code> to service</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Temperature and measurements formatted with <code>Measurement.formatted()</code> for locale</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li>Extended patterns (SwiftUI dashboard, charts integration, historical statistics): <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/weatherkit/references/weatherkit-patterns.md" target="_blank" rel="ugc nofollow noopener">references/weatherkit-patterns.md</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit" target="_blank" rel="ugc nofollow noopener">WeatherKit framework</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/weatherservice" target="_blank" rel="ugc nofollow noopener">WeatherService</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/weatherattribution" target="_blank" rel="ugc nofollow noopener">WeatherAttribution</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/weatherquery" target="_blank" rel="ugc nofollow noopener">WeatherQuery</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/currentweather" target="_blank" rel="ugc nofollow noopener">CurrentWeather</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/forecast" target="_blank" rel="ugc nofollow noopener">Forecast</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/hourweather" target="_blank" rel="ugc nofollow noopener">HourWeather</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/dayweather" target="_blank" rel="ugc nofollow noopener">DayWeather</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/weatheralert" target="_blank" rel="ugc nofollow noopener">WeatherAlert</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/weatheravailability" target="_blank" rel="ugc nofollow noopener">WeatherAvailability</a></li>
+<li><a href="https://sosumi.ai/documentation/weatherkit/fetching_weather_forecasts_with_weatherkit" target="_blank" rel="ugc nofollow noopener">Fetching weather forecasts with WeatherKit</a></li>
+</ul></div>

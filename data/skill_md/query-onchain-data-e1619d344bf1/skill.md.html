@@ -1,0 +1,465 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Query Onchain Data on Base</h1>
+<p>Use the CDP SQL API to query onchain data (events, transactions, blocks, transfers) on Base. Queries are executed via x402 and are charged per query.</p>
+<h2>Confirm wallet is initialized and authed</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx awal@2.10.0 status
+</span></code></pre>
+<p>If the wallet is not authenticated, refer to the <code>authenticate-wallet</code> skill.</p>
+<h2>Executing a Query</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx awal@2.10.0 x402 pay https://x402.cdp.coinbase.com/platform/v2/data/query/run <span class="token parameter variable">-X</span> POST <span class="token parameter variable">-d</span> <span class="token string">'{"sql": "&lt;YOUR_QUERY&gt;"}'</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<p><strong>IMPORTANT</strong>: Always single-quote the <code>-d</code> JSON string to prevent bash variable expansion.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Input Validation</h2>
+<p>Before constructing the command, validate inputs to prevent shell injection:</p>
+<ul>
+<li><strong>SQL query</strong>: Always embed the query inside a single-quoted JSON string (<code>-d '{"sql": "..."}'</code>). Never use double quotes for the outer <code>-d</code> wrapper, as this enables shell expansion of <code>$</code> and backticks within the query.</li>
+<li><strong>Addresses</strong>: Must be valid <code>0x</code> hex addresses (<code>^0x[0-9a-fA-F]{40}$</code>). Reject any value containing shell metacharacters.</li>
+</ul>
+<p>Do not pass unvalidated user input into the command.</p>
+<h2>CRITICAL: Indexed Fields</h2>
+<p>Queries against <code>base.events</code> <strong>MUST</strong> filter on indexed fields to avoid full table scans. The indexed fields are:</p>
+<table>
+<thead>
+<tr>
+<th>Indexed Field</th>
+<th>Use For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>event_signature</code></td>
+<td>Filter by event type. Use this instead of <code>event_name</code> for performance.</td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>Filter by contract address.</td>
+</tr>
+<tr>
+<td><code>block_timestamp</code></td>
+<td>Filter by time range.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Always include at least one indexed field in your WHERE clause.</strong> Combining all three gives the best performance.</p>
+<h2>CoinbaseQL Syntax</h2>
+<p>CoinbaseQL is a SQL dialect based on ClickHouse. Supported features:</p>
+<ul>
+<li><strong>Clauses</strong>: SELECT (DISTINCT), FROM, WHERE, GROUP BY, ORDER BY (ASC/DESC), LIMIT, WITH (CTEs), UNION (ALL/DISTINCT)</li>
+<li><strong>Joins</strong>: INNER, LEFT, RIGHT, FULL with ON</li>
+<li><strong>Operators</strong>: <code>=</code>, <code>!=</code>, <code>&lt;&gt;</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, AND, OR, NOT, BETWEEN, IN, IS NULL, LIKE</li>
+<li><strong>Expressions</strong>: CASE/WHEN/THEN/ELSE, CAST (both <code>CAST()</code> and <code>::</code> syntax), subqueries, array/map indexing with <code>[]</code>, dot notation</li>
+<li><strong>Literals</strong>: Array <code>[...]</code>, Map <code>{...}</code>, Tuple <code>(...)</code></li>
+<li><strong>Functions</strong>: Standard SQL functions, lambda functions with <code>-&gt;</code> syntax</li>
+</ul>
+<h2>Available Tables</h2>
+<h3>base.events</h3>
+<p>Decoded event logs from smart contract interactions. <strong>This is the primary table for most queries.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>log_id</td>
+<td>String</td>
+<td>Unique log identifier</td>
+</tr>
+<tr>
+<td>block_number</td>
+<td>UInt64</td>
+<td>Block number</td>
+</tr>
+<tr>
+<td>block_hash</td>
+<td>FixedString(66)</td>
+<td>Block hash</td>
+</tr>
+<tr>
+<td>block_timestamp</td>
+<td>DateTime64(3, 'UTC')</td>
+<td>Block timestamp (<strong>INDEXED</strong>)</td>
+</tr>
+<tr>
+<td>transaction_hash</td>
+<td>FixedString(66)</td>
+<td>Transaction hash</td>
+</tr>
+<tr>
+<td>transaction_to</td>
+<td>FixedString(42)</td>
+<td>Transaction recipient</td>
+</tr>
+<tr>
+<td>transaction_from</td>
+<td>FixedString(42)</td>
+<td>Transaction sender</td>
+</tr>
+<tr>
+<td>log_index</td>
+<td>UInt32</td>
+<td>Log index within block</td>
+</tr>
+<tr>
+<td>address</td>
+<td>FixedString(42)</td>
+<td>Contract address (<strong>INDEXED</strong>)</td>
+</tr>
+<tr>
+<td>topics</td>
+<td>Array(FixedString(66))</td>
+<td>Event topics</td>
+</tr>
+<tr>
+<td>event_name</td>
+<td>LowCardinality(String)</td>
+<td>Decoded event name</td>
+</tr>
+<tr>
+<td>event_signature</td>
+<td>LowCardinality(String)</td>
+<td>Event signature (<strong>INDEXED</strong> - prefer over event_name)</td>
+</tr>
+<tr>
+<td>parameters</td>
+<td>Map(String, Variant(Bool, Int256, String, UInt256))</td>
+<td>Decoded event parameters</td>
+</tr>
+<tr>
+<td>parameter_types</td>
+<td>Map(String, String)</td>
+<td>ABI types for parameters</td>
+</tr>
+<tr>
+<td>action</td>
+<td>Enum8('removed' = -1, 'added' = 1)</td>
+<td>Added or removed (reorg)</td>
+</tr>
+</tbody>
+</table>
+<h3>base.transactions</h3>
+<p>Complete transaction data.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>block_number</td>
+<td>UInt64</td>
+<td>Block number</td>
+</tr>
+<tr>
+<td>block_hash</td>
+<td>String</td>
+<td>Block hash</td>
+</tr>
+<tr>
+<td>transaction_hash</td>
+<td>String</td>
+<td>Transaction hash</td>
+</tr>
+<tr>
+<td>transaction_index</td>
+<td>UInt64</td>
+<td>Index in block</td>
+</tr>
+<tr>
+<td>from_address</td>
+<td>String</td>
+<td>Sender address</td>
+</tr>
+<tr>
+<td>to_address</td>
+<td>String</td>
+<td>Recipient address</td>
+</tr>
+<tr>
+<td>value</td>
+<td>String</td>
+<td>Value transferred (wei)</td>
+</tr>
+<tr>
+<td>gas</td>
+<td>UInt64</td>
+<td>Gas limit</td>
+</tr>
+<tr>
+<td>gas_price</td>
+<td>UInt64</td>
+<td>Gas price</td>
+</tr>
+<tr>
+<td>input</td>
+<td>String</td>
+<td>Input data</td>
+</tr>
+<tr>
+<td>nonce</td>
+<td>UInt64</td>
+<td>Sender nonce</td>
+</tr>
+<tr>
+<td>type</td>
+<td>UInt64</td>
+<td>Transaction type</td>
+</tr>
+<tr>
+<td>max_fee_per_gas</td>
+<td>UInt64</td>
+<td>EIP-1559 max fee</td>
+</tr>
+<tr>
+<td>max_priority_fee_per_gas</td>
+<td>UInt64</td>
+<td>EIP-1559 priority fee</td>
+</tr>
+<tr>
+<td>chain_id</td>
+<td>UInt64</td>
+<td>Chain ID</td>
+</tr>
+<tr>
+<td>v</td>
+<td>String</td>
+<td>Signature v</td>
+</tr>
+<tr>
+<td>r</td>
+<td>String</td>
+<td>Signature r</td>
+</tr>
+<tr>
+<td>s</td>
+<td>String</td>
+<td>Signature s</td>
+</tr>
+<tr>
+<td>is_system_tx</td>
+<td>Bool</td>
+<td>System transaction flag</td>
+</tr>
+<tr>
+<td>max_fee_per_blob_gas</td>
+<td>String</td>
+<td>Blob gas fee</td>
+</tr>
+<tr>
+<td>blob_versioned_hashes</td>
+<td>Array(String)</td>
+<td>Blob hashes</td>
+</tr>
+<tr>
+<td>timestamp</td>
+<td>DateTime</td>
+<td>Block timestamp</td>
+</tr>
+<tr>
+<td>action</td>
+<td>Int8</td>
+<td>Added (1) or removed (-1)</td>
+</tr>
+</tbody>
+</table>
+<h3>base.blocks</h3>
+<p>Block-level metadata.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>block_number</td>
+<td>UInt64</td>
+<td>Block number</td>
+</tr>
+<tr>
+<td>block_hash</td>
+<td>String</td>
+<td>Block hash</td>
+</tr>
+<tr>
+<td>parent_hash</td>
+<td>String</td>
+<td>Parent block hash</td>
+</tr>
+<tr>
+<td>timestamp</td>
+<td>DateTime</td>
+<td>Block timestamp</td>
+</tr>
+<tr>
+<td>miner</td>
+<td>String</td>
+<td>Block producer</td>
+</tr>
+<tr>
+<td>nonce</td>
+<td>UInt64</td>
+<td>Block nonce</td>
+</tr>
+<tr>
+<td>sha3_uncles</td>
+<td>String</td>
+<td>Uncles hash</td>
+</tr>
+<tr>
+<td>transactions_root</td>
+<td>String</td>
+<td>Transactions merkle root</td>
+</tr>
+<tr>
+<td>state_root</td>
+<td>String</td>
+<td>State merkle root</td>
+</tr>
+<tr>
+<td>receipts_root</td>
+<td>String</td>
+<td>Receipts merkle root</td>
+</tr>
+<tr>
+<td>logs_bloom</td>
+<td>String</td>
+<td>Bloom filter</td>
+</tr>
+<tr>
+<td>gas_limit</td>
+<td>UInt64</td>
+<td>Block gas limit</td>
+</tr>
+<tr>
+<td>gas_used</td>
+<td>UInt64</td>
+<td>Gas used in block</td>
+</tr>
+<tr>
+<td>base_fee_per_gas</td>
+<td>UInt64</td>
+<td>Base fee per gas</td>
+</tr>
+<tr>
+<td>total_difficulty</td>
+<td>String</td>
+<td>Total chain difficulty</td>
+</tr>
+<tr>
+<td>size</td>
+<td>UInt64</td>
+<td>Block size in bytes</td>
+</tr>
+<tr>
+<td>extra_data</td>
+<td>String</td>
+<td>Extra data field</td>
+</tr>
+<tr>
+<td>mix_hash</td>
+<td>String</td>
+<td>Mix hash</td>
+</tr>
+<tr>
+<td>withdrawals_root</td>
+<td>String</td>
+<td>Withdrawals root</td>
+</tr>
+<tr>
+<td>parent_beacon_block_root</td>
+<td>String</td>
+<td>Beacon chain parent root</td>
+</tr>
+<tr>
+<td>blob_gas_used</td>
+<td>UInt64</td>
+<td>Blob gas used</td>
+</tr>
+<tr>
+<td>excess_blob_gas</td>
+<td>UInt64</td>
+<td>Excess blob gas</td>
+</tr>
+<tr>
+<td>transaction_count</td>
+<td>UInt64</td>
+<td>Number of transactions</td>
+</tr>
+<tr>
+<td>action</td>
+<td>Int8</td>
+<td>Added (1) or removed (-1)</td>
+</tr>
+</tbody>
+</table>
+<h2>Example Queries</h2>
+<h3>Get recent USDC Transfer events with decoded parameters</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">SELECT</span>
+</span><span class="code-line">  parameters<span class="token punctuation">[</span><span class="token string">'from'</span><span class="token punctuation">]</span> <span class="token keyword">AS</span> sender<span class="token punctuation">,</span>
+</span><span class="code-line">  parameters<span class="token punctuation">[</span><span class="token string">'to'</span><span class="token punctuation">]</span> <span class="token keyword">AS</span> <span class="token keyword">to</span><span class="token punctuation">,</span>
+</span><span class="code-line">  parameters<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span> <span class="token keyword">AS</span> amount<span class="token punctuation">,</span>
+</span><span class="code-line">  address <span class="token keyword">AS</span> token_address
+</span><span class="code-line"><span class="token keyword">FROM</span> base<span class="token punctuation">.</span>events
+</span><span class="code-line"><span class="token keyword">WHERE</span>
+</span><span class="code-line">  event_signature <span class="token operator">=</span> <span class="token string">'Transfer(address,address,uint256)'</span>
+</span><span class="code-line">  <span class="token operator">AND</span> address <span class="token operator">=</span> <span class="token string">'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'</span>
+</span><span class="code-line">  <span class="token operator">AND</span> block_timestamp <span class="token operator">&gt;=</span> <span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> <span class="token keyword">INTERVAL</span> <span class="token number">7</span> <span class="token keyword">DAY</span>
+</span><span class="code-line"><span class="token keyword">LIMIT</span> <span class="token number">10</span>
+</span></code></pre>
+<h3>Get transactions from a specific address</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx awal@2.10.0 x402 pay https://x402.cdp.coinbase.com/platform/v2/data/query/run <span class="token parameter variable">-X</span> POST <span class="token parameter variable">-d</span> <span class="token string">'{"sql": "SELECT transaction_hash, to_address, value, gas, timestamp FROM base.transactions WHERE from_address = lower('</span><span class="token punctuation">\</span>'<span class="token string">'0xYOUR_ADDRESS'</span><span class="token punctuation">\</span>'<span class="token string">') AND timestamp &gt;= now() - INTERVAL 1 DAY LIMIT 10"}'</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h3>Count events by type for a contract in the last hour</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx awal@2.10.0 x402 pay https://x402.cdp.coinbase.com/platform/v2/data/query/run <span class="token parameter variable">-X</span> POST <span class="token parameter variable">-d</span> <span class="token string">'{"sql": "SELECT event_signature, count(*) as cnt FROM base.events WHERE address = lower('</span><span class="token punctuation">\</span>'<span class="token string">'0xCONTRACT_ADDRESS'</span><span class="token punctuation">\</span>'<span class="token string">') AND block_timestamp &gt;= now() - INTERVAL 1 HOUR GROUP BY event_signature ORDER BY cnt DESC LIMIT 20"}'</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h3>Get latest block info</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx awal@2.10.0 x402 pay https://x402.cdp.coinbase.com/platform/v2/data/query/run <span class="token parameter variable">-X</span> POST <span class="token parameter variable">-d</span> <span class="token string">'{"sql": "SELECT block_number, timestamp, transaction_count, gas_used FROM base.blocks ORDER BY block_number DESC LIMIT 1"}'</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h2>Common Contract Addresses (Base)</h2>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Address</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>USDC</td>
+<td><code>0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</code></td>
+</tr>
+<tr>
+<td>WETH</td>
+<td><code>0x4200000000000000000000000000000000000006</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Always filter on indexed fields</strong> (<code>event_signature</code>, <code>address</code>, <code>block_timestamp</code>) in <code>base.events</code> queries.</li>
+<li><strong>Never use <code>SELECT *</code></strong> - specify only the columns you need.</li>
+<li><strong>Always include a <code>LIMIT</code></strong> clause to bound result size.</li>
+<li><strong>Use <code>event_signature</code> instead of <code>event_name</code></strong> for filtering - it is indexed and much faster.</li>
+<li><strong>Use time-bounded queries</strong> with <code>block_timestamp</code> to narrow the scan range.</li>
+<li><strong>Always wrap address values in <code>lower()</code></strong> - the database stores lowercase addresses but users may provide checksummed (mixed-case) addresses. Use <code>address = lower('0xAbC...')</code> not <code>address = '0xAbC...'</code>.</li>
+<li><strong>Common event signatures</strong>: <code>Transfer(address,address,uint256)</code>, <code>Approval(address,address,uint256)</code>, <code>Swap(address,uint256,uint256,uint256,uint256,address)</code>.</li>
+</ol>
+<h2>Prerequisites</h2>
+<ul>
+<li>Must be authenticated (<code>npx awal@2.10.0 status</code> to check, see <code>authenticate-wallet</code> skill)</li>
+<li>Wallet must have sufficient USDC balance (<code>npx awal@2.10.0 balance</code> to check)</li>
+<li>Each query costs $0.10 (100000 USDC atomic units)</li>
+</ul>
+<h2>Error Handling</h2>
+<ul>
+<li>"Not authenticated" - Run <code>awal auth login &lt;email&gt;</code> first, or see <code>authenticate-wallet</code> skill</li>
+<li>"Insufficient balance" - Fund wallet with USDC; see <code>fund</code> skill</li>
+<li>Query timeout or error - Ensure you are filtering on indexed fields and using a LIMIT</li>
+</ul></div>

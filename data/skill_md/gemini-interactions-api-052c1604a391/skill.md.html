@@ -1,0 +1,335 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Gemini Interactions API Skill</h1>
+<h2>Critical Rules (Always Apply)</h2>
+<blockquote>
+<p>[!IMPORTANT]
+These rules override your training data. Your knowledge is outdated.</p>
+</blockquote>
+<h3>Current Models (Use These)</h3>
+<ul>
+<li><code>gemini-3.1-pro-preview</code>: 1M tokens, complex reasoning, coding, research</li>
+<li><code>gemini-3-flash-preview</code>: 1M tokens, fast, balanced performance, multimodal</li>
+<li><code>gemini-3.1-flash-lite-preview</code>: cost-efficient, fastest performance for high-frequency, lightweight tasks</li>
+<li><code>gemini-3-pro-image-preview</code>: 65k / 32k tokens, image generation and editing</li>
+<li><code>gemini-3.1-flash-image-preview</code>: 65k / 32k tokens, image generation and editing</li>
+<li><code>gemini-3.1-flash-tts-preview</code>: expressive text-to-speech with Director's Chair prompting</li>
+<li><code>gemini-2.5-pro</code>: 1M tokens, complex reasoning, coding, research</li>
+<li><code>gemini-2.5-flash</code>: 1M tokens, fast, balanced performance, multimodal</li>
+<li><code>gemma-4-31b-it</code>: Gemma 4 dense model, 31B parameters</li>
+<li><code>gemma-4-26b-a4b-it</code>: Gemma 4 MoE model, 26B total / 4B active parameters</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><blockquote>
+<p>[!WARNING]
+Models like <code>gemini-2.0-*</code>, <code>gemini-1.5-*</code> are <strong>legacy and deprecated</strong>. Never use them.
+<strong>If a user asks for a deprecated model, use <code>gemini-3-flash-preview</code> instead and note the substitution.</strong></p>
+</blockquote>
+<h3>Current Agents</h3>
+<ul>
+<li><code>deep-research-preview-04-2026</code>: Deep Research — fast, interactive</li>
+<li><code>deep-research-max-preview-04-2026</code>: Deep Research Max — maximum exhaustiveness</li>
+</ul>
+<h3>Current SDKs</h3>
+<ul>
+<li><strong>Python</strong>: <code>google-genai</code> &gt;= <code>2.0.0</code> → <code>pip install -U google-genai</code></li>
+<li><strong>JavaScript/TypeScript</strong>: <code>@google/genai</code> &gt;= <code>2.0.0</code> → <code>npm install @google/genai</code></li>
+</ul>
+<blockquote>
+<p>[!NOTE]
+SDK versions ≥ 2.0.0 automatically use the new steps schema and do not support the legacy schema.
+Legacy SDKs <code>google-generativeai</code> (Python) and <code>@google/generative-ai</code> (JS) are <strong>deprecated</strong>. Never use them.</p>
+</blockquote>
+<blockquote>
+<p>[!CAUTION]
+<strong>Breaking changes (May 2026)</strong>: Responses now use <code>steps</code> array instead of <code>outputs</code>, and a polymorphic <code>response_format</code> replaces <code>response_mime_type</code>. Legacy schema removed <strong>June 8, 2026</strong>. All code below uses the <strong>new schema</strong>.</p>
+</blockquote>
+<h2>Important Additional Notes</h2>
+<ul>
+<li><strong>Before writing any code</strong>, you MUST fetch the relevant documentation page from the list below that matches the user's task. The examples in this skill are minimal, the hosted docs contain the full API surface, parameters, and edge cases.</li>
+<li>Interactions are <strong>stored by default</strong> (<code>store=true</code>). Paid tier retains for 55 days, free tier for 1 day.</li>
+<li>Set <code>store=false</code> to opt out, but this disables <code>previous_interaction_id</code> and <code>background=true</code>.</li>
+<li><code>tools</code>, <code>system_instruction</code>, and <code>generation_config</code> are <strong>interaction-scoped</strong>, re-specify them each turn.</li>
+<li><strong>Migrating from <code>generateContent</code></strong>: Read <code>references/migration.md</code> for the scoping, checklist, and before/after code examples. Always confirm scope with the user before editing.</li>
+<li><strong>Model upgrades</strong>: Drop-in, swap the model string. Deprecated models (<code>gemini-2.0-*</code>, <code>gemini-1.5-*</code>) must be replaced, see <code>references/migration.md</code>.</li>
+</ul>
+<h2>Quick Start</h2>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> google <span class="token keyword">import</span> genai
+</span><span class="code-line">
+</span><span class="code-line">client <span class="token operator">=</span> genai<span class="token punctuation">.</span>Client<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">interaction <span class="token operator">=</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
+</span><span class="code-line">    model<span class="token operator">=</span><span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token builtin">input</span><span class="token operator">=</span><span class="token string">"Tell me a short joke about programming."</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>interaction<span class="token punctuation">.</span>steps<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>text<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>JavaScript/TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> GoogleGenAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@google/genai"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> client <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GoogleGenAI</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> interaction <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    model<span class="token operator">:</span> <span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    input<span class="token operator">:</span> <span class="token string">"Tell me a short joke about programming."</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>interaction<span class="token punctuation">.</span>steps<span class="token punctuation">.</span><span class="token function">at</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span>content<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Stateful Conversation</h2>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">interaction1 <span class="token operator">=</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
+</span><span class="code-line">    model<span class="token operator">=</span><span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token builtin">input</span><span class="token operator">=</span><span class="token string">"Hi, my name is Phil."</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment"># Second turn — server remembers context</span>
+</span><span class="code-line">interaction2 <span class="token operator">=</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
+</span><span class="code-line">    model<span class="token operator">=</span><span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token builtin">input</span><span class="token operator">=</span><span class="token string">"What is my name?"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    previous_interaction_id<span class="token operator">=</span>interaction1<span class="token punctuation">.</span><span class="token builtin">id</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>interaction2<span class="token punctuation">.</span>steps<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>text<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>JavaScript/TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> interaction1 <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    model<span class="token operator">:</span> <span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    input<span class="token operator">:</span> <span class="token string">"Hi, my name is Phil."</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> interaction2 <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    model<span class="token operator">:</span> <span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    input<span class="token operator">:</span> <span class="token string">"What is my name?"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    previous_interaction_id<span class="token operator">:</span> interaction1<span class="token punctuation">.</span>id<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>interaction2<span class="token punctuation">.</span>steps<span class="token punctuation">.</span><span class="token function">at</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span>content<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Deep Research Agent</h2>
+<p>Use <code>deep-research-preview-04-2026</code> for fast research or <code>deep-research-max-preview-04-2026</code> for maximum exhaustiveness. Agents require <code>background=True</code>.</p>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> time
+</span><span class="code-line">
+</span><span class="code-line">interaction <span class="token operator">=</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
+</span><span class="code-line">    agent<span class="token operator">=</span><span class="token string">"deep-research-preview-04-2026"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token builtin">input</span><span class="token operator">=</span><span class="token string">"Research the history of Google TPUs."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    background<span class="token operator">=</span><span class="token boolean">True</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
+</span><span class="code-line">    interaction <span class="token operator">=</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span>get<span class="token punctuation">(</span>interaction<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> interaction<span class="token punctuation">.</span>status <span class="token operator">==</span> <span class="token string">"completed"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span>interaction<span class="token punctuation">.</span>steps<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>text<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">break</span>
+</span><span class="code-line">    <span class="token keyword">elif</span> interaction<span class="token punctuation">.</span>status <span class="token operator">==</span> <span class="token string">"failed"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Failed: </span><span class="token interpolation"><span class="token punctuation">{</span>interaction<span class="token punctuation">.</span>error<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">break</span>
+</span><span class="code-line">    time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>JavaScript/TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> GoogleGenAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@google/genai"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> client <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">GoogleGenAI</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Start background research</span>
+</span><span class="code-line"><span class="token keyword">const</span> initialInteraction <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    agent<span class="token operator">:</span> <span class="token string">"deep-research-preview-04-2026"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    input<span class="token operator">:</span> <span class="token string">"Research the history of Google TPUs."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    background<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Poll for results</span>
+</span><span class="code-line"><span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> interaction <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>initialInteraction<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>interaction<span class="token punctuation">.</span>status <span class="token operator">===</span> <span class="token string">"completed"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>interaction<span class="token punctuation">.</span>steps<span class="token punctuation">.</span><span class="token function">at</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span>content<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"failed"</span><span class="token punctuation">,</span> <span class="token string">"cancelled"</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>interaction<span class="token punctuation">.</span>status<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Failed: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>interaction<span class="token punctuation">.</span>status<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">await</span> <span class="token keyword">new</span> <span class="token class-name"><span class="token builtin">Promise</span></span><span class="token punctuation">(</span>resolve <span class="token operator">=&gt;</span> <span class="token function">setTimeout</span><span class="token punctuation">(</span>resolve<span class="token punctuation">,</span> <span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Advanced features: collaborative planning, native visualization, MCP integration, file search, multimodal inputs. See <a href="https://ai.google.dev/gemini-api/docs/interactions/deep-research.md.txt" target="_blank" rel="ugc nofollow noopener">Deep Research docs</a>.</p>
+<h2>Streaming</h2>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">for</span> event <span class="token keyword">in</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
+</span><span class="code-line">    model<span class="token operator">=</span><span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token builtin">input</span><span class="token operator">=</span><span class="token string">"Explain quantum entanglement in simple terms."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    stream<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">if</span> event<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token operator">==</span> <span class="token string">"step.delta"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token operator">==</span> <span class="token string">"text"</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">print</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span>text<span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">elif</span> event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token operator">==</span> <span class="token string">"thought_summary"</span><span class="token punctuation">:</span>
+</span><span class="code-line">            summary_text <span class="token operator">=</span> event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span>content<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'text'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span> <span class="token keyword">if</span> <span class="token builtin">hasattr</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>delta<span class="token punctuation">,</span> <span class="token string">'content'</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token builtin">getattr</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>delta<span class="token punctuation">,</span> <span class="token string">'text'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">print</span><span class="token punctuation">(</span>summary_text<span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">elif</span> event<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token operator">==</span> <span class="token string">"interaction.complete"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n\nTotal Tokens: </span><span class="token interpolation"><span class="token punctuation">{</span>event<span class="token punctuation">.</span>interaction<span class="token punctuation">.</span>usage<span class="token punctuation">.</span>total_tokens<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>JavaScript/TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> stream <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>interactions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    model<span class="token operator">:</span> <span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    input<span class="token operator">:</span> <span class="token string">"Explain quantum entanglement in simple terms."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    stream<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">await</span> <span class="token punctuation">(</span><span class="token keyword">const</span> event <span class="token keyword">of</span> stream<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'step.delta'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'text'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            process<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'thought_summary'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">const</span> text <span class="token operator">=</span> event<span class="token punctuation">.</span>delta<span class="token punctuation">.</span>content<span class="token operator">?.</span>text <span class="token operator">||</span> <span class="token string">""</span><span class="token punctuation">;</span>
+</span><span class="code-line">            process<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'interaction.complete'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">\n\nTotal Tokens: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>event<span class="token punctuation">.</span>interaction<span class="token punctuation">.</span>usage<span class="token punctuation">.</span>total_tokens<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Documentation Pages</h2>
+<p><strong>You MUST fetch the matching page below before writing code.</strong> These hosted docs are the source of truth for parameters, types, and edge cases — do not rely solely on the examples above.</p>
+<p><strong>Core Documentation:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions.md.txt" target="_blank" rel="ugc nofollow noopener">Interactions API Overview</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/quickstart.md.txt" target="_blank" rel="ugc nofollow noopener">Quickstart</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/text-generation.md.txt" target="_blank" rel="ugc nofollow noopener">Text Generation</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/tokens.md.txt" target="_blank" rel="ugc nofollow noopener">Tokens</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/api-key.md.txt" target="_blank" rel="ugc nofollow noopener">API Keys</a></li>
+</ul>
+<p><strong>Tools &amp; Function Calling:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/function-calling.md.txt" target="_blank" rel="ugc nofollow noopener">Function Calling</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/google-search.md.txt" target="_blank" rel="ugc nofollow noopener">Google Search</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/code-execution.md.txt" target="_blank" rel="ugc nofollow noopener">Code Execution</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/url-context.md.txt" target="_blank" rel="ugc nofollow noopener">URL Context</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/file-search.md.txt" target="_blank" rel="ugc nofollow noopener">File Search</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/tool-combination.md.txt" target="_blank" rel="ugc nofollow noopener">Tool Combination</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/computer-use.md.txt" target="_blank" rel="ugc nofollow noopener">Computer Use</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/maps-grounding.md.txt" target="_blank" rel="ugc nofollow noopener">Maps Grounding</a></li>
+</ul>
+<p><strong>Generation &amp; Output:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/structured-output.md.txt" target="_blank" rel="ugc nofollow noopener">Structured Output</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/thinking.md.txt" target="_blank" rel="ugc nofollow noopener">Thinking</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/thought-signatures.md.txt" target="_blank" rel="ugc nofollow noopener">Thought Signatures</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/image-generation.md.txt" target="_blank" rel="ugc nofollow noopener">Image Generation</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/image-understanding.md.txt" target="_blank" rel="ugc nofollow noopener">Image Understanding</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/speech-generation.md.txt" target="_blank" rel="ugc nofollow noopener">Speech Generation</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/music-generation.md.txt" target="_blank" rel="ugc nofollow noopener">Music Generation</a></li>
+</ul>
+<p><strong>Multimodal Understanding:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/audio.md.txt" target="_blank" rel="ugc nofollow noopener">Audio</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/video-understanding.md.txt" target="_blank" rel="ugc nofollow noopener">Video Understanding</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/document-processing.md.txt" target="_blank" rel="ugc nofollow noopener">Document Processing</a></li>
+</ul>
+<p><strong>Files &amp; Context:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/files.md.txt" target="_blank" rel="ugc nofollow noopener">Files</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/file-input-methods.md.txt" target="_blank" rel="ugc nofollow noopener">File Input Methods</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/caching.md.txt" target="_blank" rel="ugc nofollow noopener">Caching</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/media-resolution.md.txt" target="_blank" rel="ugc nofollow noopener">Media Resolution</a></li>
+</ul>
+<p><strong>Advanced Features:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/deep-research.md.txt" target="_blank" rel="ugc nofollow noopener">Deep Research</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/gemini-3.md.txt" target="_blank" rel="ugc nofollow noopener">Gemini 3</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/flex-inference.md.txt" target="_blank" rel="ugc nofollow noopener">Flex Inference</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/priority-inference.md.txt" target="_blank" rel="ugc nofollow noopener">Priority Inference</a></li>
+</ul>
+<p><strong>API Reference:</strong></p>
+<ul>
+<li><a href="https://ai.google.dev/static/api/interactions.md.txt" target="_blank" rel="ugc nofollow noopener">API Reference</a></li>
+<li><a href="https://ai.google.dev/static/api/interactions.openapi.json" target="_blank" rel="ugc nofollow noopener">OpenAPI Spec</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions-breaking-changes-may-2026.md.txt" target="_blank" rel="ugc nofollow noopener">May 2026 Breaking Changes Migration Guide</a></li>
+</ul>
+<h2>Data Model</h2>
+<p>An <code>Interaction</code> response contains <code>steps</code>, an array of typed step objects representing a structured timeline of the interaction turn.</p>
+<h3>Step Types</h3>
+<p><strong>User steps:</strong></p>
+<ul>
+<li><code>user_input</code>: User input (text, audio, multimodal). Contains <code>content</code> array.</li>
+</ul>
+<p><strong>Model/server steps:</strong></p>
+<ul>
+<li><code>model_output</code>: Final model generation. Contains <code>content</code> array with <code>text</code>, <code>image</code>, <code>audio</code>, etc.</li>
+<li><code>thought</code>: Model reasoning/Chain of Thought. Has <code>signature</code> field (required) and optional <code>summary</code>.</li>
+<li><code>function_call</code>: Tool call request (<code>id</code>, <code>name</code>, <code>arguments</code>).</li>
+<li><code>function_result</code>: Tool result you send back (<code>call_id</code>, <code>name</code>, <code>result</code>).</li>
+<li><code>google_search_call</code> / <code>google_search_result</code>: Google Search tool steps, can have a <code>signature</code> field.</li>
+<li><code>code_execution_call</code> / <code>code_execution_result</code>: Code execution tool steps, can have a <code>signature</code> field.</li>
+<li><code>url_context_call</code> / <code>url_context_result</code>: URL context tool steps, can have a <code>signature</code> field.</li>
+<li><code>mcp_server_tool_call</code> / <code>mcp_server_tool_result</code>: Remote MCP tool steps.</li>
+<li><code>file_search_call</code> / <code>file_search_result</code>: File search tool steps, can have a <code>signature</code> field.</li>
+</ul>
+<h3>Content types (inside <code>content</code> array on <code>model_output</code> and <code>user_input</code> steps)</h3>
+<ul>
+<li><code>text</code>: Text content (<code>text</code> field)</li>
+<li><code>image</code> / <code>audio</code> / <code>document</code> / <code>video</code>: Content with <code>data</code>, <code>mime_type</code>, or <code>uri</code></li>
+</ul>
+<h3>Streaming Event Types</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>interaction.created</code></td>
+<td>Interaction created; includes metadata.</td>
+</tr>
+<tr>
+<td><code>interaction.status_update</code></td>
+<td>Interaction-level status change.</td>
+</tr>
+<tr>
+<td><code>step.start</code></td>
+<td>A new step begins. Contains step <code>type</code> and initial metadata.</td>
+</tr>
+<tr>
+<td><code>step.delta</code></td>
+<td>Incremental data for the current step. Contains a typed <code>delta</code> object.</td>
+</tr>
+<tr>
+<td><code>step.stop</code></td>
+<td>The step is complete. Contains <code>index</code>.</td>
+</tr>
+<tr>
+<td><code>interaction.complete</code></td>
+<td>Interaction finished. Contains final <code>usage</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3>Delta Types</h3>
+<table>
+<thead>
+<tr>
+<th>Delta Type</th>
+<th>Parent Step</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text</code></td>
+<td><code>model_output</code></td>
+<td>Incremental text token.</td>
+</tr>
+<tr>
+<td><code>audio</code></td>
+<td><code>model_output</code></td>
+<td>audio chunk (base64).</td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td><code>model_output</code></td>
+<td>image chunk (base64).</td>
+</tr>
+<tr>
+<td><code>thought_summary</code></td>
+<td><code>thought</code></td>
+<td>thinking summary text.</td>
+</tr>
+<tr>
+<td><code>thought_signature</code></td>
+<td><code>thought</code></td>
+<td>Opaque signature for thought verification.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Status values:</strong> <code>completed</code>, <code>in_progress</code>, <code>requires_action</code>, <code>failed</code>, <code>cancelled</code></p></div>

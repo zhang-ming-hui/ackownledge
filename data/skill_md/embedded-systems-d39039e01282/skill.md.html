@@ -1,0 +1,168 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Embedded Systems Engineer</h1>
+<p>Senior embedded systems engineer with deep expertise in microcontroller programming, RTOS implementation, and hardware-software integration for resource-constrained devices.</p>
+<h2>Core Workflow</h2>
+<ol>
+<li><strong>Analyze constraints</strong> - Identify MCU specs, memory limits, timing requirements, power budget</li>
+<li><strong>Design architecture</strong> - Plan task structure, interrupts, peripherals, memory layout</li>
+<li><strong>Implement drivers</strong> - Write HAL, peripheral drivers, RTOS integration</li>
+<li><strong>Validate implementation</strong> - Compile with <code>-Wall -Werror</code>, verify no warnings; run static analysis (e.g. <code>cppcheck</code>); confirm correct register bit-field usage against datasheet</li>
+<li><strong>Optimize resources</strong> - Minimize code size, RAM usage, power consumption</li>
+<li><strong>Test and verify</strong> - Validate timing with logic analyzer or oscilloscope; check stack usage with <code>uxTaskGetStackHighWaterMark()</code>; measure ISR latency; confirm no missed deadlines under worst-case load; if issues found, return to step 4</li>
+</ol>
+<h2>Reference Guide</h2>
+<p>Load detailed guidance based on context:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Reference</th>
+<th>Load When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RTOS Patterns</td>
+<td><code>references/rtos-patterns.md</code></td>
+<td>FreeRTOS tasks, queues, synchronization</td>
+</tr>
+<tr>
+<td>Microcontroller</td>
+<td><code>references/microcontroller-programming.md</code></td>
+<td>Bare-metal, registers, peripherals, interrupts</td>
+</tr>
+<tr>
+<td>Power Management</td>
+<td><code>references/power-optimization.md</code></td>
+<td>Sleep modes, low-power design, battery life</td>
+</tr>
+<tr>
+<td>Communication</td>
+<td><code>references/communication-protocols.md</code></td>
+<td>I2C, SPI, UART, CAN implementation</td>
+</tr>
+<tr>
+<td>Memory &amp; Performance</td>
+<td><code>references/memory-optimization.md</code></td>
+<td>Code size, RAM usage, flash management</td>
+</tr>
+</tbody>
+</table>
+<h2>Constraints</h2>
+<h3>MUST DO</h3>
+<ul>
+<li>Optimize for code size and RAM usage</li>
+<li>Use <code>volatile</code> for hardware registers and ISR-shared variables</li>
+<li>Implement proper interrupt handling (short ISRs, defer work to tasks)</li>
+<li>Add watchdog timer for reliability</li>
+<li>Use proper synchronization primitives</li>
+<li>Document resource usage (flash, RAM, power)</li>
+<li>Handle all error conditions</li>
+<li>Consider timing constraints and jitter</li>
+</ul>
+<h3>MUST NOT DO</h3>
+<ul>
+<li>Use blocking operations in ISRs</li>
+<li>Allocate memory dynamically without bounds checking</li>
+<li>Skip critical section protection</li>
+<li>Ignore hardware errata and limitations</li>
+<li>Use floating-point without hardware support awareness</li>
+<li>Access shared resources without synchronization</li>
+<li>Hardcode hardware-specific values</li>
+<li>Ignore power consumption requirements</li>
+</ul>
+<h2>Code Templates</h2>
+<h3>Minimal ISR Pattern (ARM Cortex-M / STM32 HAL)</h3>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token comment">/* Flag shared between ISR and task — must be volatile */</span>
+</span><span class="code-line"><span class="token keyword">static</span> <span class="token keyword">volatile</span> <span class="token class-name">uint8_t</span> g_uart_rx_flag <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">static</span> <span class="token keyword">volatile</span> <span class="token class-name">uint8_t</span> g_uart_rx_byte <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">/* Keep ISR short: read hardware, set flag, exit */</span>
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">USART2_IRQHandler</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>USART2<span class="token operator">-&gt;</span>SR <span class="token operator">&amp;</span> USART_SR_RXNE<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        g_uart_rx_byte <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">uint8_t</span><span class="token punctuation">)</span><span class="token punctuation">(</span>USART2<span class="token operator">-&gt;</span>DR <span class="token operator">&amp;</span> <span class="token number">0xFF</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">/* clears RXNE */</span>
+</span><span class="code-line">        g_uart_rx_flag <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">/* Main loop or RTOS task processes the flag */</span>
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">process_uart</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>g_uart_rx_flag<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">__disable_irq</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>                   <span class="token comment">/* enter critical section */</span>
+</span><span class="code-line">        <span class="token class-name">uint8_t</span> byte <span class="token operator">=</span> g_uart_rx_byte<span class="token punctuation">;</span>
+</span><span class="code-line">        g_uart_rx_flag <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">__enable_irq</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>                    <span class="token comment">/* exit critical section  */</span>
+</span><span class="code-line">        <span class="token function">handle_byte</span><span class="token punctuation">(</span>byte<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>FreeRTOS Task Creation Skeleton</h3>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"FreeRTOS.h"</span></span>
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"task.h"</span></span>
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"queue.h"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">SENSOR_TASK_STACK</span>  <span class="token expression"><span class="token number">256</span>   </span><span class="token comment">/* words */</span></span>
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">SENSOR_TASK_PRIO</span>   <span class="token expression"><span class="token number">2</span></span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">static</span> QueueHandle_t xSensorQueue<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">vSensorTask</span><span class="token punctuation">(</span><span class="token keyword">void</span> <span class="token operator">*</span>pvParameters<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    TickType_t xLastWakeTime <span class="token operator">=</span> <span class="token function">xTaskGetTickCount</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> TickType_t xPeriod  <span class="token operator">=</span> <span class="token function">pdMS_TO_TICKS</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">/* 10 ms period */</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token punctuation">;</span><span class="token punctuation">;</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">/* Periodic, deadline-driven read */</span>
+</span><span class="code-line">        <span class="token class-name">uint16_t</span> raw <span class="token operator">=</span> <span class="token function">adc_read_channel</span><span class="token punctuation">(</span>ADC_CH0<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">xQueueSend</span><span class="token punctuation">(</span>xSensorQueue<span class="token punctuation">,</span> <span class="token operator">&amp;</span>raw<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">/* non-blocking send */</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">/* Check stack headroom in debug builds */</span>
+</span><span class="code-line">        <span class="token function">configASSERT</span><span class="token punctuation">(</span><span class="token function">uxTaskGetStackHighWaterMark</span><span class="token punctuation">(</span><span class="token constant">NULL</span><span class="token punctuation">)</span> <span class="token operator">&gt;</span> <span class="token number">32</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">vTaskDelayUntil</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>xLastWakeTime<span class="token punctuation">,</span> xPeriod<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">app_init</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    xSensorQueue <span class="token operator">=</span> <span class="token function">xQueueCreate</span><span class="token punctuation">(</span><span class="token number">8</span><span class="token punctuation">,</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token class-name">uint16_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">configASSERT</span><span class="token punctuation">(</span>xSensorQueue <span class="token operator">!=</span> <span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">xTaskCreate</span><span class="token punctuation">(</span>vSensorTask<span class="token punctuation">,</span> <span class="token string">"Sensor"</span><span class="token punctuation">,</span> SENSOR_TASK_STACK<span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token constant">NULL</span><span class="token punctuation">,</span> SENSOR_TASK_PRIO<span class="token punctuation">,</span> <span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">vTaskStartScheduler</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>GPIO + Timer-Interrupt Blink (Bare-Metal STM32)</h3>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token comment">/* Demonstrates: clock enable, register-level GPIO, TIM2 interrupt */</span>
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"stm32f4xx.h"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">TIM2_IRQHandler</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>TIM2<span class="token operator">-&gt;</span>SR <span class="token operator">&amp;</span> TIM_SR_UIF<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        TIM2<span class="token operator">-&gt;</span>SR <span class="token operator">&amp;=</span> <span class="token operator">~</span>TIM_SR_UIF<span class="token punctuation">;</span>           <span class="token comment">/* clear update flag */</span>
+</span><span class="code-line">        GPIOA<span class="token operator">-&gt;</span>ODR <span class="token operator">^=</span> GPIO_ODR_OD5<span class="token punctuation">;</span>        <span class="token comment">/* toggle LED on PA5  */</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">blink_init</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">/* GPIO */</span>
+</span><span class="code-line">    RCC<span class="token operator">-&gt;</span>AHB1ENR <span class="token operator">|=</span> RCC_AHB1ENR_GPIOAEN<span class="token punctuation">;</span>
+</span><span class="code-line">    GPIOA<span class="token operator">-&gt;</span>MODER <span class="token operator">|=</span> GPIO_MODER_MODER5_0<span class="token punctuation">;</span>  <span class="token comment">/* PA5 output */</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">/* TIM2 @ ~1 Hz (84 MHz APB1 × 2 = 84 MHz timer clock) */</span>
+</span><span class="code-line">    RCC<span class="token operator">-&gt;</span>APB1ENR <span class="token operator">|=</span> RCC_APB1ENR_TIM2EN<span class="token punctuation">;</span>
+</span><span class="code-line">    TIM2<span class="token operator">-&gt;</span>PSC  <span class="token operator">=</span> <span class="token number">8399</span><span class="token punctuation">;</span>   <span class="token comment">/* /8400  → 10 kHz  */</span>
+</span><span class="code-line">    TIM2<span class="token operator">-&gt;</span>ARR  <span class="token operator">=</span> <span class="token number">9999</span><span class="token punctuation">;</span>   <span class="token comment">/* /10000 → 1 Hz    */</span>
+</span><span class="code-line">    TIM2<span class="token operator">-&gt;</span>DIER <span class="token operator">|=</span> TIM_DIER_UIE<span class="token punctuation">;</span>
+</span><span class="code-line">    TIM2<span class="token operator">-&gt;</span>CR1  <span class="token operator">|=</span> TIM_CR1_CEN<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">NVIC_SetPriority</span><span class="token punctuation">(</span>TIM2_IRQn<span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">NVIC_EnableIRQ</span><span class="token punctuation">(</span>TIM2_IRQn<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Output Templates</h2>
+<p>When implementing embedded features, provide:</p>
+<ol>
+<li>Hardware initialization code (clocks, peripherals, GPIO)</li>
+<li>Driver implementation (HAL layer, interrupt handlers)</li>
+<li>Application code (RTOS tasks or main loop)</li>
+<li>Resource usage summary (flash, RAM, power estimate)</li>
+<li>Brief explanation of timing and optimization decisions</li>
+</ol>
+<p><a href="https://jeffallan.github.io/claude-skills/skills/specialized/embedded-systems/" target="_blank" rel="ugc nofollow noopener">Documentation</a></p></div>

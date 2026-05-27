@@ -1,0 +1,703 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><ul>
+<li><strong>StateGraph</strong>: Main class for building stateful graphs</li>
+<li><strong>Nodes</strong>: Functions that perform work and update state</li>
+<li><strong>Edges</strong>: Define execution order (static or conditional)</li>
+<li><strong>START/END</strong>: Special nodes marking entry and exit points</li>
+<li><strong>State with Reducers</strong>: Control how state updates are merged</li>
+</ul>
+<p>Graphs must be <code>compile()</code>d before execution.
+</p>
+<h3>Designing a LangGraph application</h3>
+<p>Follow these 5 steps when building a new graph:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Map out discrete steps</strong> — sketch a flowchart of your workflow. Each step becomes a node.</li>
+<li><strong>Identify what each step does</strong> — categorize nodes: LLM step, data step, action step, or user input step. For each, determine static context (prompt), dynamic context (from state), retry strategy, and desired outcome.</li>
+<li><strong>Design your state</strong> — state is shared memory for all nodes. Store raw data, format prompts on-demand inside nodes.</li>
+<li><strong>Build your nodes</strong> — implement each step as a function that takes state and returns partial updates.</li>
+<li><strong>Wire it together</strong> — connect nodes with edges, add conditional routing, compile with a checkpointer if needed.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Use LangGraph When</th>
+<th>Use Alternatives When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Need fine-grained control over agent orchestration</td>
+<td>Quick prototyping → LangChain agents</td>
+</tr>
+<tr>
+<td>Building complex workflows with branching/loops</td>
+<td>Simple stateless workflows → LangChain direct</td>
+</tr>
+<tr>
+<td>Require human-in-the-loop, persistence</td>
+<td>Batteries-included features → Deep Agents</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>State Management</h2>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Solution</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overwrite value</td>
+<td>No reducer (default)</td>
+<td>Simple fields like counters</td>
+</tr>
+<tr>
+<td>Append to list</td>
+<td>Reducer (operator.add / concat)</td>
+<td>Message history, logs</td>
+</tr>
+<tr>
+<td>Custom logic</td>
+<td>Custom reducer function</td>
+<td>Complex merging</td>
+</tr>
+</tbody>
+</table>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict<span class="token punctuation">,</span> Annotated
+</span><span class="code-line"><span class="token keyword">import</span> operator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    name<span class="token punctuation">:</span> <span class="token builtin">str</span>  <span class="token comment"># Default: overwrites on update</span>
+</span><span class="code-line">    messages<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>  <span class="token comment"># Appends to list</span>
+</span><span class="code-line">    total<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>  <span class="token comment"># Sums integers</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> StateSchema<span class="token punctuation">,</span> ReducedValue<span class="token punctuation">,</span> MessagesValue <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  name<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>  <span class="token comment">// Default: overwrites</span>
+</span><span class="code-line">  messages<span class="token operator">:</span> MessagesValue<span class="token punctuation">,</span>  <span class="token comment">// Built-in for messages</span>
+</span><span class="code-line">  items<span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">ReducedValue</span><span class="token punctuation">(</span>
+</span><span class="code-line">    z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token function-variable function">reducer</span><span class="token operator">:</span> <span class="token punctuation">(</span>current<span class="token punctuation">,</span> update<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> current<span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span>update<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># WRONG: List will be OVERWRITTEN</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    messages<span class="token punctuation">:</span> <span class="token builtin">list</span>  <span class="token comment"># No reducer!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Node 1 returns: {"messages": ["A"]}</span>
+</span><span class="code-line"><span class="token comment"># Node 2 returns: {"messages": ["B"]}</span>
+</span><span class="code-line"><span class="token comment"># Final: {"messages": ["B"]}  # "A" is LOST!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># CORRECT: Use Annotated with operator.add</span>
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+</span><span class="code-line"><span class="token keyword">import</span> operator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    messages<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token comment"># Final: {"messages": ["A", "B"]}</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// WRONG: Array will be overwritten</span>
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  items<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>  <span class="token comment">// No reducer!</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Node 1: { items: ["A"] }, Node 2: { items: ["B"] }</span>
+</span><span class="code-line"><span class="token comment">// Final: { items: ["B"] }  // A is lost!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Use ReducedValue</span>
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  items<span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">ReducedValue</span><span class="token punctuation">(</span>
+</span><span class="code-line">    z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token function-variable function">reducer</span><span class="token operator">:</span> <span class="token punctuation">(</span>current<span class="token punctuation">,</span> update<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> current<span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span>update<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Final: { items: ["A", "B"] }</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># WRONG: Returning entire state object</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">my_node</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> State<span class="token punctuation">:</span>
+</span><span class="code-line">    state<span class="token punctuation">[</span><span class="token string">"field"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"updated"</span>
+</span><span class="code-line">    <span class="token keyword">return</span> state  <span class="token comment"># Don't mutate and return!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># CORRECT: Return dict with only the updates</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">my_node</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"field"</span><span class="token punctuation">:</span> <span class="token string">"updated"</span><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// WRONG: Returning entire state</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">myNode</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  state<span class="token punctuation">.</span>field <span class="token operator">=</span> <span class="token string">"updated"</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> state<span class="token punctuation">;</span>  <span class="token comment">// Don't do this!</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT: Return partial updates</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">myNode</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> field<span class="token operator">:</span> <span class="token string">"updated"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Nodes</h2>
+<p>Node functions accept these arguments:</p>
+<table>
+<thead>
+<tr>
+<th>Signature</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>def node(state: State)</code></td>
+<td>Simple nodes that only need state</td>
+</tr>
+<tr>
+<td><code>def node(state: State, config: RunnableConfig)</code></td>
+<td>Need thread_id, tags, or configurable values</td>
+</tr>
+<tr>
+<td><code>def node(state: State, runtime: Runtime[Context])</code></td>
+<td>Need runtime context, store, or stream_writer</td>
+</tr>
+</tbody>
+</table>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>runnables <span class="token keyword">import</span> RunnableConfig
+</span><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>runtime <span class="token keyword">import</span> Runtime
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">plain_node</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"results"</span><span class="token punctuation">:</span> <span class="token string">"done"</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">node_with_config</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">,</span> config<span class="token punctuation">:</span> RunnableConfig<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    thread_id <span class="token operator">=</span> config<span class="token punctuation">[</span><span class="token string">"configurable"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"thread_id"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"results"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"Thread: </span><span class="token interpolation"><span class="token punctuation">{</span>thread_id<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">node_with_runtime</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">,</span> runtime<span class="token punctuation">:</span> Runtime<span class="token punctuation">[</span>Context<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    user_id <span class="token operator">=</span> runtime<span class="token punctuation">.</span>context<span class="token punctuation">.</span>user_id
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"results"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"User: </span><span class="token interpolation"><span class="token punctuation">{</span>user_id<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">}</span>
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Signature</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(state) =&gt; {...}</code></td>
+<td>Simple nodes that only need state</td>
+</tr>
+<tr>
+<td><code>(state, config) =&gt; {...}</code></td>
+<td>Need thread_id, tags, or configurable values</td>
+</tr>
+</tbody>
+</table>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> GraphNode<span class="token punctuation">,</span> StateSchema <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> plainNode<span class="token operator">:</span> GraphNode<span class="token operator">&lt;</span><span class="token keyword">typeof</span> State<span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> results<span class="token operator">:</span> <span class="token string">"done"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> nodeWithConfig<span class="token operator">:</span> GraphNode<span class="token operator">&lt;</span><span class="token keyword">typeof</span> State<span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">(</span>state<span class="token punctuation">,</span> config<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> threadId <span class="token operator">=</span> config<span class="token operator">?.</span>configurable<span class="token operator">?.</span>thread_id<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> results<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Thread: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>threadId<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Edges</h2>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Edge Type</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Always go to same node</td>
+<td><code>add_edge()</code></td>
+<td>Fixed, deterministic flow</td>
+</tr>
+<tr>
+<td>Route based on state</td>
+<td><code>add_conditional_edges()</code></td>
+<td>Dynamic branching</td>
+</tr>
+<tr>
+<td>Update state AND route</td>
+<td><code>Command</code></td>
+<td>Combine logic in single node</td>
+</tr>
+<tr>
+<td>Fan-out to multiple nodes</td>
+<td><code>Send</code></td>
+<td>Parallel processing with dynamic inputs</td>
+</tr>
+</tbody>
+</table>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> StateGraph<span class="token punctuation">,</span> START<span class="token punctuation">,</span> END
+</span><span class="code-line"><span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token builtin">input</span><span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    output<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">process_input</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"output"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"Processed: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'input'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">finalize</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"output"</span><span class="token punctuation">:</span> state<span class="token punctuation">[</span><span class="token string">"output"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>upper<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">graph <span class="token operator">=</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    StateGraph<span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"process"</span><span class="token punctuation">,</span> process_input<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"finalize"</span><span class="token punctuation">,</span> finalize<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"process"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"process"</span><span class="token punctuation">,</span> <span class="token string">"finalize"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"finalize"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"input"</span><span class="token punctuation">:</span> <span class="token string">"hello"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"output"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>  <span class="token comment"># "PROCESSED: HELLO"</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> StateGraph<span class="token punctuation">,</span> StateSchema<span class="token punctuation">,</span> <span class="token constant">START</span><span class="token punctuation">,</span> <span class="token constant">END</span> <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  input<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  output<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">processInput</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> output<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Processed: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>state<span class="token punctuation">.</span>input<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">finalize</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> output<span class="token operator">:</span> state<span class="token punctuation">.</span>output<span class="token punctuation">.</span><span class="token function">toUpperCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> graph <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateGraph</span><span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"process"</span><span class="token punctuation">,</span> processInput<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"finalize"</span><span class="token punctuation">,</span> finalize<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token constant">START</span><span class="token punctuation">,</span> <span class="token string">"process"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"process"</span><span class="token punctuation">,</span> <span class="token string">"finalize"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"finalize"</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> graph<span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token punctuation">{</span> input<span class="token operator">:</span> <span class="token string">"hello"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>output<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// "PROCESSED: HELLO"</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
+</span><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> StateGraph<span class="token punctuation">,</span> START<span class="token punctuation">,</span> END
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    query<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    route<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    result<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">classify</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token string">"weather"</span> <span class="token keyword">in</span> state<span class="token punctuation">[</span><span class="token string">"query"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"route"</span><span class="token punctuation">:</span> <span class="token string">"weather"</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"route"</span><span class="token punctuation">:</span> <span class="token string">"general"</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">route_query</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> Literal<span class="token punctuation">[</span><span class="token string">"weather"</span><span class="token punctuation">,</span> <span class="token string">"general"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> state<span class="token punctuation">[</span><span class="token string">"route"</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">graph <span class="token operator">=</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    StateGraph<span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"classify"</span><span class="token punctuation">,</span> classify<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"weather"</span><span class="token punctuation">,</span> <span class="token keyword">lambda</span> s<span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string">"Sunny, 72F"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"general"</span><span class="token punctuation">,</span> <span class="token keyword">lambda</span> s<span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string">"General response"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"classify"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"classify"</span><span class="token punctuation">,</span> route_query<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"weather"</span><span class="token punctuation">,</span> <span class="token string">"general"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"weather"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"general"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> StateGraph<span class="token punctuation">,</span> StateSchema<span class="token punctuation">,</span> <span class="token constant">START</span><span class="token punctuation">,</span> <span class="token constant">END</span> <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  query<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  route<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  result<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">classify</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>state<span class="token punctuation">.</span>query<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">"weather"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> route<span class="token operator">:</span> <span class="token string">"weather"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> route<span class="token operator">:</span> <span class="token string">"general"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">routeQuery</span> <span class="token operator">=</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>route<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> graph <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateGraph</span><span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"classify"</span><span class="token punctuation">,</span> classify<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"weather"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> result<span class="token operator">:</span> <span class="token string">"Sunny, 72F"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"general"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> result<span class="token operator">:</span> <span class="token string">"General response"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token constant">START</span><span class="token punctuation">,</span> <span class="token string">"classify"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addConditionalEdges</span><span class="token punctuation">(</span><span class="token string">"classify"</span><span class="token punctuation">,</span> routeQuery<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"weather"</span><span class="token punctuation">,</span> <span class="token string">"general"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"weather"</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"general"</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Command</h2>
+<p>Command combines state updates and routing in a single return value. Fields:</p>
+<ul>
+<li><strong><code>update</code></strong>: State updates to apply (like returning a dict from a node)</li>
+<li><strong><code>goto</code></strong>: Node name(s) to navigate to next</li>
+<li><strong><code>resume</code></strong>: Value to resume after <code>interrupt()</code> — see human-in-the-loop skill</li>
+</ul>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>types <span class="token keyword">import</span> Command
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    count<span class="token punctuation">:</span> <span class="token builtin">int</span>
+</span><span class="code-line">    result<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">node_a</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> State<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> Command<span class="token punctuation">[</span>Literal<span class="token punctuation">[</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token string">"node_c"</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Update state AND decide next node in one return."""</span>
+</span><span class="code-line">    new_count <span class="token operator">=</span> state<span class="token punctuation">[</span><span class="token string">"count"</span><span class="token punctuation">]</span> <span class="token operator">+</span> <span class="token number">1</span>
+</span><span class="code-line">    <span class="token keyword">if</span> new_count <span class="token operator">&gt;</span> <span class="token number">5</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> Command<span class="token punctuation">(</span>update<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"count"</span><span class="token punctuation">:</span> new_count<span class="token punctuation">}</span><span class="token punctuation">,</span> goto<span class="token operator">=</span><span class="token string">"node_c"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Command<span class="token punctuation">(</span>update<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"count"</span><span class="token punctuation">:</span> new_count<span class="token punctuation">}</span><span class="token punctuation">,</span> goto<span class="token operator">=</span><span class="token string">"node_b"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">graph <span class="token operator">=</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    StateGraph<span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> node_a<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token keyword">lambda</span> s<span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string">"B"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"node_c"</span><span class="token punctuation">,</span> <span class="token keyword">lambda</span> s<span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string">"C"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"node_a"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"node_c"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> StateGraph<span class="token punctuation">,</span> StateSchema<span class="token punctuation">,</span> <span class="token constant">START</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">,</span> Command <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  count<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  result<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">nodeA</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> newCount <span class="token operator">=</span> state<span class="token punctuation">.</span>count <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>newCount <span class="token operator">&gt;</span> <span class="token number">5</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Command</span><span class="token punctuation">(</span><span class="token punctuation">{</span> update<span class="token operator">:</span> <span class="token punctuation">{</span> count<span class="token operator">:</span> newCount <span class="token punctuation">}</span><span class="token punctuation">,</span> goto<span class="token operator">:</span> <span class="token string">"node_c"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">Command</span><span class="token punctuation">(</span><span class="token punctuation">{</span> update<span class="token operator">:</span> <span class="token punctuation">{</span> count<span class="token operator">:</span> newCount <span class="token punctuation">}</span><span class="token punctuation">,</span> goto<span class="token operator">:</span> <span class="token string">"node_b"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> graph <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateGraph</span><span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> nodeA<span class="token punctuation">,</span> <span class="token punctuation">{</span> ends<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token string">"node_c"</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> result<span class="token operator">:</span> <span class="token string">"B"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"node_c"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> result<span class="token operator">:</span> <span class="token string">"C"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token constant">START</span><span class="token punctuation">,</span> <span class="token string">"node_a"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"node_c"</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Python</strong>: Use <code>Command[Literal["node_a", "node_b"]]</code> as the return type annotation to declare valid goto destinations.</p>
+<p><strong>TypeScript</strong>: Pass <code>{ ends: ["node_a", "node_b"] }</code> as the third argument to <code>addNode</code> to declare valid goto destinations.</p>
+<p><strong>Warning</strong>: <code>Command</code> only adds <strong>dynamic</strong> edges — static edges defined with <code>add_edge</code> / <code>addEdge</code> still execute. If <code>node_a</code> returns <code>Command(goto="node_c")</code> and you also have <code>graph.add_edge("node_a", "node_b")</code>, <strong>both</strong> <code>node_b</code> and <code>node_c</code> will run.</p>
+<hr>
+<h2>Send API</h2>
+<p>Fan-out with <code>Send</code>: return <code>[Send("worker", {...})]</code> from a conditional edge to spawn parallel workers. Requires a reducer on the results field.</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>types <span class="token keyword">import</span> Send
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+</span><span class="code-line"><span class="token keyword">import</span> operator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">OrchestratorState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    tasks<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
+</span><span class="code-line">    results<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>
+</span><span class="code-line">    summary<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">orchestrator</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> OrchestratorState<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Fan out tasks to workers."""</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">[</span>Send<span class="token punctuation">(</span><span class="token string">"worker"</span><span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token string">"task"</span><span class="token punctuation">:</span> task<span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token keyword">for</span> task <span class="token keyword">in</span> state<span class="token punctuation">[</span><span class="token string">"tasks"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">worker</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"results"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string-interpolation"><span class="token string">f"Completed: </span><span class="token interpolation"><span class="token punctuation">{</span>state<span class="token punctuation">[</span><span class="token string">'task'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">]</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">synthesize</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> OrchestratorState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"summary"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"Processed </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token builtin">len</span><span class="token punctuation">(</span>state<span class="token punctuation">[</span><span class="token string">'results'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string"> tasks"</span></span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">graph <span class="token operator">=</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    StateGraph<span class="token punctuation">(</span>OrchestratorState<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"worker"</span><span class="token punctuation">,</span> worker<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"synthesize"</span><span class="token punctuation">,</span> synthesize<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>START<span class="token punctuation">,</span> orchestrator<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"worker"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"worker"</span><span class="token punctuation">,</span> <span class="token string">"synthesize"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"synthesize"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"tasks"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"Task A"</span><span class="token punctuation">,</span> <span class="token string">"Task B"</span><span class="token punctuation">,</span> <span class="token string">"Task C"</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Send<span class="token punctuation">,</span> StateGraph<span class="token punctuation">,</span> StateSchema<span class="token punctuation">,</span> ReducedValue<span class="token punctuation">,</span> <span class="token constant">START</span><span class="token punctuation">,</span> <span class="token constant">END</span> <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  tasks<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  results<span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">ReducedValue</span><span class="token punctuation">(</span>
+</span><span class="code-line">    z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token function-variable function">reducer</span><span class="token operator">:</span> <span class="token punctuation">(</span>curr<span class="token punctuation">,</span> upd<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> curr<span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span>upd<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  summary<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">orchestrator</span> <span class="token operator">=</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> state<span class="token punctuation">.</span>tasks<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span>task<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">new</span> <span class="token class-name">Send</span><span class="token punctuation">(</span><span class="token string">"worker"</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> task <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">worker</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token punctuation">{</span> task<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> results<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Completed: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>state<span class="token punctuation">.</span>task<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">synthesize</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> summary<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Processed </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>state<span class="token punctuation">.</span>results<span class="token punctuation">.</span>length<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> tasks</span><span class="token template-punctuation string">`</span></span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> graph <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateGraph</span><span class="token punctuation">(</span>State<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"worker"</span><span class="token punctuation">,</span> worker<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"synthesize"</span><span class="token punctuation">,</span> synthesize<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addConditionalEdges</span><span class="token punctuation">(</span><span class="token constant">START</span><span class="token punctuation">,</span> orchestrator<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"worker"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"worker"</span><span class="token punctuation">,</span> <span class="token string">"synthesize"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"synthesize"</span><span class="token punctuation">,</span> <span class="token constant">END</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># WRONG: No reducer - last worker overwrites</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    results<span class="token punctuation">:</span> <span class="token builtin">list</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># CORRECT</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    results<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>  <span class="token comment"># Accumulates</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// WRONG: No reducer</span>
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span> results<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token keyword">const</span> State <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StateSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  results<span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">ReducedValue</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token function-variable function">reducer</span><span class="token operator">:</span> <span class="token punctuation">(</span>curr<span class="token punctuation">,</span> upd<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> curr<span class="token punctuation">.</span><span class="token function">concat</span><span class="token punctuation">(</span>upd<span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Running Graphs: Invoke and Stream</h2>
+<p>Call <code>graph.invoke(input, config)</code> to run a graph to completion and return the final state.</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"input"</span><span class="token punctuation">:</span> <span class="token string">"hello"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment"># With config (for persistence, tags, etc.)</span>
+</span><span class="code-line">result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"input"</span><span class="token punctuation">:</span> <span class="token string">"hello"</span><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"1"</span><span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> graph<span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token punctuation">{</span> input<span class="token operator">:</span> <span class="token string">"hello"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// With config</span>
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> graph<span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token punctuation">{</span> input<span class="token operator">:</span> <span class="token string">"hello"</span> <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> configurable<span class="token operator">:</span> <span class="token punctuation">{</span> thread_id<span class="token operator">:</span> <span class="token string">"1"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>What it Streams</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>values</code></td>
+<td>Full state after each step</td>
+<td>Monitor complete state</td>
+</tr>
+<tr>
+<td><code>updates</code></td>
+<td>State deltas</td>
+<td>Track incremental updates</td>
+</tr>
+<tr>
+<td><code>messages</code></td>
+<td>LLM tokens + metadata</td>
+<td>Chat UIs</td>
+</tr>
+<tr>
+<td><code>custom</code></td>
+<td>User-defined data</td>
+<td>Progress indicators</td>
+</tr>
+</tbody>
+</table>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">for</span> chunk <span class="token keyword">in</span> graph<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span><span class="token string">"Hello"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    stream_mode<span class="token operator">=</span><span class="token string">"messages"</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    token<span class="token punctuation">,</span> metadata <span class="token operator">=</span> chunk
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token builtin">hasattr</span><span class="token punctuation">(</span>token<span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span>token<span class="token punctuation">.</span>content<span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">await</span> <span class="token punctuation">(</span><span class="token keyword">const</span> chunk <span class="token keyword">of</span> graph<span class="token punctuation">.</span><span class="token function">stream</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> messages<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token keyword">new</span> <span class="token class-name">HumanMessage</span><span class="token punctuation">(</span><span class="token string">"Hello"</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> streamMode<span class="token operator">:</span> <span class="token string">"messages"</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>token<span class="token punctuation">,</span> metadata<span class="token punctuation">]</span> <span class="token operator">=</span> chunk<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>token<span class="token punctuation">.</span>content<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    process<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>token<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>config <span class="token keyword">import</span> get_stream_writer
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">my_node</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    writer <span class="token operator">=</span> get_stream_writer<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    writer<span class="token punctuation">(</span><span class="token string">"Processing step 1..."</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token comment"># Do work</span>
+</span><span class="code-line">    writer<span class="token punctuation">(</span><span class="token string">"Complete!"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string">"done"</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> chunk <span class="token keyword">in</span> graph<span class="token punctuation">.</span>stream<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"data"</span><span class="token punctuation">:</span> <span class="token string">"test"</span><span class="token punctuation">}</span><span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"custom"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span>chunk<span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> getWriter <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">myNode</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>state<span class="token operator">:</span> <span class="token keyword">typeof</span> State<span class="token punctuation">.</span>State<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> writer <span class="token operator">=</span> <span class="token function">getWriter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">writer</span><span class="token punctuation">(</span><span class="token string">"Processing step 1..."</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token comment">// Do work</span>
+</span><span class="code-line">  <span class="token function">writer</span><span class="token punctuation">(</span><span class="token string">"Complete!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> result<span class="token operator">:</span> <span class="token string">"done"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">await</span> <span class="token punctuation">(</span><span class="token keyword">const</span> chunk <span class="token keyword">of</span> graph<span class="token punctuation">.</span><span class="token function">stream</span><span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token string">"test"</span> <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> streamMode<span class="token operator">:</span> <span class="token string">"custom"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>chunk<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Error Handling</h2>
+<p>Match the error type to the right handler:</p>
+<table>
+<thead>
+<tr>
+<th>Error Type</th>
+<th>Who Fixes</th>
+<th>Strategy</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transient (network, rate limits)</td>
+<td>System</td>
+<td><code>RetryPolicy(max_attempts=3)</code></td>
+<td><code>add_node(..., retry_policy=...)</code></td>
+</tr>
+<tr>
+<td>LLM-recoverable (tool failures)</td>
+<td>LLM</td>
+<td><code>ToolNode(tools, handle_tool_errors=True)</code></td>
+<td>Error returned as ToolMessage</td>
+</tr>
+<tr>
+<td>User-fixable (missing info)</td>
+<td>Human</td>
+<td><code>interrupt({"message": ...})</code></td>
+<td>Collect missing data (see HITL skill)</td>
+</tr>
+<tr>
+<td>Unexpected</td>
+<td>Developer</td>
+<td>Let bubble up</td>
+<td><code>raise</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>types <span class="token keyword">import</span> RetryPolicy
+</span><span class="code-line">
+</span><span class="code-line">workflow<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"search_documentation"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    search_documentation<span class="token punctuation">,</span>
+</span><span class="code-line">    retry_policy<span class="token operator">=</span>RetryPolicy<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">,</span> initial_interval<span class="token operator">=</span><span class="token number">1.0</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line">workflow<span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token string">"searchDocumentation"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  searchDocumentation<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    retryPolicy<span class="token operator">:</span> <span class="token punctuation">{</span> maxAttempts<span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span> initialInterval<span class="token operator">:</span> <span class="token number">1.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>prebuilt <span class="token keyword">import</span> ToolNode
+</span><span class="code-line">
+</span><span class="code-line">tool_node <span class="token operator">=</span> ToolNode<span class="token punctuation">(</span>tools<span class="token punctuation">,</span> handle_tool_errors<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">workflow<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> tool_node<span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> ToolNode <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@langchain/langgraph/prebuilt"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> toolNode <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ToolNode</span><span class="token punctuation">(</span>tools<span class="token punctuation">,</span> <span class="token punctuation">{</span> handleToolErrors<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">workflow<span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> toolNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Common Fixes</h2>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># WRONG</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"input"</span><span class="token punctuation">:</span> <span class="token string">"test"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>  <span class="token comment"># AttributeError!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># CORRECT</span>
+</span><span class="code-line">graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"input"</span><span class="token punctuation">:</span> <span class="token string">"test"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// WRONG</span>
+</span><span class="code-line"><span class="token keyword">await</span> builder<span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token punctuation">{</span> input<span class="token operator">:</span> <span class="token string">"test"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token keyword">const</span> graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token function">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">await</span> graph<span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token punctuation">{</span> input<span class="token operator">:</span> <span class="token string">"test"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># WRONG: Loops forever</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> <span class="token string">"node_b"</span><span class="token punctuation">)</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token string">"node_a"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># CORRECT</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">should_continue</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> END <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"count"</span><span class="token punctuation">]</span> <span class="token operator">&gt;</span> <span class="token number">10</span> <span class="token keyword">else</span> <span class="token string">"node_b"</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> should_continue<span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// WRONG: Loops forever</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> <span class="token string">"node_b"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">addEdge</span><span class="token punctuation">(</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token string">"node_a"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span><span class="token function">addConditionalEdges</span><span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>count <span class="token operator">&gt;</span> <span class="token number">10</span> <span class="token operator">?</span> <span class="token constant">END</span> <span class="token operator">:</span> <span class="token string">"node_b"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Router must return names of nodes that exist in the graph</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"my_node"</span><span class="token punctuation">,</span> func<span class="token punctuation">)</span>  <span class="token comment"># Add node BEFORE referencing in edges</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> router<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"my_node"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Command return type needs Literal for routing destinations (Python)</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">node_a</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> Command<span class="token punctuation">[</span>Literal<span class="token punctuation">[</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token string">"node_c"</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Command<span class="token punctuation">(</span>goto<span class="token operator">=</span><span class="token string">"node_b"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># START is entry-only - cannot route back to it</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> START<span class="token punctuation">)</span>  <span class="token comment"># WRONG!</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"node_a"</span><span class="token punctuation">,</span> <span class="token string">"entry"</span><span class="token punctuation">)</span>  <span class="token comment"># Use a named entry node instead</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Reducer expects matching types</span>
+</span><span class="code-line"><span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"items"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"item"</span><span class="token punctuation">]</span><span class="token punctuation">}</span>  <span class="token comment"># List for list reducer, not a string</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Always await graph.invoke() - it returns a Promise</span>
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> graph<span class="token punctuation">.</span><span class="token function">invoke</span><span class="token punctuation">(</span><span class="token punctuation">{</span> input<span class="token operator">:</span> <span class="token string">"test"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// TS Command nodes need { ends } to declare routing destinations</span>
+</span><span class="code-line">builder<span class="token punctuation">.</span><span class="token function">addNode</span><span class="token punctuation">(</span><span class="token string">"router"</span><span class="token punctuation">,</span> routerFn<span class="token punctuation">,</span> <span class="token punctuation">{</span> ends<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"node_b"</span><span class="token punctuation">,</span> <span class="token string">"node_c"</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<ul>
+<li>Mutate state directly — always return partial update dicts from nodes</li>
+<li>Route back to START — it's entry-only; use a named node instead</li>
+<li>Forget reducers on list fields — without one, last write wins</li>
+<li>Mix static edges with Command goto without understanding both will execute</li>
+</ul></div>

@@ -1,0 +1,228 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Lark MCP</h1>
+<h2>⚠️ 重要提醒</h2>
+<p><strong>搜索文档/知识库必须配置 OAuth</strong>：</p>
+<ul>
+<li><code>docx_builtin_search</code> → 需要 <code>--oauth</code></li>
+<li><code>wiki_v1_node_search</code> → 需要 <code>--oauth</code></li>
+</ul>
+<p>否则返回 99991663 错误。配置方法见 <a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/installation.md#oauth-%E9%85%8D%E7%BD%AE" target="_blank" rel="ugc nofollow noopener">installation.md</a></p>
+<hr>
+<h2>核心规则</h2>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># 工具命名（连字符，非下划线）</span>
+</span><span class="code-line">✅ mcp__lark<span class="token punctuation">-</span>mcp__tool_name
+</span><span class="code-line">❌ mcp__lark_mcp__tool_name
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h1>参数结构</h1>
+<p>path: {app_token, table_id}   # URL路径参数
+params: {page_size, ...}      # 查询参数
+data: {fields, ...}           # 请求体
+useUAT: false                 # true=用户身份, false=租户身份</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">## 常见陷阱
+</span><span class="code-line">
+</span><span class="code-line">```yaml
+</span><span class="code-line"># content 必须是 JSON 字符串
+</span><span class="code-line">❌ content: {"text": "hello"}
+</span><span class="code-line">✅ content: '{"text": "hello"}'
+</span><span class="code-line">
+</span><span class="code-line"># 过滤条件 value 必须是数组
+</span><span class="code-line">❌ value: "已完成"
+</span><span class="code-line">✅ value: ["已完成"]
+</span><span class="code-line">
+</span><span class="code-line"># 创建群组必须指定 owner_id，否则群主为机器人
+</span><span class="code-line">owner_id: "ou_xxxxx"
+</span><span class="code-line">
+</span><span class="code-line"># 参数名差异
+</span><span class="code-line">docx_builtin_search: search_key  # 不是 query
+</span><span class="code-line">wiki_v1_node_search: query       # 不是 search_key
+</span><span class="code-line">
+</span><span class="code-line"># token 类型
+</span><span class="code-line">wiki_v2_space_getNode: 用 wikcn...  # 不能用 doxcn...
+</span><span class="code-line">docx_v1_document_rawContent: 用 doxcn...
+</span></code></pre>
+<h2>useUAT 选择</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th align="center">useUAT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>创建资源（想让用户可访问）</td>
+<td align="center"><code>true</code></td>
+</tr>
+<tr>
+<td>搜索文档/知识库</td>
+<td align="center"><code>true</code></td>
+</tr>
+<tr>
+<td>访问用户私有数据</td>
+<td align="center"><code>true</code></td>
+</tr>
+<tr>
+<td>查询公共数据</td>
+<td align="center"><code>false</code></td>
+</tr>
+</tbody>
+</table>
+<h2>工具速查</h2>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>工具</th>
+<th>文档</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>消息</td>
+<td><code>im_v1_message_create</code>, <code>im_v1_message_list</code></td>
+<td><a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/im.md" target="_blank" rel="ugc nofollow noopener">im.md</a></td>
+</tr>
+<tr>
+<td>群组</td>
+<td><code>im_v1_chat_create</code>, <code>im_v1_chat_list</code>, <code>im_v1_chatMembers_get</code></td>
+<td><a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/chat.md" target="_blank" rel="ugc nofollow noopener">chat.md</a></td>
+</tr>
+<tr>
+<td>多维表格</td>
+<td><code>bitable_v1_app_create</code>, <code>bitable_v1_appTableRecord_search/create/update</code></td>
+<td><a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/bitable.md" target="_blank" rel="ugc nofollow noopener">bitable.md</a></td>
+</tr>
+<tr>
+<td>文档</td>
+<td><code>docx_builtin_search</code>, <code>docx_v1_document_rawContent</code>, <code>docx_builtin_import</code></td>
+<td><a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/documents.md" target="_blank" rel="ugc nofollow noopener">documents.md</a></td>
+</tr>
+<tr>
+<td>知识库</td>
+<td><code>wiki_v1_node_search</code>, <code>wiki_v2_space_getNode</code></td>
+<td><a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/wiki.md" target="_blank" rel="ugc nofollow noopener">wiki.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2>ID 类型</h2>
+<table>
+<thead>
+<tr>
+<th>前缀</th>
+<th>类型</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ou_</code></td>
+<td>用户ID</td>
+<td>API返回</td>
+</tr>
+<tr>
+<td><code>oc_</code></td>
+<td>群聊ID</td>
+<td><code>im_v1_chat_list</code></td>
+</tr>
+<tr>
+<td><code>bascn</code></td>
+<td>多维表格</td>
+<td>URL中 <code>base/</code> 后</td>
+</tr>
+<tr>
+<td><code>tbl</code></td>
+<td>数据表</td>
+<td>URL参数 <code>table=</code></td>
+</tr>
+<tr>
+<td><code>doxcn</code></td>
+<td>文档</td>
+<td>搜索结果或URL</td>
+</tr>
+<tr>
+<td><code>wikcn</code></td>
+<td>知识库节点</td>
+<td>知识库URL</td>
+</tr>
+</tbody>
+</table>
+<h2>快速示例</h2>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># 发送消息</span>
+</span><span class="code-line"><span class="token key atrule">工具</span><span class="token punctuation">:</span> mcp__lark<span class="token punctuation">-</span>mcp__im_v1_message_create
+</span><span class="code-line"><span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">receive_id</span><span class="token punctuation">:</span> <span class="token string">"oc_xxxxx"</span>
+</span><span class="code-line">  <span class="token key atrule">msg_type</span><span class="token punctuation">:</span> <span class="token string">"text"</span>
+</span><span class="code-line">  <span class="token key atrule">content</span><span class="token punctuation">:</span> <span class="token string">'{"text": "消息内容"}'</span>
+</span><span class="code-line"><span class="token key atrule">params</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">receive_id_type</span><span class="token punctuation">:</span> <span class="token string">"chat_id"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 创建群组</span>
+</span><span class="code-line"><span class="token key atrule">工具</span><span class="token punctuation">:</span> mcp__lark<span class="token punctuation">-</span>mcp__im_v1_chat_create
+</span><span class="code-line"><span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"群名"</span>
+</span><span class="code-line">  <span class="token key atrule">chat_mode</span><span class="token punctuation">:</span> <span class="token string">"group"</span>
+</span><span class="code-line">  <span class="token key atrule">owner_id</span><span class="token punctuation">:</span> <span class="token string">"ou_xxxxx"</span>
+</span><span class="code-line">  <span class="token key atrule">user_id_list</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"ou_xxxxx"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key atrule">params</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">user_id_type</span><span class="token punctuation">:</span> <span class="token string">"open_id"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 创建多维表格记录</span>
+</span><span class="code-line"><span class="token key atrule">工具</span><span class="token punctuation">:</span> mcp__lark<span class="token punctuation">-</span>mcp__bitable_v1_appTableRecord_create
+</span><span class="code-line"><span class="token key atrule">path</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">app_token</span><span class="token punctuation">:</span> <span class="token string">"bascnxxxxxx"</span>
+</span><span class="code-line">  <span class="token key atrule">table_id</span><span class="token punctuation">:</span> <span class="token string">"tblxxxxxx"</span>
+</span><span class="code-line"><span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">fields</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">文本字段</span><span class="token punctuation">:</span> <span class="token string">"值"</span>
+</span><span class="code-line">    <span class="token key atrule">单选字段</span><span class="token punctuation">:</span> <span class="token string">"选项名"</span>
+</span><span class="code-line"><span class="token key atrule">useUAT</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 搜索文档</span>
+</span><span class="code-line"><span class="token key atrule">工具</span><span class="token punctuation">:</span> mcp__lark<span class="token punctuation">-</span>mcp__docx_builtin_search
+</span><span class="code-line"><span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">search_key</span><span class="token punctuation">:</span> <span class="token string">"关键词"</span>
+</span><span class="code-line">  <span class="token key atrule">count</span><span class="token punctuation">:</span> <span class="token number">10</span>
+</span><span class="code-line"><span class="token key atrule">useUAT</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<h2>错误速查</h2>
+<table>
+<thead>
+<tr>
+<th>错误</th>
+<th>原因</th>
+<th>解决</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tool not found</td>
+<td>服务器名错误</td>
+<td>使用 <code>mcp__lark-mcp__</code> 前缀</td>
+</tr>
+<tr>
+<td>99991663</td>
+<td>权限不足</td>
+<td><code>useUAT: true</code> 或配置 OAuth</td>
+</tr>
+<tr>
+<td>131005 not found</td>
+<td>token 类型错误</td>
+<td>检查用 <code>wikcn</code> 还是 <code>doxcn</code></td>
+</tr>
+<tr>
+<td>创建资源无法访问</td>
+<td>租户身份创建</td>
+<td>使用 <code>useUAT: true</code></td>
+</tr>
+<tr>
+<td>field not found</td>
+<td>字段名错误</td>
+<td>用 <code>appTableField_list</code> 确认</td>
+</tr>
+<tr>
+<td>invalid content</td>
+<td>格式错误</td>
+<td>content 用单引号包裹 JSON</td>
+</tr>
+</tbody>
+</table>
+<p><strong>详细文档</strong>: <a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/troubleshooting.md" target="_blank" rel="ugc nofollow noopener">troubleshooting.md</a> | <a href="https://github.com/whatevertogo/feishuskill/blob/HEAD/lark-mcp/reference/installation.md" target="_blank" rel="ugc nofollow noopener">installation.md</a></p></div>

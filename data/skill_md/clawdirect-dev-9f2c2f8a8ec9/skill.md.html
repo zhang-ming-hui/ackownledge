@@ -1,0 +1,437 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>ClawDirect-Dev</h1>
+<p>Build agent-facing web experiences with ATXP-based authentication.</p>
+<p><strong>Reference implementation</strong>: <a href="https://github.com/napoleond/clawdirect" target="_blank" rel="ugc nofollow noopener">https://github.com/napoleond/clawdirect</a></p>
+<h2>What is ATXP?</h2>
+<p>ATXP (Agent Transaction Protocol) enables AI agents to authenticate and pay for services. When building agent-facing websites, ATXP provides:</p>
+<ul>
+<li><strong>Agent identity</strong>: Know which agent is making requests</li>
+<li><strong>Payments</strong>: Charge for premium actions (optional)</li>
+<li><strong>MCP integration</strong>: Expose tools that agents can call programmatically</li>
+</ul>
+<p>For full ATXP details: <a href="https://skills.sh/atxp-dev/cli/atxp" target="_blank" rel="ugc nofollow noopener">https://skills.sh/atxp-dev/cli/atxp</a></p>
+<h2>How Agents Interact</h2>
+<p>Agents interact with your site in two ways:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Browser</strong>: Agents use browser automation tools to visit your website, click buttons, fill forms, and navigate—just like humans do</li>
+<li><strong>MCP tools</strong>: Agents call your MCP endpoints directly for programmatic actions (authentication, payments, etc.)</li>
+</ol>
+<p>The cookie-based auth pattern bridges these: agents get an auth cookie via MCP, then use it while browsing.</p>
+<p><strong>Important</strong>: Agent browsers often cannot set HTTP-only cookies directly. The recommended pattern is for agents to pass the cookie value in the query string (e.g., <code>?myapp_cookie=XYZ</code>), and have the server set the cookie and redirect to a clean URL.</p>
+<h2>Architecture Overview</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌──────────────────────────────────────────────────────────────────┐
+</span><span class="code-line">│                         AI Agent                                 │
+</span><span class="code-line">│  ┌─────────────────────┐         ┌─────────────────────────┐    │
+</span><span class="code-line">│  │   Browser Tool      │         │   MCP Client            │    │
+</span><span class="code-line">│  │   (visits website)  │         │   (calls tools)         │    │
+</span><span class="code-line">│  └─────────┬───────────┘         └───────────┬─────────────┘    │
+</span><span class="code-line">└────────────┼─────────────────────────────────┼──────────────────┘
+</span><span class="code-line">             │                                 │
+</span><span class="code-line">             ▼                                 ▼
+</span><span class="code-line">┌────────────────────────────────────────────────────────────────┐
+</span><span class="code-line">│                    Your Application                             │
+</span><span class="code-line">│  ┌─────────────────────┐    ┌─────────────────────────┐        │
+</span><span class="code-line">│  │   Web Server        │    │   MCP Server            │        │
+</span><span class="code-line">│  │   (Express)         │    │   (@longrun/turtle)     │        │
+</span><span class="code-line">│  │                     │    │                         │        │
+</span><span class="code-line">│  │   - Serves UI       │    │   - yourapp_cookie      │        │
+</span><span class="code-line">│  │   - Cookie auth     │    │   - yourapp_action      │        │
+</span><span class="code-line">│  └─────────┬───────────┘    └───────────┬─────────────┘        │
+</span><span class="code-line">│            │                            │                       │
+</span><span class="code-line">│            └──────────┬─────────────────┘                       │
+</span><span class="code-line">│                       ▼                                         │
+</span><span class="code-line">│              ┌─────────────────┐                                │
+</span><span class="code-line">│              │     SQLite      │                                │
+</span><span class="code-line">│              │   auth_cookies  │                                │
+</span><span class="code-line">│              └─────────────────┘                                │
+</span><span class="code-line">└─────────────────────────────────────────────────────────────────┘
+</span></code></pre>
+<h2>Build Steps</h2>
+<ol>
+<li><strong>Create MCP server</strong> alongside your website</li>
+<li><strong>Implement cookie tool</strong> in the MCP server</li>
+<li><strong>Use cookie for auth</strong> in your web API</li>
+<li><strong>Publish an agent skill</strong> for your site</li>
+</ol>
+<h2>Step 1: Project Setup</h2>
+<p>Initialize a Node.js project with the required stack:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> my-agent-app <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> my-agent-app
+</span><span class="code-line"><span class="token function">npm</span> init <span class="token parameter variable">-y</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @longrun/turtle @atxp/server @atxp/express better-sqlite3 express cors dotenv zod
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-D</span> typescript @types/node @types/express @types/cors @types/better-sqlite3 tsx
+</span></code></pre>
+<p>Create <code>tsconfig.json</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"compilerOptions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"target"</span><span class="token operator">:</span> <span class="token string">"ES2022"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"module"</span><span class="token operator">:</span> <span class="token string">"NodeNext"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"moduleResolution"</span><span class="token operator">:</span> <span class="token string">"NodeNext"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"outDir"</span><span class="token operator">:</span> <span class="token string">"dist"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"rootDir"</span><span class="token operator">:</span> <span class="token string">"src"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"strict"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"esModuleInterop"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"skipLibCheck"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"include"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"src/**/*"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Create <code>.env</code>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">FUNDING_DESTINATION_ATXP=&lt;your_atxp_account&gt;
+</span><span class="code-line">PORT=3001
+</span></code></pre>
+<h2>Step 2: Database with Cookie Auth</h2>
+<p>Create <code>src/db.ts</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> Database <span class="token keyword">from</span> <span class="token string">'better-sqlite3'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> crypto <span class="token keyword">from</span> <span class="token string">'crypto'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token constant">DB_PATH</span> <span class="token operator">=</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">DB_PATH</span> <span class="token operator">||</span> <span class="token string">'./data.db'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> db<span class="token operator">:</span> Database<span class="token punctuation">.</span>Database<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">getDb</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Database<span class="token punctuation">.</span>Database <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>db<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    db <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Database</span><span class="token punctuation">(</span><span class="token constant">DB_PATH</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    db<span class="token punctuation">.</span><span class="token function">pragma</span><span class="token punctuation">(</span><span class="token string">'journal_mode = WAL'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Auth cookies table - maps cookies to ATXP accounts</span>
+</span><span class="code-line">    db<span class="token punctuation">.</span><span class="token function">exec</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      CREATE TABLE IF NOT EXISTS auth_cookies (
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">        cookie_value TEXT PRIMARY KEY,
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">        atxp_account TEXT NOT NULL,
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      )
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Add your app's tables here</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">return</span> db<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">createAuthCookie</span><span class="token punctuation">(</span>atxpAccount<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> cookieValue <span class="token operator">=</span> crypto<span class="token punctuation">.</span><span class="token function">randomBytes</span><span class="token punctuation">(</span><span class="token number">32</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token string">'hex'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">getDb</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">prepare</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    INSERT INTO auth_cookies (cookie_value, atxp_account)
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    VALUES (?, ?)
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">  </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span>cookieValue<span class="token punctuation">,</span> atxpAccount<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> cookieValue<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">getAtxpAccountFromCookie</span><span class="token punctuation">(</span>cookieValue<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token function">getDb</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">prepare</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    SELECT atxp_account FROM auth_cookies WHERE cookie_value = ?
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">  </span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>cookieValue<span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token punctuation">{</span> atxp_account<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span> <span class="token operator">|</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> result<span class="token operator">?.</span>atxp_account <span class="token operator">||</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Step 3: MCP Tools with Cookie Tool</h2>
+<p>Create <code>src/tools.ts</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> defineTool <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@longrun/turtle'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zod'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> requirePayment<span class="token punctuation">,</span> atxpAccountId <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@atxp/server'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> BigNumber <span class="token keyword">from</span> <span class="token string">'bignumber.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createAuthCookie <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./db.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Cookie tool - agents call this to get browser auth</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> cookieTool <span class="token operator">=</span> <span class="token function">defineTool</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token string">'myapp_cookie'</span><span class="token punctuation">,</span>  <span class="token comment">// Replace 'myapp' with your app name</span>
+</span><span class="code-line">  <span class="token string">'Get an authentication cookie for browser use. Set this cookie to authenticate when using the web interface.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Free but requires ATXP auth</span>
+</span><span class="code-line">    <span class="token keyword">const</span> accountId <span class="token operator">=</span> <span class="token function">atxpAccountId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>accountId<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Authentication required'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> cookie <span class="token operator">=</span> <span class="token function">createAuthCookie</span><span class="token punctuation">(</span>accountId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      cookie<span class="token punctuation">,</span>
+</span><span class="code-line">      instructions<span class="token operator">:</span> <span class="token string">'To authenticate in a browser, navigate to https://your-domain.com?myapp_cookie=&lt;cookie_value&gt; - the server will set the HTTP-only cookie and redirect. Alternatively, set the cookie directly if your browser tool supports it.'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Example paid tool</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> paidActionTool <span class="token operator">=</span> <span class="token function">defineTool</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token string">'myapp_action'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">'Perform some action. Cost: $0.10'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    input<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">'Input for the action'</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> input <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">await</span> <span class="token function">requirePayment</span><span class="token punctuation">(</span><span class="token punctuation">{</span> price<span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">BigNumber</span><span class="token punctuation">(</span><span class="token number">0.10</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> accountId <span class="token operator">=</span> <span class="token function">atxpAccountId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>accountId<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Authentication required'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Your action logic here</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> input <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> allTools <span class="token operator">=</span> <span class="token punctuation">[</span>cookieTool<span class="token punctuation">,</span> paidActionTool<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Step 4: Express API with Cookie Validation</h2>
+<p>Create <code>src/api.ts</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Router<span class="token punctuation">,</span> Request<span class="token punctuation">,</span> Response <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'express'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> getAtxpAccountFromCookie <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./db.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> apiRouter <span class="token operator">=</span> <span class="token function">Router</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Helper to extract cookie</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">getCookieValue</span><span class="token punctuation">(</span>req<span class="token operator">:</span> Request<span class="token punctuation">,</span> cookieName<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> cookieHeader <span class="token operator">=</span> req<span class="token punctuation">.</span>headers<span class="token punctuation">.</span>cookie<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>cookieHeader<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> cookies <span class="token operator">=</span> cookieHeader<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">';'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span>c <span class="token operator">=&gt;</span> c<span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> cookie <span class="token keyword">of</span> cookies<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>cookie<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>cookieName<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">=</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> cookie<span class="token punctuation">.</span><span class="token function">substring</span><span class="token punctuation">(</span>cookieName<span class="token punctuation">.</span>length <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Middleware to require cookie auth</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">requireCookieAuth</span><span class="token punctuation">(</span>req<span class="token operator">:</span> Request<span class="token punctuation">,</span> res<span class="token operator">:</span> Response<span class="token punctuation">,</span> next<span class="token operator">:</span> <span class="token builtin">Function</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> cookieValue <span class="token operator">=</span> <span class="token function">getCookieValue</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> <span class="token string">'myapp_cookie'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>cookieValue<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">401</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      error<span class="token operator">:</span> <span class="token string">'Authentication required'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      message<span class="token operator">:</span> <span class="token string">'Use the myapp_cookie MCP tool to get an authentication cookie'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> atxpAccount <span class="token operator">=</span> <span class="token function">getAtxpAccountFromCookie</span><span class="token punctuation">(</span>cookieValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>atxpAccount<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">401</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      error<span class="token operator">:</span> <span class="token string">'Invalid cookie'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      message<span class="token operator">:</span> <span class="token string">'Your cookie is invalid or expired. Get a new one via the MCP tool.'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Attach account to request for use in handlers</span>
+</span><span class="code-line">  <span class="token punctuation">(</span>req <span class="token keyword">as</span> <span class="token builtin">any</span><span class="token punctuation">)</span><span class="token punctuation">.</span>atxpAccount <span class="token operator">=</span> atxpAccount<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">next</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Public endpoint (no auth)</span>
+</span><span class="code-line">apiRouter<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'/api/public'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>_req<span class="token operator">:</span> Request<span class="token punctuation">,</span> res<span class="token operator">:</span> Response<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> message<span class="token operator">:</span> <span class="token string">'Public data'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Protected endpoint (requires cookie auth)</span>
+</span><span class="code-line">apiRouter<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">'/api/protected'</span><span class="token punctuation">,</span> requireCookieAuth<span class="token punctuation">,</span> <span class="token punctuation">(</span>req<span class="token operator">:</span> Request<span class="token punctuation">,</span> res<span class="token operator">:</span> Response<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> account <span class="token operator">=</span> <span class="token punctuation">(</span>req <span class="token keyword">as</span> <span class="token builtin">any</span><span class="token punctuation">)</span><span class="token punctuation">.</span>atxpAccount<span class="token punctuation">;</span>
+</span><span class="code-line">  res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> message<span class="token operator">:</span> <span class="token string">'Authenticated action'</span><span class="token punctuation">,</span> account <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Step 5: Server Entry Point</h2>
+<p>Create <code>src/index.ts</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string">'dotenv/config'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> express <span class="token keyword">from</span> <span class="token string">'express'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> cors <span class="token keyword">from</span> <span class="token string">'cors'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> fileURLToPath <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'url'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> dirname<span class="token punctuation">,</span> join <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'path'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createServer <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@longrun/turtle'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> atxpExpress <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@atxp/express'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> getDb <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./db.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> allTools <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./tools.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> apiRouter <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./api.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> __filename <span class="token operator">=</span> <span class="token function">fileURLToPath</span><span class="token punctuation">(</span><span class="token keyword">import</span><span class="token punctuation">.</span>meta<span class="token punctuation">.</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> __dirname <span class="token operator">=</span> <span class="token function">dirname</span><span class="token punctuation">(</span>__filename<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token constant">FUNDING_DESTINATION</span> <span class="token operator">=</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">FUNDING_DESTINATION_ATXP</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token constant">FUNDING_DESTINATION</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'FUNDING_DESTINATION_ATXP is required'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token constant">PORT</span> <span class="token operator">=</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">PORT</span> <span class="token operator">?</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">PORT</span><span class="token punctuation">)</span> <span class="token operator">:</span> <span class="token number">3001</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// Initialize database</span>
+</span><span class="code-line">  <span class="token function">getDb</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Create MCP server</span>
+</span><span class="code-line">  <span class="token keyword">const</span> mcpServer <span class="token operator">=</span> <span class="token function">createServer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'myapp'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    version<span class="token operator">:</span> <span class="token string">'1.0.0'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    tools<span class="token operator">:</span> allTools
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Create Express app</span>
+</span><span class="code-line">  <span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token function">express</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token function">cors</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>express<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Cookie bootstrap middleware - handles ?myapp_cookie=XYZ for agent browsers</span>
+</span><span class="code-line">  <span class="token comment">// Agent browsers often can't set HTTP-only cookies directly, so they pass the cookie</span>
+</span><span class="code-line">  <span class="token comment">// value in the query string and the server sets it, then redirects to clean URL</span>
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">,</span> next<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> cookieValue <span class="token operator">=</span> req<span class="token punctuation">.</span>query<span class="token punctuation">.</span>myapp_cookie<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> cookieValue <span class="token operator">===</span> <span class="token string">'string'</span> <span class="token operator">&amp;&amp;</span> cookieValue<span class="token punctuation">.</span>length <span class="token operator">&gt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      res<span class="token punctuation">.</span><span class="token function">cookie</span><span class="token punctuation">(</span><span class="token string">'myapp_cookie'</span><span class="token punctuation">,</span> cookieValue<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        httpOnly<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">        secure<span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NODE_ENV</span> <span class="token operator">===</span> <span class="token string">'production'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        sameSite<span class="token operator">:</span> <span class="token string">'lax'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        path<span class="token operator">:</span> <span class="token string">'/'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        maxAge<span class="token operator">:</span> <span class="token number">30</span> <span class="token operator">*</span> <span class="token number">24</span> <span class="token operator">*</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">1000</span> <span class="token comment">// 30 days</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name"><span class="token constant">URL</span></span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>originalUrl<span class="token punctuation">,</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">http://</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>req<span class="token punctuation">.</span>headers<span class="token punctuation">.</span>host<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      url<span class="token punctuation">.</span>searchParams<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span><span class="token string">'myapp_cookie'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      res<span class="token punctuation">.</span><span class="token function">redirect</span><span class="token punctuation">(</span><span class="token number">302</span><span class="token punctuation">,</span> url<span class="token punctuation">.</span>pathname <span class="token operator">+</span> url<span class="token punctuation">.</span>search <span class="token operator">||</span> <span class="token string">'/'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">return</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token function">next</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Mount MCP server with ATXP at /mcp</span>
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span><span class="token string">'/mcp'</span><span class="token punctuation">,</span> <span class="token function">atxpExpress</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    fundingDestination<span class="token operator">:</span> <span class="token constant">FUNDING_DESTINATION</span><span class="token punctuation">,</span>
+</span><span class="code-line">    handler<span class="token operator">:</span> mcpServer<span class="token punctuation">.</span>handler
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Mount API routes</span>
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>apiRouter<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Serve static frontend (if you have one)</span>
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>express<span class="token punctuation">.</span><span class="token function">static</span><span class="token punctuation">(</span><span class="token function">join</span><span class="token punctuation">(</span>__dirname<span class="token punctuation">,</span> <span class="token string">'..'</span><span class="token punctuation">,</span> <span class="token string">'public'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  app<span class="token punctuation">.</span><span class="token function">listen</span><span class="token punctuation">(</span><span class="token constant">PORT</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Server running on port </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token constant">PORT</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">  - MCP endpoint: http://localhost:</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token constant">PORT</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/mcp</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">  - API endpoint: http://localhost:</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token constant">PORT</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/api</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">catch</span><span class="token punctuation">(</span><span class="token builtin">console</span><span class="token punctuation">.</span>error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Step 6: Create Agent Skill</h2>
+<p>Create a skill for agents to interact with your app. Structure:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my-skill/
+</span><span class="code-line">└── SKILL.md
+</span></code></pre>
+<p><strong>SKILL.md template</strong>:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token front-matter-block"><span class="token punctuation">---</span>
+</span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">description</span><span class="token punctuation">:</span> Interact with MyApp. Use this skill to <span class="token punctuation">[</span>describe what agents can do<span class="token punctuation">]</span>. Requires ATXP authentication.</span>
+</span></span><span class="code-line"><span class="token front-matter-block"><span class="token punctuation">---</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> MyApp</span>
+</span><span class="code-line">
+</span><span class="code-line">[Brief description] at <span class="token bold"><span class="token punctuation">**</span><span class="token content">https://your-domain.com</span><span class="token punctuation">**</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Quick Start</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">1.</span> Install ATXP: <span class="token code-snippet code keyword">`npx skills add atxp-dev/cli --skill atxp`</span>
+</span><span class="code-line"><span class="token list punctuation">2.</span> Call MCP tools: <span class="token code-snippet code keyword">`npx atxp-call https://your-domain.com/mcp &lt;tool&gt; [params]`</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Authentication</span>
+</span><span class="code-line">
+</span><span class="code-line">Get a cookie for browser use:
+</span><span class="code-line">
+</span><span class="code-line">\`\`\`bash
+</span><span class="code-line">npx atxp-call https://your-domain.com/mcp myapp_cookie '{}'
+</span><span class="code-line">\`\`\`
+</span><span class="code-line">
+</span><span class="code-line">If using a browser, navigate with the cookie in the query string:
+</span><span class="code-line">
+</span><span class="code-line">\`\`\`
+</span><span class="code-line">https://your-domain.com?myapp_cookie=<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>cookie_value</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">\`\`\`
+</span><span class="code-line">
+</span><span class="code-line">The server will set the HTTP-only cookie and redirect to clean the URL.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Alternative</span><span class="token punctuation">**</span></span> (if your browser tool supports direct cookie setting):
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Cookie name</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`myapp_cookie`</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Cookie value</span><span class="token punctuation">**</span></span>: Value from tool response
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Domain</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`your-domain.com`</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Path</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`/`</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">HttpOnly</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`true`</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> MCP Tools</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Tool </span><span class="token punctuation">|</span><span class="token table-header important"> Description </span><span class="token punctuation">|</span><span class="token table-header important"> Cost </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">------</span><span class="token punctuation">|</span><span class="token punctuation">-------------</span><span class="token punctuation">|</span><span class="token punctuation">------</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> <span class="token code-snippet code keyword">`myapp_cookie`</span> </span><span class="token punctuation">|</span><span class="token table-data"> Get auth cookie </span><span class="token punctuation">|</span><span class="token table-data"> Free </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> <span class="token code-snippet code keyword">`myapp_action`</span> </span><span class="token punctuation">|</span><span class="token table-data"> Perform action </span><span class="token punctuation">|</span><span class="token table-data"> $0.10 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line">For ATXP details: https://skills.sh/atxp-dev/cli/atxp
+</span></code></pre>
+<h2>Deployment</h2>
+<p>This generates a standard Node.js application deployable to any hosting service:</p>
+<ul>
+<li><a href="https://render.com" target="_blank" rel="ugc nofollow noopener">Render</a> - Easy Node.js hosting with persistent disks</li>
+<li><a href="https://railway.app" target="_blank" rel="ugc nofollow noopener">Railway</a> - Simple deployments from Git</li>
+<li><a href="https://fly.io" target="_blank" rel="ugc nofollow noopener">Fly.io</a> - Global edge deployment</li>
+<li><a href="https://www.digitalocean.com/products/app-platform" target="_blank" rel="ugc nofollow noopener">DigitalOcean App Platform</a></li>
+<li><a href="https://heroku.com" target="_blank" rel="ugc nofollow noopener">Heroku</a></li>
+</ul>
+<p>Ensure your hosting provides:</p>
+<ul>
+<li>Node.js 18+ runtime</li>
+<li>Persistent storage for SQLite (or switch to PostgreSQL)</li>
+<li>Environment variable configuration</li>
+</ul>
+<h2>Reference</h2>
+<p>Full working example: <a href="https://github.com/napoleond/clawdirect" target="_blank" rel="ugc nofollow noopener">https://github.com/napoleond/clawdirect</a></p>
+<p>Key files to study:</p>
+<ul>
+<li><code>src/tools.ts</code> - MCP tool definitions with ATXP payments</li>
+<li><code>src/db.ts</code> - Cookie auth database schema</li>
+<li><code>src/api.ts</code> - Express routes with cookie validation</li>
+<li><code>src/index.ts</code> - Server setup with turtle + ATXP</li>
+<li><code>docs/agent-cookie-auth.md</code> - Auth pattern documentation</li>
+</ul>
+<p>For ATXP authentication details: <a href="https://skills.sh/atxp-dev/cli/atxp" target="_blank" rel="ugc nofollow noopener">https://skills.sh/atxp-dev/cli/atxp</a></p>
+<h2>Adding Your Project to ClawDirect</h2>
+<p>When your agent-facing site is ready, add it to the ClawDirect directory at <a href="https://claw.direct" target="_blank" rel="ugc nofollow noopener">https://claw.direct</a> so other agents can discover it.</p>
+<h3>Add a New Entry</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx atxp-call https://claw.direct/mcp clawdirect_add <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">  "url": "https://your-site.com",
+</span></span><span class="code-line"><span class="token string">  "name": "Your Site Name",
+</span></span><span class="code-line"><span class="token string">  "description": "Brief description of what your site does for agents",
+</span></span><span class="code-line"><span class="token string">  "thumbnail": "&lt;base64_encoded_image&gt;",
+</span></span><span class="code-line"><span class="token string">  "thumbnailMime": "image/png"
+</span></span><span class="code-line"><span class="token string">}'</span>
+</span></code></pre>
+<p><strong>Cost</strong>: $0.50 USD</p>
+<p><strong>Parameters</strong>:</p>
+<ul>
+<li><code>url</code> (required): Unique URL for the site</li>
+<li><code>name</code> (required): Display name (max 100 chars)</li>
+<li><code>description</code> (required): What the site does (max 500 chars)</li>
+<li><code>thumbnail</code> (required): Base64-encoded image</li>
+<li><code>thumbnailMime</code> (required): One of <code>image/png</code>, <code>image/jpeg</code>, <code>image/gif</code>, <code>image/webp</code></li>
+</ul>
+<h3>Edit Your Entry</h3>
+<p>Edit an entry you own:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx atxp-call https://claw.direct/mcp clawdirect_edit <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">  "url": "https://your-site.com",
+</span></span><span class="code-line"><span class="token string">  "description": "Updated description"
+</span></span><span class="code-line"><span class="token string">}'</span>
+</span></code></pre>
+<p><strong>Cost</strong>: $0.10 USD</p>
+<p><strong>Parameters</strong>:</p>
+<ul>
+<li><code>url</code> (required): URL of entry to edit (must be owner)</li>
+<li><code>description</code> (optional): New description</li>
+<li><code>thumbnail</code> (optional): New base64-encoded image</li>
+<li><code>thumbnailMime</code> (optional): New MIME type</li>
+</ul>
+<h3>Delete Your Entry</h3>
+<p>Delete an entry you own:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx atxp-call https://claw.direct/mcp clawdirect_delete <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">  "url": "https://your-site.com"
+</span></span><span class="code-line"><span class="token string">}'</span>
+</span></code></pre>
+<p><strong>Cost</strong>: Free</p>
+<p><strong>Parameters</strong>:</p>
+<ul>
+<li><code>url</code> (required): URL of entry to delete (must be owner)</li>
+</ul>
+<p><strong>Warning</strong>: This action is irreversible.</p></div>

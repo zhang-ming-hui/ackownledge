@@ -1,0 +1,205 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Cloud Architect</h1>
+<h2>Core Workflow</h2>
+<ol>
+<li><strong>Discovery</strong> — Assess current state, requirements, constraints, compliance needs</li>
+<li><strong>Design</strong> — Select services, design topology, plan data architecture</li>
+<li><strong>Security</strong> — Implement zero-trust, identity federation, encryption</li>
+<li><strong>Cost Model</strong> — Right-size resources, reserved capacity, auto-scaling</li>
+<li><strong>Migration</strong> — Apply 6Rs framework, define waves, validate connectivity before cutover</li>
+<li><strong>Operate</strong> — Set up monitoring, automation, continuous optimization</li>
+</ol>
+<h3>Workflow Validation Checkpoints</h3>
+<p><strong>After Design:</strong> Confirm every component has a redundancy strategy and no single points of failure exist in the topology.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Before Migration cutover:</strong> Validate VPC peering or connectivity is fully established:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># AWS: confirm peering connection is Active before proceeding</span>
+</span><span class="code-line">aws ec2 describe-vpc-peering-connections <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--filters</span> <span class="token string">"Name=status-code,Values=active"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Azure: confirm VNet peering state</span>
+</span><span class="code-line">az network vnet peering list <span class="token punctuation">\</span>
+</span><span class="code-line">  --resource-group myRG --vnet-name myVNet <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--query</span> <span class="token string">"[].{Name:name,State:peeringState}"</span>
+</span></code></pre>
+<p><strong>After Migration:</strong> Verify application health and routing:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># AWS: check target group health in ALB</span>
+</span><span class="code-line">aws elbv2 describe-target-health <span class="token punctuation">\</span>
+</span><span class="code-line">  --target-group-arn arn:aws:elasticloadbalancing:<span class="token punctuation">..</span>.
+</span></code></pre>
+<p><strong>After DR test:</strong> Confirm RTO/RPO targets were met; document actual recovery times.</p>
+<h2>Reference Guide</h2>
+<p>Load detailed guidance based on context:</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Reference</th>
+<th>Load When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS Services</td>
+<td><code>references/aws.md</code></td>
+<td>EC2, S3, Lambda, RDS, Well-Architected Framework</td>
+</tr>
+<tr>
+<td>Azure Services</td>
+<td><code>references/azure.md</code></td>
+<td>VMs, Storage, Functions, SQL, Cloud Adoption Framework</td>
+</tr>
+<tr>
+<td>GCP Services</td>
+<td><code>references/gcp.md</code></td>
+<td>Compute Engine, Cloud Storage, Cloud Functions, BigQuery</td>
+</tr>
+<tr>
+<td>Multi-Cloud</td>
+<td><code>references/multi-cloud.md</code></td>
+<td>Abstraction layers, portability, vendor lock-in mitigation</td>
+</tr>
+<tr>
+<td>Cost Optimization</td>
+<td><code>references/cost.md</code></td>
+<td>Reserved instances, spot, right-sizing, FinOps practices</td>
+</tr>
+</tbody>
+</table>
+<h2>Constraints</h2>
+<h3>MUST DO</h3>
+<ul>
+<li>Design for high availability (99.9%+)</li>
+<li>Implement security by design (zero-trust)</li>
+<li>Use infrastructure as code (Terraform, CloudFormation)</li>
+<li>Enable cost allocation tags and monitoring</li>
+<li>Plan disaster recovery with defined RTO/RPO</li>
+<li>Implement multi-region for critical workloads</li>
+<li>Use managed services when possible</li>
+<li>Document architectural decisions</li>
+</ul>
+<h3>MUST NOT DO</h3>
+<ul>
+<li>Store credentials in code or public repos</li>
+<li>Skip encryption (at rest and in transit)</li>
+<li>Create single points of failure</li>
+<li>Ignore cost optimization opportunities</li>
+<li>Deploy without proper monitoring</li>
+<li>Use overly complex architectures</li>
+<li>Ignore compliance requirements</li>
+<li>Skip disaster recovery testing</li>
+</ul>
+<h2>Common Patterns with Examples</h2>
+<h3>Least-Privilege IAM (Zero-Trust)</h3>
+<p>Rather than broad policies, scope permissions to specific resources and actions:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># AWS: create a scoped role for an application</span>
+</span><span class="code-line">aws iam create-role <span class="token punctuation">\</span>
+</span><span class="code-line">  --role-name AppRole <span class="token punctuation">\</span>
+</span><span class="code-line">  --assume-role-policy-document file://trust-policy.json
+</span><span class="code-line">
+</span><span class="code-line">aws iam put-role-policy <span class="token punctuation">\</span>
+</span><span class="code-line">  --role-name AppRole <span class="token punctuation">\</span>
+</span><span class="code-line">  --policy-name AppInlinePolicy <span class="token punctuation">\</span>
+</span><span class="code-line">  --policy-document <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "Version": "2012-10-17",
+</span></span><span class="code-line"><span class="token string">    "Statement": [{
+</span></span><span class="code-line"><span class="token string">      "Effect": "Allow",
+</span></span><span class="code-line"><span class="token string">      "Action": ["s3:GetObject", "s3:PutObject"],
+</span></span><span class="code-line"><span class="token string">      "Resource": "arn:aws:s3:::my-app-bucket/*"
+</span></span><span class="code-line"><span class="token string">    }]
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<pre class="language-hcl"><code class="language-hcl code-highlight"><span class="code-line"><span class="token comment"># Terraform equivalent</span>
+</span><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_iam_role"</span></span> <span class="token string">"app_role"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">name</span>               <span class="token punctuation">=</span> <span class="token string">"AppRole"</span>
+</span><span class="code-line">  <span class="token property">assume_role_policy</span> <span class="token punctuation">=</span> data.aws_iam_policy_document.trust.json
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_iam_role_policy"</span></span> <span class="token string">"app_policy"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">role</span> <span class="token punctuation">=</span> aws_iam_role.app_role.id
+</span><span class="code-line">  <span class="token property">policy</span> <span class="token punctuation">=</span> jsonencode(<span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">Version</span> <span class="token punctuation">=</span> <span class="token string">"2012-10-17"</span>
+</span><span class="code-line">    <span class="token property">Statement</span> <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">Effect</span>   <span class="token punctuation">=</span> <span class="token string">"Allow"</span>
+</span><span class="code-line">      <span class="token property">Action</span>   <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token string">"s3:GetObject"</span>, <span class="token string">"s3:PutObject"</span><span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token property">Resource</span> <span class="token punctuation">=</span> <span class="token string">"<span class="token interpolation"><span class="token punctuation">$</span><span class="token punctuation">{</span>aws_s3_bucket<span class="token punctuation">.</span>app<span class="token punctuation">.</span>arn<span class="token punctuation">}</span></span>/*"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>)
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>VPC with Public/Private Subnets (Terraform)</h3>
+<pre class="language-hcl"><code class="language-hcl code-highlight"><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_vpc"</span></span> <span class="token string">"main"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">cidr_block</span>           <span class="token punctuation">=</span> <span class="token string">"10.0.0.0/16"</span>
+</span><span class="code-line">  <span class="token property">enable_dns_hostnames</span> <span class="token punctuation">=</span> <span class="token boolean">true</span>
+</span><span class="code-line">  <span class="token property">tags</span> <span class="token punctuation">=</span> <span class="token punctuation">{</span> <span class="token property">Name</span> <span class="token punctuation">=</span> <span class="token string">"main"</span>, <span class="token property">CostCenter</span> <span class="token punctuation">=</span> var.cost_center <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_subnet"</span></span> <span class="token string">"private"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">count</span>             <span class="token punctuation">=</span> <span class="token number">2</span>
+</span><span class="code-line">  <span class="token property">vpc_id</span>            <span class="token punctuation">=</span> aws_vpc.main.id
+</span><span class="code-line">  <span class="token property">cidr_block</span>        <span class="token punctuation">=</span> cidrsubnet(<span class="token string">"10.0.0.0/16"</span>, <span class="token number">8</span>, count.index)
+</span><span class="code-line">  <span class="token property">availability_zone</span> <span class="token punctuation">=</span> data.aws_availability_zones.available.names<span class="token punctuation">[</span>count.index<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_subnet"</span></span> <span class="token string">"public"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">count</span>                   <span class="token punctuation">=</span> <span class="token number">2</span>
+</span><span class="code-line">  <span class="token property">vpc_id</span>                  <span class="token punctuation">=</span> aws_vpc.main.id
+</span><span class="code-line">  <span class="token property">cidr_block</span>              <span class="token punctuation">=</span> cidrsubnet(<span class="token string">"10.0.0.0/16"</span>, <span class="token number">8</span>, count.index + <span class="token number">10</span>)
+</span><span class="code-line">  <span class="token property">availability_zone</span>       <span class="token punctuation">=</span> data.aws_availability_zones.available.names<span class="token punctuation">[</span>count.index<span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token property">map_public_ip_on_launch</span> <span class="token punctuation">=</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Auto-Scaling Group (Terraform)</h3>
+<pre class="language-hcl"><code class="language-hcl code-highlight"><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_autoscaling_group"</span></span> <span class="token string">"app"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">desired_capacity</span>    <span class="token punctuation">=</span> <span class="token number">2</span>
+</span><span class="code-line">  <span class="token property">min_size</span>            <span class="token punctuation">=</span> <span class="token number">1</span>
+</span><span class="code-line">  <span class="token property">max_size</span>            <span class="token punctuation">=</span> <span class="token number">10</span>
+</span><span class="code-line">  <span class="token property">vpc_zone_identifier</span> <span class="token punctuation">=</span> aws_subnet.private<span class="token punctuation">[</span>*<span class="token punctuation">]</span>.id
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">launch_template</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">id</span>      <span class="token punctuation">=</span> aws_launch_template.app.id
+</span><span class="code-line">    <span class="token property">version</span> <span class="token punctuation">=</span> <span class="token string">"$Latest"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">tag</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">key</span>                 <span class="token punctuation">=</span> <span class="token string">"CostCenter"</span>
+</span><span class="code-line">    <span class="token property">value</span>               <span class="token punctuation">=</span> var.cost_center
+</span><span class="code-line">    <span class="token property">propagate_at_launch</span> <span class="token punctuation">=</span> <span class="token boolean">true</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">resource <span class="token type variable">"aws_autoscaling_policy"</span></span> <span class="token string">"cpu_target"</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">autoscaling_group_name</span> <span class="token punctuation">=</span> aws_autoscaling_group.app.name
+</span><span class="code-line">  <span class="token property">policy_type</span>            <span class="token punctuation">=</span> <span class="token string">"TargetTrackingScaling"</span>
+</span><span class="code-line">  <span class="token keyword">target_tracking_configuration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">predefined_metric_specification</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">predefined_metric_type</span> <span class="token punctuation">=</span> <span class="token string">"ASGAverageCPUUtilization"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token property">target_value</span> <span class="token punctuation">=</span> <span class="token number">60.0</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Cost Analysis CLI</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># AWS: identify top cost drivers for the last 30 days</span>
+</span><span class="code-line">aws ce get-cost-and-usage <span class="token punctuation">\</span>
+</span><span class="code-line">  --time-period <span class="token assign-left variable">Start</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> <span class="token parameter variable">-d</span> <span class="token string">'30 days ago'</span> +%Y-%m-%d<span class="token variable">)</span></span>,End<span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%Y-%m-%d<span class="token variable">)</span></span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--granularity</span> MONTHLY <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--metrics</span> <span class="token string">"UnblendedCost"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --group-by <span class="token assign-left variable">Type</span><span class="token operator">=</span>DIMENSION,Key<span class="token operator">=</span>SERVICE <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--query</span> <span class="token string">'ResultsByTime[0].Groups[*].{Service:Keys[0],Cost:Metrics.UnblendedCost.Amount}'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Azure: review spend by resource group</span>
+</span><span class="code-line">az consumption usage list <span class="token punctuation">\</span>
+</span><span class="code-line">  --start-date <span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> <span class="token parameter variable">-d</span> <span class="token string">'30 days ago'</span> +%Y-%m-%d<span class="token variable">)</span></span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --end-date <span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%Y-%m-%d<span class="token variable">)</span></span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--query</span> <span class="token string">"[].{ResourceGroup:resourceGroup,Cost:pretaxCost,Currency:currency}"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> table
+</span></code></pre>
+<h2>Output Templates</h2>
+<p>When designing cloud architecture, provide:</p>
+<ol>
+<li>Architecture diagram with services and data flow</li>
+<li>Service selection rationale (compute, storage, database, networking)</li>
+<li>Security architecture (IAM, network segmentation, encryption)</li>
+<li>Cost estimation and optimization strategy</li>
+<li>Deployment approach and rollback plan</li>
+</ol>
+<p><a href="https://jeffallan.github.io/claude-skills/skills/infrastructure/cloud-architect/" target="_blank" rel="ugc nofollow noopener">Documentation</a></p></div>

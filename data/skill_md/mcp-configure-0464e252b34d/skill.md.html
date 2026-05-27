@@ -1,0 +1,216 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Configure Dataverse MCP for GitHub Copilot</h1>
+<p>This skill configures the Dataverse MCP server for GitHub Copilot with your organization's environment URL. Each organization is registered with a unique server name based on the org identifier (e.g., <code>DataverseMcporgbc9a965c</code>). If the user provided a URL it is: $ARGUMENTS.</p>
+<h2>Instructions</h2>
+<h3>0. Ask for MCP scope</h3>
+<p>Ask the user whether they want to configure the MCP server globally or for this project only:</p>
+<blockquote>
+<p>Would you like to configure the Dataverse MCP server:</p>
+<ol>
+<li><strong>Globally</strong> (available in all projects)</li>
+<li><strong>Project-only</strong> (available only in this project)</li>
+</ol>
+</blockquote>
+<p>Based on their choice, set the <code>CONFIG_PATH</code> variable:</p>
+<ul>
+<li><strong>Global</strong>: <code>~/.copilot/mcp-config.json</code> (use the user's home directory)</li>
+<li><strong>Project</strong>: <code>.mcp/copilot/mcp.json</code> (relative to the current working directory)</li>
+</ul>
+<p>Store this path for use in steps 1 and 6.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>1. Check already-configured MCP servers</h3>
+<p>Read the MCP configuration file at <code>CONFIG_PATH</code> (determined in step 0) to check for already-configured servers.</p>
+<p>The configuration file is a JSON file with the following structure:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"ServerName1"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"http"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://example.com/api/mcp"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Or it may use <code>"servers"</code> instead of <code>"mcpServers"</code> as the top-level key.</p>
+<p>Extract all <code>url</code> values from the configured servers and store them as <code>CONFIGURED_URLS</code>. For example:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">[</span><span class="token string">"https://orgfbb52bb7.crm.dynamics.com/api/mcp"</span><span class="token punctuation">]</span>
+</span></code></pre>
+<p>If the file doesn't exist or is empty, treat <code>CONFIGURED_URLS</code> as empty (<code>[]</code>). This step must never block the skill.</p>
+<h3>2. Ask how to get the environment URL</h3>
+<p>Ask the user:</p>
+<blockquote>
+<p>How would you like to provide your Dataverse environment URL?</p>
+<ol>
+<li><strong>Auto-discover</strong> — List available environments from your Azure account (requires Azure CLI)</li>
+<li><strong>Manual entry</strong> — Enter the URL directly</li>
+</ol>
+</blockquote>
+<p>Based on their choice:</p>
+<ul>
+<li>If <strong>Auto-discover</strong>: Proceed to step 2a</li>
+<li>If <strong>Manual entry</strong>: Skip to step 2b</li>
+</ul>
+<h3>2a. Auto-discover environments</h3>
+<p><strong>Check prerequisites:</strong></p>
+<ul>
+<li>Verify Azure CLI (<code>az</code>) is installed (check with <code>which az</code> or <code>where az</code> on Windows)</li>
+<li>If not installed, inform the user and fall back to step 2b</li>
+</ul>
+<p><strong>Make the API call:</strong></p>
+<ol>
+<li>
+<p>Check if the user is logged into Azure CLI:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">az account show
+</span></code></pre>
+<p>If this fails, prompt the user to log in:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">az login
+</span></code></pre>
+</li>
+<li>
+<p>Get an access token for the Power Apps API:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">az account get-access-token <span class="token parameter variable">--resource</span> https://service.powerapps.com/ <span class="token parameter variable">--query</span> accessToken <span class="token parameter variable">--output</span> tsv
+</span></code></pre>
+</li>
+<li>
+<p>Call the Power Apps API to list environments:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">GET https://api.powerapps.com/providers/Microsoft.PowerApps/environments?api-version=2016-11-01
+</span><span class="code-line">Authorization: Bearer {token}
+</span><span class="code-line">Accept: application/json
+</span></code></pre>
+</li>
+<li>
+<p>Parse the JSON response and filter for environments where <code>properties?.linkedEnvironmentMetadata?.instanceUrl</code> is not null.</p>
+</li>
+<li>
+<p>For each matching environment, extract:</p>
+<ul>
+<li><code>properties.displayName</code> as <code>displayName</code></li>
+<li><code>properties.linkedEnvironmentMetadata.instanceUrl</code> (remove trailing slash) as <code>instanceUrl</code></li>
+</ul>
+</li>
+<li>
+<p>Create a list of environments in this format:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token property">"displayName"</span><span class="token operator">:</span> <span class="token string">"My Org (default)"</span><span class="token punctuation">,</span> <span class="token property">"instanceUrl"</span><span class="token operator">:</span> <span class="token string">"https://orgfbb52bb7.crm.dynamics.com"</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token property">"displayName"</span><span class="token operator">:</span> <span class="token string">"Another Env"</span><span class="token punctuation">,</span> <span class="token property">"instanceUrl"</span><span class="token operator">:</span> <span class="token string">"https://orgabc123.crm.dynamics.com"</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span></code></pre>
+</li>
+</ol>
+<p><strong>If the API call succeeds</strong>, proceed to step 3.</p>
+<p><strong>If the API call fails</strong> (user not logged in, network error, no environments found, or any other error), tell the user what went wrong and fall back to step 2b.</p>
+<h3>2b. Manual entry — ask for the URL</h3>
+<p>Ask the user to provide their environment URL directly:</p>
+<blockquote>
+<p>Please enter your Dataverse environment URL.</p>
+<p>Example: <code>https://myorg.crm10.dynamics.com</code></p>
+<p>You can find this in the Power Platform Admin Center under Environments.</p>
+</blockquote>
+<p>Then skip to step 4.</p>
+<h3>3. Ask the user to select an environment</h3>
+<p>Present the environments as a numbered list. For each environment, check whether any URL in <code>CONFIGURED_URLS</code> starts with that environment's <code>instanceUrl</code> — if so, append <strong>(already configured)</strong> to the line.</p>
+<blockquote>
+<p>I found the following Dataverse environments on your account. Which one would you like to configure?</p>
+<ol>
+<li>My Org (default) — <code>https://orgfbb52bb7.crm.dynamics.com</code> <strong>(already configured)</strong></li>
+<li>Another Env — <code>https://orgabc123.crm.dynamics.com</code></li>
+</ol>
+<p>Enter the number of your choice, or type "manual" to enter a URL yourself.</p>
+</blockquote>
+<p>If the user selects an already-configured environment, confirm that they want to re-register it (e.g. to change the endpoint type) before proceeding.</p>
+<p>If the user types "manual", fall back to step 2b.</p>
+<h3>4. Confirm the selected URL</h3>
+<p>Take the <code>instanceUrl</code> from the chosen environment (or the manually entered URL) and strip any trailing slash. This is <code>USER_URL</code> for the remainder of the skill.</p>
+<h3>5. Confirm if the user wants "Preview" or "Generally Available (GA)" endpoint</h3>
+<p>Ask the user:</p>
+<blockquote>
+<p>Which endpoint would you like to use?</p>
+<ol>
+<li><strong>Generally Available (GA)</strong> — <code>/api/mcp</code> (recommended)</li>
+<li><strong>Preview</strong> — <code>/api/mcp_preview</code> (latest features, may be unstable)</li>
+</ol>
+</blockquote>
+<p>Based on their choice:</p>
+<ul>
+<li>If <strong>GA</strong>: set <code>MCP_URL</code> to <code>{USER_URL}/api/mcp</code></li>
+<li>If <strong>Preview</strong>: set <code>MCP_URL</code> to <code>{USER_URL}/api/mcp_preview</code></li>
+</ul>
+<h3>6. Register the MCP server</h3>
+<p>Update the MCP configuration file at <code>CONFIG_PATH</code> (determined in step 0) to add the new server.</p>
+<p><strong>Generate a unique server name</strong> from the <code>USER_URL</code>:</p>
+<ol>
+<li>Extract the subdomain (organization identifier) from the URL
+<ul>
+<li>Example: <code>https://orgbc9a965c.crm10.dynamics.com</code> → <code>orgbc9a965c</code></li>
+</ul>
+</li>
+<li>Prepend <code>DataverseMcp</code> to create the server name
+<ul>
+<li>Example: <code>DataverseMcporgbc9a965c</code></li>
+</ul>
+</li>
+</ol>
+<p>This is the <code>SERVER_NAME</code>.</p>
+<p><strong>Update the configuration file:</strong></p>
+<ol>
+<li>
+<p>If <code>CONFIG_PATH</code> is for a <strong>project-scoped</strong> configuration (<code>.mcp/copilot/mcp.json</code>), ensure the directory exists first:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> .mcp/copilot
+</span></code></pre>
+</li>
+<li>
+<p>Read the existing configuration file at <code>CONFIG_PATH</code>, or create a new empty config if it doesn't exist:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span></code></pre>
+</li>
+<li>
+<p>Determine which top-level key to use:</p>
+<ul>
+<li>If the config already has <code>"servers"</code>, use that</li>
+<li>Otherwise, use <code>"mcpServers"</code></li>
+</ul>
+</li>
+<li>
+<p>Add or update the server entry:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"{SERVER_NAME}"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"http"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"{MCP_URL}"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+</li>
+<li>
+<p>Write the updated configuration back to <code>CONFIG_PATH</code> with proper JSON formatting (2-space indentation).</p>
+</li>
+</ol>
+<p><strong>Important notes:</strong></p>
+<ul>
+<li>Do NOT overwrite other entries in the configuration file</li>
+<li>Preserve the existing structure and formatting</li>
+<li>If <code>SERVER_NAME</code> already exists, update it with the new <code>MCP_URL</code></li>
+</ul>
+<p>Proceed to step 7.</p>
+<h3>7. Confirm success and instruct restart</h3>
+<p>Tell the user:</p>
+<blockquote>
+<p>✅ Dataverse MCP server configured for GitHub Copilot at <code>{MCP_URL}</code>.</p>
+<p>Configuration saved to: <code>{CONFIG_PATH}</code></p>
+<p><strong>IMPORTANT: You must restart your editor for the changes to take effect.</strong></p>
+<p>Restart your editor or reload the window, then you will be able to:</p>
+<ul>
+<li>List all tables in your Dataverse environment</li>
+<li>Query records from any table</li>
+<li>Create, update, or delete records</li>
+<li>Explore your schema and relationships</li>
+</ul>
+</blockquote>
+<h3>8. Troubleshooting</h3>
+<p>If something goes wrong, help the user check:</p>
+<ul>
+<li>The URL format is correct (<code>https://&lt;org&gt;.&lt;region&gt;.dynamics.com</code>)</li>
+<li>They have access to the Dataverse environment</li>
+<li>The environment URL matches what's shown in the Power Platform Admin Center</li>
+<li>Their Environment Admin has enabled "Dataverse CLI MCP" in the Allowed Clients list</li>
+<li>Their Environment has Dataverse MCP enabled, and if they're trying to use the preview endpoint that is enabled</li>
+<li>For project-scoped configuration, ensure the <code>.mcp/copilot/mcp.json</code> file was created successfully</li>
+<li>For global configuration, check permissions on the <code>~/.copilot/</code> directory</li>
+</ul></div>

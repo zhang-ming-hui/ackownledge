@@ -1,3 +1,5 @@
+"""允许通过 `python -m skills_ir` 启动 CLI。"""
+
 from .cli import main
 
 

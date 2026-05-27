@@ -1,0 +1,188 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>FastAPI Expert</h1>
+<p>Deep expertise in async Python, Pydantic V2, and production-grade API development with FastAPI.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Building REST APIs with FastAPI</li>
+<li>Implementing Pydantic V2 validation schemas</li>
+<li>Setting up async database operations</li>
+<li>Implementing JWT authentication/authorization</li>
+<li>Creating WebSocket endpoints</li>
+<li>Optimizing API performance</li>
+</ul>
+<h2>Core Workflow</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Analyze requirements</strong> — Identify endpoints, data models, auth needs</li>
+<li><strong>Design schemas</strong> — Create Pydantic V2 models for validation</li>
+<li><strong>Implement</strong> — Write async endpoints with proper dependency injection</li>
+<li><strong>Secure</strong> — Add authentication, authorization, rate limiting</li>
+<li><strong>Test</strong> — Write async tests with pytest and httpx; run <code>pytest</code> after each endpoint group and verify OpenAPI docs at <code>/docs</code></li>
+</ol>
+<blockquote>
+<p><strong>Checkpoint after each step:</strong> confirm schemas validate correctly, endpoints return expected HTTP status codes, and <code>/docs</code> reflects the intended API surface before proceeding.</p>
+</blockquote>
+<h2>Minimal Complete Example</h2>
+<p>Schema + endpoint + dependency injection in one cohesive unit:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># schemas.py</span>
+</span><span class="code-line"><span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> EmailStr<span class="token punctuation">,</span> field_validator<span class="token punctuation">,</span> model_config
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserCreate</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    model_config <span class="token operator">=</span> model_config<span class="token punctuation">(</span>str_strip_whitespace<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    email<span class="token punctuation">:</span> EmailStr
+</span><span class="code-line">    password<span class="token punctuation">:</span> <span class="token builtin">str</span>
+</span><span class="code-line">    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token decorator annotation punctuation">@field_validator</span><span class="token punctuation">(</span><span class="token string">"password"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token decorator annotation punctuation">@classmethod</span>
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">password_strength</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> v<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span> <span class="token operator">&lt;</span> <span class="token number">8</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"Password must be at least 8 characters"</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> v
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserResponse</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    model_config <span class="token operator">=</span> model_config<span class="token punctuation">(</span>from_attributes<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token builtin">id</span><span class="token punctuation">:</span> <span class="token builtin">int</span>
+</span><span class="code-line">    email<span class="token punctuation">:</span> EmailStr
+</span><span class="code-line">    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># routers/users.py</span>
+</span><span class="code-line"><span class="token keyword">from</span> fastapi <span class="token keyword">import</span> APIRouter<span class="token punctuation">,</span> Depends<span class="token punctuation">,</span> HTTPException<span class="token punctuation">,</span> status
+</span><span class="code-line"><span class="token keyword">from</span> sqlalchemy<span class="token punctuation">.</span>ext<span class="token punctuation">.</span>asyncio <span class="token keyword">import</span> AsyncSession
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">from</span> app<span class="token punctuation">.</span>database <span class="token keyword">import</span> get_db
+</span><span class="code-line"><span class="token keyword">from</span> app<span class="token punctuation">.</span>schemas <span class="token keyword">import</span> UserCreate<span class="token punctuation">,</span> UserResponse
+</span><span class="code-line"><span class="token keyword">from</span> app <span class="token keyword">import</span> crud
+</span><span class="code-line">
+</span><span class="code-line">router <span class="token operator">=</span> APIRouter<span class="token punctuation">(</span>prefix<span class="token operator">=</span><span class="token string">"/users"</span><span class="token punctuation">,</span> tags<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"users"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">DbDep <span class="token operator">=</span> Annotated<span class="token punctuation">[</span>AsyncSession<span class="token punctuation">,</span> Depends<span class="token punctuation">(</span>get_db<span class="token punctuation">)</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@router<span class="token punctuation">.</span>post</span><span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">,</span> response_model<span class="token operator">=</span>UserResponse<span class="token punctuation">,</span> status_code<span class="token operator">=</span>status<span class="token punctuation">.</span>HTTP_201_CREATED<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">create_user</span><span class="token punctuation">(</span>payload<span class="token punctuation">:</span> UserCreate<span class="token punctuation">,</span> db<span class="token punctuation">:</span> DbDep<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> UserResponse<span class="token punctuation">:</span>
+</span><span class="code-line">    existing <span class="token operator">=</span> <span class="token keyword">await</span> crud<span class="token punctuation">.</span>get_user_by_email<span class="token punctuation">(</span>db<span class="token punctuation">,</span> payload<span class="token punctuation">.</span>email<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> existing<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">raise</span> HTTPException<span class="token punctuation">(</span>status_code<span class="token operator">=</span>status<span class="token punctuation">.</span>HTTP_409_CONFLICT<span class="token punctuation">,</span> detail<span class="token operator">=</span><span class="token string">"Email already registered"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">await</span> crud<span class="token punctuation">.</span>create_user<span class="token punctuation">(</span>db<span class="token punctuation">,</span> payload<span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># crud.py</span>
+</span><span class="code-line"><span class="token keyword">from</span> sqlalchemy <span class="token keyword">import</span> select
+</span><span class="code-line"><span class="token keyword">from</span> sqlalchemy<span class="token punctuation">.</span>ext<span class="token punctuation">.</span>asyncio <span class="token keyword">import</span> AsyncSession
+</span><span class="code-line"><span class="token keyword">from</span> app<span class="token punctuation">.</span>models <span class="token keyword">import</span> User
+</span><span class="code-line"><span class="token keyword">from</span> app<span class="token punctuation">.</span>schemas <span class="token keyword">import</span> UserCreate
+</span><span class="code-line"><span class="token keyword">from</span> app<span class="token punctuation">.</span>security <span class="token keyword">import</span> hash_password
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">get_user_by_email</span><span class="token punctuation">(</span>db<span class="token punctuation">:</span> AsyncSession<span class="token punctuation">,</span> email<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> User <span class="token operator">|</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">    result <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>select<span class="token punctuation">(</span>User<span class="token punctuation">)</span><span class="token punctuation">.</span>where<span class="token punctuation">(</span>User<span class="token punctuation">.</span>email <span class="token operator">==</span> email<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> result<span class="token punctuation">.</span>scalar_one_or_none<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">create_user</span><span class="token punctuation">(</span>db<span class="token punctuation">:</span> AsyncSession<span class="token punctuation">,</span> payload<span class="token punctuation">:</span> UserCreate<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> User<span class="token punctuation">:</span>
+</span><span class="code-line">    user <span class="token operator">=</span> User<span class="token punctuation">(</span>email<span class="token operator">=</span>payload<span class="token punctuation">.</span>email<span class="token punctuation">,</span> hashed_password<span class="token operator">=</span>hash_password<span class="token punctuation">(</span>payload<span class="token punctuation">.</span>password<span class="token punctuation">)</span><span class="token punctuation">,</span> name<span class="token operator">=</span>payload<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+</span><span class="code-line">    db<span class="token punctuation">.</span>add<span class="token punctuation">(</span>user<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">await</span> db<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">await</span> db<span class="token punctuation">.</span>refresh<span class="token punctuation">(</span>user<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> user
+</span></code></pre>
+<h2>JWT Authentication Snippet</h2>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># security.py</span>
+</span><span class="code-line"><span class="token keyword">from</span> datetime <span class="token keyword">import</span> datetime<span class="token punctuation">,</span> timedelta<span class="token punctuation">,</span> timezone
+</span><span class="code-line"><span class="token keyword">from</span> jose <span class="token keyword">import</span> JWTError<span class="token punctuation">,</span> jwt
+</span><span class="code-line"><span class="token keyword">from</span> fastapi <span class="token keyword">import</span> Depends<span class="token punctuation">,</span> HTTPException<span class="token punctuation">,</span> status
+</span><span class="code-line"><span class="token keyword">from</span> fastapi<span class="token punctuation">.</span>security <span class="token keyword">import</span> OAuth2PasswordBearer
+</span><span class="code-line"><span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+</span><span class="code-line">
+</span><span class="code-line">SECRET_KEY <span class="token operator">=</span> <span class="token string">"read-from-env"</span>  <span class="token comment"># use os.environ / settings</span>
+</span><span class="code-line">ALGORITHM <span class="token operator">=</span> <span class="token string">"HS256"</span>
+</span><span class="code-line">oauth2_scheme <span class="token operator">=</span> OAuth2PasswordBearer<span class="token punctuation">(</span>tokenUrl<span class="token operator">=</span><span class="token string">"/auth/token"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">create_access_token</span><span class="token punctuation">(</span>subject<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> expires_delta<span class="token punctuation">:</span> timedelta <span class="token operator">=</span> timedelta<span class="token punctuation">(</span>minutes<span class="token operator">=</span><span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    payload <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"sub"</span><span class="token punctuation">:</span> subject<span class="token punctuation">,</span> <span class="token string">"exp"</span><span class="token punctuation">:</span> datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span>timezone<span class="token punctuation">.</span>utc<span class="token punctuation">)</span> <span class="token operator">+</span> expires_delta<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">return</span> jwt<span class="token punctuation">.</span>encode<span class="token punctuation">(</span>payload<span class="token punctuation">,</span> SECRET_KEY<span class="token punctuation">,</span> algorithm<span class="token operator">=</span>ALGORITHM<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">get_current_user</span><span class="token punctuation">(</span>token<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Depends<span class="token punctuation">(</span>oauth2_scheme<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">        data <span class="token operator">=</span> jwt<span class="token punctuation">.</span>decode<span class="token punctuation">(</span>token<span class="token punctuation">,</span> SECRET_KEY<span class="token punctuation">,</span> algorithms<span class="token operator">=</span><span class="token punctuation">[</span>ALGORITHM<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">        subject<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> data<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"sub"</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">if</span> subject <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">raise</span> ValueError
+</span><span class="code-line">        <span class="token keyword">return</span> subject
+</span><span class="code-line">    <span class="token keyword">except</span> <span class="token punctuation">(</span>JWTError<span class="token punctuation">,</span> ValueError<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">raise</span> HTTPException<span class="token punctuation">(</span>status_code<span class="token operator">=</span>status<span class="token punctuation">.</span>HTTP_401_UNAUTHORIZED<span class="token punctuation">,</span> detail<span class="token operator">=</span><span class="token string">"Invalid credentials"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">CurrentUser <span class="token operator">=</span> Annotated<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Depends<span class="token punctuation">(</span>get_current_user<span class="token punctuation">)</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Reference Guide</h2>
+<p>Load detailed guidance based on context:</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Reference</th>
+<th>Load When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pydantic V2</td>
+<td><code>references/pydantic-v2.md</code></td>
+<td>Creating schemas, validation, model_config</td>
+</tr>
+<tr>
+<td>SQLAlchemy</td>
+<td><code>references/async-sqlalchemy.md</code></td>
+<td>Async database, models, CRUD operations</td>
+</tr>
+<tr>
+<td>Endpoints</td>
+<td><code>references/endpoints-routing.md</code></td>
+<td>APIRouter, dependencies, routing</td>
+</tr>
+<tr>
+<td>Authentication</td>
+<td><code>references/authentication.md</code></td>
+<td>JWT, OAuth2, get_current_user</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td><code>references/testing-async.md</code></td>
+<td>pytest-asyncio, httpx, fixtures</td>
+</tr>
+<tr>
+<td>Django Migration</td>
+<td><code>references/migration-from-django.md</code></td>
+<td>Migrating from Django/DRF to FastAPI</td>
+</tr>
+</tbody>
+</table>
+<h2>Constraints</h2>
+<h3>MUST DO</h3>
+<ul>
+<li>Use type hints everywhere (FastAPI requires them)</li>
+<li>Use Pydantic V2 syntax (<code>field_validator</code>, <code>model_validator</code>, <code>model_config</code>)</li>
+<li>Use <code>Annotated</code> pattern for dependency injection</li>
+<li>Use async/await for all I/O operations</li>
+<li>Use <code>X | None</code> instead of <code>Optional[X]</code></li>
+<li>Return proper HTTP status codes</li>
+<li>Document endpoints (auto-generated OpenAPI)</li>
+</ul>
+<h3>MUST NOT DO</h3>
+<ul>
+<li>Use synchronous database operations</li>
+<li>Skip Pydantic validation</li>
+<li>Store passwords in plain text</li>
+<li>Expose sensitive data in responses</li>
+<li>Use Pydantic V1 syntax (<code>@validator</code>, <code>class Config</code>)</li>
+<li>Mix sync and async code improperly</li>
+<li>Hardcode configuration values</li>
+</ul>
+<h2>Output Templates</h2>
+<p>When implementing FastAPI features, provide:</p>
+<ol>
+<li>Schema file (Pydantic models)</li>
+<li>Endpoint file (router with endpoints)</li>
+<li>CRUD operations if database involved</li>
+<li>Brief explanation of key decisions</li>
+</ol>
+<h2>Knowledge Reference</h2>
+<p>FastAPI, Pydantic V2, async SQLAlchemy, Alembic migrations, JWT/OAuth2, pytest-asyncio, httpx, BackgroundTasks, WebSockets, dependency injection, OpenAPI/Swagger</p>
+<p><a href="https://jeffallan.github.io/claude-skills/skills/backend/fastapi-expert/" target="_blank" rel="ugc nofollow noopener">Documentation</a></p></div>

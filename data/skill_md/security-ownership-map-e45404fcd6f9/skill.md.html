@@ -1,0 +1,158 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Security Ownership Map</h1>
+<h2>Overview</h2>
+<p>Build a bipartite graph of people and files from git history, then compute ownership risk and export graph artifacts for Neo4j/Gephi. Also build a file co-change graph (Jaccard similarity on shared commits) to cluster files by how they move together while ignoring large, noisy commits.</p>
+<h2>Requirements</h2>
+<ul>
+<li>Python 3</li>
+<li><code>networkx</code> (required; community detection is enabled by default)</li>
+</ul>
+<p>Install with:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> networkx
+</span></code></pre>
+<h2>Workflow</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li>Scope the repo and time window (optional <code>--since/--until</code>).</li>
+<li>Decide sensitivity rules (use defaults or provide a CSV config).</li>
+<li>Build the ownership map with <code>scripts/run_ownership_map.py</code> (co-change graph is on by default; use <code>--cochange-max-files</code> to ignore supernode commits).</li>
+<li>Communities are computed by default; graphml output is optional (<code>--graphml</code>).</li>
+<li>Query the outputs with <code>scripts/query_ownership.py</code> for bounded JSON slices.</li>
+<li>Persist and visualize (see <code>references/neo4j-import.md</code>).</li>
+</ol>
+<p>By default, the co-change graph ignores common “glue” files (lockfiles, <code>.github/*</code>, editor config) so clusters reflect actual code movement instead of shared infra edits. Override with <code>--cochange-exclude</code> or <code>--no-default-cochange-excludes</code>. Dependabot commits are excluded by default; override with <code>--no-default-author-excludes</code> or add patterns via <code>--author-exclude-regex</code>.</p>
+<p>If you want to exclude Linux build glue like <code>Kbuild</code> from co-change clustering, pass:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python skills/skills/security-ownership-map/scripts/run_ownership_map.py <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--repo</span> /path/to/linux <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--out</span> ownership-map-out <span class="token punctuation">\</span>
+</span><span class="code-line">  --cochange-exclude <span class="token string">"**/Kbuild"</span>
+</span></code></pre>
+<h2>Quick start</h2>
+<p>Run from the repo root:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python skills/skills/security-ownership-map/scripts/run_ownership_map.py <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--repo</span> <span class="token builtin class-name">.</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--out</span> ownership-map-out <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--since</span> <span class="token string">"12 months ago"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --emit-commits
+</span></code></pre>
+<p>Defaults: author identity, author date, and merge commits excluded. Use <code>--identity committer</code>, <code>--date-field committer</code>, or <code>--include-merges</code> if needed.</p>
+<p>Example (override co-change excludes):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python skills/skills/security-ownership-map/scripts/run_ownership_map.py <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--repo</span> <span class="token builtin class-name">.</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--out</span> ownership-map-out <span class="token punctuation">\</span>
+</span><span class="code-line">  --cochange-exclude <span class="token string">"**/Cargo.lock"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --cochange-exclude <span class="token string">"**/.github/**"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --no-default-cochange-excludes
+</span></code></pre>
+<p>Communities are computed by default. To disable:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python skills/skills/security-ownership-map/scripts/run_ownership_map.py <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--repo</span> <span class="token builtin class-name">.</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--out</span> ownership-map-out <span class="token punctuation">\</span>
+</span><span class="code-line">  --no-communities
+</span></code></pre>
+<h2>Sensitivity rules</h2>
+<p>By default, the script flags common auth/crypto/secret paths. Override by providing a CSV file:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># pattern,tag,weight
+</span><span class="code-line">**/auth/**,auth,1.0
+</span><span class="code-line">**/crypto/**,crypto,1.0
+</span><span class="code-line">**/*.pem,secrets,1.0
+</span></code></pre>
+<p>Use it with <code>--sensitive-config path/to/sensitive.csv</code>.</p>
+<h2>Output artifacts</h2>
+<p><code>ownership-map-out/</code> contains:</p>
+<ul>
+<li><code>people.csv</code> (nodes: people)</li>
+<li><code>files.csv</code> (nodes: files)</li>
+<li><code>edges.csv</code> (edges: touches)</li>
+<li><code>cochange_edges.csv</code> (file-to-file co-change edges with Jaccard weight; omitted with <code>--no-cochange</code>)</li>
+<li><code>summary.json</code> (security ownership findings)</li>
+<li><code>commits.jsonl</code> (optional, if <code>--emit-commits</code>)</li>
+<li><code>communities.json</code> (computed by default from co-change edges when available; includes <code>maintainers</code> per community; disable with <code>--no-communities</code>)</li>
+<li><code>cochange.graph.json</code> (NetworkX node-link JSON with <code>community_id</code> + <code>community_maintainers</code>; falls back to <code>ownership.graph.json</code> if no co-change edges)</li>
+<li><code>ownership.graphml</code> / <code>cochange.graphml</code> (optional, if <code>--graphml</code>)</li>
+</ul>
+<p><code>people.csv</code> includes timezone detection based on author commit offsets: <code>primary_tz_offset</code>, <code>primary_tz_minutes</code>, and <code>timezone_offsets</code>.</p>
+<h2>LLM query helper</h2>
+<p>Use <code>scripts/query_ownership.py</code> to return small, JSON-bounded slices without loading the full graph into context.</p>
+<p>Examples:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out people <span class="token parameter variable">--limit</span> <span class="token number">10</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out files <span class="token parameter variable">--tag</span> auth --bus-factor-max <span class="token number">1</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out person <span class="token parameter variable">--person</span> alice@corp <span class="token parameter variable">--limit</span> <span class="token number">10</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out <span class="token function">file</span> <span class="token parameter variable">--file</span> crypto/tls
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out cochange <span class="token parameter variable">--file</span> crypto/tls <span class="token parameter variable">--limit</span> <span class="token number">10</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out summary <span class="token parameter variable">--section</span> orphaned_sensitive_code
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out community <span class="token parameter variable">--id</span> <span class="token number">3</span>
+</span></code></pre>
+<p>Use <code>--community-top-owners 5</code> (default) to control how many maintainers are stored per community.</p>
+<h2>Basic security queries</h2>
+<p>Run these to answer common security ownership questions with bounded output:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Orphaned sensitive code (stale + low bus factor)</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out summary <span class="token parameter variable">--section</span> orphaned_sensitive_code
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Hidden owners for sensitive tags</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out summary <span class="token parameter variable">--section</span> hidden_owners
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Sensitive hotspots with low bus factor</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out summary <span class="token parameter variable">--section</span> bus_factor_hotspots
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Auth/crypto files with bus factor &lt;= 1</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out files <span class="token parameter variable">--tag</span> auth --bus-factor-max <span class="token number">1</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out files <span class="token parameter variable">--tag</span> crypto --bus-factor-max <span class="token number">1</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Who is touching sensitive code the most</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out people <span class="token parameter variable">--sort</span> sensitive_touches <span class="token parameter variable">--limit</span> <span class="token number">10</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Co-change neighbors (cluster hints for ownership drift)</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out cochange <span class="token parameter variable">--file</span> path/to/file --min-jaccard <span class="token number">0.05</span> <span class="token parameter variable">--limit</span> <span class="token number">20</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Community maintainers (for a cluster)</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/query_ownership.py --data-dir ownership-map-out community <span class="token parameter variable">--id</span> <span class="token number">3</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Monthly maintainers for the community containing a file</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/community_maintainers.py <span class="token punctuation">\</span>
+</span><span class="code-line">  --data-dir ownership-map-out <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--file</span> network/card.c <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--since</span> <span class="token number">2025</span>-01-01 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--top</span> <span class="token number">5</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Quarterly buckets instead of monthly</span>
+</span><span class="code-line">python skills/skills/security-ownership-map/scripts/community_maintainers.py <span class="token punctuation">\</span>
+</span><span class="code-line">  --data-dir ownership-map-out <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--file</span> network/card.c <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--since</span> <span class="token number">2025</span>-01-01 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--bucket</span> quarter <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--top</span> <span class="token number">5</span>
+</span></code></pre>
+<p>Notes:</p>
+<ul>
+<li>Touches default to one authored commit (not per-file). Use <code>--touch-mode file</code> to count per-file touches.</li>
+<li>Use <code>--window-days 90</code> or <code>--weight recency --half-life-days 180</code> to smooth churn.</li>
+<li>Filter bots with <code>--ignore-author-regex '(bot|dependabot)'</code>.</li>
+<li>Use <code>--min-share 0.1</code> to show stable maintainers only.</li>
+<li>Use <code>--bucket quarter</code> for calendar quarter groupings.</li>
+<li>Use <code>--identity committer</code> or <code>--date-field committer</code> to switch from author attribution.</li>
+<li>Use <code>--include-merges</code> to include merge commits (excluded by default).</li>
+</ul>
+<h3>Summary format (default)</h3>
+<p>Use this structure, add fields if needed:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"orphaned_sensitive_code"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"path"</span><span class="token operator">:</span> <span class="token string">"crypto/tls/handshake.rs"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"last_security_touch"</span><span class="token operator">:</span> <span class="token string">"2023-03-12T18:10:04+00:00"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"bus_factor"</span><span class="token operator">:</span> <span class="token number">1</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"hidden_owners"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"person"</span><span class="token operator">:</span> <span class="token string">"alice@corp"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"controls"</span><span class="token operator">:</span> <span class="token string">"63% of auth code"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Graph persistence</h2>
+<p>Use <code>references/neo4j-import.md</code> when you need to load the CSVs into Neo4j. It includes constraints, import Cypher, and visualization tips.</p>
+<h2>Notes</h2>
+<ul>
+<li><code>bus_factor_hotspots</code> in <code>summary.json</code> lists sensitive files with low bus factor; <code>orphaned_sensitive_code</code> is the stale subset.</li>
+<li>If <code>git log</code> is too large, narrow with <code>--since</code> or <code>--until</code>.</li>
+<li>Compare <code>summary.json</code> against CODEOWNERS to highlight ownership drift.</li>
+</ul></div>

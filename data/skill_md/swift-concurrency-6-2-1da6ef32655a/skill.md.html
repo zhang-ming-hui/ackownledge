@@ -1,0 +1,208 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Swift 6.2 Approachable Concurrency</h1>
+<p>Patterns for adopting Swift 6.2's concurrency model where code runs single-threaded by default and concurrency is introduced explicitly. Eliminates common data-race errors without sacrificing performance.</p>
+<h2>When to Activate</h2>
+<ul>
+<li>Migrating Swift 5.x or 6.0/6.1 projects to Swift 6.2</li>
+<li>Resolving data-race safety compiler errors</li>
+<li>Designing MainActor-based app architecture</li>
+<li>Offloading CPU-intensive work to background threads</li>
+<li>Implementing protocol conformances on MainActor-isolated types</li>
+<li>Enabling Approachable Concurrency build settings in Xcode 26</li>
+</ul>
+<h2>Core Problem: Implicit Background Offloading</h2>
+<p>In Swift 6.1 and earlier, async functions could be implicitly offloaded to background threads, causing data-race errors even in seemingly safe code:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Swift 6.1: ERROR</span>
+</span><span class="code-line"><span class="token attribute atrule">@MainActor</span>
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">StickerModel</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> photoProcessor <span class="token operator">=</span> <span class="token class-name">PhotoProcessor</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">extractSticker</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> item<span class="token punctuation">:</span> <span class="token class-name">PhotosPickerItem</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">Sticker</span><span class="token operator">?</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> data <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> item<span class="token punctuation">.</span><span class="token function">loadTransferable</span><span class="token punctuation">(</span>type<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token nil constant">nil</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Error: Sending 'self.photoProcessor' risks causing data races</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">await</span> photoProcessor<span class="token punctuation">.</span><span class="token function">extractSticker</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> data<span class="token punctuation">,</span> with<span class="token punctuation">:</span> item<span class="token punctuation">.</span>itemIdentifier<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Swift 6.2 fixes this: async functions stay on the calling actor by default.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Swift 6.2: OK — async stays on MainActor, no data race</span>
+</span><span class="code-line"><span class="token attribute atrule">@MainActor</span>
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">StickerModel</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> photoProcessor <span class="token operator">=</span> <span class="token class-name">PhotoProcessor</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">extractSticker</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> item<span class="token punctuation">:</span> <span class="token class-name">PhotosPickerItem</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">Sticker</span><span class="token operator">?</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> data <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> item<span class="token punctuation">.</span><span class="token function">loadTransferable</span><span class="token punctuation">(</span>type<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token nil constant">nil</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">await</span> photoProcessor<span class="token punctuation">.</span><span class="token function">extractSticker</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> data<span class="token punctuation">,</span> with<span class="token punctuation">:</span> item<span class="token punctuation">.</span>itemIdentifier<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Core Pattern — Isolated Conformances</h2>
+<p>MainActor types can now conform to non-isolated protocols safely:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">protocol</span> <span class="token class-name">Exportable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">export</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Swift 6.1: ERROR — crosses into main actor-isolated code</span>
+</span><span class="code-line"><span class="token comment">// Swift 6.2: OK with isolated conformance</span>
+</span><span class="code-line"><span class="token keyword">extension</span> <span class="token class-name">StickerModel</span><span class="token punctuation">:</span> <span class="token attribute atrule">@MainActor</span> <span class="token class-name">Exportable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">export</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        photoProcessor<span class="token punctuation">.</span><span class="token function">exportAsPNG</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>The compiler ensures the conformance is only used on the main actor:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// OK — ImageExporter is also @MainActor</span>
+</span><span class="code-line"><span class="token attribute atrule">@MainActor</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">ImageExporter</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> items<span class="token punctuation">:</span> <span class="token punctuation">[</span>any <span class="token class-name">Exportable</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">mutating</span> <span class="token keyword">func</span> <span class="token function-definition function">add</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> item<span class="token punctuation">:</span> <span class="token class-name">StickerModel</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        items<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span>  <span class="token comment">// Safe: same actor isolation</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ERROR — nonisolated context can't use MainActor conformance</span>
+</span><span class="code-line"><span class="token keyword">nonisolated</span> <span class="token keyword">struct</span> <span class="token class-name">ImageExporter</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> items<span class="token punctuation">:</span> <span class="token punctuation">[</span>any <span class="token class-name">Exportable</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">mutating</span> <span class="token keyword">func</span> <span class="token function-definition function">add</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> item<span class="token punctuation">:</span> <span class="token class-name">StickerModel</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        items<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span>  <span class="token comment">// Error: Main actor-isolated conformance cannot be used here</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Core Pattern — Global and Static Variables</h2>
+<p>Protect global/static state with MainActor:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Swift 6.1: ERROR — non-Sendable type may have shared mutable state</span>
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">StickerLibrary</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">let</span> shared<span class="token punctuation">:</span> <span class="token class-name">StickerLibrary</span> <span class="token operator">=</span> <span class="token punctuation">.</span><span class="token keyword">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment">// Error</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Fix: Annotate with @MainActor</span>
+</span><span class="code-line"><span class="token attribute atrule">@MainActor</span>
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">StickerLibrary</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">let</span> shared<span class="token punctuation">:</span> <span class="token class-name">StickerLibrary</span> <span class="token operator">=</span> <span class="token punctuation">.</span><span class="token keyword">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment">// OK</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>MainActor Default Inference Mode</h3>
+<p>Swift 6.2 introduces a mode where MainActor is inferred by default — no manual annotations needed:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// With MainActor default inference enabled:</span>
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">StickerLibrary</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">let</span> shared<span class="token punctuation">:</span> <span class="token class-name">StickerLibrary</span> <span class="token operator">=</span> <span class="token punctuation">.</span><span class="token keyword">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment">// Implicitly @MainActor</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">StickerModel</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> photoProcessor<span class="token punctuation">:</span> <span class="token class-name">PhotoProcessor</span>
+</span><span class="code-line">    <span class="token keyword">var</span> selection<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">PhotosPickerItem</span><span class="token punctuation">]</span>  <span class="token comment">// Implicitly @MainActor</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">extension</span> <span class="token class-name">StickerModel</span><span class="token punctuation">:</span> <span class="token class-name">Exportable</span> <span class="token punctuation">{</span>  <span class="token comment">// Implicitly @MainActor conformance</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">export</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        photoProcessor<span class="token punctuation">.</span><span class="token function">exportAsPNG</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>This mode is opt-in and recommended for apps, scripts, and other executable targets.</p>
+<h2>Core Pattern — @concurrent for Background Work</h2>
+<p>When you need actual parallelism, explicitly offload with <code>@concurrent</code>:</p>
+<blockquote>
+<p><strong>Important:</strong> This example requires Approachable Concurrency build settings — SE-0466 (MainActor default isolation) and SE-0461 (NonisolatedNonsendingByDefault). With these enabled, <code>extractSticker</code> stays on the caller's actor, making mutable state access safe. <strong>Without these settings, this code has a data race</strong> — the compiler will flag it.</p>
+</blockquote>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">nonisolated</span> <span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">PhotoProcessor</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> cachedStickers<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">String</span><span class="token punctuation">:</span> <span class="token class-name">Sticker</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">extractSticker</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">,</span> with id<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token operator">-&gt;</span> <span class="token class-name">Sticker</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> sticker <span class="token operator">=</span> cachedStickers<span class="token punctuation">[</span>id<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">return</span> sticker
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">let</span> sticker <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token keyword">Self</span><span class="token punctuation">.</span><span class="token function">extractSubject</span><span class="token punctuation">(</span>from<span class="token punctuation">:</span> data<span class="token punctuation">)</span>
+</span><span class="code-line">        cachedStickers<span class="token punctuation">[</span>id<span class="token punctuation">]</span> <span class="token operator">=</span> sticker
+</span><span class="code-line">        <span class="token keyword">return</span> sticker
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Offload expensive work to concurrent thread pool</span>
+</span><span class="code-line">    <span class="token attribute atrule">@concurrent</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">func</span> <span class="token function-definition function">extractSubject</span><span class="token punctuation">(</span>from data<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token operator">-&gt;</span> <span class="token class-name">Sticker</span> <span class="token punctuation">{</span> <span class="token comment">/* ... */</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Callers must await</span>
+</span><span class="code-line"><span class="token keyword">let</span> processor <span class="token operator">=</span> <span class="token class-name">PhotoProcessor</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">processedPhotos<span class="token punctuation">[</span>item<span class="token punctuation">.</span>id<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">await</span> processor<span class="token punctuation">.</span><span class="token function">extractSticker</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> data<span class="token punctuation">,</span> with<span class="token punctuation">:</span> item<span class="token punctuation">.</span>id<span class="token punctuation">)</span>
+</span></code></pre>
+<p>To use <code>@concurrent</code>:</p>
+<ol>
+<li>Mark the containing type as <code>nonisolated</code></li>
+<li>Add <code>@concurrent</code> to the function</li>
+<li>Add <code>async</code> if not already asynchronous</li>
+<li>Add <code>await</code> at call sites</li>
+</ol>
+<h2>Key Design Decisions</h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single-threaded by default</td>
+<td>Most natural code is data-race free; concurrency is opt-in</td>
+</tr>
+<tr>
+<td>Async stays on calling actor</td>
+<td>Eliminates implicit offloading that caused data-race errors</td>
+</tr>
+<tr>
+<td>Isolated conformances</td>
+<td>MainActor types can conform to protocols without unsafe workarounds</td>
+</tr>
+<tr>
+<td><code>@concurrent</code> explicit opt-in</td>
+<td>Background execution is a deliberate performance choice, not accidental</td>
+</tr>
+<tr>
+<td>MainActor default inference</td>
+<td>Reduces boilerplate <code>@MainActor</code> annotations for app targets</td>
+</tr>
+<tr>
+<td>Opt-in adoption</td>
+<td>Non-breaking migration path — enable features incrementally</td>
+</tr>
+</tbody>
+</table>
+<h2>Migration Steps</h2>
+<ol>
+<li><strong>Enable in Xcode</strong>: Swift Compiler &gt; Concurrency section in Build Settings</li>
+<li><strong>Enable in SPM</strong>: Use <code>SwiftSettings</code> API in package manifest</li>
+<li><strong>Use migration tooling</strong>: Automatic code changes via swift.org/migration</li>
+<li><strong>Start with MainActor defaults</strong>: Enable inference mode for app targets</li>
+<li><strong>Add <code>@concurrent</code> where needed</strong>: Profile first, then offload hot paths</li>
+<li><strong>Test thoroughly</strong>: Data-race issues become compile-time errors</li>
+</ol>
+<h2>Best Practices</h2>
+<ul>
+<li><strong>Start on MainActor</strong> — write single-threaded code first, optimize later</li>
+<li><strong>Use <code>@concurrent</code> only for CPU-intensive work</strong> — image processing, compression, complex computation</li>
+<li><strong>Enable MainActor inference mode</strong> for app targets that are mostly single-threaded</li>
+<li><strong>Profile before offloading</strong> — use Instruments to find actual bottlenecks</li>
+<li><strong>Protect globals with MainActor</strong> — global/static mutable state needs actor isolation</li>
+<li><strong>Use isolated conformances</strong> instead of <code>nonisolated</code> workarounds or <code>@Sendable</code> wrappers</li>
+<li><strong>Migrate incrementally</strong> — enable features one at a time in build settings</li>
+</ul>
+<h2>Anti-Patterns to Avoid</h2>
+<ul>
+<li>Applying <code>@concurrent</code> to every async function (most don't need background execution)</li>
+<li>Using <code>nonisolated</code> to suppress compiler errors without understanding isolation</li>
+<li>Keeping legacy <code>DispatchQueue</code> patterns when actors provide the same safety</li>
+<li>Skipping <code>model.availability</code> checks in concurrency-related Foundation Models code</li>
+<li>Fighting the compiler — if it reports a data race, the code has a real concurrency issue</li>
+<li>Assuming all async code runs in the background (Swift 6.2 default: stays on calling actor)</li>
+</ul>
+<h2>When to Use</h2>
+<ul>
+<li>All new Swift 6.2+ projects (Approachable Concurrency is the recommended default)</li>
+<li>Migrating existing apps from Swift 5.x or 6.0/6.1 concurrency</li>
+<li>Resolving data-race safety compiler errors during Xcode 26 adoption</li>
+<li>Building MainActor-centric app architectures (most UI apps)</li>
+<li>Performance optimization — offloading specific heavy computations to background</li>
+</ul></div>

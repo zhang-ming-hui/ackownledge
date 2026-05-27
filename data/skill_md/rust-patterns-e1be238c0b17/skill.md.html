@@ -1,0 +1,447 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Rust Development Patterns</h1>
+<p>Idiomatic Rust patterns and best practices for building safe, performant, and maintainable applications.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Writing new Rust code</li>
+<li>Reviewing Rust code</li>
+<li>Refactoring existing Rust code</li>
+<li>Designing crate structure and module layout</li>
+</ul>
+<h2>How It Works</h2>
+<p>This skill enforces idiomatic Rust conventions across six key areas: ownership and borrowing to prevent data races at compile time, <code>Result</code>/<code>?</code> error propagation with <code>thiserror</code> for libraries and <code>anyhow</code> for applications, enums and exhaustive pattern matching to make illegal states unrepresentable, traits and generics for zero-cost abstraction, safe concurrency via <code>Arc&lt;Mutex&lt;T&gt;&gt;</code>, channels, and async/await, and minimal <code>pub</code> surfaces organized by domain.</p>
+<h2>Core Principles</h2>
+<h3>1. Ownership and Borrowing</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Rust's ownership system prevents data races and memory bugs at compile time.</p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Pass references when you don't need ownership</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">process</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token punctuation">[</span><span class="token keyword">u8</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token keyword">usize</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    data<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Good: Take ownership only when you need to store or consume</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">store</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token keyword">u8</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Record</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">Record</span> <span class="token punctuation">{</span> payload<span class="token punctuation">:</span> data <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Cloning unnecessarily to avoid borrow checker</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">process_bad</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token keyword">u8</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token keyword">usize</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> cloned <span class="token operator">=</span> data<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Wasteful — just borrow</span>
+</span><span class="code-line">    cloned<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Use <code>Cow</code> for Flexible Ownership</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">std<span class="token punctuation">::</span>borrow<span class="token punctuation">::</span></span><span class="token class-name">Cow</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">normalize</span><span class="token punctuation">(</span>input<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">str</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Cow</span><span class="token operator">&lt;</span><span class="token lifetime-annotation symbol">'_</span><span class="token punctuation">,</span> <span class="token keyword">str</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> input<span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span><span class="token char">' '</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Cow</span><span class="token punctuation">::</span><span class="token class-name">Owned</span><span class="token punctuation">(</span>input<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token char">' '</span><span class="token punctuation">,</span> <span class="token string">"_"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Cow</span><span class="token punctuation">::</span><span class="token class-name">Borrowed</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span> <span class="token comment">// Zero-cost when no mutation needed</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Error Handling</h2>
+<h3>Use <code>Result</code> and <code>?</code> — Never <code>unwrap()</code> in Production</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Propagate errors with context</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">anyhow<span class="token punctuation">::</span></span><span class="token punctuation">{</span><span class="token class-name">Context</span><span class="token punctuation">,</span> <span class="token class-name">Result</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">load_config</span><span class="token punctuation">(</span>path<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">str</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">Config</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> content <span class="token operator">=</span> <span class="token namespace">std<span class="token punctuation">::</span>fs<span class="token punctuation">::</span></span><span class="token function">read_to_string</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">with_context</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token macro property">format!</span><span class="token punctuation">(</span><span class="token string">"failed to read config from {path}"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">let</span> config<span class="token punctuation">:</span> <span class="token class-name">Config</span> <span class="token operator">=</span> <span class="token namespace">toml<span class="token punctuation">::</span></span><span class="token function">from_str</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>content<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">with_context</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token macro property">format!</span><span class="token punctuation">(</span><span class="token string">"failed to parse config from {path}"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token class-name">Ok</span><span class="token punctuation">(</span>config<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Panics on error</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">load_config_bad</span><span class="token punctuation">(</span>path<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">str</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Config</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> content <span class="token operator">=</span> <span class="token namespace">std<span class="token punctuation">::</span>fs<span class="token punctuation">::</span></span><span class="token function">read_to_string</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Panics!</span>
+</span><span class="code-line">    <span class="token namespace">toml<span class="token punctuation">::</span></span><span class="token function">from_str</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>content<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Library Errors with <code>thiserror</code>, Application Errors with <code>anyhow</code></h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Library code: structured, typed errors</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">thiserror<span class="token punctuation">::</span></span><span class="token class-name">Error</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token attribute attr-name">#[derive(Debug, Error)]</span>
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">enum</span> <span class="token type-definition class-name">StorageError</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token attribute attr-name">#[error(<span class="token string">"record not found: {id}"</span>)]</span>
+</span><span class="code-line">    <span class="token class-name">NotFound</span> <span class="token punctuation">{</span> id<span class="token punctuation">:</span> <span class="token class-name">String</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token attribute attr-name">#[error(<span class="token string">"connection failed"</span>)]</span>
+</span><span class="code-line">    <span class="token class-name">Connection</span><span class="token punctuation">(</span><span class="token attribute attr-name">#[from]</span> <span class="token namespace">std<span class="token punctuation">::</span>io<span class="token punctuation">::</span></span><span class="token class-name">Error</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token attribute attr-name">#[error(<span class="token string">"invalid data: {0}"</span>)]</span>
+</span><span class="code-line">    <span class="token class-name">InvalidData</span><span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Application code: flexible error handling</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">anyhow<span class="token punctuation">::</span></span><span class="token punctuation">{</span>bail<span class="token punctuation">,</span> <span class="token class-name">Result</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> config <span class="token operator">=</span> <span class="token function">load_config</span><span class="token punctuation">(</span><span class="token string">"app.toml"</span><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> config<span class="token punctuation">.</span>workers <span class="token operator">==</span> <span class="token number">0</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token macro property">bail!</span><span class="token punctuation">(</span><span class="token string">"worker count must be &gt; 0"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token class-name">Ok</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3><code>Option</code> Combinators Over Nested Matching</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Combinator chain</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">find_user_email</span><span class="token punctuation">(</span>users<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token punctuation">[</span><span class="token class-name">User</span><span class="token punctuation">]</span><span class="token punctuation">,</span> id<span class="token punctuation">:</span> <span class="token keyword">u64</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Option</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    users<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>u<span class="token closure-punctuation punctuation">|</span></span> u<span class="token punctuation">.</span>id <span class="token operator">==</span> id<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>u<span class="token closure-punctuation punctuation">|</span></span> u<span class="token punctuation">.</span>email<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Deeply nested matching</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">find_user_email_bad</span><span class="token punctuation">(</span>users<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token punctuation">[</span><span class="token class-name">User</span><span class="token punctuation">]</span><span class="token punctuation">,</span> id<span class="token punctuation">:</span> <span class="token keyword">u64</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Option</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">match</span> users<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>u<span class="token closure-punctuation punctuation">|</span></span> u<span class="token punctuation">.</span>id <span class="token operator">==</span> id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Some</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">match</span> <span class="token operator">&amp;</span>user<span class="token punctuation">.</span>email <span class="token punctuation">{</span>
+</span><span class="code-line">            email <span class="token operator">=&gt;</span> <span class="token class-name">Some</span><span class="token punctuation">(</span>email<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token class-name">None</span> <span class="token operator">=&gt;</span> <span class="token class-name">None</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Enums and Pattern Matching</h2>
+<h3>Model States as Enums</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Impossible states are unrepresentable</span>
+</span><span class="code-line"><span class="token keyword">enum</span> <span class="token type-definition class-name">ConnectionState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">Disconnected</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">Connecting</span> <span class="token punctuation">{</span> attempt<span class="token punctuation">:</span> <span class="token keyword">u32</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">Connected</span> <span class="token punctuation">{</span> session_id<span class="token punctuation">:</span> <span class="token class-name">String</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">Failed</span> <span class="token punctuation">{</span> reason<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">,</span> retries<span class="token punctuation">:</span> <span class="token keyword">u32</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">handle</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token class-name">ConnectionState</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">match</span> state <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">ConnectionState</span><span class="token punctuation">::</span><span class="token class-name">Disconnected</span> <span class="token operator">=&gt;</span> <span class="token function">connect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token class-name">ConnectionState</span><span class="token punctuation">::</span><span class="token class-name">Connecting</span> <span class="token punctuation">{</span> attempt <span class="token punctuation">}</span> <span class="token keyword">if</span> <span class="token operator">*</span>attempt <span class="token operator">&gt;</span> <span class="token number">3</span> <span class="token operator">=&gt;</span> <span class="token function">abort</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token class-name">ConnectionState</span><span class="token punctuation">::</span><span class="token class-name">Connecting</span> <span class="token punctuation">{</span> <span class="token punctuation">..</span> <span class="token punctuation">}</span> <span class="token operator">=&gt;</span> <span class="token function">wait</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token class-name">ConnectionState</span><span class="token punctuation">::</span><span class="token class-name">Connected</span> <span class="token punctuation">{</span> session_id <span class="token punctuation">}</span> <span class="token operator">=&gt;</span> <span class="token function">use_session</span><span class="token punctuation">(</span>session_id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token class-name">ConnectionState</span><span class="token punctuation">::</span><span class="token class-name">Failed</span> <span class="token punctuation">{</span> retries<span class="token punctuation">,</span> <span class="token punctuation">..</span> <span class="token punctuation">}</span> <span class="token keyword">if</span> <span class="token operator">*</span>retries <span class="token operator">&lt;</span> <span class="token number">5</span> <span class="token operator">=&gt;</span> <span class="token function">retry</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token class-name">ConnectionState</span><span class="token punctuation">::</span><span class="token class-name">Failed</span> <span class="token punctuation">{</span> reason<span class="token punctuation">,</span> <span class="token punctuation">..</span> <span class="token punctuation">}</span> <span class="token operator">=&gt;</span> <span class="token function">log_failure</span><span class="token punctuation">(</span>reason<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Exhaustive Matching — No Catch-All for Business Logic</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Handle every variant explicitly</span>
+</span><span class="code-line"><span class="token keyword">match</span> command <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">Command</span><span class="token punctuation">::</span><span class="token class-name">Start</span> <span class="token operator">=&gt;</span> <span class="token function">start_service</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">Command</span><span class="token punctuation">::</span><span class="token class-name">Stop</span> <span class="token operator">=&gt;</span> <span class="token function">stop_service</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">Command</span><span class="token punctuation">::</span><span class="token class-name">Restart</span> <span class="token operator">=&gt;</span> <span class="token function">restart_service</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token comment">// Adding a new variant forces handling here</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Wildcard hides new variants</span>
+</span><span class="code-line"><span class="token keyword">match</span> command <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">Command</span><span class="token punctuation">::</span><span class="token class-name">Start</span> <span class="token operator">=&gt;</span> <span class="token function">start_service</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    _ <span class="token operator">=&gt;</span> <span class="token punctuation">{</span><span class="token punctuation">}</span> <span class="token comment">// Silently ignores Stop, Restart, and future variants</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Traits and Generics</h2>
+<h3>Accept Generics, Return Concrete Types</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Generic input, concrete output</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">read_all</span><span class="token punctuation">(</span>reader<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">mut</span> <span class="token keyword">impl</span> <span class="token class-name">Read</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token namespace">std<span class="token punctuation">::</span>io<span class="token punctuation">::</span></span><span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token keyword">u8</span><span class="token operator">&gt;&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> <span class="token keyword">mut</span> buf <span class="token operator">=</span> <span class="token class-name">Vec</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    reader<span class="token punctuation">.</span><span class="token function">read_to_end</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token keyword">mut</span> buf<span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token class-name">Ok</span><span class="token punctuation">(</span>buf<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Good: Trait bounds for multiple constraints</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">process</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token punctuation">:</span> <span class="token class-name">Display</span> <span class="token operator">+</span> <span class="token class-name">Send</span> <span class="token operator">+</span> <span class="token lifetime-annotation symbol">'static</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>item<span class="token punctuation">:</span> <span class="token class-name">T</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">String</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token macro property">format!</span><span class="token punctuation">(</span><span class="token string">"processed: {item}"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Trait Objects for Dynamic Dispatch</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Use when you need heterogeneous collections or plugin systems</span>
+</span><span class="code-line"><span class="token keyword">trait</span> <span class="token type-definition class-name">Handler</span><span class="token punctuation">:</span> <span class="token class-name">Send</span> <span class="token operator">+</span> <span class="token class-name">Sync</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">fn</span> <span class="token function-definition function">handle</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token keyword">self</span><span class="token punctuation">,</span> request<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token class-name">Request</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Response</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token type-definition class-name">Router</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    handlers<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token class-name">Box</span><span class="token operator">&lt;</span><span class="token keyword">dyn</span> <span class="token class-name">Handler</span><span class="token operator">&gt;&gt;</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Use generics when you need performance (monomorphization)</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">fast_process</span><span class="token operator">&lt;</span><span class="token class-name">H</span><span class="token punctuation">:</span> <span class="token class-name">Handler</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>handler<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token class-name">H</span><span class="token punctuation">,</span> request<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token class-name">Request</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Response</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    handler<span class="token punctuation">.</span><span class="token function">handle</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Newtype Pattern for Type Safety</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Distinct types prevent mixing up arguments</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token type-definition class-name">UserId</span><span class="token punctuation">(</span><span class="token keyword">u64</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token type-definition class-name">OrderId</span><span class="token punctuation">(</span><span class="token keyword">u64</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">get_order</span><span class="token punctuation">(</span>user<span class="token punctuation">:</span> <span class="token class-name">UserId</span><span class="token punctuation">,</span> order<span class="token punctuation">:</span> <span class="token class-name">OrderId</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">Order</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Can't accidentally swap user and order IDs</span>
+</span><span class="code-line">    <span class="token macro property">todo!</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Easy to swap arguments</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">get_order_bad</span><span class="token punctuation">(</span>user_id<span class="token punctuation">:</span> <span class="token keyword">u64</span><span class="token punctuation">,</span> order_id<span class="token punctuation">:</span> <span class="token keyword">u64</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">Order</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token macro property">todo!</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Structs and Data Modeling</h2>
+<h3>Builder Pattern for Complex Construction</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token type-definition class-name">ServerConfig</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    host<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">,</span>
+</span><span class="code-line">    port<span class="token punctuation">:</span> <span class="token keyword">u16</span><span class="token punctuation">,</span>
+</span><span class="code-line">    max_connections<span class="token punctuation">:</span> <span class="token keyword">usize</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">impl</span> <span class="token class-name">ServerConfig</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">fn</span> <span class="token function-definition function">builder</span><span class="token punctuation">(</span>host<span class="token punctuation">:</span> <span class="token keyword">impl</span> <span class="token class-name">Into</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span><span class="token punctuation">,</span> port<span class="token punctuation">:</span> <span class="token keyword">u16</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">ServerConfigBuilder</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">ServerConfigBuilder</span> <span class="token punctuation">{</span> host<span class="token punctuation">:</span> host<span class="token punctuation">.</span><span class="token function">into</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> port<span class="token punctuation">,</span> max_connections<span class="token punctuation">:</span> <span class="token number">100</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token type-definition class-name">ServerConfigBuilder</span> <span class="token punctuation">{</span> host<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">,</span> port<span class="token punctuation">:</span> <span class="token keyword">u16</span><span class="token punctuation">,</span> max_connections<span class="token punctuation">:</span> <span class="token keyword">usize</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">impl</span> <span class="token class-name">ServerConfigBuilder</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">fn</span> <span class="token function-definition function">max_connections</span><span class="token punctuation">(</span><span class="token keyword">mut</span> <span class="token keyword">self</span><span class="token punctuation">,</span> n<span class="token punctuation">:</span> <span class="token keyword">usize</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token keyword">Self</span> <span class="token punctuation">{</span> <span class="token keyword">self</span><span class="token punctuation">.</span>max_connections <span class="token operator">=</span> n<span class="token punctuation">;</span> <span class="token keyword">self</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">fn</span> <span class="token function-definition function">build</span><span class="token punctuation">(</span><span class="token keyword">self</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">ServerConfig</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">ServerConfig</span> <span class="token punctuation">{</span> host<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">.</span>host<span class="token punctuation">,</span> port<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">.</span>port<span class="token punctuation">,</span> max_connections<span class="token punctuation">:</span> <span class="token keyword">self</span><span class="token punctuation">.</span>max_connections <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Usage: ServerConfig::builder("localhost", 8080).max_connections(200).build()</span>
+</span></code></pre>
+<h2>Iterators and Closures</h2>
+<h3>Prefer Iterator Chains Over Manual Loops</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: Declarative, lazy, composable</span>
+</span><span class="code-line"><span class="token keyword">let</span> active_emails<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span> <span class="token operator">=</span> users<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>u<span class="token closure-punctuation punctuation">|</span></span> u<span class="token punctuation">.</span>is_active<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>u<span class="token closure-punctuation punctuation">|</span></span> u<span class="token punctuation">.</span>email<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Imperative accumulation</span>
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token keyword">mut</span> active_emails <span class="token operator">=</span> <span class="token class-name">Vec</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">for</span> user <span class="token keyword">in</span> <span class="token operator">&amp;</span>users <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> user<span class="token punctuation">.</span>is_active <span class="token punctuation">{</span>
+</span><span class="code-line">        active_emails<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>email<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Use <code>collect()</code> with Type Annotation</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Collect into different types</span>
+</span><span class="code-line"><span class="token keyword">let</span> names<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span>_<span class="token operator">&gt;</span> <span class="token operator">=</span> items<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>i<span class="token closure-punctuation punctuation">|</span></span> <span class="token operator">&amp;</span>i<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> lookup<span class="token punctuation">:</span> <span class="token class-name">HashMap</span><span class="token operator">&lt;</span>_<span class="token punctuation">,</span> _<span class="token operator">&gt;</span> <span class="token operator">=</span> items<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>i<span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">(</span>i<span class="token punctuation">.</span>id<span class="token punctuation">,</span> i<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> combined<span class="token punctuation">:</span> <span class="token class-name">String</span> <span class="token operator">=</span> parts<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">copied</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Collect Results — short-circuits on first error</span>
+</span><span class="code-line"><span class="token keyword">let</span> parsed<span class="token punctuation">:</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token keyword">i32</span><span class="token operator">&gt;</span><span class="token punctuation">,</span> _<span class="token operator">&gt;</span> <span class="token operator">=</span> strings<span class="token punctuation">.</span><span class="token function">iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>s<span class="token closure-punctuation punctuation">|</span></span> s<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Concurrency</h2>
+<h3><code>Arc&lt;Mutex&lt;T&gt;&gt;</code> for Shared Mutable State</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">std<span class="token punctuation">::</span>sync<span class="token punctuation">::</span></span><span class="token punctuation">{</span><span class="token class-name">Arc</span><span class="token punctuation">,</span> <span class="token class-name">Mutex</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> counter <span class="token operator">=</span> <span class="token class-name">Arc</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token class-name">Mutex</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> handles<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span>_<span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">..</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>_<span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> counter <span class="token operator">=</span> <span class="token class-name">Arc</span><span class="token punctuation">::</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>counter<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token namespace">std<span class="token punctuation">::</span>thread<span class="token punctuation">::</span></span><span class="token function">spawn</span><span class="token punctuation">(</span><span class="token keyword">move</span> <span class="token closure-params"><span class="token closure-punctuation punctuation">|</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> num <span class="token operator">=</span> counter<span class="token punctuation">.</span><span class="token function">lock</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">expect</span><span class="token punctuation">(</span><span class="token string">"mutex poisoned"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token operator">*</span>num <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> handle <span class="token keyword">in</span> handles <span class="token punctuation">{</span>
+</span><span class="code-line">    handle<span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">expect</span><span class="token punctuation">(</span><span class="token string">"worker thread panicked"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Channels for Message Passing</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">std<span class="token punctuation">::</span>sync<span class="token punctuation">::</span></span>mpsc<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>tx<span class="token punctuation">,</span> rx<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token namespace">mpsc<span class="token punctuation">::</span></span><span class="token function">sync_channel</span><span class="token punctuation">(</span><span class="token number">16</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Bounded channel with backpressure</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> i <span class="token keyword">in</span> <span class="token number">0</span><span class="token punctuation">..</span><span class="token number">5</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> tx <span class="token operator">=</span> tx<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token namespace">std<span class="token punctuation">::</span>thread<span class="token punctuation">::</span></span><span class="token function">spawn</span><span class="token punctuation">(</span><span class="token keyword">move</span> <span class="token closure-params"><span class="token closure-punctuation punctuation">|</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        tx<span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span><span class="token macro property">format!</span><span class="token punctuation">(</span><span class="token string">"message {i}"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">expect</span><span class="token punctuation">(</span><span class="token string">"receiver disconnected"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">drop</span><span class="token punctuation">(</span>tx<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Close sender so rx iterator terminates</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> msg <span class="token keyword">in</span> rx <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token macro property">println!</span><span class="token punctuation">(</span><span class="token string">"{msg}"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Async with Tokio</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">tokio<span class="token punctuation">::</span>time<span class="token punctuation">::</span></span><span class="token class-name">Duration</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">fn</span> <span class="token function-definition function">fetch_with_timeout</span><span class="token punctuation">(</span>url<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">str</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> response <span class="token operator">=</span> <span class="token namespace">tokio<span class="token punctuation">::</span>time<span class="token punctuation">::</span></span><span class="token function">timeout</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token class-name">Duration</span><span class="token punctuation">::</span><span class="token function">from_secs</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token namespace">reqwest<span class="token punctuation">::</span></span><span class="token function">get</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token keyword">await</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">context</span><span class="token punctuation">(</span><span class="token string">"request timed out"</span><span class="token punctuation">)</span><span class="token operator">?</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">context</span><span class="token punctuation">(</span><span class="token string">"request failed"</span><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    response<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token keyword">await</span><span class="token punctuation">.</span><span class="token function">context</span><span class="token punctuation">(</span><span class="token string">"failed to read body"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Spawn concurrent tasks</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">fn</span> <span class="token function-definition function">fetch_all</span><span class="token punctuation">(</span>urls<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> handles<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span>_<span class="token operator">&gt;</span> <span class="token operator">=</span> urls<span class="token punctuation">.</span><span class="token function">into_iter</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>url<span class="token closure-punctuation punctuation">|</span></span> <span class="token namespace">tokio<span class="token punctuation">::</span></span><span class="token function">spawn</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token keyword">move</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">fetch_with_timeout</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>url<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token keyword">await</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> <span class="token keyword">mut</span> results <span class="token operator">=</span> <span class="token class-name">Vec</span><span class="token punctuation">::</span><span class="token function">with_capacity</span><span class="token punctuation">(</span>handles<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">for</span> handle <span class="token keyword">in</span> handles <span class="token punctuation">{</span>
+</span><span class="code-line">        results<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>handle<span class="token punctuation">.</span><span class="token keyword">await</span><span class="token punctuation">.</span><span class="token function">unwrap_or_else</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>e<span class="token closure-punctuation punctuation">|</span></span> <span class="token macro property">panic!</span><span class="token punctuation">(</span><span class="token string">"spawned task panicked: {e}"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    results
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Unsafe Code</h2>
+<h3>When Unsafe Is Acceptable</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Acceptable: FFI boundary with documented invariants (Rust 2024+)</span>
+</span><span class="code-line"><span class="token comment">/// # Safety</span>
+</span><span class="code-line"><span class="token comment">/// `ptr` must be a valid, aligned pointer to an initialized `Widget`.</span>
+</span><span class="code-line"><span class="token keyword">unsafe</span> <span class="token keyword">fn</span> <span class="token function-definition function">widget_from_raw</span><span class="token operator">&lt;</span><span class="token lifetime-annotation symbol">'a</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>ptr<span class="token punctuation">:</span> <span class="token operator">*</span><span class="token keyword">const</span> <span class="token class-name">Widget</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token operator">&amp;</span><span class="token lifetime-annotation symbol">'a</span> <span class="token class-name">Widget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// SAFETY: caller guarantees ptr is valid and aligned</span>
+</span><span class="code-line">    <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token operator">&amp;</span><span class="token operator">*</span>ptr <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Acceptable: Performance-critical path with proof of correctness</span>
+</span><span class="code-line"><span class="token comment">// SAFETY: index is always &lt; len due to the loop bound</span>
+</span><span class="code-line"><span class="token keyword">unsafe</span> <span class="token punctuation">{</span> slice<span class="token punctuation">.</span><span class="token function">get_unchecked</span><span class="token punctuation">(</span>index<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<h3>When Unsafe Is NOT Acceptable</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Bad: Using unsafe to bypass borrow checker</span>
+</span><span class="code-line"><span class="token comment">// Bad: Using unsafe for convenience</span>
+</span><span class="code-line"><span class="token comment">// Bad: Using unsafe without a Safety comment</span>
+</span><span class="code-line"><span class="token comment">// Bad: Transmuting between unrelated types</span>
+</span></code></pre>
+<h2>Module System and Crate Structure</h2>
+<h3>Organize by Domain, Not by Type</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my_app/
+</span><span class="code-line">├── src/
+</span><span class="code-line">│   ├── main.rs
+</span><span class="code-line">│   ├── lib.rs
+</span><span class="code-line">│   ├── auth/          # Domain module
+</span><span class="code-line">│   │   ├── mod.rs
+</span><span class="code-line">│   │   ├── token.rs
+</span><span class="code-line">│   │   └── middleware.rs
+</span><span class="code-line">│   ├── orders/        # Domain module
+</span><span class="code-line">│   │   ├── mod.rs
+</span><span class="code-line">│   │   ├── model.rs
+</span><span class="code-line">│   │   └── service.rs
+</span><span class="code-line">│   └── db/            # Infrastructure
+</span><span class="code-line">│       ├── mod.rs
+</span><span class="code-line">│       └── pool.rs
+</span><span class="code-line">├── tests/             # Integration tests
+</span><span class="code-line">├── benches/           # Benchmarks
+</span><span class="code-line">└── Cargo.toml
+</span></code></pre>
+<h3>Visibility — Expose Minimally</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Good: pub(crate) for internal sharing</span>
+</span><span class="code-line"><span class="token keyword">pub</span><span class="token punctuation">(</span><span class="token keyword">crate</span><span class="token punctuation">)</span> <span class="token keyword">fn</span> <span class="token function-definition function">validate_input</span><span class="token punctuation">(</span>input<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">str</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token keyword">bool</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token operator">!</span>input<span class="token punctuation">.</span><span class="token function">is_empty</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Good: Re-export public API from lib.rs</span>
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">mod</span> <span class="token module-declaration namespace">auth</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">use</span> <span class="token namespace">auth<span class="token punctuation">::</span></span><span class="token class-name">AuthMiddleware</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Making everything pub</span>
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">fn</span> <span class="token function-definition function">internal_helper</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span> <span class="token comment">// Should be pub(crate) or private</span>
+</span></code></pre>
+<h2>Tooling Integration</h2>
+<h3>Essential Commands</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Build and check</span>
+</span><span class="code-line"><span class="token function">cargo</span> build
+</span><span class="code-line"><span class="token function">cargo</span> check              <span class="token comment"># Fast type checking without codegen</span>
+</span><span class="code-line"><span class="token function">cargo</span> clippy             <span class="token comment"># Lints and suggestions</span>
+</span><span class="code-line"><span class="token function">cargo</span> <span class="token function">fmt</span>                <span class="token comment"># Format code</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Testing</span>
+</span><span class="code-line"><span class="token function">cargo</span> <span class="token builtin class-name">test</span>
+</span><span class="code-line"><span class="token function">cargo</span> <span class="token builtin class-name">test</span> -- <span class="token parameter variable">--nocapture</span>    <span class="token comment"># Show println output</span>
+</span><span class="code-line"><span class="token function">cargo</span> <span class="token builtin class-name">test</span> <span class="token parameter variable">--lib</span>             <span class="token comment"># Unit tests only</span>
+</span><span class="code-line"><span class="token function">cargo</span> <span class="token builtin class-name">test</span> <span class="token parameter variable">--test</span> integration <span class="token comment"># Integration tests only</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dependencies</span>
+</span><span class="code-line"><span class="token function">cargo</span> audit              <span class="token comment"># Security audit</span>
+</span><span class="code-line"><span class="token function">cargo</span> tree               <span class="token comment"># Dependency tree</span>
+</span><span class="code-line"><span class="token function">cargo</span> update             <span class="token comment"># Update dependencies</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Performance</span>
+</span><span class="code-line"><span class="token function">cargo</span> bench              <span class="token comment"># Run benchmarks</span>
+</span></code></pre>
+<h2>Quick Reference: Rust Idioms</h2>
+<table>
+<thead>
+<tr>
+<th>Idiom</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Borrow, don't clone</td>
+<td>Pass <code>&amp;T</code> instead of cloning unless ownership is needed</td>
+</tr>
+<tr>
+<td>Make illegal states unrepresentable</td>
+<td>Use enums to model valid states only</td>
+</tr>
+<tr>
+<td><code>?</code> over <code>unwrap()</code></td>
+<td>Propagate errors, never panic in library/production code</td>
+</tr>
+<tr>
+<td>Parse, don't validate</td>
+<td>Convert unstructured data to typed structs at the boundary</td>
+</tr>
+<tr>
+<td>Newtype for type safety</td>
+<td>Wrap primitives in newtypes to prevent argument swaps</td>
+</tr>
+<tr>
+<td>Prefer iterators over loops</td>
+<td>Declarative chains are clearer and often faster</td>
+</tr>
+<tr>
+<td><code>#[must_use]</code> on Results</td>
+<td>Ensure callers handle return values</td>
+</tr>
+<tr>
+<td><code>Cow</code> for flexible ownership</td>
+<td>Avoid allocations when borrowing suffices</td>
+</tr>
+<tr>
+<td>Exhaustive matching</td>
+<td>No wildcard <code>_</code> for business-critical enums</td>
+</tr>
+<tr>
+<td>Minimal <code>pub</code> surface</td>
+<td>Use <code>pub(crate)</code> for internal APIs</td>
+</tr>
+</tbody>
+</table>
+<h2>Anti-Patterns to Avoid</h2>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Bad: .unwrap() in production code</span>
+</span><span class="code-line"><span class="token keyword">let</span> value <span class="token operator">=</span> map<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"key"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: .clone() to satisfy borrow checker without understanding why</span>
+</span><span class="code-line"><span class="token keyword">let</span> data <span class="token operator">=</span> expensive_data<span class="token punctuation">.</span><span class="token function">clone</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">process</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>original<span class="token punctuation">,</span> <span class="token operator">&amp;</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Using String when &amp;str suffices</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">greet</span><span class="token punctuation">(</span>name<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* should be &amp;str */</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Box&lt;dyn Error&gt; in libraries (use thiserror instead)</span>
+</span><span class="code-line"><span class="token keyword">fn</span> <span class="token function-definition function">parse</span><span class="token punctuation">(</span>input<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token keyword">str</span><span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> <span class="token class-name">Result</span><span class="token operator">&lt;</span><span class="token class-name">Data</span><span class="token punctuation">,</span> <span class="token class-name">Box</span><span class="token operator">&lt;</span><span class="token keyword">dyn</span> <span class="token namespace">std<span class="token punctuation">::</span>error<span class="token punctuation">::</span></span><span class="token class-name">Error</span><span class="token operator">&gt;&gt;</span> <span class="token punctuation">{</span> <span class="token macro property">todo!</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Ignoring must_use warnings</span>
+</span><span class="code-line"><span class="token keyword">let</span> _ <span class="token operator">=</span> <span class="token function">validate</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Silently discarding a Result</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Bad: Blocking in async context</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">fn</span> <span class="token function-definition function">bad_async</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token namespace">std<span class="token punctuation">::</span>thread<span class="token punctuation">::</span></span><span class="token function">sleep</span><span class="token punctuation">(</span><span class="token class-name">Duration</span><span class="token punctuation">::</span><span class="token function">from_secs</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Blocks the executor!</span>
+</span><span class="code-line">    <span class="token comment">// Use: tokio::time::sleep(Duration::from_secs(1)).await;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Remember</strong>: If it compiles, it's probably correct — but only if you avoid <code>unwrap()</code>, minimize <code>unsafe</code>, and let the type system work for you.</p></div>

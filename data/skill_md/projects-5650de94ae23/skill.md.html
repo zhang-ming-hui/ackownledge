@@ -1,0 +1,118 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Project Management</h1>
+<p>List, switch, and configure Railway projects.</p>
+<h2>When to Use</h2>
+<ul>
+<li>User asks "show me all my projects" or "what projects do I have"</li>
+<li>User asks about projects across workspaces</li>
+<li>User asks "what workspaces do I have"</li>
+<li>User wants to switch to a different project</li>
+<li>User asks to rename a project</li>
+<li>User wants to enable/disable PR deploys</li>
+<li>User wants to make a project public or private</li>
+<li>User asks about project settings</li>
+</ul>
+<h2>List Projects</h2>
+<p>The <code>railway list --json</code> output can be very large. Run in a subagent and return only essential fields:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Project: <code>id</code>, <code>name</code></li>
+<li>Workspace: <code>id</code>, <code>name</code></li>
+<li>Services: <code>name</code> (optional, if user needs service context)</li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">railway list <span class="token parameter variable">--json</span>
+</span></code></pre>
+<p>Extract and return a simplified summary, not the full JSON.</p>
+<h2>List Workspaces</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">railway <span class="token function">whoami</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<p>Returns user info including all workspaces the user belongs to.</p>
+<h2>Switch Project</h2>
+<p>Link a different project to the current directory:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">railway <span class="token function">link</span> <span class="token parameter variable">-p</span> <span class="token operator">&lt;</span>project-id-or-name<span class="token operator">&gt;</span>
+</span></code></pre>
+<p>Or interactively:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">railway <span class="token function">link</span>
+</span></code></pre>
+<p>After switching, use <code>status</code> skill to see project details.</p>
+<h2>Update Project</h2>
+<p>Modify project settings via GraphQL API.</p>
+<h3>Get Project ID</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">railway status <span class="token parameter variable">--json</span>
+</span></code></pre>
+<p>Extract <code>project.id</code> from the response.</p>
+<h3>Update Mutation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">bash</span> <span class="token operator">&lt;&lt;</span><span class="token string">'SCRIPT'
+</span></span><span class="code-line"><span class="token string">scripts/railway-api.sh \
+</span></span><span class="code-line"><span class="token string">  'mutation updateProject($id: String!, $input: ProjectUpdateInput!) {
+</span></span><span class="code-line"><span class="token string">    projectUpdate(id: $id, input: $input) { name prDeploys isPublic botPrEnvironments }
+</span></span><span class="code-line"><span class="token string">  }' \
+</span></span><span class="code-line"><span class="token string">  '{"id": "PROJECT_ID", "input": {"name": "new-name"}}'
+</span></span><span class="code-line"><span class="token string">SCRIPT</span>
+</span></code></pre>
+<h3>ProjectUpdateInput Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Project name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td>Project description</td>
+</tr>
+<tr>
+<td><code>isPublic</code></td>
+<td>Boolean</td>
+<td>Make project public/private</td>
+</tr>
+<tr>
+<td><code>prDeploys</code></td>
+<td>Boolean</td>
+<td>Enable/disable PR deploys</td>
+</tr>
+<tr>
+<td><code>botPrEnvironments</code></td>
+<td>Boolean</td>
+<td>Enable Dependabot/Renovate PR environments</td>
+</tr>
+</tbody>
+</table>
+<h3>Examples</h3>
+<p><strong>Rename project:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">scripts/railway-api.sh <span class="token string">'&lt;mutation&gt;'</span> <span class="token string">'{"id": "uuid", "input": {"name": "new-name"}}'</span>
+</span></code></pre>
+<p><strong>Enable PR deploys:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">scripts/railway-api.sh <span class="token string">'&lt;mutation&gt;'</span> <span class="token string">'{"id": "uuid", "input": {"prDeploys": true}}'</span>
+</span></code></pre>
+<p><strong>Make project public:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">scripts/railway-api.sh <span class="token string">'&lt;mutation&gt;'</span> <span class="token string">'{"id": "uuid", "input": {"isPublic": true}}'</span>
+</span></code></pre>
+<p><strong>Multiple fields:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">scripts/railway-api.sh <span class="token string">'&lt;mutation&gt;'</span> <span class="token string">'{"id": "uuid", "input": {"name": "new-name", "prDeploys": true}}'</span>
+</span></code></pre>
+<h2>Composability</h2>
+<ul>
+<li><strong>View project details</strong>: Use <code>status</code> skill</li>
+<li><strong>Create new project</strong>: Use <code>new</code> skill</li>
+<li><strong>Manage environments</strong>: Use <code>environment</code> skill</li>
+</ul>
+<h2>Error Handling</h2>
+<h3>Not Authenticated</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Not authenticated. Run `railway login` first.
+</span></code></pre>
+<h3>No Projects</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">No projects found. Create one with `railway init`.
+</span></code></pre>
+<h3>Permission Denied</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">You don't have permission to modify this project. Check your Railway role.
+</span></code></pre>
+<h3>Project Not Found</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Project "foo" not found. Run `railway list` to see available projects.
+</span></code></pre></div>

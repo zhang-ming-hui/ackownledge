@@ -1,0 +1,1461 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Faster Whisper</h1>
+<p>Local speech-to-text using faster-whisper — a CTranslate2 reimplementation of OpenAI's Whisper that runs <strong>4-6x faster</strong> with identical accuracy. With GPU acceleration, expect <strong>~20x realtime</strong> transcription (a 10-minute audio file in ~30 seconds).</p>
+<h2>When to Use</h2>
+<p>Use this skill when you need to:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li><strong>Transcribe audio/video files</strong> — meetings, interviews, podcasts, lectures, YouTube videos</li>
+<li><strong>Generate subtitles</strong> — SRT, VTT, ASS, LRC, or TTML broadcast-standard subtitles</li>
+<li><strong>Identify speakers</strong> — diarization labels who said what (<code>--diarize</code>)</li>
+<li><strong>Transcribe from URLs</strong> — YouTube links and direct audio URLs (auto-downloads via yt-dlp)</li>
+<li><strong>Transcribe podcast feeds</strong> — <code>--rss &lt;feed-url&gt;</code> fetches and transcribes episodes</li>
+<li><strong>Batch process files</strong> — glob patterns, directories, skip-existing support; ETA shown automatically</li>
+<li><strong>Convert speech to text locally</strong> — no API costs, works offline (after model download)</li>
+<li><strong>Translate to English</strong> — translate any language to English with <code>--translate</code></li>
+<li><strong>Do multilingual transcription</strong> — supports 99+ languages with auto-detection</li>
+<li><strong>Transcribe a batch of files in different languages</strong> — <code>--language-map</code> assigns a different language per file</li>
+<li><strong>Transcribe multilingual audio</strong> — <code>--multilingual</code> for mixed-language audio</li>
+<li><strong>Transcribe audio with specific terms</strong> — use <code>--initial-prompt</code> for jargon-heavy content or any other terms to look out for</li>
+<li><strong>Preprocess noisy audio (before transcription)</strong> — <code>--normalize</code> and <code>--denoise</code> before transcription</li>
+<li><strong>Stream output</strong> — <code>--stream</code> shows segments as they're transcribed</li>
+<li><strong>Clip time ranges</strong> — <code>--clip-timestamps</code> to transcribe specific sections</li>
+<li><strong>Search the transcript</strong> — <code>--search "term"</code> finds all timestamps where a word/phrase appears</li>
+<li><strong>Detect chapters</strong> — <code>--detect-chapters</code> finds section breaks from silence gaps</li>
+<li><strong>Export speaker audio</strong> — <code>--export-speakers DIR</code> saves each speaker's turns as separate WAV files</li>
+<li><strong>Spreadsheet output</strong> — <code>--format csv</code> produces a properly-quoted CSV with timestamps</li>
+</ul>
+<p><strong>Trigger phrases:</strong>
+"transcribe this audio", "convert speech to text", "what did they say", "make a transcript",
+"audio to text", "subtitle this video", "who's speaking", "translate this audio", "translate to English",
+"find where X is mentioned", "search transcript for", "when did they say", "at what timestamp",
+"add chapters", "detect chapters", "find breaks in the audio", "table of contents for this recording",
+"TTML subtitles", "DFXP subtitles", "broadcast format subtitles", "Netflix format",
+"ASS subtitles", "aegisub format", "advanced substation alpha", "mpv subtitles",
+"LRC subtitles", "timed lyrics", "karaoke subtitles", "music player lyrics",
+"HTML transcript", "confidence-colored transcript", "color-coded transcript",
+"separate audio per speaker", "export speaker audio", "split by speaker",
+"transcript as CSV", "spreadsheet output", "transcribe podcast", "podcast RSS feed",
+"different languages in batch", "per-file language",
+"transcribe in multiple formats", "srt and txt at the same time", "output both srt and text",
+"remove filler words", "clean up ums and uhs", "strip hesitation sounds", "remove you know and I mean",
+"transcribe left channel", "transcribe right channel", "stereo channel", "left track only",
+"wrap subtitle lines", "character limit per line", "max chars per subtitle",
+"detect paragraphs", "paragraph breaks", "group into paragraphs", "add paragraph spacing"</p>
+<p><strong>⚠️ Agent guidance — keep invocations minimal:</strong></p>
+<p><em>CORE RULE: default command (<code>./scripts/transcribe audio.mp3</code>) is the fastest path — add flags only when the user explicitly asks for that capability.</em></p>
+<p><strong>Transcription:</strong></p>
+<ul>
+<li>Only add <code>--diarize</code> if the user asks "who said what" / "identify speakers" / "label speakers"</li>
+<li>Only add <code>--format srt/vtt/ass/lrc/ttml</code> if the user asks for subtitles/captions in that format</li>
+<li>Only add <code>--format csv</code> if the user asks for CSV or spreadsheet output</li>
+<li>Only add <code>--word-timestamps</code> if the user needs word-level timing</li>
+<li>Only add <code>--initial-prompt</code> if there's domain-specific jargon to prime</li>
+<li>Only add <code>--translate</code> if the user wants non-English audio translated to English</li>
+<li>Only add <code>--normalize</code>/<code>--denoise</code> if the user mentions bad audio quality or noise</li>
+<li>Only add <code>--stream</code> if the user wants live/progressive output for long files</li>
+<li>Only add <code>--clip-timestamps</code> if the user wants a specific time range</li>
+<li>Only add <code>--temperature 0.0</code> if the model is hallucinating on music/silence</li>
+<li>Only add <code>--vad-threshold</code> if VAD is aggressively cutting speech or including noise</li>
+<li>Only add <code>--min-speakers</code>/<code>--max-speakers</code> when you know the speaker count</li>
+<li>Only add <code>--hf-token</code> if the token is not cached at <code>~/.cache/huggingface/token</code></li>
+<li>Only add <code>--max-words-per-line</code> for subtitle readability on long segments</li>
+<li>Only add <code>--filter-hallucinations</code> if the transcript contains obvious artifacts (music markers, duplicates)</li>
+<li>Only add <code>--merge-sentences</code> if the user asks for sentence-level subtitle cues</li>
+<li>Only add <code>--clean-filler</code> if the user asks to remove filler words (um, uh, you know, I mean, hesitation sounds)</li>
+<li>Only add <code>--channel left|right</code> if the user mentions stereo tracks, dual-channel recordings, or asks for a specific channel</li>
+<li>Only add <code>--max-chars-per-line N</code> when the user specifies a character limit per subtitle line (e.g., "Netflix format", "42 chars per line"); takes priority over <code>--max-words-per-line</code></li>
+<li>Only add <code>--detect-paragraphs</code> if the user asks for paragraph breaks or structured text output; <code>--paragraph-gap</code> (default 3.0s) only if they want a custom gap</li>
+<li>Only add <code>--speaker-names "Alice,Bob"</code> when the user provides real names to replace SPEAKER_1/2 — always requires <code>--diarize</code></li>
+<li>Only add <code>--hotwords WORDS</code> when the user names specific rare terms not well served by <code>--initial-prompt</code>; prefer <code>--initial-prompt</code> for general domain jargon</li>
+<li>Only add <code>--prefix TEXT</code> when the user knows the exact words the audio starts with</li>
+<li>Only add <code>--detect-language-only</code> when the user only wants to identify the language, not transcribe</li>
+<li>Only add <code>--stats-file PATH</code> if the user asks for performance stats, RTF, or benchmark info</li>
+<li>Only add <code>--parallel N</code> for large CPU batch jobs; GPU handles one file efficiently on its own — don't add for single files or small batches</li>
+<li>Only add <code>--retries N</code> for unreliable inputs (URLs, network files) where transient failures are expected</li>
+<li>Only add <code>--burn-in OUTPUT</code> only when user explicitly asks to embed/burn subtitles into the video; requires ffmpeg and a video file input</li>
+<li>Only add <code>--keep-temp</code> when the user may re-process the same URL to avoid re-downloading</li>
+<li>Only add <code>--output-template</code> when user specifies a custom naming pattern in batch mode</li>
+<li><strong>Multi-format output</strong> (<code>--format srt,text</code>): only when user explicitly wants multiple formats in one pass; always pair with <code>-o &lt;dir&gt;</code></li>
+<li>Any word-level feature auto-runs wav2vec2 alignment (~5-10s overhead)</li>
+<li><code>--diarize</code> adds ~20-30s on top of that</li>
+</ul>
+<p><strong>Search:</strong></p>
+<ul>
+<li>Only add <code>--search "term"</code> when the user asks to find/locate/search for a specific word or phrase in audio</li>
+<li><code>--search</code> <strong>replaces</strong> the normal transcript output — it prints only matching segments with timestamps</li>
+<li>Add <code>--search-fuzzy</code> only when the user mentions approximate/partial matching or typos</li>
+<li>To save search results to a file, use <code>-o results.txt</code></li>
+</ul>
+<p><strong>Chapter detection:</strong></p>
+<ul>
+<li>Only add <code>--detect-chapters</code> when the user asks for chapters, sections, a table of contents, or "where does the topic change"</li>
+<li>Default <code>--chapter-gap 8</code> (8-second silence = new chapter) works for most podcasts/lectures; tune down for dense content</li>
+<li><code>--chapter-format youtube</code> (default) outputs YouTube-ready timestamps; use <code>json</code> for programmatic use</li>
+<li><strong>Always use <code>--chapters-file PATH</code></strong> when combining chapters with a transcript output — avoids mixing chapter markers into the transcript text</li>
+<li>If the user only wants chapters (not the transcript), pipe stdout to a file with <code>-o /dev/null</code> and use <code>--chapters-file</code></li>
+<li><strong>Batch mode limitation:</strong> <code>--chapters-file</code> takes a single path — in batch mode, each file's chapters overwrite the previous. For batch chapter detection, omit <code>--chapters-file</code> (chapters print to stdout under <code>=== CHAPTERS (N) ===</code>) or use a separate run per file</li>
+</ul>
+<p><strong>Speaker audio export:</strong></p>
+<ul>
+<li>Only add <code>--export-speakers DIR</code> when the user explicitly asks to save each speaker's audio separately</li>
+<li>Always pair with <code>--diarize</code> — it silently skips if no speaker labels are present</li>
+<li>Requires ffmpeg; outputs <code>SPEAKER_1.wav</code>, <code>SPEAKER_2.wav</code>, etc. (or real names if <code>--speaker-names</code> is set)</li>
+</ul>
+<p><strong>Language map:</strong></p>
+<ul>
+<li>Only add <code>--language-map</code> in batch mode when the user has confirmed different languages across files</li>
+<li>Inline format: <code>"interview*.mp3=en,lecture*.mp3=fr"</code> — fnmatch globs on filename</li>
+<li>JSON file format: <code>@/path/to/map.json</code> where the file is <code>{"pattern": "lang_code"}</code></li>
+</ul>
+<p><strong>RSS / Podcast:</strong></p>
+<ul>
+<li>Only add <code>--rss URL</code> when the user provides a podcast RSS feed URL</li>
+<li>Default fetches 5 newest episodes; <code>--rss-latest 0</code> for all; <code>--skip-existing</code> to resume safely</li>
+<li><strong>Always use <code>-o &lt;dir&gt;</code></strong> with <code>--rss</code> — without it, all episode transcripts print to stdout concatenated, which is hard to use; each episode gets its own file when <code>-o &lt;dir&gt;</code> is set</li>
+</ul>
+<p><strong>Output format for agent relay:</strong></p>
+<ul>
+<li><strong>Search results</strong> (<code>--search</code>) → print directly to user; output is human-readable</li>
+<li><strong>Chapter output</strong> → if no <code>--chapters-file</code>, chapters appear in stdout under <code>=== CHAPTERS (N) ===</code> header after the transcript; with <code>--format json</code>, chapters are also embedded in the JSON under <code>"chapters"</code> key</li>
+<li><strong>Subtitle formats</strong> (SRT, VTT, ASS, LRC, TTML) → always write to <code>-o</code> file; tell the user the output path, never paste raw subtitle content</li>
+<li><strong>Data formats</strong> (CSV, HTML, TTML, JSON) → always write to <code>-o</code> file; tell the user the output path, don't paste raw XML/CSV/HTML</li>
+<li><strong>ASS format</strong> → for Aegisub, VLC, mpv; write to file and tell user they can open it in Aegisub or play it in VLC/mpv</li>
+<li><strong>LRC format</strong> → timed lyrics for music players (Foobar2000, AIMP, VLC); write to file</li>
+<li><strong>Multi-format</strong> (<code>--format srt,text</code>) → requires <code>-o &lt;dir&gt;</code>; each format goes to a separate file; tell user all paths written</li>
+<li><strong>JSON format</strong> → useful for programmatic post-processing; not ideal to paste in full to user</li>
+<li><strong>Text/transcript</strong> → safe to show directly to user for short files; summarise for long ones</li>
+<li><strong>Stats output</strong> (<code>--stats-file</code>) → summarise key fields (duration, processing time, RTF) for the user rather than pasting raw JSON</li>
+<li><strong>Language detection</strong> (<code>--detect-language-only</code>) → print the result directly; it's a single line</li>
+<li><strong>ETA</strong> is printed automatically to stderr for batch jobs; no action needed</li>
+</ul>
+<p><strong>When NOT to use:</strong></p>
+<ul>
+<li>Cloud-only environments without local compute</li>
+<li>Files &lt;10 seconds where API call latency doesn't matter</li>
+</ul>
+<p><strong>faster-whisper vs whisperx:</strong>
+This skill covers everything whisperx does — diarization (<code>--diarize</code>), word-level timestamps (<code>--word-timestamps</code>), SRT/VTT subtitles — so whisperx is not needed. Use whisperx only if you specifically need its pyannote pipeline or batch-GPU features not covered here.</p>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Basic transcription</strong></td>
+<td><code>./scripts/transcribe audio.mp3</code></td>
+<td>Batched inference, VAD on, distil-large-v3.5</td>
+</tr>
+<tr>
+<td><strong>SRT subtitles</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format srt -o subs.srt</code></td>
+<td>Word timestamps auto-enabled</td>
+</tr>
+<tr>
+<td><strong>VTT subtitles</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format vtt -o subs.vtt</code></td>
+<td>WebVTT format</td>
+</tr>
+<tr>
+<td><strong>Word timestamps</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --word-timestamps --format srt</code></td>
+<td>wav2vec2 aligned (~10ms)</td>
+</tr>
+<tr>
+<td><strong>Speaker diarization</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --diarize</code></td>
+<td>Requires pyannote.audio</td>
+</tr>
+<tr>
+<td><strong>Translate → English</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --translate</code></td>
+<td>Any language → English</td>
+</tr>
+<tr>
+<td><strong>Stream output</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --stream</code></td>
+<td>Live segments as transcribed</td>
+</tr>
+<tr>
+<td><strong>Clip time range</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --clip-timestamps "30,60"</code></td>
+<td>Only 30s–60s</td>
+</tr>
+<tr>
+<td><strong>Denoise + normalize</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --denoise --normalize</code></td>
+<td>Clean up noisy audio first</td>
+</tr>
+<tr>
+<td><strong>Reduce hallucination</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --hallucination-silence-threshold 1.0</code></td>
+<td>Skip hallucinated silence</td>
+</tr>
+<tr>
+<td><strong>YouTube/URL</strong></td>
+<td><code>./scripts/transcribe https://youtube.com/watch?v=...</code></td>
+<td>Auto-downloads via yt-dlp</td>
+</tr>
+<tr>
+<td><strong>Batch process</strong></td>
+<td><code>./scripts/transcribe *.mp3 -o ./transcripts/</code></td>
+<td>Output to directory</td>
+</tr>
+<tr>
+<td><strong>Batch with skip</strong></td>
+<td><code>./scripts/transcribe *.mp3 --skip-existing -o ./out/</code></td>
+<td>Resume interrupted batches</td>
+</tr>
+<tr>
+<td><strong>Domain terms</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --initial-prompt 'Kubernetes gRPC'</code></td>
+<td>Boost rare terminology</td>
+</tr>
+<tr>
+<td><strong>Hotwords boost</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --hotwords 'JIRA Kubernetes'</code></td>
+<td>Bias decoder toward specific words</td>
+</tr>
+<tr>
+<td><strong>Prefix conditioning</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --prefix 'Good morning,'</code></td>
+<td>Seed the first segment with known opening words</td>
+</tr>
+<tr>
+<td><strong>Pin model version</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --revision v1.2.0</code></td>
+<td>Reproducible transcription with a pinned revision</td>
+</tr>
+<tr>
+<td><strong>Debug library logs</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --log-level debug</code></td>
+<td>Show faster_whisper internal logs</td>
+</tr>
+<tr>
+<td><strong>Turbo model</strong></td>
+<td><code>./scripts/transcribe audio.mp3 -m turbo</code></td>
+<td>Alias for large-v3-turbo</td>
+</tr>
+<tr>
+<td><strong>Faster English</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --model distil-medium.en -l en</code></td>
+<td>English-only, 6.8x faster</td>
+</tr>
+<tr>
+<td><strong>Maximum accuracy</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --model large-v3 --beam-size 10</code></td>
+<td>Full model</td>
+</tr>
+<tr>
+<td><strong>JSON output</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format json -o out.json</code></td>
+<td>Programmatic access with stats</td>
+</tr>
+<tr>
+<td><strong>Filter noise</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --min-confidence 0.6</code></td>
+<td>Drop low-confidence segments</td>
+</tr>
+<tr>
+<td><strong>Hybrid quantization</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --compute-type int8_float16</code></td>
+<td>Save VRAM, minimal quality loss</td>
+</tr>
+<tr>
+<td><strong>Reduce batch size</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --batch-size 4</code></td>
+<td>If OOM on GPU</td>
+</tr>
+<tr>
+<td><strong>TSV output</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format tsv -o out.tsv</code></td>
+<td>OpenAI Whisper–compatible TSV</td>
+</tr>
+<tr>
+<td><strong>Fix hallucinations</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --temperature 0.0 --no-speech-threshold 0.8</code></td>
+<td>Lock temperature + skip silence</td>
+</tr>
+<tr>
+<td><strong>Tune VAD sensitivity</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --vad-threshold 0.6 --min-silence-duration 500</code></td>
+<td>Tighter speech detection</td>
+</tr>
+<tr>
+<td><strong>Known speaker count</strong></td>
+<td><code>./scripts/transcribe meeting.wav --diarize --min-speakers 2 --max-speakers 3</code></td>
+<td>Constrain diarization</td>
+</tr>
+<tr>
+<td><strong>Subtitle word wrapping</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format srt --word-timestamps --max-words-per-line 8</code></td>
+<td>Split long cues</td>
+</tr>
+<tr>
+<td><strong>Private/gated model</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --hf-token hf_xxx</code></td>
+<td>Pass token directly</td>
+</tr>
+<tr>
+<td><strong>Show version</strong></td>
+<td><code>./scripts/transcribe --version</code></td>
+<td>Print faster-whisper version</td>
+</tr>
+<tr>
+<td><strong>Upgrade in-place</strong></td>
+<td><code>./setup.sh --update</code></td>
+<td>Upgrade without full reinstall</td>
+</tr>
+<tr>
+<td><strong>System check</strong></td>
+<td><code>./setup.sh --check</code></td>
+<td>Verify GPU, Python, ffmpeg, venv, yt-dlp, pyannote</td>
+</tr>
+<tr>
+<td><strong>Detect language only</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-language-only</code></td>
+<td>Fast language ID, no transcription</td>
+</tr>
+<tr>
+<td><strong>Detect language JSON</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-language-only --format json</code></td>
+<td>Machine-readable language detection</td>
+</tr>
+<tr>
+<td><strong>LRC subtitles</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format lrc -o lyrics.lrc</code></td>
+<td>Timed lyrics format for music players</td>
+</tr>
+<tr>
+<td><strong>ASS subtitles</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format ass -o subtitles.ass</code></td>
+<td>Advanced SubStation Alpha (Aegisub, mpv, VLC)</td>
+</tr>
+<tr>
+<td><strong>Merge sentences</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format srt --merge-sentences</code></td>
+<td>Join fragments into sentence chunks</td>
+</tr>
+<tr>
+<td><strong>Stats sidecar</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --stats-file stats.json</code></td>
+<td>Write perf stats JSON after transcription</td>
+</tr>
+<tr>
+<td><strong>Batch stats</strong></td>
+<td><code>./scripts/transcribe *.mp3 --stats-file ./stats/</code></td>
+<td>One stats file per input in dir</td>
+</tr>
+<tr>
+<td><strong>Template naming</strong></td>
+<td><code>./scripts/transcribe audio.mp3 -o ./out/ --output-template "{stem}_{lang}.{ext}"</code></td>
+<td>Custom batch output filenames</td>
+</tr>
+<tr>
+<td><strong>Stdin input</strong></td>
+<td><code>ffmpeg -i input.mp4 -f wav - | ./scripts/transcribe -</code></td>
+<td>Pipe audio directly from stdin</td>
+</tr>
+<tr>
+<td><strong>Custom model dir</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --model-dir ~/my-models</code></td>
+<td>Custom HuggingFace cache dir</td>
+</tr>
+<tr>
+<td><strong>Local model</strong></td>
+<td><code>./scripts/transcribe audio.mp3 -m ./my-model-ct2</code></td>
+<td>CTranslate2 model dir</td>
+</tr>
+<tr>
+<td><strong>HTML transcript</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format html -o out.html</code></td>
+<td>Confidence-colored</td>
+</tr>
+<tr>
+<td><strong>Burn subtitles</strong></td>
+<td><code>./scripts/transcribe video.mp4 --burn-in output.mp4</code></td>
+<td>Requires ffmpeg + video input</td>
+</tr>
+<tr>
+<td><strong>Name speakers</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --diarize --speaker-names "Alice,Bob"</code></td>
+<td>Replaces SPEAKER_1/2</td>
+</tr>
+<tr>
+<td><strong>Filter hallucinations</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --filter-hallucinations</code></td>
+<td>Removes artifacts</td>
+</tr>
+<tr>
+<td><strong>Keep temp files</strong></td>
+<td><code>./scripts/transcribe https://... --keep-temp</code></td>
+<td>For URL re-processing</td>
+</tr>
+<tr>
+<td><strong>Parallel batch</strong></td>
+<td><code>./scripts/transcribe *.mp3 --parallel 4 -o ./out/</code></td>
+<td>CPU multi-file</td>
+</tr>
+<tr>
+<td><strong>RTX 3070 recommended</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --compute-type int8_float16</code></td>
+<td>Saves ~1GB VRAM, minimal quality loss</td>
+</tr>
+<tr>
+<td><strong>CPU thread count</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --threads 8</code></td>
+<td>Force CPU thread count (default: auto)</td>
+</tr>
+<tr>
+<td><strong>Podcast RSS (latest 5)</strong></td>
+<td><code>./scripts/transcribe --rss https://feeds.example.com/podcast.xml</code></td>
+<td>Downloads &amp; transcribes newest 5 episodes</td>
+</tr>
+<tr>
+<td><strong>Podcast RSS (all episodes)</strong></td>
+<td><code>./scripts/transcribe --rss https://... --rss-latest 0 -o ./episodes/</code></td>
+<td>All episodes, one file each</td>
+</tr>
+<tr>
+<td><strong>Podcast + SRT subtitles</strong></td>
+<td><code>./scripts/transcribe --rss https://... --format srt -o ./subs/</code></td>
+<td>Subtitle all episodes</td>
+</tr>
+<tr>
+<td><strong>Retry on failure</strong></td>
+<td><code>./scripts/transcribe *.mp3 --retries 3 -o ./out/</code></td>
+<td>Retry up to 3× with backoff on error</td>
+</tr>
+<tr>
+<td><strong>CSV output</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format csv -o out.csv</code></td>
+<td>Spreadsheet-ready with header row; properly quoted</td>
+</tr>
+<tr>
+<td><strong>CSV with speakers</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --diarize --format csv -o out.csv</code></td>
+<td>Adds speaker column</td>
+</tr>
+<tr>
+<td><strong>Language map (inline)</strong></td>
+<td><code>./scripts/transcribe *.mp3 --language-map "interview*.mp3=en,lecture.wav=fr"</code></td>
+<td>Per-file language in batch</td>
+</tr>
+<tr>
+<td><strong>Language map (JSON)</strong></td>
+<td><code>./scripts/transcribe *.mp3 --language-map @langs.json</code></td>
+<td>JSON file: {"pattern": "lang"}</td>
+</tr>
+<tr>
+<td><strong>Batch with ETA</strong></td>
+<td><code>./scripts/transcribe *.mp3 -o ./out/</code></td>
+<td>Automatic ETA shown for each file in batch</td>
+</tr>
+<tr>
+<td><strong>TTML subtitles</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format ttml -o subtitles.ttml</code></td>
+<td>Broadcast-standard DFXP/TTML (Netflix, BBC, Amazon)</td>
+</tr>
+<tr>
+<td><strong>TTML with speaker labels</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --diarize --format ttml -o subtitles.ttml</code></td>
+<td>Speaker-labeled TTML</td>
+</tr>
+<tr>
+<td><strong>Search transcript</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --search "keyword"</code></td>
+<td>Find timestamps where keyword appears</td>
+</tr>
+<tr>
+<td><strong>Search to file</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --search "keyword" -o results.txt</code></td>
+<td>Save search results</td>
+</tr>
+<tr>
+<td><strong>Fuzzy search</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --search "aproximate" --search-fuzzy</code></td>
+<td>Approximate/partial matching</td>
+</tr>
+<tr>
+<td><strong>Detect chapters</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-chapters</code></td>
+<td>Auto-detect chapters from silence gaps</td>
+</tr>
+<tr>
+<td><strong>Chapter gap tuning</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-chapters --chapter-gap 5</code></td>
+<td>Chapters on gaps ≥5s (default: 8s)</td>
+</tr>
+<tr>
+<td><strong>Chapters to file</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-chapters --chapters-file ch.txt</code></td>
+<td>Save YouTube-format chapter list</td>
+</tr>
+<tr>
+<td><strong>Chapters JSON</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-chapters --chapter-format json</code></td>
+<td>Machine-readable chapter list</td>
+</tr>
+<tr>
+<td><strong>Export speaker audio</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --diarize --export-speakers ./speakers/</code></td>
+<td>Save each speaker's audio to separate WAV files</td>
+</tr>
+<tr>
+<td><strong>Multi-format output</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format srt,text -o ./out/</code></td>
+<td>Write SRT + TXT in one pass</td>
+</tr>
+<tr>
+<td><strong>Remove filler words</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --clean-filler</code></td>
+<td>Strip um/uh/er/ah/hmm and discourse markers</td>
+</tr>
+<tr>
+<td><strong>Left channel only</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --channel left</code></td>
+<td>Extract left stereo channel before transcribing</td>
+</tr>
+<tr>
+<td><strong>Right channel only</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --channel right</code></td>
+<td>Extract right stereo channel</td>
+</tr>
+<tr>
+<td><strong>Max chars per line</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --format srt --max-chars-per-line 42</code></td>
+<td>Character-based subtitle wrapping</td>
+</tr>
+<tr>
+<td><strong>Detect paragraphs</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-paragraphs</code></td>
+<td>Insert paragraph breaks in text output</td>
+</tr>
+<tr>
+<td><strong>Paragraph gap tuning</strong></td>
+<td><code>./scripts/transcribe audio.mp3 --detect-paragraphs --paragraph-gap 5.0</code></td>
+<td>Tune gap threshold (default 3.0s)</td>
+</tr>
+</tbody>
+</table>
+<h2>Model Selection</h2>
+<p>Choose the right model for your needs:</p>
+<pre class="language-dot"><code class="language-dot code-highlight"><span class="code-line"><span class="token keyword">digraph</span> <span class="token graph-name class-name">model_selection</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token attr-name">rankdir</span><span class="token operator">=</span><span class="token attr-value">LR</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">node</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">box</span><span class="token punctuation">,</span> <span class="token attr-name">style</span><span class="token operator">=</span><span class="token attr-value">rounded</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token node">start</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"Start"</span><span class="token punctuation">,</span> <span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">doublecircle</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">need_accuracy</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"Need maximum\naccuracy?"</span><span class="token punctuation">,</span> <span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">diamond</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">multilingual</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"Multilingual\ncontent?"</span><span class="token punctuation">,</span> <span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">diamond</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">resource_constrained</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"Resource\nconstraints?"</span><span class="token punctuation">,</span> <span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">diamond</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token node">large_v3</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"large-v3\nor\nlarge-v3-turbo"</span><span class="token punctuation">,</span> <span class="token attr-name">style</span><span class="token operator">=</span><span class="token attr-value">"rounded,filled"</span><span class="token punctuation">,</span> <span class="token attr-name">fillcolor</span><span class="token operator">=</span><span class="token attr-value">lightblue</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">large_turbo</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"large-v3-turbo"</span><span class="token punctuation">,</span> <span class="token attr-name">style</span><span class="token operator">=</span><span class="token attr-value">"rounded,filled"</span><span class="token punctuation">,</span> <span class="token attr-name">fillcolor</span><span class="token operator">=</span><span class="token attr-value">lightblue</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">distil_large</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"distil-large-v3.5\n(default)"</span><span class="token punctuation">,</span> <span class="token attr-name">style</span><span class="token operator">=</span><span class="token attr-value">"rounded,filled"</span><span class="token punctuation">,</span> <span class="token attr-name">fillcolor</span><span class="token operator">=</span><span class="token attr-value">lightgreen</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">distil_medium</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"distil-medium.en"</span><span class="token punctuation">,</span> <span class="token attr-name">style</span><span class="token operator">=</span><span class="token attr-value">"rounded,filled"</span><span class="token punctuation">,</span> <span class="token attr-name">fillcolor</span><span class="token operator">=</span><span class="token attr-value">lightyellow</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">distil_small</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"distil-small.en"</span><span class="token punctuation">,</span> <span class="token attr-name">style</span><span class="token operator">=</span><span class="token attr-value">"rounded,filled"</span><span class="token punctuation">,</span> <span class="token attr-name">fillcolor</span><span class="token operator">=</span><span class="token attr-value">lightyellow</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token node">start</span> <span class="token operator">-&gt;</span> <span class="token node">need_accuracy</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">need_accuracy</span> <span class="token operator">-&gt;</span> <span class="token node">large_v3</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"yes"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">need_accuracy</span> <span class="token operator">-&gt;</span> <span class="token node">multilingual</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"no"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">multilingual</span> <span class="token operator">-&gt;</span> <span class="token node">large_turbo</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"yes"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">multilingual</span> <span class="token operator">-&gt;</span> <span class="token node">resource_constrained</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"no (English)"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">resource_constrained</span> <span class="token operator">-&gt;</span> <span class="token node">distil_small</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"mobile/edge"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">resource_constrained</span> <span class="token operator">-&gt;</span> <span class="token node">distil_medium</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"some limits"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">resource_constrained</span> <span class="token operator">-&gt;</span> <span class="token node">distil_large</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"no"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Model Table</h3>
+<h4>Standard Models (Full Whisper)</h4>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Size</th>
+<th>Speed</th>
+<th>Accuracy</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tiny</code> / <code>tiny.en</code></td>
+<td>39M</td>
+<td>Fastest</td>
+<td>Basic</td>
+<td>Quick drafts</td>
+</tr>
+<tr>
+<td><code>base</code> / <code>base.en</code></td>
+<td>74M</td>
+<td>Very fast</td>
+<td>Good</td>
+<td>General use</td>
+</tr>
+<tr>
+<td><code>small</code> / <code>small.en</code></td>
+<td>244M</td>
+<td>Fast</td>
+<td>Better</td>
+<td>Most tasks</td>
+</tr>
+<tr>
+<td><code>medium</code> / <code>medium.en</code></td>
+<td>769M</td>
+<td>Moderate</td>
+<td>High</td>
+<td>Quality transcription</td>
+</tr>
+<tr>
+<td><code>large-v1/v2/v3</code></td>
+<td>1.5GB</td>
+<td>Slower</td>
+<td>Best</td>
+<td>Maximum accuracy</td>
+</tr>
+<tr>
+<td><code>large-v3-turbo</code></td>
+<td>809M</td>
+<td>Fast</td>
+<td>Excellent</td>
+<td>High accuracy (slower than distil)</td>
+</tr>
+</tbody>
+</table>
+<h4>Distilled Models (~6x Faster, ~1% WER difference)</h4>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Size</th>
+<th>Speed vs Standard</th>
+<th>Accuracy</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>distil-large-v3.5</code></strong></td>
+<td>756M</td>
+<td>~6.3x faster</td>
+<td>7.08% WER</td>
+<td><strong>Default, best balance</strong></td>
+</tr>
+<tr>
+<td><code>distil-large-v3</code></td>
+<td>756M</td>
+<td>~6.3x faster</td>
+<td>7.53% WER</td>
+<td>Previous default</td>
+</tr>
+<tr>
+<td><code>distil-large-v2</code></td>
+<td>756M</td>
+<td>~5.8x faster</td>
+<td>10.1% WER</td>
+<td>Fallback</td>
+</tr>
+<tr>
+<td><code>distil-medium.en</code></td>
+<td>394M</td>
+<td>~6.8x faster</td>
+<td>11.1% WER</td>
+<td>English-only, resource-constrained</td>
+</tr>
+<tr>
+<td><code>distil-small.en</code></td>
+<td>166M</td>
+<td>~5.6x faster</td>
+<td>12.1% WER</td>
+<td>Mobile/edge devices</td>
+</tr>
+</tbody>
+</table>
+<p><code>.en</code> models are English-only and slightly faster/better for English content.</p>
+<blockquote>
+<p><strong>Note for distil models:</strong> HuggingFace recommends disabling <code>condition_on_previous_text</code> for all distil models to prevent repetition loops. The script <strong>auto-applies</strong> <code>--no-condition-on-previous-text</code> whenever a <code>distil-*</code> model is detected. Pass <code>--condition-on-previous-text</code> to override if needed.</p>
+</blockquote>
+<h2>Custom &amp; Fine-tuned Models</h2>
+<p>WhisperModel accepts local CTranslate2 model directories and HuggingFace repo names — no code changes needed.</p>
+<h3>Load a local CTranslate2 model</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--model</span> /path/to/my-model-ct2
+</span></code></pre>
+<h3>Convert a HuggingFace model to CTranslate2</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> ctranslate2
+</span><span class="code-line">ct2-transformers-converter <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--model</span> openai/whisper-large-v3 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output_dir</span> whisper-large-v3-ct2 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--copy_files</span> tokenizer.json preprocessor_config.json <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--quantization</span> float16
+</span><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--model</span> ./whisper-large-v3-ct2
+</span></code></pre>
+<h3>Load a model by HuggingFace repo name (auto-downloads)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--model</span> username/whisper-large-v3-ct2
+</span></code></pre>
+<h3>Custom model cache directory</h3>
+<p>By default, models are cached in <code>~/.cache/huggingface/</code>. Use <code>--model-dir</code> to override:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./scripts/transcribe audio.mp3 --model-dir ~/my-models
+</span></code></pre>
+<h2>Setup</h2>
+<h3>Linux / macOS / WSL2</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Base install (creates venv, installs deps, auto-detects GPU)</span>
+</span><span class="code-line">./setup.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With speaker diarization support</span>
+</span><span class="code-line">./setup.sh <span class="token parameter variable">--diarize</span>
+</span></code></pre>
+<p>Requirements:</p>
+<ul>
+<li>Python 3.10+</li>
+<li>ffmpeg is <strong>not required</strong> for basic transcription — PyAV (bundled with faster-whisper) handles audio decoding. ffmpeg is only needed for <code>--burn-in</code>, <code>--normalize</code>, and <code>--denoise</code>.</li>
+<li>Optional: yt-dlp (for URL/YouTube input)</li>
+<li>Optional: pyannote.audio (for <code>--diarize</code>, installed via <code>setup.sh --diarize</code>)</li>
+</ul>
+<h3>Platform Support</h3>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Acceleration</th>
+<th>Speed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Linux + NVIDIA GPU</strong></td>
+<td>CUDA</td>
+<td>~20x realtime 🚀</td>
+</tr>
+<tr>
+<td><strong>WSL2 + NVIDIA GPU</strong></td>
+<td>CUDA</td>
+<td>~20x realtime 🚀</td>
+</tr>
+<tr>
+<td>macOS Apple Silicon</td>
+<td>CPU*</td>
+<td>~3-5x realtime</td>
+</tr>
+<tr>
+<td>macOS Intel</td>
+<td>CPU</td>
+<td>~1-2x realtime</td>
+</tr>
+<tr>
+<td>Linux (no GPU)</td>
+<td>CPU</td>
+<td>~1x realtime</td>
+</tr>
+</tbody>
+</table>
+<p>*faster-whisper uses CTranslate2 which is CPU-only on macOS, but Apple Silicon is fast enough for practical use.</p>
+<h3>GPU Support (IMPORTANT!)</h3>
+<p>The setup script auto-detects your GPU and installs PyTorch with CUDA. <strong>Always use GPU if available</strong> — CPU transcription is extremely slow.</p>
+<table>
+<thead>
+<tr>
+<th>Hardware</th>
+<th>Speed</th>
+<th>9-min video</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RTX 3070 (GPU)</td>
+<td>~20x realtime</td>
+<td>~27 sec</td>
+</tr>
+<tr>
+<td>CPU (int8)</td>
+<td>~0.3x realtime</td>
+<td>~30 min</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>RTX 3070 tip</strong>: Use <code>--compute-type int8_float16</code> for hybrid quantization — saves ~1GB VRAM with minimal quality loss. Ideal for running diarization alongside transcription.</p>
+</blockquote>
+<p>If setup didn't detect your GPU, manually install PyTorch with CUDA:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># For CUDA 12.x</span>
+</span><span class="code-line">uv pip <span class="token function">install</span> <span class="token parameter variable">--python</span> .venv/bin/python torch --index-url https://download.pytorch.org/whl/cu121
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># For CUDA 11.x</span>
+</span><span class="code-line">uv pip <span class="token function">install</span> <span class="token parameter variable">--python</span> .venv/bin/python torch --index-url https://download.pytorch.org/whl/cu118
+</span></code></pre>
+<ul>
+<li><strong>WSL2 users</strong>: Ensure you have the <a href="https://docs.nvidia.com/cuda/wsl-user-guide/" target="_blank" rel="ugc nofollow noopener">NVIDIA CUDA drivers for WSL</a> installed on Windows</li>
+</ul>
+<h2>Usage</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Basic transcription</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SRT subtitles</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> subtitles.srt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># WebVTT subtitles</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--format</span> vtt <span class="token parameter variable">-o</span> subtitles.vtt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Transcribe from YouTube URL</span>
+</span><span class="code-line">./scripts/transcribe https://youtube.com/watch?v<span class="token operator">=</span>dQw4w9WgXcQ <span class="token parameter variable">--language</span> en
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Speaker diarization</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Diarized VTT subtitles</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span> <span class="token parameter variable">--format</span> vtt <span class="token parameter variable">-o</span> meeting.vtt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Prime with domain terminology</span>
+</span><span class="code-line">./scripts/transcribe lecture.mp3 --initial-prompt <span class="token string">"Kubernetes, gRPC, PostgreSQL, NGINX"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Batch process a directory</span>
+</span><span class="code-line">./scripts/transcribe ./recordings/ <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Batch with glob, skip already-done files</span>
+</span><span class="code-line">./scripts/transcribe *.mp3 --skip-existing <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Filter low-confidence segments</span>
+</span><span class="code-line">./scripts/transcribe noisy-audio.mp3 --min-confidence <span class="token number">0.6</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># JSON output with full metadata</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--format</span> json <span class="token parameter variable">-o</span> result.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Specify language (faster than auto-detect)</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3 <span class="token parameter variable">--language</span> en
+</span></code></pre>
+<h2>Options</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Input:
+</span><span class="code-line">  AUDIO                 Audio file(s), directory, glob pattern, or URL
+</span><span class="code-line">                        Accepts: mp3, wav, m4a, flac, ogg, webm, mp4, mkv, avi, wma, aac
+</span><span class="code-line">                        URLs auto-download via yt-dlp (YouTube, direct links, etc.)
+</span><span class="code-line">
+</span><span class="code-line">Model &amp; Language:
+</span><span class="code-line">  -m, --model NAME      Whisper model (default: distil-large-v3.5; "turbo" = large-v3-turbo)
+</span><span class="code-line">  --revision REV        Model revision (git branch/tag/commit) to pin a specific version
+</span><span class="code-line">  -l, --language CODE   Language code, e.g. en, es, fr (auto-detects if omitted)
+</span><span class="code-line">  --initial-prompt TEXT  Prompt to condition the model (terminology, formatting style)
+</span><span class="code-line">  --prefix TEXT         Prefix to condition the first segment (e.g. known starting words)
+</span><span class="code-line">  --hotwords WORDS      Space-separated hotwords to boost recognition
+</span><span class="code-line">  --translate           Translate any language to English (instead of transcribing)
+</span><span class="code-line">  --multilingual        Enable multilingual/code-switching mode (helps smaller models)
+</span><span class="code-line">  --hf-token TOKEN      HuggingFace token for private/gated models and diarization
+</span><span class="code-line">  --model-dir PATH      Custom model cache directory (default: ~/.cache/huggingface/)
+</span><span class="code-line">
+</span><span class="code-line">Output Format:
+</span><span class="code-line">  -f, --format FMT      text | json | srt | vtt | tsv | lrc | html | ass | ttml (default: text)
+</span><span class="code-line">                        Accepts comma-separated list: --format srt,text writes both in one pass
+</span><span class="code-line">                        Multi-format requires -o &lt;dir&gt; when saving to files
+</span><span class="code-line">  --word-timestamps     Include word-level timestamps (wav2vec2 aligned automatically)
+</span><span class="code-line">  --stream              Output segments as they are transcribed (disables diarize/alignment)
+</span><span class="code-line">  --max-words-per-line N  For SRT/VTT, split segments into sub-cues of at most N words
+</span><span class="code-line">  --max-chars-per-line N  For SRT/VTT/ASS/TTML, split lines so each fits within N characters
+</span><span class="code-line">                        Takes priority over --max-words-per-line when both are set
+</span><span class="code-line">  --clean-filler        Remove hesitation fillers (um, uh, er, ah, hmm, hm) and discourse markers
+</span><span class="code-line">                        (you know, I mean, you see) from transcript text. Off by default.
+</span><span class="code-line">  --detect-paragraphs   Insert paragraph breaks (blank lines) in text output at natural boundaries.
+</span><span class="code-line">                        A new paragraph starts when: silence gap ≥ --paragraph-gap, OR the previous
+</span><span class="code-line">                        segment ends a sentence AND the gap ≥ 1.5s.
+</span><span class="code-line">  --paragraph-gap SEC   Minimum silence gap in seconds to start a new paragraph (default: 3.0).
+</span><span class="code-line">                        Used with --detect-paragraphs.
+</span><span class="code-line">  --channel {left,right,mix}
+</span><span class="code-line">                        Stereo channel to transcribe: left (c0), right (c1), or mix (default: mix).
+</span><span class="code-line">                        Extracts the channel via ffmpeg before transcription. Requires ffmpeg.
+</span><span class="code-line">  --merge-sentences     Merge consecutive segments into sentence-level chunks
+</span><span class="code-line">                        (improves SRT/VTT readability; groups by terminal punctuation or &gt;2s gap)
+</span><span class="code-line">  -o, --output PATH     Output file or directory (directory for batch mode)
+</span><span class="code-line">  --output-template TEMPLATE
+</span><span class="code-line">                        Batch output filename template. Variables: {stem}, {lang}, {ext}, {model}
+</span><span class="code-line">                        Example: "{stem}_{lang}.{ext}" → "interview_en.srt"
+</span><span class="code-line">
+</span><span class="code-line">Inference Tuning:
+</span><span class="code-line">  --beam-size N         Beam search size; higher = more accurate but slower (default: 5)
+</span><span class="code-line">  --temperature T       Sampling temperature or comma-separated fallback list, e.g.
+</span><span class="code-line">                        '0.0' or '0.0,0.2,0.4' (default: faster-whisper's schedule)
+</span><span class="code-line">  --no-speech-threshold PROB
+</span><span class="code-line">                        Probability threshold to mark segments as silence (default: 0.6)
+</span><span class="code-line">  --batch-size N        Batched inference batch size (default: 8; reduce if OOM)
+</span><span class="code-line">  --no-vad              Disable voice activity detection (on by default)
+</span><span class="code-line">  --vad-threshold T     VAD speech probability threshold (default: 0.5)
+</span><span class="code-line">  --vad-neg-threshold T VAD negative threshold for ending speech (default: auto)
+</span><span class="code-line">  --vad-onset T         Alias for --vad-threshold (legacy)
+</span><span class="code-line">  --vad-offset T        Alias for --vad-neg-threshold (legacy)
+</span><span class="code-line">  --min-speech-duration MS  Minimum speech segment duration in ms (default: 0)
+</span><span class="code-line">  --max-speech-duration SEC Maximum speech segment duration in seconds (default: unlimited)
+</span><span class="code-line">  --min-silence-duration MS Minimum silence before splitting a segment in ms (default: 2000)
+</span><span class="code-line">  --speech-pad MS       Padding around speech segments in ms (default: 400)
+</span><span class="code-line">  --no-batch            Disable batched inference (use standard WhisperModel)
+</span><span class="code-line">  --hallucination-silence-threshold SEC
+</span><span class="code-line">                        Skip silent sections where model hallucinates (e.g. 1.0)
+</span><span class="code-line">  --no-condition-on-previous-text
+</span><span class="code-line">                        Don't condition on previous text (reduces repetition/hallucination loops;
+</span><span class="code-line">                        auto-enabled for distil models per HuggingFace recommendation)
+</span><span class="code-line">  --condition-on-previous-text
+</span><span class="code-line">                        Force-enable conditioning on previous text (overrides auto-disable for distil models)
+</span><span class="code-line">  --compression-ratio-threshold RATIO
+</span><span class="code-line">                        Filter segments above this compression ratio (default: 2.4)
+</span><span class="code-line">  --log-prob-threshold PROB
+</span><span class="code-line">                        Filter segments below this avg log probability (default: -1.0)
+</span><span class="code-line">  --max-new-tokens N    Maximum tokens per segment (prevents runaway generation)
+</span><span class="code-line">  --clip-timestamps RANGE
+</span><span class="code-line">                        Transcribe specific time ranges: '30,60' or '0,30;60,90' (seconds)
+</span><span class="code-line">  --progress            Show transcription progress bar
+</span><span class="code-line">  --best-of N           Candidates when sampling with non-zero temperature (default: 5)
+</span><span class="code-line">  --patience F          Beam search patience factor (default: 1.0)
+</span><span class="code-line">  --repetition-penalty F  Penalty for repeated tokens (default: 1.0)
+</span><span class="code-line">  --no-repeat-ngram-size N  Prevent n-gram repetitions of this size (default: 0 = off)
+</span><span class="code-line">
+</span><span class="code-line">Advanced Inference:
+</span><span class="code-line">  --no-timestamps       Output text without timing info (faster; incompatible with
+</span><span class="code-line">                        --word-timestamps, --format srt/vtt/tsv, --diarize)
+</span><span class="code-line">  --chunk-length N      Audio chunk length in seconds for batched inference (default: auto)
+</span><span class="code-line">  --language-detection-threshold T
+</span><span class="code-line">                        Confidence threshold for language auto-detection (default: 0.5)
+</span><span class="code-line">  --language-detection-segments N
+</span><span class="code-line">                        Audio segments to sample for language detection (default: 1)
+</span><span class="code-line">  --length-penalty F    Beam search length penalty; &gt;1 favors longer, &lt;1 favors shorter (default: 1.0)
+</span><span class="code-line">  --prompt-reset-on-temperature T
+</span><span class="code-line">                        Reset initial prompt when temperature fallback hits threshold (default: 0.5)
+</span><span class="code-line">  --no-suppress-blank   Disable blank token suppression (may help soft/quiet speech)
+</span><span class="code-line">  --suppress-tokens IDS Comma-separated token IDs to suppress in addition to default -1
+</span><span class="code-line">  --max-initial-timestamp T
+</span><span class="code-line">                        Maximum timestamp for the first segment in seconds (default: 1.0)
+</span><span class="code-line">  --prepend-punctuations CHARS
+</span><span class="code-line">                        Punctuation characters merged into preceding word (default: "'¿([{-)
+</span><span class="code-line">  --append-punctuations CHARS
+</span><span class="code-line">                        Punctuation characters merged into following word (default: "'.。,，!！?？:：")]}、")
+</span><span class="code-line">
+</span><span class="code-line">Preprocessing:
+</span><span class="code-line">  --normalize           Normalize audio volume (EBU R128 loudnorm) before transcription
+</span><span class="code-line">  --denoise             Apply noise reduction (high-pass + FFT denoise) before transcription
+</span><span class="code-line">
+</span><span class="code-line">Advanced:
+</span><span class="code-line">  --diarize             Speaker diarization (requires pyannote.audio)
+</span><span class="code-line">  --min-speakers N      Minimum number of speakers hint for diarization
+</span><span class="code-line">  --max-speakers N      Maximum number of speakers hint for diarization
+</span><span class="code-line">  --speaker-names NAMES Comma-separated names to replace SPEAKER_1, SPEAKER_2 (e.g. 'Alice,Bob')
+</span><span class="code-line">                        Requires --diarize
+</span><span class="code-line">  --min-confidence PROB Filter segments below this avg word confidence (0.0–1.0)
+</span><span class="code-line">  --skip-existing       Skip files whose output already exists (batch mode)
+</span><span class="code-line">  --detect-language-only
+</span><span class="code-line">                        Detect language and exit (no transcription). Output: "Language: en (probability: 0.984)"
+</span><span class="code-line">                        With --format json: {"language": "en", "language_probability": 0.984}
+</span><span class="code-line">  --stats-file PATH     Write JSON stats sidecar after transcription (processing time, RTF, word count, etc.)
+</span><span class="code-line">                        Directory path → writes {stem}.stats.json inside; file path → exact path
+</span><span class="code-line">  --burn-in OUTPUT      Burn subtitles into the original video (single-file mode only; requires ffmpeg)
+</span><span class="code-line">  --filter-hallucinations
+</span><span class="code-line">                        Filter common Whisper hallucinations: music/applause markers, duplicate segments,
+</span><span class="code-line">                        'Thank you for watching', lone punctuation, etc.
+</span><span class="code-line">  --keep-temp           Keep temp files from URL downloads (useful for re-processing without re-downloading)
+</span><span class="code-line">  --parallel N          Number of parallel workers for batch processing (default: sequential)
+</span><span class="code-line">  --retries N           Retry failed files up to N times with exponential backoff (default: 0;
+</span><span class="code-line">                        incompatible with --parallel)
+</span><span class="code-line">
+</span><span class="code-line">Batch ETA:
+</span><span class="code-line">  Automatically shown for sequential batch jobs (no flag needed). After each file completes,
+</span><span class="code-line">  the next file's progress line includes:  [current/total] filename | ETA: Xm Ys
+</span><span class="code-line">  ETA is calculated from average time per file × remaining files.
+</span><span class="code-line">  Shown to stderr (surfaced to users via OpenClaw/Clawdbot output).
+</span><span class="code-line">
+</span><span class="code-line">Language Map (per-file language override):
+</span><span class="code-line">  --language-map MAP    Per-file language override for batch mode. Two forms:
+</span><span class="code-line">                          Inline: "interview*.mp3=en,lecture.wav=fr,keynote.wav=de"
+</span><span class="code-line">                          JSON file: "@/path/to/map.json"  (must be {pattern: lang} dict)
+</span><span class="code-line">                        Patterns support fnmatch globs on filename or stem.
+</span><span class="code-line">                        Priority: exact filename &gt; exact stem &gt; glob on filename &gt; glob on stem &gt; fallback.
+</span><span class="code-line">                        Files not matched fall back to --language (or auto-detect if not set).
+</span><span class="code-line">
+</span><span class="code-line">Transcript Search:
+</span><span class="code-line">  --search TERM         Search the transcript for TERM and print matching segments with timestamps.
+</span><span class="code-line">                        Replaces normal transcript output (use -o to save results to a file).
+</span><span class="code-line">                        Case-insensitive exact substring match by default.
+</span><span class="code-line">  --search-fuzzy        Enable fuzzy/approximate matching with --search (useful for typos, phonetic
+</span><span class="code-line">                        near-misses, or partial words; uses SequenceMatcher ratio ≥ 0.6)
+</span><span class="code-line">
+</span><span class="code-line">Chapter Detection:
+</span><span class="code-line">  --detect-chapters     Auto-detect chapter/section breaks from silence gaps and print chapter markers.
+</span><span class="code-line">                        Output is printed after the transcript (or to --chapters-file).
+</span><span class="code-line">  --chapter-gap SEC     Minimum silence gap in seconds between consecutive segments to start a new
+</span><span class="code-line">                        chapter (default: 8.0). Tune down for dense speech, up for sparse content.
+</span><span class="code-line">  --chapters-file PATH  Write chapter markers to this file (default: stdout after transcript)
+</span><span class="code-line">  --chapter-format FMT  youtube | text | json — chapter output format:
+</span><span class="code-line">                          youtube: "0:00 Chapter 1" (YouTube description ready)
+</span><span class="code-line">                          text:    "Chapter 1: 00:00:00"
+</span><span class="code-line">                          json:    JSON array with chapter, start, title fields
+</span><span class="code-line">                        (default: youtube)
+</span><span class="code-line">
+</span><span class="code-line">Speaker Audio Export:
+</span><span class="code-line">  --export-speakers DIR After diarization, export each speaker's audio turns concatenated into
+</span><span class="code-line">                        separate WAV files saved in DIR. Requires --diarize and ffmpeg.
+</span><span class="code-line">                        Output: SPEAKER_1.wav, SPEAKER_2.wav, … (or real names if --speaker-names set)
+</span><span class="code-line">
+</span><span class="code-line">RSS / Podcast:
+</span><span class="code-line">  --rss URL             Podcast RSS feed URL — extracts audio enclosures and transcribes them.
+</span><span class="code-line">                        AUDIO positional is optional when --rss is used.
+</span><span class="code-line">  --rss-latest N        Number of most-recent episodes to process (default: 5; 0 = all episodes)
+</span><span class="code-line">
+</span><span class="code-line">Device:
+</span><span class="code-line">  --device DEV          auto | cpu | cuda (default: auto)
+</span><span class="code-line">  --compute-type TYPE   auto | int8 | int8_float16 | float16 | float32 (default: auto)
+</span><span class="code-line">                        int8_float16 = hybrid mode for GPU (saves VRAM, minimal quality loss)
+</span><span class="code-line">  --threads N           CPU thread count for CTranslate2 (default: auto)
+</span><span class="code-line">  -q, --quiet           Suppress progress and status messages
+</span><span class="code-line">  --log-level LEVEL     Set faster_whisper library logging level: debug | info | warning | error
+</span><span class="code-line">                        (default: warning; use debug to see CTranslate2/VAD internals)
+</span><span class="code-line">
+</span><span class="code-line">Utility:
+</span><span class="code-line">  --version             Print installed faster-whisper version and exit
+</span><span class="code-line">  --update              Upgrade faster-whisper in the skill venv and exit
+</span></code></pre>
+<h2>Output Formats</h2>
+<h3>Text (default)</h3>
+<p>Plain transcript text. With <code>--diarize</code>, speaker labels are inserted:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">[SPEAKER_1]
+</span><span class="code-line"> Hello, welcome to the meeting.
+</span><span class="code-line">[SPEAKER_2]
+</span><span class="code-line"> Thanks for having me.
+</span></code></pre>
+<h3>JSON (<code>--format json</code>)</h3>
+<p>Full metadata including segments, timestamps, language detection, and performance stats:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"file"</span><span class="token operator">:</span> <span class="token string">"audio.mp3"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"text"</span><span class="token operator">:</span> <span class="token string">"Hello, welcome..."</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"language"</span><span class="token operator">:</span> <span class="token string">"en"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"language_probability"</span><span class="token operator">:</span> <span class="token number">0.98</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"duration"</span><span class="token operator">:</span> <span class="token number">600.5</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"segments"</span><span class="token operator">:</span> <span class="token punctuation">[</span>...<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"speakers"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"SPEAKER_1"</span><span class="token punctuation">,</span> <span class="token string">"SPEAKER_2"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"stats"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"processing_time"</span><span class="token operator">:</span> <span class="token number">28.3</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"realtime_factor"</span><span class="token operator">:</span> <span class="token number">21.2</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>SRT (<code>--format srt</code>)</h3>
+<p>Standard subtitle format for video players:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1
+</span><span class="code-line">00:00:00,000 --&gt; 00:00:02,500
+</span><span class="code-line">[SPEAKER_1] Hello, welcome to the meeting.
+</span><span class="code-line">
+</span><span class="code-line">2
+</span><span class="code-line">00:00:02,800 --&gt; 00:00:04,200
+</span><span class="code-line">[SPEAKER_2] Thanks for having me.
+</span></code></pre>
+<h3>VTT (<code>--format vtt</code>)</h3>
+<p>WebVTT format for web video players:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">WEBVTT
+</span><span class="code-line">
+</span><span class="code-line">1
+</span><span class="code-line">00:00:00.000 --&gt; 00:00:02.500
+</span><span class="code-line">[SPEAKER_1] Hello, welcome to the meeting.
+</span><span class="code-line">
+</span><span class="code-line">2
+</span><span class="code-line">00:00:02.800 --&gt; 00:00:04.200
+</span><span class="code-line">[SPEAKER_2] Thanks for having me.
+</span></code></pre>
+<h3>TSV (<code>--format tsv</code>)</h3>
+<p>Tab-separated values, OpenAI Whisper–compatible. Columns: <code>start_ms</code>, <code>end_ms</code>, <code>text</code>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">0	2500	Hello, welcome to the meeting.
+</span><span class="code-line">2800	4200	Thanks for having me.
+</span></code></pre>
+<p>Useful for piping into other tools or spreadsheets. No header row.</p>
+<h3>ASS/SSA (<code>--format ass</code>)</h3>
+<p>Advanced SubStation Alpha format — supported by Aegisub, VLC, mpv, MPC-HC, and most video editors. Offers richer styling than SRT (font, size, color, position) via the <code>[V4+ Styles]</code> section:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">[Script Info]
+</span><span class="code-line">ScriptType: v4.00+
+</span><span class="code-line">...
+</span><span class="code-line">
+</span><span class="code-line">[V4+ Styles]
+</span><span class="code-line">Style: Default,Arial,20,&amp;H00FFFFFF,...
+</span><span class="code-line">
+</span><span class="code-line">[Events]
+</span><span class="code-line">Format: Layer, Start, End, Style, Name, ..., Text
+</span><span class="code-line">Dialogue: 0,0:00:00.00,0:00:02.50,Default,,[SPEAKER_1] Hello, welcome.
+</span><span class="code-line">Dialogue: 0,0:00:02.80,0:00:04.20,Default,,[SPEAKER_2] Thanks for having me.
+</span></code></pre>
+<p>Timestamps use <code>H:MM:SS.cc</code> (centiseconds). Edit the <code>[V4+ Styles]</code> block in Aegisub to customise font, color, and position without re-transcribing.</p>
+<h3>LRC (<code>--format lrc</code>)</h3>
+<p>Timed lyrics format used by music players (e.g., Foobar2000, VLC, AIMP). Timestamps use <code>[mm:ss.xx]</code> where <code>xx</code> = centiseconds:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">[00:00.50]Hello, welcome to the meeting.
+</span><span class="code-line">[00:02.80]Thanks for having me.
+</span></code></pre>
+<p>With diarization, speaker labels are included:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">[00:00.50][SPEAKER_1] Hello, welcome to the meeting.
+</span><span class="code-line">[00:02.80][SPEAKER_2] Thanks for having me.
+</span></code></pre>
+<p>Default file extension: <code>.lrc</code>. Useful for music transcription, karaoke, and any workflow requiring timed text with music-player compatibility.</p>
+<h2>Speaker Diarization</h2>
+<p>Identifies who spoke when using <a href="https://github.com/pyannote/pyannote-audio" target="_blank" rel="ugc nofollow noopener">pyannote.audio</a>.</p>
+<p><strong>Setup:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./setup.sh <span class="token parameter variable">--diarize</span>
+</span></code></pre>
+<p><strong>Requirements:</strong></p>
+<ul>
+<li>HuggingFace token at <code>~/.cache/huggingface/token</code> (<code>huggingface-cli login</code>)</li>
+<li>Accepted model agreements:
+<ul>
+<li><a href="https://hf.co/pyannote/speaker-diarization-3.1" target="_blank" rel="ugc nofollow noopener">https://hf.co/pyannote/speaker-diarization-3.1</a></li>
+<li><a href="https://hf.co/pyannote/segmentation-3.0" target="_blank" rel="ugc nofollow noopener">https://hf.co/pyannote/segmentation-3.0</a></li>
+</ul>
+</li>
+</ul>
+<p><strong>Usage:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Basic diarization (text output)</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Diarized subtitles</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span> <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> meeting.srt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Diarized JSON (includes speakers list)</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span> <span class="token parameter variable">--format</span> json
+</span></code></pre>
+<p>Speakers are labeled <code>SPEAKER_1</code>, <code>SPEAKER_2</code>, etc. in order of first appearance. Diarization runs on GPU automatically if CUDA is available.</p>
+<h2>Precise Word Timestamps</h2>
+<p>Whenever word-level timestamps are computed (<code>--word-timestamps</code>, <code>--diarize</code>, or <code>--min-confidence</code>), a wav2vec2 forced alignment pass automatically refines them from Whisper's ~100-200ms accuracy to ~10ms. No extra flag needed.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Word timestamps with automatic wav2vec2 alignment</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3 --word-timestamps <span class="token parameter variable">--format</span> json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Diarization also gets precise alignment automatically</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Precise subtitles</span>
+</span><span class="code-line">./scripts/transcribe audio.mp3 --word-timestamps <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> subtitles.srt
+</span></code></pre>
+<p>Uses the MMS (Massively Multilingual Speech) model from torchaudio — supports 1000+ languages. The model is cached after first load, so batch processing stays fast.</p>
+<h2>URL &amp; YouTube Input</h2>
+<p>Pass any URL as input — audio is downloaded automatically via yt-dlp:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># YouTube video</span>
+</span><span class="code-line">./scripts/transcribe https://youtube.com/watch?v<span class="token operator">=</span>dQw4w9WgXcQ
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Direct audio URL</span>
+</span><span class="code-line">./scripts/transcribe https://example.com/podcast.mp3
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With options</span>
+</span><span class="code-line">./scripts/transcribe https://youtube.com/watch?v<span class="token operator">=</span><span class="token punctuation">..</span>. <span class="token parameter variable">--language</span> en <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> subs.srt
+</span></code></pre>
+<p>Requires <code>yt-dlp</code> (checks PATH and <code>~/.local/share/pipx/venvs/yt-dlp/bin/yt-dlp</code>).</p>
+<h2>Batch Processing</h2>
+<p>Process multiple files at once with glob patterns, directories, or multiple paths:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># All MP3s in current directory</span>
+</span><span class="code-line">./scripts/transcribe *.mp3
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Entire directory (auto-filters audio files)</span>
+</span><span class="code-line">./scripts/transcribe ./recordings/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Output to directory (one file per input)</span>
+</span><span class="code-line">./scripts/transcribe *.mp3 <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Skip already-transcribed files (resume interrupted batch)</span>
+</span><span class="code-line">./scripts/transcribe *.mp3 --skip-existing <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Mixed inputs</span>
+</span><span class="code-line">./scripts/transcribe file1.mp3 file2.wav ./more-recordings/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Batch SRT subtitles</span>
+</span><span class="code-line">./scripts/transcribe *.mp3 <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> ./subtitles/
+</span></code></pre>
+<p>When outputting to a directory, files are named <code>{input-stem}.{ext}</code> (e.g., <code>audio.mp3</code> → <code>audio.srt</code>).</p>
+<p>Batch mode prints a summary after all files complete:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">📊 Done: 12 files, 3h24m audio in 10m15s (19.9× realtime)
+</span></code></pre>
+<h2>Workflows</h2>
+<p>End-to-end pipelines for common use cases.</p>
+<h3>Podcast Transcription Pipeline</h3>
+<p>Fetch and transcribe the latest 5 episodes from any podcast RSS feed:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Transcribe latest 5 episodes → one .txt per episode</span>
+</span><span class="code-line">./scripts/transcribe <span class="token parameter variable">--rss</span> https://feeds.megaphone.fm/mypodcast <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># All episodes, as SRT subtitles</span>
+</span><span class="code-line">./scripts/transcribe <span class="token parameter variable">--rss</span> https://<span class="token punctuation">..</span>. --rss-latest <span class="token number">0</span> <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> ./subtitles/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Skip already-done episodes (safe to re-run)</span>
+</span><span class="code-line">./scripts/transcribe <span class="token parameter variable">--rss</span> https://<span class="token punctuation">..</span>. --skip-existing <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With diarization (who said what) + retry on flaky network</span>
+</span><span class="code-line">./scripts/transcribe <span class="token parameter variable">--rss</span> https://<span class="token punctuation">..</span>. <span class="token parameter variable">--diarize</span> <span class="token parameter variable">--retries</span> <span class="token number">2</span> <span class="token parameter variable">-o</span> ./transcripts/
+</span></code></pre>
+<h3>Meeting Notes Pipeline</h3>
+<p>Transcribe a meeting recording with speaker labels, then output clean text:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Diarize + name speakers (replace SPEAKER_1/2 with real names)</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span> --speaker-names <span class="token string">"Alice,Bob"</span> <span class="token parameter variable">-o</span> meeting.txt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Diarized JSON for post-processing (summaries, action items)</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--diarize</span> <span class="token parameter variable">--format</span> json <span class="token parameter variable">-o</span> meeting.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Stream live while it transcribes (long meetings)</span>
+</span><span class="code-line">./scripts/transcribe meeting.wav <span class="token parameter variable">--stream</span>
+</span></code></pre>
+<h3>Video Subtitle Pipeline</h3>
+<p>Generate ready-to-use subtitles for a video file:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># SRT subtitles with sentence merging (better readability)</span>
+</span><span class="code-line">./scripts/transcribe video.mp4 <span class="token parameter variable">--format</span> srt --merge-sentences <span class="token parameter variable">-o</span> subtitles.srt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Burn subtitles directly into the video</span>
+</span><span class="code-line">./scripts/transcribe video.mp4 <span class="token parameter variable">--format</span> srt --burn-in video_subtitled.mp4
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Word-level SRT (karaoke-style), capped at 8 words per cue</span>
+</span><span class="code-line">./scripts/transcribe video.mp4 <span class="token parameter variable">--format</span> srt --word-timestamps --max-words-per-line <span class="token number">8</span> <span class="token parameter variable">-o</span> subs.srt
+</span></code></pre>
+<h3>YouTube Batch Pipeline</h3>
+<p>Transcribe multiple YouTube videos at once:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># One-liner: transcribe a playlist video + output SRT</span>
+</span><span class="code-line">./scripts/transcribe <span class="token string">"https://youtube.com/watch?v=abc123"</span> <span class="token parameter variable">--format</span> srt <span class="token parameter variable">-o</span> subs.srt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Batch from a text file of URLs (one per line)</span>
+</span><span class="code-line"><span class="token function">cat</span> urls.txt <span class="token operator">|</span> <span class="token function">xargs</span> ./scripts/transcribe <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Download audio first, then transcribe (for re-use without re-downloading)</span>
+</span><span class="code-line">./scripts/transcribe https://youtube.com/watch?v<span class="token operator">=</span>abc123 --keep-temp
+</span></code></pre>
+<h3>Noisy Audio Pipeline</h3>
+<p>Clean up poor-quality recordings before transcribing:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Denoise + normalize, then transcribe</span>
+</span><span class="code-line">./scripts/transcribe interview.mp3 <span class="token parameter variable">--denoise</span> <span class="token parameter variable">--normalize</span> <span class="token parameter variable">-o</span> interview.txt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Noisy batch with aggressive hallucination filtering</span>
+</span><span class="code-line">./scripts/transcribe *.mp3 <span class="token parameter variable">--denoise</span> --filter-hallucinations <span class="token parameter variable">-o</span> ./out/
+</span></code></pre>
+<h3>Batch Recovery Pipeline</h3>
+<p>Process a large folder with retries — safe to re-run after failures:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Retry each failed file up to 3 times, skip already-done</span>
+</span><span class="code-line">./scripts/transcribe ./recordings/ --skip-existing <span class="token parameter variable">--retries</span> <span class="token number">3</span> <span class="token parameter variable">-o</span> ./transcripts/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check what failed (printed in batch summary at the end)</span>
+</span><span class="code-line"><span class="token comment"># Re-run the same command — skips successes, retries failures</span>
+</span></code></pre>
+<h2>Server Mode (OpenAI-Compatible API)</h2>
+<p><a href="https://github.com/speaches-ai/speaches" target="_blank" rel="ugc nofollow noopener">speaches</a> runs faster-whisper as an OpenAI-compatible <code>/v1/audio/transcriptions</code> endpoint — drop-in replacement for OpenAI Whisper API with streaming, Docker support, and live transcription.</p>
+<h3>Quick start (Docker)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">docker</span> run <span class="token parameter variable">--gpus</span> all <span class="token parameter variable">-p</span> <span class="token number">8000</span>:8000 ghcr.io/speaches-ai/speaches:latest-cuda
+</span></code></pre>
+<h3>Test it</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Transcribe a file via the API (same format as OpenAI)</span>
+</span><span class="code-line"><span class="token function">curl</span> http://localhost:8000/v1/audio/transcriptions <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-F</span> <span class="token assign-left variable">file</span><span class="token operator">=</span>@audio.mp3 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-F</span> <span class="token assign-left variable">model</span><span class="token operator">=</span>Systran/faster-whisper-large-v3
+</span></code></pre>
+<h3>Use with any OpenAI SDK</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> openai <span class="token keyword">import</span> OpenAI
+</span><span class="code-line">client <span class="token operator">=</span> OpenAI<span class="token punctuation">(</span>base_url<span class="token operator">=</span><span class="token string">"http://localhost:8000"</span><span class="token punctuation">,</span> api_key<span class="token operator">=</span><span class="token string">"none"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"audio.mp3"</span><span class="token punctuation">,</span> <span class="token string">"rb"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> f<span class="token punctuation">:</span>
+</span><span class="code-line">    result <span class="token operator">=</span> client<span class="token punctuation">.</span>audio<span class="token punctuation">.</span>transcriptions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>model<span class="token operator">=</span><span class="token string">"Systran/faster-whisper-large-v3"</span><span class="token punctuation">,</span> <span class="token builtin">file</span><span class="token operator">=</span>f<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>text<span class="token punctuation">)</span>
+</span></code></pre>
+<p>Useful when you want to expose transcription as a local API for other tools (Home Assistant, n8n, custom apps).</p>
+<h2>Common Mistakes</h2>
+<table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>Problem</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Using CPU when GPU available</strong></td>
+<td>10-20x slower transcription</td>
+<td>Check <code>nvidia-smi</code>; verify CUDA installation</td>
+</tr>
+<tr>
+<td><strong>Not specifying language</strong></td>
+<td>Wastes time auto-detecting on known content</td>
+<td>Use <code>--language en</code> when you know the language</td>
+</tr>
+<tr>
+<td><strong>Using wrong model</strong></td>
+<td>Unnecessary slowness or poor accuracy</td>
+<td>Default <code>distil-large-v3.5</code> is excellent; only use <code>large-v3</code> if accuracy issues</td>
+</tr>
+<tr>
+<td><strong>Ignoring distilled models</strong></td>
+<td>Missing 6x speedup with &lt;1% accuracy loss</td>
+<td>Try <code>distil-large-v3.5</code> before reaching for standard models</td>
+</tr>
+<tr>
+<td><strong>Forgetting ffmpeg</strong></td>
+<td>Setup fails or audio can't be processed</td>
+<td>Setup script handles this; manual installs need ffmpeg separately</td>
+</tr>
+<tr>
+<td><strong>Out of memory errors</strong></td>
+<td>Model too large for available VRAM/RAM</td>
+<td>Use smaller model, <code>--compute-type int8</code>, or <code>--batch-size 4</code></td>
+</tr>
+<tr>
+<td><strong>Over-engineering beam size</strong></td>
+<td>Diminishing returns past beam-size 5-7</td>
+<td>Default 5 is fine; try 10 for critical transcripts</td>
+</tr>
+<tr>
+<td><strong>--diarize without pyannote</strong></td>
+<td>Import error at runtime</td>
+<td>Run <code>setup.sh --diarize</code> first</td>
+</tr>
+<tr>
+<td><strong>--diarize without HuggingFace token</strong></td>
+<td>Model download fails</td>
+<td>Run <code>huggingface-cli login</code> and accept model agreements</td>
+</tr>
+<tr>
+<td><strong>URL input without yt-dlp</strong></td>
+<td>Download fails</td>
+<td>Install: <code>pipx install yt-dlp</code></td>
+</tr>
+<tr>
+<td><strong>--min-confidence too high</strong></td>
+<td>Drops good segments with natural pauses</td>
+<td>Start at 0.5, adjust up; check JSON output for probabilities</td>
+</tr>
+<tr>
+<td><strong>Using --word-timestamps for basic transcription</strong></td>
+<td>Adds ~5-10s overhead for negligible benefit</td>
+<td>Only use when word-level precision matters</td>
+</tr>
+<tr>
+<td><strong>Batch without -o directory</strong></td>
+<td>All output mixed in stdout</td>
+<td>Use <code>-o ./transcripts/</code> to write one file per input</td>
+</tr>
+</tbody>
+</table>
+<h2>Performance Notes</h2>
+<ul>
+<li><strong>First run</strong>: Downloads model to <code>~/.cache/huggingface/</code> (one-time)</li>
+<li><strong>Batched inference</strong>: Enabled by default via <code>BatchedInferencePipeline</code> — ~3x faster than standard mode; VAD on by default</li>
+<li><strong>GPU</strong>: Automatically uses CUDA if available</li>
+<li><strong>Quantization</strong>: INT8 used on CPU for ~4x speedup with minimal accuracy loss</li>
+<li><strong>Performance stats</strong>: Every transcription shows audio duration, processing time, and realtime factor</li>
+<li><strong>Benchmark</strong> (RTX 3070, 21-min file): <strong>~24s</strong> with batched inference (both distil-large-v3 and v3.5) vs ~69s without</li>
+<li><strong>--precise overhead</strong>: Adds ~5-10s for wav2vec2 model load + alignment (model cached for batch)</li>
+<li><strong>Diarization overhead</strong>: Adds ~10-30s depending on audio length (runs on GPU if available)</li>
+<li><strong>Memory</strong>:
+<ul>
+<li><code>distil-large-v3</code>: ~2GB RAM / ~1GB VRAM</li>
+<li><code>large-v3-turbo</code>: ~4GB RAM / ~2GB VRAM</li>
+<li><code>tiny/base</code>: &lt;1GB RAM</li>
+<li>Diarization: additional ~1-2GB VRAM</li>
+</ul>
+</li>
+<li><strong>OOM</strong>: Lower <code>--batch-size</code> (try 4) if you hit out-of-memory errors</li>
+<li><strong>Pre-convert to WAV</strong> (optional): <code>ffmpeg -i input.mp3 -ar 16000 -ac 1 input.wav</code> converts to 16kHz mono WAV before transcription. Benefit is minimal (~5%) for one-off use since PyAV decodes efficiently — most useful when re-processing the same file multiple times (research/experiments) or when a format causes PyAV decode issues. Note: <code>--normalize</code> and <code>--denoise</code> already perform this conversion automatically.</li>
+<li><strong>Silero VAD V6</strong>: faster-whisper 1.2.1 upgraded to Silero VAD V6 (improved speech detection). Run <code>./setup.sh --update</code> to get it.</li>
+<li><strong>Batched silence removal</strong>: faster-whisper 1.2.0+ automatically removes silence in <code>BatchedInferencePipeline</code> (used by default). Upgrade with <code>./setup.sh --update</code> to get this if you installed before August 2024.</li>
+</ul>
+<h2>Why faster-whisper?</h2>
+<ul>
+<li><strong>Speed</strong>: ~4-6x faster than OpenAI's original Whisper</li>
+<li><strong>Accuracy</strong>: Identical (uses same model weights)</li>
+<li><strong>Efficiency</strong>: Lower memory usage via quantization</li>
+<li><strong>Production-ready</strong>: Stable C++ backend (CTranslate2)</li>
+<li><strong>Distilled models</strong>: ~6x faster with &lt;1% accuracy loss</li>
+<li><strong>Subtitles</strong>: Native SRT/VTT/HTML output</li>
+<li><strong>Precise alignment</strong>: Automatic wav2vec2 refinement (~10ms word boundaries)</li>
+<li><strong>Diarization</strong>: Optional speaker identification via pyannote; <code>--speaker-names</code> maps to real names</li>
+<li><strong>URLs</strong>: Direct YouTube/URL input; <code>--keep-temp</code> preserves downloads for re-use</li>
+<li><strong>Custom models</strong>: Load local CTranslate2 dirs or HuggingFace repos; <code>--model-dir</code> controls cache</li>
+<li><strong>Quality control</strong>: <code>--filter-hallucinations</code> strips music/applause markers and duplicates</li>
+<li><strong>Parallel batch</strong>: <code>--parallel N</code> for multi-threaded batch processing</li>
+<li><strong>Subtitle burn-in</strong>: <code>--burn-in</code> overlays subtitles directly into video via ffmpeg</li>
+</ul>
+<h3>v1.5.0 New Features</h3>
+<p><strong>Multi-format output:</strong></p>
+<ul>
+<li><code>--format srt,text</code> — write multiple formats in one pass (e.g. SRT + plain text simultaneously)</li>
+<li>Comma-separated list accepted: <code>srt,vtt,json</code>, <code>srt,text</code>, etc.</li>
+<li>Requires <code>-o &lt;dir&gt;</code> when writing multiple formats; single format unchanged</li>
+</ul>
+<p><strong>Filler word removal:</strong></p>
+<ul>
+<li><code>--clean-filler</code> — strip hesitation sounds (um, uh, er, ah, hmm, hm) and discourse markers
+(you know, I mean, you see) from transcript text; off by default</li>
+<li>Conservative regex matching at word boundaries to avoid false positives</li>
+<li>Segments that become empty after cleaning are dropped automatically</li>
+</ul>
+<p><strong>Stereo channel selection:</strong></p>
+<ul>
+<li><code>--channel left|right|mix</code> — extract a specific stereo channel before transcribing (default: mix)</li>
+<li>Useful for dual-track recordings (interviewer on left, interviewee on right)</li>
+<li>Uses ffmpeg pan filter; falls back gracefully to full mix if ffmpeg not found</li>
+</ul>
+<p><strong>Character-based subtitle wrapping:</strong></p>
+<ul>
+<li><code>--max-chars-per-line N</code> — split subtitle cues so each line fits within N characters</li>
+<li>Works for SRT, VTT, ASS, and TTML formats; takes priority over <code>--max-words-per-line</code></li>
+<li>Requires word-level timestamps; falls back to full segment if no word data</li>
+</ul>
+<p><strong>Paragraph detection:</strong></p>
+<ul>
+<li><code>--detect-paragraphs</code> — insert <code>\n\n</code> paragraph breaks in text output at natural boundaries</li>
+<li><code>--paragraph-gap SEC</code> — minimum silence gap for a paragraph (default: 3.0s)</li>
+<li>Also detects paragraph breaks when the previous segment ends a sentence and gap ≥ 1.5s</li>
+</ul>
+<p><strong>Subtitle formats:</strong></p>
+<ul>
+<li><code>--format ass</code> — Advanced SubStation Alpha (Aegisub, VLC, mpv, MPC-HC)</li>
+<li><code>--format lrc</code> — Timed lyrics format for music players</li>
+<li><code>--format html</code> — Confidence-colored HTML transcript (green/yellow/red per word)</li>
+<li><code>--format ttml</code> — W3C TTML 1.0 (DFXP) broadcast standard (Netflix, Amazon Prime, BBC)</li>
+<li><code>--format csv</code> — Spreadsheet-ready CSV with header row; RFC 4180 quoting; <code>speaker</code> column when diarized</li>
+</ul>
+<p><strong>Transcript tools:</strong></p>
+<ul>
+<li><code>--search TERM</code> — Find all timestamps where a word/phrase appears; replaces normal output; <code>-o</code> to save</li>
+<li><code>--search-fuzzy</code> — Approximate/partial matching with <code>--search</code></li>
+<li><code>--detect-chapters</code> — Auto-detect chapter breaks from silence gaps; <code>--chapter-gap SEC</code> (default 8s)</li>
+<li><code>--chapters-file PATH</code> — Write chapters to file instead of stdout; <code>--chapter-format youtube|text|json</code></li>
+<li><code>--export-speakers DIR</code> — After <code>--diarize</code>, save each speaker's turns as separate WAV files via ffmpeg</li>
+</ul>
+<p><strong>Batch improvements:</strong></p>
+<ul>
+<li><strong>ETA</strong> — <code>[N/total] filename | ETA: Xm Ys</code> shown before each file in sequential batch; no flag needed</li>
+<li><code>--language-map "pat=lang,..."</code> — Per-file language override; fnmatch glob patterns; <code>@file.json</code> form</li>
+<li><code>--retries N</code> — Retry failed files with exponential backoff; failed-file summary at end</li>
+<li><code>--rss URL</code> — Transcribe podcast RSS feeds; <code>--rss-latest N</code> for episode count</li>
+<li><code>--skip-existing</code> / <code>--parallel N</code> / <code>--output-template</code> / <code>--stats-file</code> / <code>--merge-sentences</code></li>
+</ul>
+<p><strong>Model &amp; inference:</strong></p>
+<ul>
+<li><code>distil-large-v3.5</code> default (replaced distil-large-v3)</li>
+<li>Auto-disables <code>condition_on_previous_text</code> for distil models (prevents repetition loops)</li>
+<li><code>--condition-on-previous-text</code> to override; <code>--log-level</code> for library debug output</li>
+<li><code>--model-dir PATH</code> — Custom HuggingFace cache dir; local CTranslate2 model support</li>
+<li><code>--no-timestamps</code>, <code>--chunk-length</code>, <code>--length-penalty</code>, <code>--repetition-penalty</code>, <code>--no-repeat-ngram-size</code></li>
+<li><code>--clip-timestamps</code>, <code>--stream</code>, <code>--progress</code>, <code>--best-of</code>, <code>--patience</code>, <code>--max-new-tokens</code></li>
+<li><code>--hotwords</code>, <code>--prefix</code>, <code>--revision</code>, <code>--suppress-tokens</code>, <code>--max-initial-timestamp</code></li>
+</ul>
+<p><strong>Speaker &amp; quality:</strong></p>
+<ul>
+<li><code>--speaker-names "Alice,Bob"</code> — Replace SPEAKER_1/2 with real names (requires <code>--diarize</code>)</li>
+<li><code>--filter-hallucinations</code> — Remove music/applause markers, duplicates, "Thank you for watching"</li>
+<li><code>--burn-in OUTPUT</code> — Burn subtitles into video via ffmpeg</li>
+<li><code>--keep-temp</code> — Preserve URL-downloaded audio for re-processing</li>
+</ul>
+<p><strong>Setup:</strong></p>
+<ul>
+<li><code>setup.sh --check</code> — System diagnostic: GPU, CUDA, Python, ffmpeg, pyannote, HuggingFace token (completes in ~12s)</li>
+<li>ffmpeg no longer required for basic transcription (PyAV handles decoding); <code>skill.json</code> updated to reflect this (<code>ffmpeg</code> is now <code>optionalBins</code>)</li>
+</ul>
+<h2>Troubleshooting</h2>
+<p><strong>"CUDA not available — using CPU"</strong>: Install PyTorch with CUDA (see GPU Support above)
+<strong>Setup fails</strong>: Make sure Python 3.10+ is installed
+<strong>Out of memory</strong>: Use smaller model, <code>--compute-type int8</code>, or <code>--batch-size 4</code>
+<strong>Slow on CPU</strong>: Expected — use GPU for practical transcription
+<strong>Model download fails</strong>: Check <code>~/.cache/huggingface/</code> permissions
+<strong>Diarization model fails</strong>: Ensure HuggingFace token exists and model agreements accepted;
+or pass token directly with <code>--hf-token hf_xxx</code>
+<strong>URL download fails</strong>: Check yt-dlp is installed (<code>pipx install yt-dlp</code>)
+<strong>No audio files in batch</strong>: Check file extensions match supported formats
+<strong>Check installed version</strong>: Run <code>./scripts/transcribe --version</code>
+<strong>Upgrade faster-whisper</strong>: Run <code>./setup.sh --update</code> (upgrades in-place, no full reinstall)
+<strong>Hallucinations on silence/music</strong>: Try <code>--temperature 0.0 --no-speech-threshold 0.8</code>
+<strong>VAD splits speech incorrectly</strong>: Tune with <code>--vad-threshold 0.3</code> (lower) or <code>--min-silence-duration 300</code>
+<strong>Improve speech detection</strong>: Run <code>./setup.sh --update</code> to upgrade faster-whisper to the latest version (includes Silero VAD V6).</p>
+<h2>References</h2>
+<ul>
+<li><a href="https://github.com/SYSTRAN/faster-whisper" target="_blank" rel="ugc nofollow noopener">faster-whisper GitHub</a></li>
+<li><a href="https://arxiv.org/abs/2311.00430" target="_blank" rel="ugc nofollow noopener">Distil-Whisper Paper</a></li>
+<li><a href="https://huggingface.co/collections/Systran/faster-whisper" target="_blank" rel="ugc nofollow noopener">HuggingFace Models</a></li>
+<li><a href="https://github.com/pyannote/pyannote-audio" target="_blank" rel="ugc nofollow noopener">pyannote.audio</a> (diarization)</li>
+<li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="ugc nofollow noopener">yt-dlp</a> (URL/YouTube download)</li>
+</ul></div>

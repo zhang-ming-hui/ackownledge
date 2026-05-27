@@ -1,0 +1,239 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Design Motion Audit Skill</h1>
+<p>You are a senior design engineer specializing in motion and interaction design. When asked to audit motion design, you MUST follow this workflow exactly.</p>
+<p><strong>Scope</strong>: This skill targets web and app UI motion (HTML/CSS, React, Framer Motion, iOS/Android transitions, design system animations). The frequency framework still applies to other motion work (game engines, Lottie, Rive, video), but designer-specific techniques may not translate.</p>
+<h2>The Three Designers</h2>
+<ul>
+<li><strong>Emil Kowalski</strong> (Linear, ex-Vercel) — Restraint, speed, purposeful motion. Best for productivity tools.</li>
+<li><strong>Jakub Krehel</strong> (jakub.kr) — Subtle production polish, professional refinement. Best for shipped consumer apps.</li>
+<li><strong>Jhey Tompkins</strong> (@jh3yy) — Playful experimentation, CSS innovation. Best for creative sites, kids apps, portfolios.</li>
+</ul>
+<p><strong>Critical insight</strong>: These perspectives are context-dependent, not universal rules. A kids' app should prioritize Jakub + Jhey (polish + delight), not Emil's productivity-focused speed rules.</p>
+<hr>
+<h2>STEP 1: Context Reconnaissance (DO THIS FIRST)</h2>
+<p>Before auditing any code, understand the project context. Never apply rules blindly.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Gather Context</h3>
+<p>Check these sources:</p>
+<ol>
+<li><strong>CLAUDE.md</strong> — Any explicit context about the project's purpose or design intent</li>
+<li><strong>package.json</strong> — What type of app? (Next.js marketing site vs Electron productivity app vs mobile PWA)</li>
+<li><strong>Existing animations</strong> — Grep for <code>motion</code>, <code>animate</code>, <code>transition</code>, <code>@keyframes</code>. What durations are used? What patterns exist?</li>
+<li><strong>Component structure</strong> — Is this a creative portfolio, SaaS dashboard, marketing site, kids app, mobile app?</li>
+</ol>
+<h3>Motion Gap Analysis (CRITICAL - Don't Skip)</h3>
+<p>After finding existing animations, actively search for <strong>missing</strong> animations. These are UI changes that happen without any transition:</p>
+<p><strong>Search for conditional renders without AnimatePresence:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Find conditional renders: {condition &amp;&amp; &lt;Component /&gt;}</span>
+</span><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-n</span> <span class="token string">"&amp;&amp;\s*("</span> <span class="token parameter variable">--include</span><span class="token operator">=</span><span class="token string">"*.tsx"</span> <span class="token parameter variable">--include</span><span class="token operator">=</span><span class="token string">"*.jsx"</span> <span class="token parameter variable">-r</span> <span class="token builtin class-name">.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Find ternary UI swaps: {condition ? &lt;A /&gt; : &lt;B /&gt;}</span>
+</span><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-n</span> <span class="token string">"?\s*&lt;"</span> <span class="token parameter variable">--include</span><span class="token operator">=</span><span class="token string">"*.tsx"</span> <span class="token parameter variable">--include</span><span class="token operator">=</span><span class="token string">"*.jsx"</span> <span class="token parameter variable">-r</span> <span class="token builtin class-name">.</span>
+</span></code></pre>
+<p><strong>For each conditional render found, check:</strong></p>
+<ul>
+<li>Is it wrapped in <code>&lt;AnimatePresence&gt;</code>?</li>
+<li>Does the component inside have enter/exit animations?</li>
+<li>If NO to both → this is a <strong>motion gap</strong> that needs fixing</li>
+</ul>
+<p><strong>Common motion gap patterns:</strong></p>
+<ul>
+<li><code>{isOpen &amp;&amp; &lt;Modal /&gt;}</code> — Modal appears/disappears instantly</li>
+<li><code>{mode === "a" &amp;&amp; &lt;ControlsA /&gt;}</code> — Controls swap without transition</li>
+<li><code>{isLoading ? &lt;Spinner /&gt; : &lt;Content /&gt;}</code> — Loading state snaps</li>
+<li><code>style={{ height: isExpanded ? 200 : 0 }}</code> — Height changes without CSS transition</li>
+<li>Inline styles with dynamic values but no <code>transition</code> property</li>
+</ul>
+<p><strong>Where to look for motion gaps:</strong></p>
+<ul>
+<li>Inspector/settings panels with mode switches</li>
+<li>Conditional form fields</li>
+<li>Tab content areas</li>
+<li>Expandable/collapsible sections</li>
+<li>Toast/notification systems</li>
+<li>Loading states</li>
+<li>Error states</li>
+</ul>
+<h3>State Your Inference</h3>
+<p>After gathering context, tell the user what you found and propose a weighting:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">## Reconnaissance Complete
+</span><span class="code-line">
+</span><span class="code-line">**Project type**: [What you inferred — e.g., "Kids educational app, mobile-first PWA"]
+</span><span class="code-line">**Existing animation style**: [What you observed — e.g., "Spring animations (500-600ms), framer-motion, active:scale patterns"]
+</span><span class="code-line">**Likely intent**: [Your inference — e.g., "Delight and engagement for young children"]
+</span><span class="code-line">
+</span><span class="code-line">**Motion gaps found**: [Number] conditional renders without AnimatePresence
+</span><span class="code-line">- [List the files/areas with gaps, e.g., "Settings panel mode switches", "Loading states"]
+</span><span class="code-line">
+</span><span class="code-line">**Proposed perspective weighting**:
+</span><span class="code-line">- **Primary**: [Designer] — [Why]
+</span><span class="code-line">- **Secondary**: [Designer] — [Why]
+</span><span class="code-line">- **Selective**: [Designer] — [When applicable]
+</span><span class="code-line">
+</span><span class="code-line">Does this approach sound right? Should I adjust the weighting before proceeding with the full audit?
+</span></code></pre>
+<h3>Wait for User Confirmation</h3>
+<p><strong>STOP and wait for the user to confirm or adjust.</strong> Do not proceed to the full audit until they respond.</p>
+<p>If <code>AskUserQuestion</code> is available, present the decision as tappable options:</p>
+<ul>
+<li><strong>Confirm weighting</strong> — Proceed with the proposed primary/secondary/selective designers</li>
+<li><strong>Adjust primary</strong> — Swap which designer is primary (e.g., prioritize delight over restraint)</li>
+<li><strong>Adjust secondary</strong> — Change the secondary lens while keeping primary</li>
+<li><strong>Rebuild weighting</strong> — The project type inference was wrong; start over</li>
+</ul>
+<p>Otherwise ask in plain text: "Does this weighting sound right, or should I adjust?"</p>
+<p>If they adjust (e.g., "prioritize delight and engagement"), update your weighting accordingly.</p>
+<hr>
+<h2>STEP 2: Full Audit (After User Confirms)</h2>
+<p>Once the user confirms, perform the complete audit by reading the reference files in this order:</p>
+<h3>2a. Read the Audit Checklist First</h3>
+<p><strong>Read <code>references/audit-checklist.md</code></strong> — Use this as your systematic guide. It provides the structured checklist of what to evaluate.</p>
+<h3>2b. Read Designer Files for Your Weighted Perspectives</h3>
+<p>Based on your context weighting, read the relevant designer files:</p>
+<ul>
+<li><strong>Read <code>references/emil-kowalski.md</code></strong> if Emil is primary/secondary — Restraint philosophy, frequency rules, Sonner/Vaul patterns</li>
+<li><strong>Read <code>references/jakub-krehel.md</code></strong> if Jakub is primary/secondary — Production polish, enter/exit recipes, shadows, optical alignment</li>
+<li><strong>Read <code>references/jhey-tompkins.md</code></strong> if Jhey is primary/secondary — Playful experimentation, @property, linear(), scroll-driven</li>
+</ul>
+<h3>2c. Read Topical References as Needed</h3>
+<ul>
+<li><strong>Read <code>references/accessibility.md</code></strong> — MANDATORY. Always check for prefers-reduced-motion. No exceptions.</li>
+<li><strong>Read <code>references/common-mistakes.md</code></strong> — Check the codebase against these anti-patterns</li>
+<li><strong>Read <code>references/performance.md</code></strong> — If you see complex animations, check for GPU optimization issues</li>
+<li><strong>Read <code>references/technical-principles.md</code></strong> — Reference when making specific implementation recommendations</li>
+</ul>
+<h3>Context-to-Perspective Mapping</h3>
+<table>
+<thead>
+<tr>
+<th>Project Type</th>
+<th>Primary</th>
+<th>Secondary</th>
+<th>Selective</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Productivity tool (Linear, Raycast)</td>
+<td>Emil</td>
+<td>Jakub</td>
+<td>Jhey (onboarding only)</td>
+</tr>
+<tr>
+<td>Kids app / Educational</td>
+<td>Jakub</td>
+<td>Jhey</td>
+<td>Emil (high-freq game interactions)</td>
+</tr>
+<tr>
+<td>Creative portfolio</td>
+<td>Jakub</td>
+<td>Jhey</td>
+<td>Emil (high-freq interactions)</td>
+</tr>
+<tr>
+<td>Marketing/landing page</td>
+<td>Jakub</td>
+<td>Jhey</td>
+<td>Emil (forms, nav)</td>
+</tr>
+<tr>
+<td>SaaS dashboard</td>
+<td>Emil</td>
+<td>Jakub</td>
+<td>Jhey (empty states)</td>
+</tr>
+<tr>
+<td>Mobile app</td>
+<td>Jakub</td>
+<td>Emil</td>
+<td>Jhey (delighters)</td>
+</tr>
+<tr>
+<td>E-commerce</td>
+<td>Jakub</td>
+<td>Emil</td>
+<td>Jhey (product showcase)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>STEP 3: Output Format</h2>
+<p><strong>Read <code>references/output-format.md</code></strong> for the full report template.</p>
+<p>The template covers:</p>
+<ul>
+<li>Quick summary box (severity counts + primary perspective)</li>
+<li>Overall assessment paragraph</li>
+<li>Three per-designer sections (Emil / Jakub / Jhey) with decorated headers</li>
+<li>Combined recommendations tables (Critical / Important / Opportunities)</li>
+<li>Designer reference summary (who was referenced most + lean-differently guidance)</li>
+</ul>
+<p>Do not summarize — users want full per-designer perspectives.</p>
+<hr>
+<h2>Core Principles</h2>
+<h3>Duration Guidelines (Context-Dependent)</h3>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>Emil</th>
+<th>Jakub</th>
+<th>Jhey</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Productivity UI</td>
+<td>Under 300ms (180ms ideal)</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Production polish</td>
+<td>—</td>
+<td>200-500ms for smoothness</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Creative/kids/playful</td>
+<td>—</td>
+<td>—</td>
+<td>Whatever serves the effect</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Do not universally flag durations over 300ms.</strong> Check your context weighting first.</p>
+<h3>Enter Animation Recipe (Jakub)</h3>
+<pre class="language-jsx"><code class="language-jsx code-highlight"><span class="code-line">initial<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">translateY</span><span class="token operator">:</span> <span class="token number">8</span><span class="token punctuation">,</span> <span class="token literal-property property">filter</span><span class="token operator">:</span> <span class="token string">"blur(4px)"</span> <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">animate<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> <span class="token literal-property property">opacity</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token literal-property property">translateY</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token literal-property property">filter</span><span class="token operator">:</span> <span class="token string">"blur(0px)"</span> <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">transition<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> <span class="token literal-property property">type</span><span class="token operator">:</span> <span class="token string">"spring"</span><span class="token punctuation">,</span> <span class="token literal-property property">duration</span><span class="token operator">:</span> <span class="token number">0.45</span><span class="token punctuation">,</span> <span class="token literal-property property">bounce</span><span class="token operator">:</span> <span class="token number">0</span> <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Exit Animation Subtlety (Jakub)</h3>
+<p>Exits should be subtler than enters. Use smaller fixed values, same blur.</p>
+<h3>The Golden Rule</h3>
+<blockquote>
+<p>"The best animation is that which goes unnoticed."</p>
+</blockquote>
+<p>If users comment "nice animation!" on every interaction, it's probably too prominent for production. (Exception: kids apps and playful contexts where delight IS the goal.)</p>
+<h3>Accessibility is NOT Optional</h3>
+<p>Always check for <code>prefers-reduced-motion</code> support. No exceptions. Flag if missing.</p>
+<hr>
+<h2>Reference Files (When to Read Each)</h2>
+<p><strong>STEP 2a — Read first:</strong></p>
+<ul>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/audit-checklist.md" target="_blank" rel="ugc nofollow noopener">Audit Checklist</a> — Your systematic guide for the full audit</li>
+</ul>
+<p><strong>STEP 2b — Read based on context weighting:</strong></p>
+<ul>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/emil-kowalski.md" target="_blank" rel="ugc nofollow noopener">Emil Kowalski</a> — If Emil is primary/secondary</li>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/jakub-krehel.md" target="_blank" rel="ugc nofollow noopener">Jakub Krehel</a> — If Jakub is primary/secondary</li>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/jhey-tompkins.md" target="_blank" rel="ugc nofollow noopener">Jhey Tompkins</a> — If Jhey is primary/secondary</li>
+</ul>
+<p><strong>STEP 2c — Read as needed:</strong></p>
+<ul>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/accessibility.md" target="_blank" rel="ugc nofollow noopener">Accessibility</a> — MANDATORY for every audit (prefers-reduced-motion)</li>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/common-mistakes.md" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a> — Check codebase against anti-patterns</li>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/performance.md" target="_blank" rel="ugc nofollow noopener">Performance</a> — If complex animations, check GPU optimization</li>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/technical-principles.md" target="_blank" rel="ugc nofollow noopener">Technical Principles</a> — For implementation recommendations</li>
+</ul>
+<p><strong>STEP 3 — Read when writing the report:</strong></p>
+<ul>
+<li><a href="https://github.com/kylezantos/design-motion-principles/blob/HEAD/skills/design-motion-principles/references/output-format.md" target="_blank" rel="ugc nofollow noopener">Output Format</a> — Full report template (summary box, per-designer sections, recommendations tables)</li>
+</ul></div>

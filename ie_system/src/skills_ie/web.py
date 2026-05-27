@@ -1,4 +1,5 @@
-"""Skills IE Web 界面。"""
+"""IE 抽取系统的 Flask 页面与 API。"""
+
 from __future__ import annotations
 
 import json
@@ -19,6 +20,7 @@ from .state import load_json
 
 
 def create_app(config_path: Path | None = None) -> Flask:
+    """创建 IE Web 应用并注册页面与 API 路由。"""
     config = load_config(config_path)
     app = Flask(__name__, template_folder="templates")
 
@@ -38,14 +40,12 @@ def create_app(config_path: Path | None = None) -> Flask:
 
         results = ie.search_extractions(query, field=field, top_k=top_k_value) if query else []
 
-        # 统计报告
+        # 抽取报告提供字段覆盖率、值分布和证据统计，是页面概览的重要数据源。
         report = ie.generate_report()
 
-        # 人工评价统计
         manual_data = load_manual_judgments(config)
         manual_metrics = manual_data.get("summary", {})
 
-        # 自动评测（如果有 ground truth）
         auto_eval = {}
         gt_path = config.resolve_eval_path(None)
         if gt_path.exists():
@@ -93,6 +93,7 @@ def create_app(config_path: Path | None = None) -> Flask:
 
     @app.post("/api/judge")
     def api_judge():
+        """接收一条人工抽取判断。"""
         body = request.get_json(silent=True) or {}
         skill_name = body.get("skill_name", "").strip()
         field = body.get("field", "").strip()
@@ -126,5 +127,6 @@ def serve_web(
     port: int = 5001,
     debug: bool = False,
 ) -> None:
+    """启动 IE Web 服务。"""
     app = create_app(config_path)
     app.run(host=host, port=port, debug=debug)

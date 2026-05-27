@@ -1,0 +1,401 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>AddressSanitizer (ASan)</h1>
+<p>AddressSanitizer (ASan) is a widely adopted memory error detection tool used extensively during software testing, particularly fuzzing. It helps detect memory corruption bugs that might otherwise go unnoticed, such as buffer overflows, use-after-free errors, and other memory safety violations.</p>
+<h2>Overview</h2>
+<p>ASan is a standard practice in fuzzing due to its effectiveness in identifying memory vulnerabilities. It instruments code at compile time to track memory allocations and accesses, detecting illegal operations at runtime.</p>
+<h3>Key Concepts</h3>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Instrumentation</td>
+<td>ASan adds runtime checks to memory operations during compilation</td>
+</tr>
+<tr>
+<td>Shadow Memory</td>
+<td>Maps 20TB of virtual memory to track allocation state</td>
+</tr>
+<tr>
+<td>Performance Cost</td>
+<td>Approximately 2-4x slowdown compared to non-instrumented code</td>
+</tr>
+<tr>
+<td>Detection Scope</td>
+<td>Finds buffer overflows, use-after-free, double-free, and memory leaks</td>
+</tr>
+</tbody>
+</table>
+<h2>When to Apply</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Apply this technique when:</strong></p>
+<ul>
+<li>Fuzzing C/C++ code for memory safety vulnerabilities</li>
+<li>Testing Rust code with unsafe blocks</li>
+<li>Debugging crashes related to memory corruption</li>
+<li>Running unit tests where memory errors are suspected</li>
+</ul>
+<p><strong>Skip this technique when:</strong></p>
+<ul>
+<li>Running production code (ASan can reduce security)</li>
+<li>Platform is Windows or macOS (limited ASan support)</li>
+<li>Performance overhead is unacceptable for your use case</li>
+<li>Fuzzing pure safe languages without FFI (e.g., pure Go, pure Java)</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command/Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enable ASan (Clang/GCC)</td>
+<td><code>-fsanitize=address</code></td>
+</tr>
+<tr>
+<td>Enable verbosity</td>
+<td><code>ASAN_OPTIONS=verbosity=1</code></td>
+</tr>
+<tr>
+<td>Disable leak detection</td>
+<td><code>ASAN_OPTIONS=detect_leaks=0</code></td>
+</tr>
+<tr>
+<td>Force abort on error</td>
+<td><code>ASAN_OPTIONS=abort_on_error=1</code></td>
+</tr>
+<tr>
+<td>Multiple options</td>
+<td><code>ASAN_OPTIONS=verbosity=1:abort_on_error=1</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Step-by-Step</h2>
+<h3>Step 1: Compile with ASan</h3>
+<p>Compile and link your code with the <code>-fsanitize=address</code> flag:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>address <span class="token parameter variable">-g</span> <span class="token parameter variable">-o</span> my_program my_program.c
+</span></code></pre>
+<p>The <code>-g</code> flag is recommended to get better stack traces when ASan detects errors.</p>
+<h3>Step 2: Configure ASan Options</h3>
+<p>Set the <code>ASAN_OPTIONS</code> environment variable to configure ASan behavior:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">ASAN_OPTIONS</span><span class="token operator">=</span>verbosity<span class="token operator">=</span><span class="token number">1</span>:abort_on_error<span class="token operator">=</span><span class="token number">1</span>:detect_leaks<span class="token operator">=</span><span class="token number">0</span>
+</span></code></pre>
+<h3>Step 3: Run Your Program</h3>
+<p>Execute the ASan-instrumented binary. When memory errors are detected, ASan will print detailed reports:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./my_program
+</span></code></pre>
+<h3>Step 4: Adjust Fuzzer Memory Limits</h3>
+<p>ASan requires approximately 20TB of virtual memory. Disable fuzzer memory restrictions:</p>
+<ul>
+<li>libFuzzer: <code>-rss_limit_mb=0</code></li>
+<li>AFL++: <code>-m none</code></li>
+</ul>
+<h2>Common Patterns</h2>
+<h3>Pattern: Basic ASan Integration</h3>
+<p><strong>Use Case:</strong> Standard fuzzing setup with ASan</p>
+<p><strong>Before:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang <span class="token parameter variable">-o</span> fuzz_target fuzz_target.c
+</span><span class="code-line">./fuzz_target
+</span></code></pre>
+<p><strong>After:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>address <span class="token parameter variable">-g</span> <span class="token parameter variable">-o</span> fuzz_target fuzz_target.c
+</span><span class="code-line"><span class="token assign-left variable">ASAN_OPTIONS</span><span class="token operator">=</span>verbosity<span class="token operator">=</span><span class="token number">1</span>:abort_on_error<span class="token operator">=</span><span class="token number">1</span> ./fuzz_target
+</span></code></pre>
+<h3>Pattern: ASan with Unit Tests</h3>
+<p><strong>Use Case:</strong> Enable ASan for unit test suite</p>
+<p><strong>Before:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">gcc <span class="token parameter variable">-o</span> test_suite test_suite.c <span class="token parameter variable">-lcheck</span>
+</span><span class="code-line">./test_suite
+</span></code></pre>
+<p><strong>After:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">gcc <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>address <span class="token parameter variable">-g</span> <span class="token parameter variable">-o</span> test_suite test_suite.c <span class="token parameter variable">-lcheck</span>
+</span><span class="code-line"><span class="token assign-left variable">ASAN_OPTIONS</span><span class="token operator">=</span>detect_leaks<span class="token operator">=</span><span class="token number">1</span> ./test_suite
+</span></code></pre>
+<h2>Advanced Usage</h2>
+<h3>Tips and Tricks</h3>
+<table>
+<thead>
+<tr>
+<th>Tip</th>
+<th>Why It Helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Use <code>-g</code> flag</td>
+<td>Provides detailed stack traces for debugging</td>
+</tr>
+<tr>
+<td>Set <code>verbosity=1</code></td>
+<td>Confirms ASan is enabled before program starts</td>
+</tr>
+<tr>
+<td>Disable leaks during fuzzing</td>
+<td>Leak detection doesn't cause immediate crashes, clutters output</td>
+</tr>
+<tr>
+<td>Enable <code>abort_on_error=1</code></td>
+<td>Some fuzzers require <code>abort()</code> instead of <code>_exit()</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Understanding ASan Reports</h3>
+<p>When ASan detects a memory error, it prints a detailed report including:</p>
+<ul>
+<li><strong>Error type</strong>: Buffer overflow, use-after-free, etc.</li>
+<li><strong>Stack trace</strong>: Where the error occurred</li>
+<li><strong>Allocation/deallocation traces</strong>: Where memory was allocated/freed</li>
+<li><strong>Memory map</strong>: Shadow memory state around the error</li>
+</ul>
+<p>Example ASan report:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">==12345==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x60300000eff4 at pc 0x00000048e6a3
+</span><span class="code-line">READ of size 4 at 0x60300000eff4 thread T0
+</span><span class="code-line">    #0 0x48e6a2 in main /path/to/file.c:42
+</span></code></pre>
+<h3>Combining Sanitizers</h3>
+<p>ASan can be combined with other sanitizers for comprehensive detection:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>address,undefined <span class="token parameter variable">-g</span> <span class="token parameter variable">-o</span> fuzz_target fuzz_target.c
+</span></code></pre>
+<h3>Platform-Specific Considerations</h3>
+<p><strong>Linux</strong>: Full ASan support with best performance
+<strong>macOS</strong>: Limited support, some features may not work
+<strong>Windows</strong>: Experimental support, not recommended for production fuzzing</p>
+<h2>Anti-Patterns</h2>
+<table>
+<thead>
+<tr>
+<th>Anti-Pattern</th>
+<th>Problem</th>
+<th>Correct Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Using ASan in production</td>
+<td>Can make applications less secure</td>
+<td>Use ASan only for testing</td>
+</tr>
+<tr>
+<td>Not disabling memory limits</td>
+<td>Fuzzer may kill process due to 20TB virtual memory</td>
+<td>Set <code>-rss_limit_mb=0</code> or <code>-m none</code></td>
+</tr>
+<tr>
+<td>Ignoring leak reports</td>
+<td>Memory leaks indicate resource management issues</td>
+<td>Review leak reports at end of fuzzing campaign</td>
+</tr>
+</tbody>
+</table>
+<h2>Tool-Specific Guidance</h2>
+<h3>libFuzzer</h3>
+<p>Compile with both fuzzer and address sanitizer:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang++ <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer,address <span class="token parameter variable">-g</span> harness.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<p>Run with unlimited RSS:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">-rss_limit_mb</span><span class="token operator">=</span><span class="token number">0</span>
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Always combine <code>-fsanitize=fuzzer</code> with <code>-fsanitize=address</code></li>
+<li>Use <code>-g</code> for detailed stack traces in crash reports</li>
+<li>Consider <code>ASAN_OPTIONS=abort_on_error=1</code> for better crash handling</li>
+</ul>
+<p>See: <a href="https://github.com/google/fuzzing/blob/master/docs/good-fuzz-target.md#memory-error-detection" target="_blank" rel="ugc nofollow noopener">libFuzzer: AddressSanitizer</a></p>
+<h3>AFL++</h3>
+<p>Use the <code>AFL_USE_ASAN</code> environment variable:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">AFL_USE_ASAN</span><span class="token operator">=</span><span class="token number">1</span> afl-clang-fast++ <span class="token parameter variable">-g</span> harness.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<p>Run with unlimited memory:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">afl-fuzz <span class="token parameter variable">-m</span> none <span class="token parameter variable">-i</span> input_dir <span class="token parameter variable">-o</span> output_dir ./fuzz
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li><code>AFL_USE_ASAN=1</code> automatically adds proper compilation flags</li>
+<li>Use <code>-m none</code> to disable AFL++'s memory limit</li>
+<li>Consider <code>AFL_MAP_SIZE</code> for programs with large coverage maps</li>
+</ul>
+<p>See: <a href="https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/fuzzing_in_depth.md#a-using-sanitizers" target="_blank" rel="ugc nofollow noopener">AFL++: AddressSanitizer</a></p>
+<h3>cargo-fuzz (Rust)</h3>
+<p>Use the <code>--sanitizer=address</code> flag:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cargo</span> fuzz run fuzz_target <span class="token parameter variable">--sanitizer</span><span class="token operator">=</span>address
+</span></code></pre>
+<p>Or configure in <code>fuzz/Cargo.toml</code>:</p>
+<pre class="language-toml"><code class="language-toml code-highlight"><span class="code-line"><span class="token punctuation">[</span><span class="token table class-name">profile.release</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key property">opt-level</span> <span class="token punctuation">=</span> <span class="token number">3</span>
+</span><span class="code-line"><span class="token key property">debug</span> <span class="token punctuation">=</span> <span class="token boolean">true</span>
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>ASan is useful for fuzzing unsafe Rust code or FFI boundaries</li>
+<li>Safe Rust code may not benefit as much (compiler already prevents many errors)</li>
+<li>Focus on unsafe blocks, raw pointers, and C library bindings</li>
+</ul>
+<p>See: <a href="https://rust-fuzz.github.io/book/cargo-fuzz/tutorial.html#sanitizers" target="_blank" rel="ugc nofollow noopener">cargo-fuzz: AddressSanitizer</a></p>
+<h3>honggfuzz</h3>
+<p>Compile with ASan and link with honggfuzz:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">honggfuzz <span class="token parameter variable">-i</span> input_dir <span class="token parameter variable">-o</span> output_dir -- ./fuzz_target_asan
+</span></code></pre>
+<p>Compile the target:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">hfuzz-clang <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>address <span class="token parameter variable">-g</span> target.c <span class="token parameter variable">-o</span> fuzz_target_asan
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>honggfuzz works well with ASan out of the box</li>
+<li>Use feedback-driven mode for better coverage with sanitizers</li>
+<li>Monitor memory usage, as ASan increases memory footprint</li>
+</ul>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fuzzer kills process immediately</td>
+<td>Memory limit too low for ASan's 20TB virtual memory</td>
+<td>Use <code>-rss_limit_mb=0</code> (libFuzzer) or <code>-m none</code> (AFL++)</td>
+</tr>
+<tr>
+<td>"ASan runtime not initialized"</td>
+<td>Wrong linking order or missing runtime</td>
+<td>Ensure <code>-fsanitize=address</code> used in both compile and link</td>
+</tr>
+<tr>
+<td>Leak reports clutter output</td>
+<td>LeakSanitizer enabled by default</td>
+<td>Set <code>ASAN_OPTIONS=detect_leaks=0</code></td>
+</tr>
+<tr>
+<td>Poor performance (&gt;4x slowdown)</td>
+<td>Debug mode or unoptimized build</td>
+<td>Compile with <code>-O2</code> or <code>-O3</code> alongside <code>-fsanitize=address</code></td>
+</tr>
+<tr>
+<td>ASan not detecting obvious bugs</td>
+<td>Binary not instrumented</td>
+<td>Check with <code>ASAN_OPTIONS=verbosity=1</code> that ASan prints startup info</td>
+</tr>
+<tr>
+<td>False positives</td>
+<td>Interceptor conflicts</td>
+<td>Check ASan FAQ for known issues with specific libraries</td>
+</tr>
+</tbody>
+</table>
+<h2>Related Skills</h2>
+<h3>Tools That Use This Technique</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>How It Applies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>libfuzzer</strong></td>
+<td>Compile with <code>-fsanitize=fuzzer,address</code> for integrated fuzzing with memory error detection</td>
+</tr>
+<tr>
+<td><strong>aflpp</strong></td>
+<td>Use <code>AFL_USE_ASAN=1</code> environment variable during compilation</td>
+</tr>
+<tr>
+<td><strong>cargo-fuzz</strong></td>
+<td>Use <code>--sanitizer=address</code> flag to enable ASan for Rust fuzz targets</td>
+</tr>
+<tr>
+<td><strong>honggfuzz</strong></td>
+<td>Compile target with <code>-fsanitize=address</code> for ASan-instrumented fuzzing</td>
+</tr>
+</tbody>
+</table>
+<h3>Related Techniques</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Relationship</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>undefined-behavior-sanitizer</strong></td>
+<td>Often used together with ASan for comprehensive bug detection (undefined behavior + memory errors)</td>
+</tr>
+<tr>
+<td><strong>fuzz-harness-writing</strong></td>
+<td>Harnesses must be designed to handle ASan-detected crashes and avoid false positives</td>
+</tr>
+<tr>
+<td><strong>coverage-analysis</strong></td>
+<td>Coverage-guided fuzzing helps trigger code paths where ASan can detect memory errors</td>
+</tr>
+</tbody>
+</table>
+<h2>Resources</h2>
+<h3>Key External Resources</h3>
+<p><strong><a href="https://github.com/google/sanitizers/wiki/AddressSanitizer" target="_blank" rel="ugc nofollow noopener">AddressSanitizer on Google Sanitizers Wiki</a></strong></p>
+<p>The official ASan documentation covers:</p>
+<ul>
+<li>Algorithm and implementation details</li>
+<li>Complete list of detected error types</li>
+<li>Performance characteristics and overhead</li>
+<li>Platform-specific behavior</li>
+<li>Known limitations and incompatibilities</li>
+</ul>
+<p><strong><a href="https://github.com/google/sanitizers/wiki/SanitizerCommonFlags" target="_blank" rel="ugc nofollow noopener">SanitizerCommonFlags</a></strong></p>
+<p>Common configuration flags shared across all sanitizers:</p>
+<ul>
+<li><code>verbosity</code>: Control diagnostic output level</li>
+<li><code>log_path</code>: Redirect sanitizer output to files</li>
+<li><code>symbolize</code>: Enable/disable symbol resolution in reports</li>
+<li><code>external_symbolizer_path</code>: Use custom symbolizer</li>
+</ul>
+<p><strong><a href="https://github.com/google/sanitizers/wiki/AddressSanizerFlags" target="_blank" rel="ugc nofollow noopener">AddressSanitizerFlags</a></strong></p>
+<p>ASan-specific configuration options:</p>
+<ul>
+<li><code>detect_leaks</code>: Control memory leak detection</li>
+<li><code>abort_on_error</code>: Call <code>abort()</code> vs <code>_exit()</code> on error</li>
+<li><code>detect_stack_use_after_return</code>: Detect stack use-after-return bugs</li>
+<li><code>check_initialization_order</code>: Find initialization order bugs</li>
+</ul>
+<p><strong><a href="https://github.com/google/sanitizers/wiki/AddressSanitizer#faq" target="_blank" rel="ugc nofollow noopener">AddressSanitizer FAQ</a></strong></p>
+<p>Common pitfalls and solutions:</p>
+<ul>
+<li>Linking order issues</li>
+<li>Conflicts with other tools</li>
+<li>Platform-specific problems</li>
+<li>Performance tuning tips</li>
+</ul>
+<p><strong><a href="https://clang.llvm.org/docs/AddressSanitizer.html" target="_blank" rel="ugc nofollow noopener">Clang AddressSanitizer Documentation</a></strong></p>
+<p>Clang-specific guidance:</p>
+<ul>
+<li>Compilation flags and options</li>
+<li>Interaction with other Clang features</li>
+<li>Supported platforms and architectures</li>
+</ul>
+<p><strong><a href="https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fsanitize_003daddress" target="_blank" rel="ugc nofollow noopener">GCC Instrumentation Options</a></strong></p>
+<p>GCC-specific ASan documentation:</p>
+<ul>
+<li>GCC-specific flags and behavior</li>
+<li>Differences from Clang implementation</li>
+<li>Platform support in GCC</li>
+</ul>
+<p><strong><a href="https://www.usenix.org/sites/default/files/conference/protected-files/serebryany_atc12_slides.pdf" target="_blank" rel="ugc nofollow noopener">AddressSanitizer: A Fast Address Sanity Checker (USENIX Paper)</a></strong></p>
+<p>Original research paper with technical details:</p>
+<ul>
+<li>Shadow memory algorithm</li>
+<li>Virtual memory requirements (historically 16TB, now ~20TB)</li>
+<li>Performance benchmarks</li>
+<li>Design decisions and tradeoffs</li>
+</ul></div>

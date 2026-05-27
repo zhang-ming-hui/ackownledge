@@ -1,0 +1,507 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>OSS-Fuzz</h1>
+<p><a href="https://google.github.io/oss-fuzz/" target="_blank" rel="ugc nofollow noopener">OSS-Fuzz</a> is an open-source project developed by Google that provides free distributed infrastructure for continuous fuzz testing. It streamlines the fuzzing process and facilitates simpler modifications. While only select projects are accepted into OSS-Fuzz, the project's core is open-source, allowing anyone to host their own instance for private projects.</p>
+<h2>Overview</h2>
+<p>OSS-Fuzz provides a simple CLI framework for building and starting harnesses or calculating their coverage. Additionally, OSS-Fuzz can be used as a service that hosts static web pages generated from fuzzing outputs such as coverage information.</p>
+<h3>Key Concepts</h3>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>helper.py</strong></td>
+<td>CLI script for building images, building fuzzers, and running harnesses locally</td>
+</tr>
+<tr>
+<td><strong>Base Images</strong></td>
+<td>Hierarchical Docker images providing build dependencies and compilers</td>
+</tr>
+<tr>
+<td><strong>project.yaml</strong></td>
+<td>Configuration file defining project metadata for OSS-Fuzz enrollment</td>
+</tr>
+<tr>
+<td><strong>Dockerfile</strong></td>
+<td>Project-specific image with build dependencies</td>
+</tr>
+<tr>
+<td><strong>build.sh</strong></td>
+<td>Script that builds fuzzing harnesses for your project</td>
+</tr>
+<tr>
+<td><strong>Criticality Score</strong></td>
+<td>Metric used by OSS-Fuzz team to evaluate project acceptance</td>
+</tr>
+</tbody>
+</table></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>When to Apply</h2>
+<p><strong>Apply this technique when:</strong></p>
+<ul>
+<li>Setting up continuous fuzzing for an open-source project</li>
+<li>Need distributed fuzzing infrastructure without managing servers</li>
+<li>Want coverage reports and bug tracking integrated with fuzzing</li>
+<li>Testing existing OSS-Fuzz harnesses locally</li>
+<li>Reproducing crashes from OSS-Fuzz bug reports</li>
+</ul>
+<p><strong>Skip this technique when:</strong></p>
+<ul>
+<li>Project is closed-source (unless hosting your own OSS-Fuzz instance)</li>
+<li>Project doesn't meet OSS-Fuzz's criticality score threshold</li>
+<li>Need proprietary or specialized fuzzing infrastructure</li>
+<li>Fuzzing simple scripts that don't warrant infrastructure</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clone OSS-Fuzz</td>
+<td><code>git clone https://github.com/google/oss-fuzz</code></td>
+</tr>
+<tr>
+<td>Build project image</td>
+<td><code>python3 infra/helper.py build_image --pull &lt;project&gt;</code></td>
+</tr>
+<tr>
+<td>Build fuzzers with ASan</td>
+<td><code>python3 infra/helper.py build_fuzzers --sanitizer=address &lt;project&gt;</code></td>
+</tr>
+<tr>
+<td>Run specific harness</td>
+<td><code>python3 infra/helper.py run_fuzzer &lt;project&gt; &lt;harness&gt;</code></td>
+</tr>
+<tr>
+<td>Generate coverage report</td>
+<td><code>python3 infra/helper.py coverage &lt;project&gt;</code></td>
+</tr>
+<tr>
+<td>Check helper.py options</td>
+<td><code>python3 infra/helper.py --help</code></td>
+</tr>
+</tbody>
+</table>
+<h2>OSS-Fuzz Project Components</h2>
+<p>OSS-Fuzz provides several publicly available tools and web interfaces:</p>
+<h3>Bug Tracker</h3>
+<p>The <a href="https://issues.oss-fuzz.com/issues?q=status:open" target="_blank" rel="ugc nofollow noopener">bug tracker</a> allows you to:</p>
+<ul>
+<li>Check bugs from specific projects (initially visible only to maintainers, later <a href="https://google.github.io/oss-fuzz/getting-started/bug-disclosure-guidelines/" target="_blank" rel="ugc nofollow noopener">made public</a>)</li>
+<li>Create new issues and comment on existing ones</li>
+<li>Search for similar bugs across <strong>all projects</strong> to understand issues</li>
+</ul>
+<h3>Build Status System</h3>
+<p>The <a href="https://oss-fuzz-build-logs.storage.googleapis.com/index.html" target="_blank" rel="ugc nofollow noopener">build status system</a> helps track:</p>
+<ul>
+<li>Build statuses of all included projects</li>
+<li>Date of last successful build</li>
+<li>Build failures and their duration</li>
+</ul>
+<h3>Fuzz Introspector</h3>
+<p><a href="https://oss-fuzz-introspector.storage.googleapis.com/index.html" target="_blank" rel="ugc nofollow noopener">Fuzz Introspector</a> displays:</p>
+<ul>
+<li>Coverage data for projects enrolled in OSS-Fuzz</li>
+<li>Hit frequency for covered code</li>
+<li>Performance analysis and blocker identification</li>
+</ul>
+<p>Read <a href="https://github.com/ossf/fuzz-introspector/blob/main/doc/CaseStudies.md" target="_blank" rel="ugc nofollow noopener">this case study</a> for examples and explanations.</p>
+<h2>Step-by-Step: Running a Single Harness</h2>
+<p>You don't need to host the whole OSS-Fuzz platform to use it. The helper script makes it easy to run individual harnesses locally.</p>
+<h3>Step 1: Clone OSS-Fuzz</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> clone https://github.com/google/oss-fuzz
+</span><span class="code-line"><span class="token builtin class-name">cd</span> oss-fuzz
+</span><span class="code-line">python3 infra/helper.py <span class="token parameter variable">--help</span>
+</span></code></pre>
+<h3>Step 2: Build Project Image</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python3 infra/helper.py build_image <span class="token parameter variable">--pull</span> <span class="token operator">&lt;</span>project-name<span class="token operator">&gt;</span>
+</span></code></pre>
+<p>This downloads and builds the base Docker image for the project.</p>
+<h3>Step 3: Build Fuzzers with Sanitizers</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python3 infra/helper.py build_fuzzers <span class="token parameter variable">--sanitizer</span><span class="token operator">=</span>address <span class="token operator">&lt;</span>project-name<span class="token operator">&gt;</span>
+</span></code></pre>
+<p><strong>Sanitizer options:</strong></p>
+<ul>
+<li><code>--sanitizer=address</code> for <a href="https://appsec.guide/docs/fuzzing/techniques/asan/" target="_blank" rel="ugc nofollow noopener">AddressSanitizer</a> with <a href="https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer" target="_blank" rel="ugc nofollow noopener">LeakSanitizer</a></li>
+<li>Other sanitizers available (language support varies)</li>
+</ul>
+<p><strong>Note:</strong> Fuzzers are built to <code>/build/out/&lt;project-name&gt;/</code> containing the harness executables, dictionaries, corpus, and crash files.</p>
+<h3>Step 4: Run the Fuzzer</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python3 infra/helper.py run_fuzzer <span class="token operator">&lt;</span>project-name<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>harness-name<span class="token operator">&gt;</span> <span class="token punctuation">[</span><span class="token operator">&lt;</span>fuzzer-args<span class="token operator">&gt;</span><span class="token punctuation">]</span>
+</span></code></pre>
+<p>The helper script automatically runs any missed steps if you skip them.</p>
+<h3>Step 5: Coverage Analysis (Optional)</h3>
+<p>First, <a href="https://cloud.google.com/storage/docs/gsutil_install" target="_blank" rel="ugc nofollow noopener">install gsutil</a> (skip gcloud initialization).</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python3 infra/helper.py build_fuzzers <span class="token parameter variable">--sanitizer</span><span class="token operator">=</span>coverage <span class="token operator">&lt;</span>project-name<span class="token operator">&gt;</span>
+</span><span class="code-line">python3 infra/helper.py coverage <span class="token operator">&lt;</span>project-name<span class="token operator">&gt;</span>
+</span></code></pre>
+<p>Use <code>--no-corpus-download</code> to use only local corpus. The command generates and hosts a coverage report locally.</p>
+<p>See <a href="https://google.github.io/oss-fuzz/advanced-topics/code-coverage/" target="_blank" rel="ugc nofollow noopener">official OSS-Fuzz documentation</a> for details.</p>
+<h2>Common Patterns</h2>
+<h3>Pattern: Running irssi Example</h3>
+<p><strong>Use Case:</strong> Testing OSS-Fuzz setup with a simple enrolled project</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Clone and navigate to OSS-Fuzz</span>
+</span><span class="code-line"><span class="token function">git</span> clone https://github.com/google/oss-fuzz
+</span><span class="code-line"><span class="token builtin class-name">cd</span> oss-fuzz
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Build and run irssi fuzzer</span>
+</span><span class="code-line">python3 infra/helper.py build_image <span class="token parameter variable">--pull</span> irssi
+</span><span class="code-line">python3 infra/helper.py build_fuzzers <span class="token parameter variable">--sanitizer</span><span class="token operator">=</span>address irssi
+</span><span class="code-line">python3 infra/helper.py run_fuzzer irssi irssi-fuzz
+</span></code></pre>
+<p><strong>Expected Output:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">INFO:__main__:Running: docker run --rm --privileged --shm-size=2g --platform linux/amd64 -i -e FUZZING_ENGINE=libfuzzer -e SANITIZER=address -e RUN_FUZZER_MODE=interactive -e HELPER=True -v /private/tmp/oss-fuzz/build/out/irssi:/out -t gcr.io/oss-fuzz-base/base-runner run_fuzzer irssi-fuzz.
+</span><span class="code-line">Using seed corpus: irssi-fuzz_seed_corpus.zip
+</span><span class="code-line">/out/irssi-fuzz -rss_limit_mb=2560 -timeout=25 /tmp/irssi-fuzz_corpus -max_len=2048 &lt; /dev/null
+</span><span class="code-line">INFO: Running with entropic power schedule (0xFF, 100).
+</span><span class="code-line">INFO: Seed: 1531341664
+</span><span class="code-line">INFO: Loaded 1 modules   (95687 inline 8-bit counters): 95687 [0x1096c80, 0x10ae247),
+</span><span class="code-line">INFO: Loaded 1 PC tables (95687 PCs): 95687 [0x10ae248,0x1223eb8),
+</span><span class="code-line">INFO:      719 files found in /tmp/irssi-fuzz_corpus
+</span><span class="code-line">INFO: seed corpus: files: 719 min: 1b max: 170106b total: 367969b rss: 48Mb
+</span><span class="code-line">#720        INITED cov: 409 ft: 1738 corp: 640/163Kb exec/s: 0 rss: 62Mb
+</span><span class="code-line">#762        REDUCE cov: 409 ft: 1738 corp: 640/163Kb lim: 2048 exec/s: 0 rss: 63Mb L: 236/2048 MS: 2 ShuffleBytes-EraseBytes-
+</span></code></pre>
+<h3>Pattern: Enrolling a New Project</h3>
+<p><strong>Use Case:</strong> Adding your project to OSS-Fuzz (or private instance)</p>
+<p>Create three files in <code>projects/&lt;your-project&gt;/</code>:</p>
+<p><strong>1. project.yaml</strong> - Project metadata:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">homepage</span><span class="token punctuation">:</span> <span class="token string">"https://github.com/yourorg/yourproject"</span>
+</span><span class="code-line"><span class="token key atrule">language</span><span class="token punctuation">:</span> c++
+</span><span class="code-line"><span class="token key atrule">primary_contact</span><span class="token punctuation">:</span> <span class="token string">"your-email@example.com"</span>
+</span><span class="code-line"><span class="token key atrule">main_repo</span><span class="token punctuation">:</span> <span class="token string">"https://github.com/yourorg/yourproject"</span>
+</span><span class="code-line"><span class="token key atrule">fuzzing_engines</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> libfuzzer
+</span><span class="code-line"><span class="token key atrule">sanitizers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> address
+</span><span class="code-line">  <span class="token punctuation">-</span> undefined
+</span></code></pre>
+<p><strong>2. Dockerfile</strong> - Build dependencies:</p>
+<pre class="language-dockerfile"><code class="language-dockerfile code-highlight"><span class="code-line"><span class="token instruction"><span class="token keyword">FROM</span> gcr.io/oss-fuzz-base/base-builder</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">RUN</span> apt-get update &amp;&amp; apt-get install -y <span class="token operator">\</span>
+</span></span><span class="code-line"><span class="token instruction">    autoconf <span class="token operator">\</span>
+</span></span><span class="code-line"><span class="token instruction">    automake <span class="token operator">\</span>
+</span></span><span class="code-line"><span class="token instruction">    libtool <span class="token operator">\</span>
+</span></span><span class="code-line"><span class="token instruction">    pkg-config</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">RUN</span> git clone --depth 1 https://github.com/yourorg/yourproject</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">WORKDIR</span> yourproject</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">COPY</span> build.sh <span class="token variable">$SRC</span>/</span>
+</span></code></pre>
+<p><strong>3. build.sh</strong> - Build harnesses:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash -eu</span>
+</span><span class="code-line">./autogen.sh
+</span><span class="code-line">./configure --disable-shared
+</span><span class="code-line"><span class="token function">make</span> -j<span class="token variable"><span class="token variable">$(</span>nproc<span class="token variable">)</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Build harnesses</span>
+</span><span class="code-line"><span class="token variable">$CXX</span> <span class="token variable">$CXXFLAGS</span> <span class="token parameter variable">-std</span><span class="token operator">=</span>c++11 -I. <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token variable">$SRC</span>/yourproject/fuzz/harness.cc <span class="token parameter variable">-o</span> <span class="token variable">$OUT</span>/harness <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token variable">$LIB_FUZZING_ENGINE</span> ./libyourproject.a
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Copy corpus and dictionary if available</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token variable">$SRC</span>/yourproject/fuzz/corpus.zip <span class="token variable">$OUT</span>/harness_seed_corpus.zip
+</span><span class="code-line"><span class="token function">cp</span> <span class="token variable">$SRC</span>/yourproject/fuzz/dictionary.dict <span class="token variable">$OUT</span>/harness.dict
+</span></code></pre>
+<h2>Docker Images in OSS-Fuzz</h2>
+<p>Harnesses are built and executed in Docker containers. All projects share a runner image, but each project has its own build image.</p>
+<h3>Image Hierarchy</h3>
+<p>Images build on each other in this sequence:</p>
+<ol>
+<li><strong><a href="https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-image/Dockerfile" target="_blank" rel="ugc nofollow noopener">base_image</a></strong> - Specific Ubuntu version</li>
+<li><strong><a href="https://github.com/google/oss-fuzz/tree/master/infra/base-images/base-clang" target="_blank" rel="ugc nofollow noopener">base_clang</a></strong> - Clang compiler; based on <code>base_image</code></li>
+<li><strong><a href="https://github.com/google/oss-fuzz/tree/master/infra/base-images/base-builder" target="_blank" rel="ugc nofollow noopener">base_builder</a></strong> - Build dependencies; based on <code>base_clang</code>
+<ul>
+<li>Language-specific variants: <a href="https://github.com/google/oss-fuzz/tree/master/infra/base-images/base-builder-go" target="_blank" rel="ugc nofollow noopener"><code>base_builder_go</code></a>, etc.</li>
+<li>See <a href="https://github.com/google/oss-fuzz/tree/master/infra/base-images" target="_blank" rel="ugc nofollow noopener">/oss-fuzz/infra/base-images/</a> for full list</li>
+</ul>
+</li>
+<li><strong>Your project Docker image</strong> - Project-specific dependencies; based on <code>base_builder</code> or language variant</li>
+</ol>
+<h3>Runner Images (Used Separately)</h3>
+<ul>
+<li><strong><a href="https://github.com/google/oss-fuzz/tree/master/infra/base-images/base-runner" target="_blank" rel="ugc nofollow noopener">base_runner</a></strong> - Executes harnesses; based on <code>base_clang</code></li>
+<li><strong><a href="https://github.com/google/oss-fuzz/tree/master/infra/base-images/base-runner-debug" target="_blank" rel="ugc nofollow noopener">base_runner_debug</a></strong> - With debug tools; based on <code>base_runner</code></li>
+</ul>
+<h2>Advanced Usage</h2>
+<h3>Tips and Tricks</h3>
+<table>
+<thead>
+<tr>
+<th>Tip</th>
+<th>Why It Helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Don't manually copy source code</strong></td>
+<td>Project Dockerfile likely already pulls latest version</td>
+</tr>
+<tr>
+<td><strong>Check existing projects</strong></td>
+<td>Browse <a href="https://github.com/google/oss-fuzz/tree/master/projects" target="_blank" rel="ugc nofollow noopener">oss-fuzz/projects</a> for examples</td>
+</tr>
+<tr>
+<td><strong>Keep harnesses in separate repo</strong></td>
+<td>Like <a href="https://github.com/curl/curl-fuzzer" target="_blank" rel="ugc nofollow noopener">curl-fuzzer</a> - cleaner organization</td>
+</tr>
+<tr>
+<td><strong>Use specific compiler versions</strong></td>
+<td>Base images provide consistent build environment</td>
+</tr>
+<tr>
+<td><strong>Install dependencies in Dockerfile</strong></td>
+<td>May require approval for OSS-Fuzz enrollment</td>
+</tr>
+</tbody>
+</table>
+<h3>Criticality Score</h3>
+<p>OSS-Fuzz uses a <a href="https://github.com/ossf/criticality_score" target="_blank" rel="ugc nofollow noopener">criticality score</a> to evaluate project acceptance. See <a href="https://github.com/google/oss-fuzz/pull/11444#issuecomment-1875907472" target="_blank" rel="ugc nofollow noopener">this example</a> for how scoring works.</p>
+<p>Projects with lower scores may still be added to private OSS-Fuzz instances.</p>
+<h3>Hosting Your Own Instance</h3>
+<p>Since OSS-Fuzz is open-source, you can host your own instance for:</p>
+<ul>
+<li>Private projects not eligible for public OSS-Fuzz</li>
+<li>Projects with lower criticality scores</li>
+<li>Custom fuzzing infrastructure needs</li>
+</ul>
+<h2>Anti-Patterns</h2>
+<table>
+<thead>
+<tr>
+<th>Anti-Pattern</th>
+<th>Problem</th>
+<th>Correct Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Manually pulling source in build.sh</strong></td>
+<td>Doesn't use latest version</td>
+<td>Let Dockerfile handle git clone</td>
+</tr>
+<tr>
+<td><strong>Copying code to OSS-Fuzz repo</strong></td>
+<td>Hard to maintain, violates separation</td>
+<td>Reference external harness repo</td>
+</tr>
+<tr>
+<td><strong>Ignoring base image versions</strong></td>
+<td>Build inconsistencies</td>
+<td>Use provided base images and compilers</td>
+</tr>
+<tr>
+<td><strong>Skipping local testing</strong></td>
+<td>Wastes CI resources</td>
+<td>Use helper.py locally before PR</td>
+</tr>
+<tr>
+<td><strong>Not checking build status</strong></td>
+<td>Unnoticed build failures</td>
+<td>Monitor build status page regularly</td>
+</tr>
+</tbody>
+</table>
+<h2>Tool-Specific Guidance</h2>
+<h3>libFuzzer</h3>
+<p>OSS-Fuzz primarily uses libFuzzer as the fuzzing engine for C/C++ projects.</p>
+<p><strong>Harness signature:</strong></p>
+<pre><code class="language-c++ code-highlight"><span class="code-line">extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+</span><span class="code-line">    // Your fuzzing logic
+</span><span class="code-line">    return 0;
+</span><span class="code-line">}
+</span></code></pre>
+<p><strong>Build in build.sh:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token variable">$CXX</span> <span class="token variable">$CXXFLAGS</span> <span class="token parameter variable">-std</span><span class="token operator">=</span>c++11 -I. <span class="token punctuation">\</span>
+</span><span class="code-line">    harness.cc <span class="token parameter variable">-o</span> <span class="token variable">$OUT</span>/harness <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token variable">$LIB_FUZZING_ENGINE</span> ./libproject.a
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Use <code>$LIB_FUZZING_ENGINE</code> variable provided by OSS-Fuzz</li>
+<li>Include <code>-fsanitize=fuzzer</code> is handled automatically</li>
+<li>Link against static libraries when possible</li>
+</ul>
+<h3>AFL++</h3>
+<p>OSS-Fuzz supports AFL++ as an alternative fuzzing engine.</p>
+<p><strong>Enable in project.yaml:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">fuzzing_engines</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> afl
+</span><span class="code-line">  <span class="token punctuation">-</span> libfuzzer
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>AFL++ harnesses work alongside libFuzzer harnesses</li>
+<li>Use persistent mode for better performance</li>
+<li>OSS-Fuzz handles engine-specific compilation flags</li>
+</ul>
+<h3>Atheris (Python)</h3>
+<p>For Python projects with C extensions.</p>
+<p><strong>Example from <a href="https://github.com/google/oss-fuzz/pull/11444" target="_blank" rel="ugc nofollow noopener">cbor2 integration</a>:</strong></p>
+<p><strong>Harness:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> atheris
+</span><span class="code-line"><span class="token keyword">import</span> sys
+</span><span class="code-line"><span class="token keyword">import</span> cbor2
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@atheris<span class="token punctuation">.</span>instrument_func</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">TestOneInput</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    fdp <span class="token operator">=</span> atheris<span class="token punctuation">.</span>FuzzedDataProvider<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">        cbor2<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">except</span> <span class="token punctuation">(</span>cbor2<span class="token punctuation">.</span>CBORDecodeError<span class="token punctuation">,</span> ValueError<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">pass</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    atheris<span class="token punctuation">.</span>Setup<span class="token punctuation">(</span>sys<span class="token punctuation">.</span>argv<span class="token punctuation">,</span> TestOneInput<span class="token punctuation">)</span>
+</span><span class="code-line">    atheris<span class="token punctuation">.</span>Fuzz<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+</span><span class="code-line">    main<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Build in build.sh:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip3 <span class="token function">install</span> <span class="token builtin class-name">.</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">fuzzer</span> <span class="token keyword">in</span> <span class="token variable"><span class="token variable">$(</span><span class="token function">find</span> $SRC <span class="token parameter variable">-name</span> <span class="token string">'fuzz_*.py'</span><span class="token variable">)</span></span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">  compile_python_fuzzer <span class="token variable">$fuzzer</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Use <code>compile_python_fuzzer</code> helper provided by OSS-Fuzz</li>
+<li>See <a href="https://blog.trailofbits.com/2024/02/23/continuously-fuzzing-python-c-extensions/" target="_blank" rel="ugc nofollow noopener">Continuously Fuzzing Python C Extensions</a> blog post</li>
+</ul>
+<h3>Rust Projects</h3>
+<p><strong>Enable in project.yaml:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">language</span><span class="token punctuation">:</span> rust
+</span><span class="code-line"><span class="token key atrule">fuzzing_engines</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> libfuzzer
+</span><span class="code-line"><span class="token key atrule">sanitizers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> address  <span class="token comment"># Only AddressSanitizer supported for Rust</span>
+</span></code></pre>
+<p><strong>Build in build.sh:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cargo</span> fuzz build <span class="token parameter variable">-O</span> --debug-assertions
+</span><span class="code-line"><span class="token function">cp</span> fuzz/target/x86_64-unknown-linux-gnu/release/fuzz_target_1 <span class="token variable">$OUT</span>/
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li><a href="https://google.github.io/oss-fuzz/getting-started/new-project-guide/rust-lang/#projectyaml" target="_blank" rel="ugc nofollow noopener">Rust supports only AddressSanitizer with libfuzzer</a></li>
+<li>Use cargo-fuzz for local development</li>
+<li>OSS-Fuzz handles Rust-specific compilation</li>
+</ul>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Build fails with missing dependencies</strong></td>
+<td>Dependencies not in Dockerfile</td>
+<td>Add <code>apt-get install</code> or equivalent in Dockerfile</td>
+</tr>
+<tr>
+<td><strong>Harness crashes immediately</strong></td>
+<td>Missing input validation</td>
+<td>Add size checks in harness</td>
+</tr>
+<tr>
+<td><strong>Coverage is 0%</strong></td>
+<td>Harness not reaching target code</td>
+<td>Verify harness actually calls target functions</td>
+</tr>
+<tr>
+<td><strong>Build timeout</strong></td>
+<td>Complex build process</td>
+<td>Optimize build.sh, consider parallel builds</td>
+</tr>
+<tr>
+<td><strong>Sanitizer errors in build</strong></td>
+<td>Incompatible flags</td>
+<td>Use flags provided by OSS-Fuzz environment variables</td>
+</tr>
+<tr>
+<td><strong>Cannot find source code</strong></td>
+<td>Wrong working directory in Dockerfile</td>
+<td>Set WORKDIR or use absolute paths</td>
+</tr>
+</tbody>
+</table>
+<h2>Related Skills</h2>
+<h3>Tools That Use This Technique</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>How It Applies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>libfuzzer</strong></td>
+<td>Primary fuzzing engine used by OSS-Fuzz</td>
+</tr>
+<tr>
+<td><strong>aflpp</strong></td>
+<td>Alternative fuzzing engine supported by OSS-Fuzz</td>
+</tr>
+<tr>
+<td><strong>atheris</strong></td>
+<td>Used for fuzzing Python projects in OSS-Fuzz</td>
+</tr>
+<tr>
+<td><strong>cargo-fuzz</strong></td>
+<td>Used for Rust projects in OSS-Fuzz</td>
+</tr>
+</tbody>
+</table>
+<h3>Related Techniques</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Relationship</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>coverage-analysis</strong></td>
+<td>OSS-Fuzz generates coverage reports via helper.py</td>
+</tr>
+<tr>
+<td><strong>address-sanitizer</strong></td>
+<td>Default sanitizer for OSS-Fuzz projects</td>
+</tr>
+<tr>
+<td><strong>fuzz-harness-writing</strong></td>
+<td>Essential for enrolling projects in OSS-Fuzz</td>
+</tr>
+<tr>
+<td><strong>corpus-management</strong></td>
+<td>OSS-Fuzz maintains corpus for enrolled projects</td>
+</tr>
+</tbody>
+</table>
+<h2>Resources</h2>
+<h3>Key External Resources</h3>
+<p><strong><a href="https://google.github.io/oss-fuzz/" target="_blank" rel="ugc nofollow noopener">OSS-Fuzz Official Documentation</a></strong>
+Comprehensive documentation covering enrollment, harness writing, and troubleshooting for the OSS-Fuzz platform.</p>
+<p><strong><a href="https://google.github.io/oss-fuzz/getting-started/accepting-new-projects/" target="_blank" rel="ugc nofollow noopener">Getting Started Guide</a></strong>
+Step-by-step process for enrolling new projects into OSS-Fuzz, including requirements and approval process.</p>
+<p><strong><a href="https://github.com/google/oss-fuzz/pull/11444" target="_blank" rel="ugc nofollow noopener">cbor2 OSS-Fuzz Integration PR</a></strong>
+Real-world example of enrolling a Python project with C extensions into OSS-Fuzz. Shows:</p>
+<ul>
+<li>Initial proposal and project introduction</li>
+<li>Criticality score evaluation</li>
+<li>Complete implementation (project.yaml, Dockerfile, build.sh, harnesses)</li>
+</ul>
+<p><strong><a href="https://github.com/ossf/fuzz-introspector/blob/main/doc/CaseStudies.md" target="_blank" rel="ugc nofollow noopener">Fuzz Introspector Case Studies</a></strong>
+Examples and explanations of using Fuzz Introspector to analyze coverage and identify fuzzing blockers.</p>
+<h3>Video Resources</h3>
+<p>Check OSS-Fuzz documentation for workshop recordings and tutorials on enrollment and harness development.</p></div>

@@ -1,0 +1,324 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>NFT Standards</h1>
+<p>Master ERC-721 and ERC-1155 NFT standards, metadata best practices, and advanced NFT features.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Creating NFT collections (art, gaming, collectibles)</li>
+<li>Implementing marketplace functionality</li>
+<li>Building on-chain or off-chain metadata</li>
+<li>Creating soulbound tokens (non-transferable)</li>
+<li>Implementing royalties and revenue sharing</li>
+<li>Developing dynamic/evolving NFTs</li>
+</ul>
+<h2>ERC-721 (Non-Fungible Token Standard)</h2>
+<pre class="language-solidity"><code class="language-solidity code-highlight"><span class="code-line"><span class="token comment">// SPDX-License-Identifier: MIT</span>
+</span><span class="code-line"><span class="token keyword">pragma</span> <span class="token keyword">solidity</span> <span class="token operator">^</span><span class="token version number">0.8.0</span><span class="token punctuation">;</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";</p>
+<p>contract MyNFT is ERC721URIStorage, ERC721Enumerable, Ownable {
+using Counters for Counters.Counter;
+Counters.Counter private _tokenIds;</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">uint256 public constant MAX_SUPPLY = 10000;
+</span><span class="code-line">uint256 public constant MINT_PRICE = 0.08 ether;
+</span><span class="code-line">uint256 public constant MAX_PER_MINT = 20;
+</span><span class="code-line">
+</span><span class="code-line">constructor() ERC721("MyNFT", "MNFT") {}
+</span><span class="code-line">
+</span><span class="code-line">function mint(uint256 quantity) external payable {
+</span><span class="code-line">    require(quantity &gt; 0 &amp;&amp; quantity &lt;= MAX_PER_MINT, "Invalid quantity");
+</span><span class="code-line">    require(_tokenIds.current() + quantity &lt;= MAX_SUPPLY, "Exceeds max supply");
+</span><span class="code-line">    require(msg.value &gt;= MINT_PRICE * quantity, "Insufficient payment");
+</span><span class="code-line">
+</span><span class="code-line">    for (uint256 i = 0; i &lt; quantity; i++) {
+</span><span class="code-line">        _tokenIds.increment();
+</span><span class="code-line">        uint256 newTokenId = _tokenIds.current();
+</span><span class="code-line">        _safeMint(msg.sender, newTokenId);
+</span><span class="code-line">        _setTokenURI(newTokenId, generateTokenURI(newTokenId));
+</span><span class="code-line">    }
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">function generateTokenURI(uint256 tokenId) internal pure returns (string memory) {
+</span><span class="code-line">    // Return IPFS URI or on-chain metadata
+</span><span class="code-line">    return string(abi.encodePacked("ipfs://QmHash/", Strings.toString(tokenId), ".json"));
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">// Required overrides
+</span><span class="code-line">function _beforeTokenTransfer(
+</span><span class="code-line">    address from,
+</span><span class="code-line">    address to,
+</span><span class="code-line">    uint256 tokenId,
+</span><span class="code-line">    uint256 batchSize
+</span><span class="code-line">) internal override(ERC721, ERC721Enumerable) {
+</span><span class="code-line">    super._beforeTokenTransfer(from, to, tokenId, batchSize);
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+</span><span class="code-line">    super._burn(tokenId);
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+</span><span class="code-line">    return super.tokenURI(tokenId);
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">function supportsInterface(bytes4 interfaceId)
+</span><span class="code-line">    public
+</span><span class="code-line">    view
+</span><span class="code-line">    override(ERC721, ERC721Enumerable)
+</span><span class="code-line">    returns (bool)
+</span><span class="code-line">{
+</span><span class="code-line">    return super.supportsInterface(interfaceId);
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">function withdraw() external onlyOwner {
+</span><span class="code-line">    payable(owner()).transfer(address(this).balance);
+</span><span class="code-line">}
+</span></code></pre>
+<p>}</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">## ERC-1155 (Multi-Token Standard)
+</span><span class="code-line">
+</span><span class="code-line">```solidity
+</span><span class="code-line">// SPDX-License-Identifier: MIT
+</span><span class="code-line">pragma solidity ^0.8.0;
+</span><span class="code-line">
+</span><span class="code-line">import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+</span><span class="code-line">import "@openzeppelin/contracts/access/Ownable.sol";
+</span><span class="code-line">
+</span><span class="code-line">contract GameItems is ERC1155, Ownable {
+</span><span class="code-line">    uint256 public constant SWORD = 1;
+</span><span class="code-line">    uint256 public constant SHIELD = 2;
+</span><span class="code-line">    uint256 public constant POTION = 3;
+</span><span class="code-line">
+</span><span class="code-line">    mapping(uint256 =&gt; uint256) public tokenSupply;
+</span><span class="code-line">    mapping(uint256 =&gt; uint256) public maxSupply;
+</span><span class="code-line">
+</span><span class="code-line">    constructor() ERC1155("ipfs://QmBaseHash/{id}.json") {
+</span><span class="code-line">        maxSupply[SWORD] = 1000;
+</span><span class="code-line">        maxSupply[SHIELD] = 500;
+</span><span class="code-line">        maxSupply[POTION] = 10000;
+</span><span class="code-line">    }
+</span><span class="code-line">
+</span><span class="code-line">    function mint(
+</span><span class="code-line">        address to,
+</span><span class="code-line">        uint256 id,
+</span><span class="code-line">        uint256 amount
+</span><span class="code-line">    ) external onlyOwner {
+</span><span class="code-line">        require(tokenSupply[id] + amount &lt;= maxSupply[id], "Exceeds max supply");
+</span><span class="code-line">
+</span><span class="code-line">        _mint(to, id, amount, "");
+</span><span class="code-line">        tokenSupply[id] += amount;
+</span><span class="code-line">    }
+</span><span class="code-line">
+</span><span class="code-line">    function mintBatch(
+</span><span class="code-line">        address to,
+</span><span class="code-line">        uint256[] memory ids,
+</span><span class="code-line">        uint256[] memory amounts
+</span><span class="code-line">    ) external onlyOwner {
+</span><span class="code-line">        for (uint256 i = 0; i &lt; ids.length; i++) {
+</span><span class="code-line">            require(tokenSupply[ids[i]] + amounts[i] &lt;= maxSupply[ids[i]], "Exceeds max supply");
+</span><span class="code-line">            tokenSupply[ids[i]] += amounts[i];
+</span><span class="code-line">        }
+</span><span class="code-line">
+</span><span class="code-line">        _mintBatch(to, ids, amounts, "");
+</span><span class="code-line">    }
+</span><span class="code-line">
+</span><span class="code-line">    function burn(
+</span><span class="code-line">        address from,
+</span><span class="code-line">        uint256 id,
+</span><span class="code-line">        uint256 amount
+</span><span class="code-line">    ) external {
+</span><span class="code-line">        require(from == msg.sender || isApprovedForAll(from, msg.sender), "Not authorized");
+</span><span class="code-line">        _burn(from, id, amount);
+</span><span class="code-line">        tokenSupply[id] -= amount;
+</span><span class="code-line">    }
+</span><span class="code-line">}
+</span></code></pre>
+<h2>Metadata Standards</h2>
+<h3>Off-Chain Metadata (IPFS)</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"NFT #1"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Description of the NFT"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"image"</span><span class="token operator">:</span> <span class="token string">"ipfs://QmImageHash"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"attributes"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"trait_type"</span><span class="token operator">:</span> <span class="token string">"Background"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"value"</span><span class="token operator">:</span> <span class="token string">"Blue"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"trait_type"</span><span class="token operator">:</span> <span class="token string">"Rarity"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"value"</span><span class="token operator">:</span> <span class="token string">"Legendary"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"trait_type"</span><span class="token operator">:</span> <span class="token string">"Power"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"value"</span><span class="token operator">:</span> <span class="token number">95</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"display_type"</span><span class="token operator">:</span> <span class="token string">"number"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"max_value"</span><span class="token operator">:</span> <span class="token number">100</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>On-Chain Metadata</h3>
+<pre class="language-solidity"><code class="language-solidity code-highlight"><span class="code-line"><span class="token keyword">contract</span> <span class="token class-name">OnChainNFT</span> <span class="token keyword">is</span> ERC721 <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">struct</span> <span class="token class-name">Traits</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token builtin">uint8</span> background<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token builtin">uint8</span> body<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token builtin">uint8</span> head<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token builtin">uint8</span> rarity<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">mapping</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> <span class="token operator">=&gt;</span> Traits<span class="token punctuation">)</span> <span class="token keyword">public</span> tokenTraits<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">tokenURI</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> tokenId<span class="token punctuation">)</span> <span class="token keyword">public</span> <span class="token keyword">view</span> override <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">string</span> <span class="token keyword">memory</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        Traits <span class="token keyword">memory</span> traits <span class="token operator">=</span> tokenTraits<span class="token punctuation">[</span>tokenId<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token builtin">string</span> <span class="token keyword">memory</span> json <span class="token operator">=</span> Base64<span class="token punctuation">.</span><span class="token function">encode</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token builtin">bytes</span><span class="token punctuation">(</span>
+</span><span class="code-line">                <span class="token builtin">string</span><span class="token punctuation">(</span>
+</span><span class="code-line">                    abi<span class="token punctuation">.</span><span class="token function">encodePacked</span><span class="token punctuation">(</span>
+</span><span class="code-line">                        <span class="token string">'{"name": "NFT #'</span><span class="token punctuation">,</span> Strings<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span>tokenId<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'",'</span><span class="token punctuation">,</span>
+</span><span class="code-line">                        <span class="token string">'"description": "On-chain NFT",'</span><span class="token punctuation">,</span>
+</span><span class="code-line">                        <span class="token string">'"image": "data:image/svg+xml;base64,'</span><span class="token punctuation">,</span> <span class="token function">generateSVG</span><span class="token punctuation">(</span>traits<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'",'</span><span class="token punctuation">,</span>
+</span><span class="code-line">                        <span class="token string">'"attributes": ['</span><span class="token punctuation">,</span>
+</span><span class="code-line">                        <span class="token string">'{"trait_type": "Background", "value": "'</span><span class="token punctuation">,</span> Strings<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span>traits<span class="token punctuation">.</span>background<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'"},'</span><span class="token punctuation">,</span>
+</span><span class="code-line">                        <span class="token string">'{"trait_type": "Rarity", "value": "'</span><span class="token punctuation">,</span> <span class="token function">getRarityName</span><span class="token punctuation">(</span>traits<span class="token punctuation">.</span>rarity<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'"}'</span><span class="token punctuation">,</span>
+</span><span class="code-line">                        <span class="token string">']}'</span>
+</span><span class="code-line">                    <span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token builtin">string</span><span class="token punctuation">(</span>abi<span class="token punctuation">.</span><span class="token function">encodePacked</span><span class="token punctuation">(</span><span class="token string">"data:application/json;base64,"</span><span class="token punctuation">,</span> json<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">generateSVG</span><span class="token punctuation">(</span>Traits <span class="token keyword">memory</span> traits<span class="token punctuation">)</span> <span class="token keyword">internal</span> <span class="token keyword">pure</span> <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">string</span> <span class="token keyword">memory</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Generate SVG based on traits</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string">"..."</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Royalties (EIP-2981)</h2>
+<pre class="language-solidity"><code class="language-solidity code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string">"@openzeppelin/contracts/interfaces/IERC2981.sol"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">contract</span> <span class="token class-name">NFTWithRoyalties</span> <span class="token keyword">is</span> ERC721<span class="token punctuation">,</span> IERC2981 <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token builtin">address</span> <span class="token keyword">public</span> royaltyRecipient<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token builtin">uint96</span> <span class="token keyword">public</span> royaltyFee <span class="token operator">=</span> <span class="token number">500</span><span class="token punctuation">;</span> <span class="token comment">// 5%</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token function">ERC721</span><span class="token punctuation">(</span><span class="token string">"Royalty NFT"</span><span class="token punctuation">,</span> <span class="token string">"RNFT"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        royaltyRecipient <span class="token operator">=</span> msg<span class="token punctuation">.</span>sender<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">royaltyInfo</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> tokenId<span class="token punctuation">,</span> <span class="token builtin">uint256</span> salePrice<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">external</span>
+</span><span class="code-line">        <span class="token keyword">view</span>
+</span><span class="code-line">        override
+</span><span class="code-line">        <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">address</span> receiver<span class="token punctuation">,</span> <span class="token builtin">uint256</span> royaltyAmount<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">(</span>royaltyRecipient<span class="token punctuation">,</span> <span class="token punctuation">(</span>salePrice <span class="token operator">*</span> royaltyFee<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">setRoyalty</span><span class="token punctuation">(</span><span class="token builtin">address</span> recipient<span class="token punctuation">,</span> <span class="token builtin">uint96</span> fee<span class="token punctuation">)</span> <span class="token keyword">external</span> onlyOwner <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">require</span><span class="token punctuation">(</span>fee <span class="token operator">&lt;=</span> <span class="token number">1000</span><span class="token punctuation">,</span> <span class="token string">"Royalty fee too high"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Max 10%</span>
+</span><span class="code-line">        royaltyRecipient <span class="token operator">=</span> recipient<span class="token punctuation">;</span>
+</span><span class="code-line">        royaltyFee <span class="token operator">=</span> fee<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">supportsInterface</span><span class="token punctuation">(</span><span class="token builtin">bytes4</span> interfaceId<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">public</span>
+</span><span class="code-line">        <span class="token keyword">view</span>
+</span><span class="code-line">        <span class="token function">override</span><span class="token punctuation">(</span>ERC721<span class="token punctuation">,</span> IERC165<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">bool</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> interfaceId <span class="token operator">==</span> <span class="token function">type</span><span class="token punctuation">(</span>IERC2981<span class="token punctuation">)</span><span class="token punctuation">.</span>interfaceId <span class="token operator">||</span>
+</span><span class="code-line">               super<span class="token punctuation">.</span><span class="token function">supportsInterface</span><span class="token punctuation">(</span>interfaceId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Soulbound Tokens (Non-Transferable)</h2>
+<pre class="language-solidity"><code class="language-solidity code-highlight"><span class="code-line"><span class="token keyword">contract</span> <span class="token class-name">SoulboundToken</span> <span class="token keyword">is</span> ERC721 <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token function">ERC721</span><span class="token punctuation">(</span><span class="token string">"Soulbound"</span><span class="token punctuation">,</span> <span class="token string">"SBT"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">_beforeTokenTransfer</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token builtin">address</span> <span class="token keyword">from</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token builtin">address</span> to<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token builtin">uint256</span> tokenId<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token builtin">uint256</span> batchSize
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token keyword">internal</span> virtual override <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">require</span><span class="token punctuation">(</span><span class="token keyword">from</span> <span class="token operator">==</span> <span class="token builtin">address</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">||</span> to <span class="token operator">==</span> <span class="token builtin">address</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"Token is soulbound"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        super<span class="token punctuation">.</span><span class="token function">_beforeTokenTransfer</span><span class="token punctuation">(</span><span class="token keyword">from</span><span class="token punctuation">,</span> to<span class="token punctuation">,</span> tokenId<span class="token punctuation">,</span> batchSize<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">mint</span><span class="token punctuation">(</span><span class="token builtin">address</span> to<span class="token punctuation">)</span> <span class="token keyword">external</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token builtin">uint256</span> tokenId <span class="token operator">=</span> <span class="token function">totalSupply</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">_safeMint</span><span class="token punctuation">(</span>to<span class="token punctuation">,</span> tokenId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Burn is allowed (user can destroy their SBT)</span>
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">burn</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> tokenId<span class="token punctuation">)</span> <span class="token keyword">external</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">require</span><span class="token punctuation">(</span><span class="token function">ownerOf</span><span class="token punctuation">(</span>tokenId<span class="token punctuation">)</span> <span class="token operator">==</span> msg<span class="token punctuation">.</span>sender<span class="token punctuation">,</span> <span class="token string">"Not token owner"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">_burn</span><span class="token punctuation">(</span>tokenId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Dynamic NFTs</h2>
+<pre class="language-solidity"><code class="language-solidity code-highlight"><span class="code-line"><span class="token keyword">contract</span> <span class="token class-name">DynamicNFT</span> <span class="token keyword">is</span> ERC721 <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">struct</span> <span class="token class-name">TokenState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token builtin">uint256</span> level<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token builtin">uint256</span> experience<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token builtin">uint256</span> lastUpdated<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">mapping</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> <span class="token operator">=&gt;</span> TokenState<span class="token punctuation">)</span> <span class="token keyword">public</span> tokenStates<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">gainExperience</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> tokenId<span class="token punctuation">,</span> <span class="token builtin">uint256</span> exp<span class="token punctuation">)</span> <span class="token keyword">external</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">require</span><span class="token punctuation">(</span><span class="token function">ownerOf</span><span class="token punctuation">(</span>tokenId<span class="token punctuation">)</span> <span class="token operator">==</span> msg<span class="token punctuation">.</span>sender<span class="token punctuation">,</span> <span class="token string">"Not token owner"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        TokenState <span class="token keyword">storage</span> state <span class="token operator">=</span> tokenStates<span class="token punctuation">[</span>tokenId<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>experience <span class="token operator">+=</span> exp<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Level up logic</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span>state<span class="token punctuation">.</span>experience <span class="token operator">&gt;=</span> state<span class="token punctuation">.</span>level <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            state<span class="token punctuation">.</span>level<span class="token operator">++</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        state<span class="token punctuation">.</span>lastUpdated <span class="token operator">=</span> block<span class="token punctuation">.</span>timestamp<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">tokenURI</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> tokenId<span class="token punctuation">)</span> <span class="token keyword">public</span> <span class="token keyword">view</span> override <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">string</span> <span class="token keyword">memory</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        TokenState <span class="token keyword">memory</span> state <span class="token operator">=</span> tokenStates<span class="token punctuation">[</span>tokenId<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Generate metadata based on current state</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token function">generateMetadata</span><span class="token punctuation">(</span>tokenId<span class="token punctuation">,</span> state<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">generateMetadata</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> tokenId<span class="token punctuation">,</span> TokenState <span class="token keyword">memory</span> state<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">internal</span>
+</span><span class="code-line">        <span class="token keyword">pure</span>
+</span><span class="code-line">        <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">string</span> <span class="token keyword">memory</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Dynamic metadata generation</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string">""</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Gas-Optimized Minting (ERC721A)</h2>
+<pre class="language-solidity"><code class="language-solidity code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string">"erc721a/contracts/ERC721A.sol"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">contract</span> <span class="token class-name">OptimizedNFT</span> <span class="token keyword">is</span> ERC721A <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token builtin">uint256</span> <span class="token keyword">public</span> <span class="token keyword">constant</span> MAX_SUPPLY <span class="token operator">=</span> <span class="token number">10000</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token builtin">uint256</span> <span class="token keyword">public</span> <span class="token keyword">constant</span> MINT_PRICE <span class="token operator">=</span> <span class="token number">0.05</span> ether<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token function">ERC721A</span><span class="token punctuation">(</span><span class="token string">"Optimized NFT"</span><span class="token punctuation">,</span> <span class="token string">"ONFT"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">mint</span><span class="token punctuation">(</span><span class="token builtin">uint256</span> quantity<span class="token punctuation">)</span> <span class="token keyword">external</span> <span class="token keyword">payable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">require</span><span class="token punctuation">(</span><span class="token function">_totalMinted</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> quantity <span class="token operator">&lt;=</span> MAX_SUPPLY<span class="token punctuation">,</span> <span class="token string">"Exceeds max supply"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">require</span><span class="token punctuation">(</span>msg<span class="token punctuation">.</span>value <span class="token operator">&gt;=</span> MINT_PRICE <span class="token operator">*</span> quantity<span class="token punctuation">,</span> <span class="token string">"Insufficient payment"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">_mint</span><span class="token punctuation">(</span>msg<span class="token punctuation">.</span>sender<span class="token punctuation">,</span> quantity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">function</span> <span class="token function">_baseURI</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">internal</span> <span class="token keyword">pure</span> override <span class="token keyword">returns</span> <span class="token punctuation">(</span><span class="token builtin">string</span> <span class="token keyword">memory</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string">"ipfs://QmBaseHash/"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

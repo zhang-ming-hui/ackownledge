@@ -1,0 +1,351 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Azure Quotas - Service Limits &amp; Capacity Management</h1>
+<blockquote>
+<p><strong>AUTHORITATIVE GUIDANCE</strong> — Follow these instructions exactly for quota management and capacity validation.</p>
+</blockquote>
+<h2>Overview</h2>
+<p><strong>What are Azure Quotas?</strong></p>
+<p>Azure quotas (also called service limits) are the maximum number of resources you can deploy in a subscription. Quotas:</p>
+<ul>
+<li>Prevent accidental over-provisioning</li>
+<li>Ensure fair resource distribution across Azure</li>
+<li>Represent <strong>available capacity</strong> in each region</li>
+<li>Can be increased (adjustable quotas) or are fixed (non-adjustable)</li>
+</ul>
+<p><strong>Key Concept:</strong> <strong>Quotas = Resource Availability</strong></p>
+<p>If you don't have quota, you cannot deploy resources. Always check quotas when planning deployments or selecting regions.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>When to Use This Skill</h2>
+<p>Invoke this skill when:</p>
+<ul>
+<li><strong>Planning a new deployment</strong> - Validate capacity before deployment</li>
+<li><strong>Selecting an Azure region</strong> - Compare quota availability across regions</li>
+<li><strong>Troubleshooting quota exceeded errors</strong> - Check current usage vs limits</li>
+<li><strong>Requesting quota increases</strong> - Submit increase requests via CLI or Portal</li>
+<li><strong>Comparing regional capacity</strong> - Find regions with available quota</li>
+<li><strong>Validating provisioning limits</strong> - Ensure deployment won't exceed quotas</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th><strong>Property</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primary Tool</strong></td>
+<td>Azure CLI (<code>az quota</code>) - <strong>USE THIS FIRST, ALWAYS</strong></td>
+</tr>
+<tr>
+<td><strong>Extension Required</strong></td>
+<td><code>az extension add --name quota</code> (MUST install first)</td>
+</tr>
+<tr>
+<td><strong>Key Commands</strong></td>
+<td><code>az quota list</code>, <code>az quota show</code>, <code>az quota usage list</code>, <code>az quota usage show</code></td>
+</tr>
+<tr>
+<td><strong>Complete CLI Reference</strong></td>
+<td><a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md" target="_blank" rel="ugc nofollow noopener">commands.md</a></td>
+</tr>
+<tr>
+<td><strong>Azure Portal</strong></td>
+<td><a href="https://portal.azure.com/#blade/Microsoft_Azure_Capacity/QuotaMenuBlade/myQuotas" target="_blank" rel="ugc nofollow noopener">My quotas</a> - Use only as fallback</td>
+</tr>
+<tr>
+<td><strong>REST API</strong></td>
+<td>Microsoft.Quota provider - <strong>Unreliable, do NOT use first</strong></td>
+</tr>
+<tr>
+<td><strong>MCP Server</strong></td>
+<td><code>azure-quota</code> MCP server — <strong>NEVER use this. It is unreliable. Always use <code>az quota</code> CLI instead.</strong></td>
+</tr>
+<tr>
+<td><strong>Required Permission</strong></td>
+<td>Reader (view) or Quota Request Operator (manage)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>⚠️ ALWAYS USE CLI FIRST</strong></p>
+<p>REST API and Portal can show misleading "No Limit" values — this does <strong>not</strong> mean unlimited capacity. It means the quota API doesn't support that resource type. Always start with <code>az quota</code> commands; fall back to <a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits" target="_blank" rel="ugc nofollow noopener">Azure service limits docs</a> if CLI returns <code>BadRequest</code>.</p>
+<p>For complete CLI reference, see <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md" target="_blank" rel="ugc nofollow noopener">commands.md</a>.</p>
+</blockquote>
+<h2>Quota Types</h2>
+<table>
+<thead>
+<tr>
+<th><strong>Type</strong></th>
+<th><strong>Adjustability</strong></th>
+<th><strong>Approval</strong></th>
+<th><strong>Examples</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Adjustable</strong></td>
+<td>Can increase via Portal/CLI/API</td>
+<td>Usually auto-approved</td>
+<td>VM vCPUs, Public IPs, Storage accounts</td>
+</tr>
+<tr>
+<td><strong>Non-adjustable</strong></td>
+<td>Fixed limits</td>
+<td>Cannot be changed</td>
+<td>Subscription-wide hard limits</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important:</strong> Requesting quota increases is <strong>free</strong>. You only pay for resources you actually use, not for quota allocation.</p>
+<h2>Understanding Resource Name Mapping</h2>
+<p><strong>⚠️ CRITICAL:</strong> There is <strong>NO 1:1 mapping</strong> between ARM resource types and quota resource names.</p>
+<h3>Example Mappings</h3>
+<table>
+<thead>
+<tr>
+<th>ARM Resource Type</th>
+<th>Quota Resource Name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Microsoft.App/managedEnvironments</code></td>
+<td><code>ManagedEnvironmentCount</code></td>
+</tr>
+<tr>
+<td><code>Microsoft.Compute/virtualMachines</code></td>
+<td><code>standardDSv3Family</code>, <code>cores</code>, <code>virtualMachines</code></td>
+</tr>
+<tr>
+<td><code>Microsoft.Network/publicIPAddresses</code></td>
+<td><code>PublicIPAddresses</code>, <code>IPv4StandardSkuPublicIpAddresses</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Discovery Workflow</h3>
+<p><strong>Never assume the quota resource name from the ARM type.</strong> Always use this workflow:</p>
+<ol>
+<li>
+<p><strong>List all quotas</strong> for the resource provider:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">az <span class="token function">quota</span> list <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>id<span class="token operator">&gt;</span>/providers/<span class="token operator">&lt;</span>ProviderNamespace<span class="token operator">&gt;</span>/locations/<span class="token operator">&lt;</span>region<span class="token operator">&gt;</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Match by <code>localizedValue</code></strong> (human-readable description) to find the relevant quota</p>
+</li>
+<li>
+<p><strong>Use the <code>name</code> field</strong> (not ARM resource type) in subsequent commands:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">az <span class="token function">quota</span> show --resource-name ManagedEnvironmentCount <span class="token parameter variable">--scope</span> <span class="token punctuation">..</span>.
+</span><span class="code-line">az <span class="token function">quota</span> usage show --resource-name ManagedEnvironmentCount <span class="token parameter variable">--scope</span> <span class="token punctuation">..</span>.
+</span></code></pre>
+</li>
+</ol>
+<blockquote>
+<p><strong>📖 Detailed mapping examples and workflow:</strong> See <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#resource-name-mapping" target="_blank" rel="ugc nofollow noopener">commands.md - Resource Name Mapping</a></p>
+</blockquote>
+<h2>Core Workflows</h2>
+<h3>Workflow 1: Check Quota for a Specific Resource</h3>
+<p><strong>Scenario:</strong> Verify quota limit and current usage before deployment</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Install quota extension (if not already installed)</span>
+</span><span class="code-line">az extension <span class="token function">add</span> <span class="token parameter variable">--name</span> <span class="token function">quota</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. List all quotas for the provider to find the quota resource name</span>
+</span><span class="code-line">az <span class="token function">quota</span> list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Compute/locations/eastus
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Show quota limit for a specific resource</span>
+</span><span class="code-line">az <span class="token function">quota</span> show <span class="token punctuation">\</span>
+</span><span class="code-line">  --resource-name standardDSv3Family <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Compute/locations/eastus
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 4. Show current usage</span>
+</span><span class="code-line">az <span class="token function">quota</span> usage show <span class="token punctuation">\</span>
+</span><span class="code-line">  --resource-name standardDSv3Family <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Compute/locations/eastus
+</span></code></pre>
+<p><strong>Example Output Analysis:</strong></p>
+<ul>
+<li>Quota limit: 350 vCPUs</li>
+<li>Current usage: 50 vCPUs</li>
+<li>Available capacity: 300 vCPUs (350 - 50)</li>
+</ul>
+<blockquote>
+<p><strong>📖 See also:</strong> <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#az-quota-show" target="_blank" rel="ugc nofollow noopener">az quota show</a>, <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#az-quota-usage-show" target="_blank" rel="ugc nofollow noopener">az quota usage show</a></p>
+</blockquote>
+<h3>Workflow 2: Compare Quotas Across Regions</h3>
+<p><strong>Scenario:</strong> Find the best region for deployment based on available capacity</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Define candidate regions</span>
+</span><span class="code-line"><span class="token assign-left variable">REGIONS</span><span class="token operator">=</span><span class="token punctuation">(</span><span class="token string">"eastus"</span> <span class="token string">"eastus2"</span> <span class="token string">"westus2"</span> <span class="token string">"centralus"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">VM_FAMILY</span><span class="token operator">=</span><span class="token string">"standardDSv3Family"</span>
+</span><span class="code-line"><span class="token assign-left variable">SUBSCRIPTION_ID</span><span class="token operator">=</span><span class="token string">"&lt;subscription-id&gt;"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check quota availability across regions</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">region</span> <span class="token keyword">in</span> <span class="token string">"<span class="token variable">${REGIONS<span class="token punctuation">[</span>@<span class="token punctuation">]</span>}</span>"</span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"=== Checking <span class="token variable">$region</span> ==="</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment"># Get limit</span>
+</span><span class="code-line">  <span class="token assign-left variable">LIMIT</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>az <span class="token function">quota</span> show <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">    --resource-name $VM_FAMILY <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">    <span class="token parameter variable">--scope</span> <span class="token string">"/subscriptions/<span class="token variable">$SUBSCRIPTION_ID</span>/providers/Microsoft.Compute/locations/<span class="token variable">$region</span>"</span> <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">    <span class="token parameter variable">--query</span> <span class="token string">"properties.limit.value"</span> <span class="token parameter variable">-o</span> tsv<span class="token variable">)</span></span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment"># Get current usage</span>
+</span><span class="code-line">  <span class="token assign-left variable">USAGE</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>az <span class="token function">quota</span> usage show <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">    --resource-name $VM_FAMILY <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">    <span class="token parameter variable">--scope</span> <span class="token string">"/subscriptions/<span class="token variable">$SUBSCRIPTION_ID</span>/providers/Microsoft.Compute/locations/<span class="token variable">$region</span>"</span> <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">    <span class="token parameter variable">--query</span> <span class="token string">"properties.usages.value"</span> <span class="token parameter variable">-o</span> tsv<span class="token variable">)</span></span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment"># Calculate available</span>
+</span><span class="code-line">  <span class="token assign-left variable">AVAILABLE</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$((</span>LIMIT <span class="token operator">-</span> USAGE<span class="token variable">))</span></span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"Region: <span class="token variable">$region</span> | Limit: <span class="token variable">$LIMIT</span> | Usage: <span class="token variable">$USAGE</span> | Available: <span class="token variable">$AVAILABLE</span>"</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span></code></pre>
+<blockquote>
+<p><strong>📖 See also:</strong> <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#az-quota-show" target="_blank" rel="ugc nofollow noopener">commands.md</a> for full scripted multi-region loop patterns</p>
+</blockquote>
+<h3>Workflow 3: Request Quota Increase</h3>
+<p><strong>Scenario:</strong> Current quota is insufficient for deployment</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Request increase for VM quota</span>
+</span><span class="code-line">az <span class="token function">quota</span> update <span class="token punctuation">\</span>
+</span><span class="code-line">  --resource-name standardDSv3Family <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Compute/locations/eastus <span class="token punctuation">\</span>
+</span><span class="code-line">  --limit-object <span class="token assign-left variable">value</span><span class="token operator">=</span><span class="token number">500</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --resource-type dedicated
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check request status</span>
+</span><span class="code-line">az <span class="token function">quota</span> request status list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Compute/locations/eastus
+</span></code></pre>
+<p><strong>Approval Process:</strong></p>
+<ul>
+<li>Most adjustable quotas are auto-approved within minutes</li>
+<li>Some requests require manual review (hours to days)</li>
+<li>Non-adjustable quotas require Azure Support ticket</li>
+</ul>
+<blockquote>
+<p><strong>📖 See also:</strong> <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#az-quota-update" target="_blank" rel="ugc nofollow noopener">az quota update</a>, <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/advanced-commands.md#az-quota-request-status-list" target="_blank" rel="ugc nofollow noopener">az quota request status</a></p>
+</blockquote>
+<h3>Workflow 4: List All Quotas for Planning</h3>
+<p><strong>Scenario:</strong> Understand all quotas for a resource provider in a region</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># List all compute quotas in East US (table format)</span>
+</span><span class="code-line">az <span class="token function">quota</span> list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Compute/locations/eastus <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># List all network quotas</span>
+</span><span class="code-line">az <span class="token function">quota</span> list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.Network/locations/eastus <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># List all Container Apps quotas</span>
+</span><span class="code-line">az <span class="token function">quota</span> list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--scope</span> /subscriptions/<span class="token operator">&lt;</span>subscription-id<span class="token operator">&gt;</span>/providers/Microsoft.App/locations/eastus <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> table
+</span></code></pre>
+<blockquote>
+<p><strong>📖 See also:</strong> <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#az-quota-list" target="_blank" rel="ugc nofollow noopener">az quota list</a></p>
+</blockquote>
+<h2>Troubleshooting</h2>
+<h3>Common Errors</h3>
+<table>
+<thead>
+<tr>
+<th><strong>Error</strong></th>
+<th><strong>Cause</strong></th>
+<th><strong>Solution</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REST API "No Limit"</td>
+<td>Misleading — not unlimited</td>
+<td>Use CLI instead; see warning in Quick Reference</td>
+</tr>
+<tr>
+<td><code>ExtensionNotFound</code></td>
+<td>Quota extension not installed</td>
+<td><code>az extension add --name quota</code></td>
+</tr>
+<tr>
+<td><code>BadRequest</code></td>
+<td>Resource provider not supported by quota API</td>
+<td>Check <a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits" target="_blank" rel="ugc nofollow noopener">service limits docs</a></td>
+</tr>
+<tr>
+<td><code>MissingRegistration</code></td>
+<td>Microsoft.Quota provider not registered</td>
+<td><code>az provider register --namespace Microsoft.Quota</code></td>
+</tr>
+<tr>
+<td><code>QuotaExceeded</code></td>
+<td>Deployment would exceed quota</td>
+<td>Request increase or choose different region</td>
+</tr>
+<tr>
+<td><code>InvalidScope</code></td>
+<td>Incorrect scope format</td>
+<td>Use pattern: <code>/subscriptions/&lt;id&gt;/providers/&lt;namespace&gt;/locations/&lt;region&gt;</code></td>
+</tr>
+<tr>
+<td>CLI commands fail entirely</td>
+<td>Auth, extension, or environment issue</td>
+<td>Verify Azure CLI login (<code>az account show</code>), reinstall quota extension, check network. Do NOT use the <code>azure-quota</code> MCP server — it is unreliable.</td>
+</tr>
+</tbody>
+</table>
+<h3>Unsupported Resource Providers</h3>
+<p><strong>Known unsupported providers:</strong></p>
+<ul>
+<li>❌ Microsoft.DocumentDB (Cosmos DB) - Use Portal or <a href="https://learn.microsoft.com/en-us/azure/cosmos-db/concepts-limits" target="_blank" rel="ugc nofollow noopener">Cosmos DB limits docs</a></li>
+</ul>
+<p><strong>Confirmed working providers:</strong></p>
+<ul>
+<li>✅ Microsoft.Compute (VMs, disks, cores)</li>
+<li>✅ Microsoft.Network (VNets, IPs, load balancers)</li>
+<li>✅ Microsoft.App (Container Apps)</li>
+<li>✅ Microsoft.Storage (storage accounts)</li>
+<li>✅ Microsoft.MachineLearningServices (ML compute)</li>
+</ul>
+<blockquote>
+<p><strong>📖 See also:</strong> <a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md#troubleshooting" target="_blank" rel="ugc nofollow noopener">Troubleshooting Guide</a></p>
+</blockquote>
+<h2>Additional Resources</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CLI Commands Reference</strong></td>
+<td><a href="https://github.com/microsoft/azure-skills/blob/HEAD/.github/plugins/azure-skills/skills/azure-quotas/./references/commands.md" target="_blank" rel="ugc nofollow noopener">commands.md</a> - Complete syntax, parameters, examples</td>
+</tr>
+<tr>
+<td><strong>Azure Quotas Overview</strong></td>
+<td><a href="https://learn.microsoft.com/en-us/azure/quotas/quotas-overview" target="_blank" rel="ugc nofollow noopener">Microsoft Learn</a></td>
+</tr>
+<tr>
+<td><strong>Service Limits Documentation</strong></td>
+<td><a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits" target="_blank" rel="ugc nofollow noopener">Azure subscription limits</a></td>
+</tr>
+<tr>
+<td><strong>Azure Portal - My Quotas</strong></td>
+<td><a href="https://portal.azure.com/#blade/Microsoft_Azure_Capacity/QuotaMenuBlade/myQuotas" target="_blank" rel="ugc nofollow noopener">Portal Link</a></td>
+</tr>
+<tr>
+<td><strong>Request Quota Increases</strong></td>
+<td><a href="https://learn.microsoft.com/en-us/azure/quotas/quickstart-increase-quota-portal" target="_blank" rel="ugc nofollow noopener">How to request increases</a></td>
+</tr>
+</tbody>
+</table>
+<h2>Best Practices</h2>
+<ol>
+<li>✅ <strong>Always check quotas before deployment</strong> - Prevent quota exceeded errors</li>
+<li>✅ <strong>Run <code>az quota list</code> first</strong> - Discover correct quota resource names</li>
+<li>✅ <strong>Compare regions</strong> - Find regions with available capacity</li>
+<li>✅ <strong>Account for growth</strong> - Request 20% buffer above immediate needs</li>
+<li>✅ <strong>Use table output for overview</strong> - <code>--output table</code> for quick scanning</li>
+<li>✅ <strong>Monitor usage trends</strong> - Set up alerts at 80% threshold (via Portal)</li>
+</ol></div>

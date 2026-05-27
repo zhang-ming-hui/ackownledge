@@ -1,3 +1,9 @@
+"""IR 子系统的数据采集协调层。
+
+这里不实现爬虫本身，而是把 `paqu.py` 暴露的采集能力
+整理成更适合 IR 子系统调用的接口。
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -6,8 +12,9 @@ from typing import Dict
 
 from .config import IRConfig
 
-# 获取数据集文件的统计信息
+
 def dataset_stats(path: Path) -> Dict:
+    """读取数据文件的存在性、记录数和更新时间。"""
     if not path.exists():
         return {
             "exists": False,
@@ -30,29 +37,22 @@ def dataset_stats(path: Path) -> Dict:
         ).replace(microsecond=0).isoformat(),
     }
 
-# 检查数据文件是否已过期
-# 如果文件不存在 → 返回 True（视为过期）
 
-# 如果文件的最后修改时间超过了 stale_after_hours 小时 → 返回 True
-
-# 否则返回 False
 def is_stale(path: Path, stale_after_hours: int) -> bool:
+    """判断数据文件是否已经超过允许的新鲜度窗口。"""
     if not path.exists():
         return True
     modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
     return datetime.now(timezone.utc) - modified_at > timedelta(hours=stale_after_hours)
 
-# 执行数据采集流程
-# config: 配置对象，包含采集目标和路径设置
-# target_count: 要采集的目标数量（默认从配置读取）
-# sleep_seconds: 请求间隔秒数（默认从配置读取）
-# headless: 是否无头模式运行浏览器（默认 True）
+
 def run_ingest(
     config: IRConfig,
     target_count: int | None = None,
     sleep_seconds: float | None = None,
     headless: bool = True,
 ) -> Dict:
+    """触发一次共享数据集采集，并返回采集前后的数据快照。"""
     from paqu import crawl_skills
 
     target_count = target_count or config.ingest_target_count

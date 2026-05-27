@@ -1,0 +1,243 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>SLO Implementation</h1>
+<p>Framework for defining and implementing Service Level Indicators (SLIs), Service Level Objectives (SLOs), and error budgets.</p>
+<h2>Purpose</h2>
+<p>Implement measurable reliability targets using SLIs, SLOs, and error budgets to balance reliability with innovation velocity.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Define service reliability targets</li>
+<li>Measure user-perceived reliability</li>
+<li>Implement error budgets</li>
+<li>Create SLO-based alerts</li>
+<li>Track reliability goals</li>
+</ul>
+<h2>SLI/SLO/SLA Hierarchy</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">SLA (Service Level Agreement)
+</span><span class="code-line">  ↓ Contract with customers
+</span><span class="code-line">SLO (Service Level Objective)
+</span><span class="code-line">  ↓ Internal reliability target
+</span><span class="code-line">SLI (Service Level Indicator)
+</span><span class="code-line">  ↓ Actual measurement
+</span></code></pre>
+<h2>Defining SLIs</h2>
+<h3>Common SLI Types</h3>
+<h4>1. Availability SLI</h4>
+<pre class="language-promql"><code class="language-promql code-highlight"><span class="code-line"><span class="token comment"># Successful requests / Total requests</span>
+</span><span class="code-line"><span class="token keyword">sum</span><span class="token punctuation">(</span><span class="token function">rate</span><span class="token punctuation">(</span>http_requests_total<span class="token context-labels"><span class="token punctuation">{</span><span class="token label-key attr-name">status</span><span class="token punctuation">!~</span><span class="token label-value attr-value">"5.."</span><span class="token punctuation">}</span></span><span class="token context-range"><span class="token punctuation">[</span><span class="token range-duration number">28d</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token operator">/</span>
+</span><span class="code-line"><span class="token keyword">sum</span><span class="token punctuation">(</span><span class="token function">rate</span><span class="token punctuation">(</span>http_requests_total<span class="token context-range"><span class="token punctuation">[</span><span class="token range-duration number">28d</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>2. Latency SLI</h4>
+<pre class="language-promql"><code class="language-promql code-highlight"><span class="code-line"><span class="token comment"># Requests below latency threshold / Total requests</span>
+</span><span class="code-line"><span class="token keyword">sum</span><span class="token punctuation">(</span><span class="token function">rate</span><span class="token punctuation">(</span>http_request_duration_seconds_bucket<span class="token context-labels"><span class="token punctuation">{</span><span class="token label-key attr-name">le</span><span class="token punctuation">=</span><span class="token label-value attr-value">"0.5"</span><span class="token punctuation">}</span></span><span class="token context-range"><span class="token punctuation">[</span><span class="token range-duration number">28d</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token operator">/</span>
+</span><span class="code-line"><span class="token keyword">sum</span><span class="token punctuation">(</span><span class="token function">rate</span><span class="token punctuation">(</span>http_request_duration_seconds_count<span class="token context-range"><span class="token punctuation">[</span><span class="token range-duration number">28d</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>3. Durability SLI</h4>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Successful writes / Total writes
+</span><span class="code-line">sum(storage_writes_successful_total)
+</span><span class="code-line">/
+</span><span class="code-line">sum(storage_writes_total)
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>references/slo-definitions.md</code></p>
+<h2>Setting SLO Targets</h2>
+<h3>Availability SLO Examples</h3>
+<table>
+<thead>
+<tr>
+<th>SLO %</th>
+<th>Downtime/Month</th>
+<th>Downtime/Year</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>99%</td>
+<td>7.2 hours</td>
+<td>3.65 days</td>
+</tr>
+<tr>
+<td>99.9%</td>
+<td>43.2 minutes</td>
+<td>8.76 hours</td>
+</tr>
+<tr>
+<td>99.95%</td>
+<td>21.6 minutes</td>
+<td>4.38 hours</td>
+</tr>
+<tr>
+<td>99.99%</td>
+<td>4.32 minutes</td>
+<td>52.56 minutes</td>
+</tr>
+</tbody>
+</table>
+<h3>Choose Appropriate SLOs</h3>
+<p><strong>Consider:</strong></p>
+<ul>
+<li>User expectations</li>
+<li>Business requirements</li>
+<li>Current performance</li>
+<li>Cost of reliability</li>
+<li>Competitor benchmarks</li>
+</ul>
+<p><strong>Example SLOs:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">slos</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> api_availability
+</span><span class="code-line">    <span class="token key atrule">target</span><span class="token punctuation">:</span> <span class="token number">99.9</span>
+</span><span class="code-line">    <span class="token key atrule">window</span><span class="token punctuation">:</span> 28d
+</span><span class="code-line">    <span class="token key atrule">sli</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">      sum(rate(http_requests_total{status!~"5.."}[28d]))
+</span></span><span class="code-line"><span class="token scalar string">      /
+</span></span><span class="code-line"><span class="token scalar string">      sum(rate(http_requests_total[28d]))</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> api_latency_p95
+</span><span class="code-line">    <span class="token key atrule">target</span><span class="token punctuation">:</span> <span class="token number">99</span>
+</span><span class="code-line">    <span class="token key atrule">window</span><span class="token punctuation">:</span> 28d
+</span><span class="code-line">    <span class="token key atrule">sli</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">      sum(rate(http_request_duration_seconds_bucket{le="0.5"}[28d]))
+</span></span><span class="code-line"><span class="token scalar string">      /
+</span></span><span class="code-line"><span class="token scalar string">      sum(rate(http_request_duration_seconds_count[28d]))</span>
+</span></code></pre>
+<h2>Error Budget Calculation</h2>
+<h3>Error Budget Formula</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Error Budget = 1 - SLO Target
+</span></code></pre>
+<p><strong>Example:</strong></p>
+<ul>
+<li>SLO: 99.9% availability</li>
+<li>Error Budget: 0.1% = 43.2 minutes/month</li>
+<li>Current Error: 0.05% = 21.6 minutes/month</li>
+<li>Remaining Budget: 50%</li>
+</ul>
+<h3>Error Budget Policy</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">error_budget_policy</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">remaining_budget</span><span class="token punctuation">:</span> 100%
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> Normal development velocity
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">remaining_budget</span><span class="token punctuation">:</span> 50%
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> Consider postponing risky changes
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">remaining_budget</span><span class="token punctuation">:</span> 10%
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> Freeze non<span class="token punctuation">-</span>critical changes
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">remaining_budget</span><span class="token punctuation">:</span> 0%
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> Feature freeze<span class="token punctuation">,</span> focus on reliability
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>references/error-budget.md</code></p>
+<h2>SLO Implementation</h2>
+<h3>Prometheus Recording Rules</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># SLI Recording Rules</span>
+</span><span class="code-line"><span class="token key atrule">groups</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> sli_rules
+</span><span class="code-line">    <span class="token key atrule">interval</span><span class="token punctuation">:</span> 30s
+</span><span class="code-line">    <span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token comment"># Availability SLI</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">record</span><span class="token punctuation">:</span> sli<span class="token punctuation">:</span>http_availability<span class="token punctuation">:</span>ratio
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          sum(rate(http_requests_total{status!~"5.."}[28d]))
+</span></span><span class="code-line"><span class="token scalar string">          /
+</span></span><span class="code-line"><span class="token scalar string">          sum(rate(http_requests_total[28d]))</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment"># Latency SLI (requests &lt; 500ms)</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">record</span><span class="token punctuation">:</span> sli<span class="token punctuation">:</span>http_latency<span class="token punctuation">:</span>ratio
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          sum(rate(http_request_duration_seconds_bucket{le="0.5"}[28d]))
+</span></span><span class="code-line"><span class="token scalar string">          /
+</span></span><span class="code-line"><span class="token scalar string">          sum(rate(http_request_duration_seconds_count[28d]))</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> slo_rules
+</span><span class="code-line">    <span class="token key atrule">interval</span><span class="token punctuation">:</span> 5m
+</span><span class="code-line">    <span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token comment"># SLO compliance (1 = meeting SLO, 0 = violating)</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">record</span><span class="token punctuation">:</span> slo<span class="token punctuation">:</span>http_availability<span class="token punctuation">:</span>compliance
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> sli<span class="token punctuation">:</span>http_availability<span class="token punctuation">:</span>ratio <span class="token punctuation">&gt;</span>= bool 0.999
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">record</span><span class="token punctuation">:</span> slo<span class="token punctuation">:</span>http_latency<span class="token punctuation">:</span>compliance
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> sli<span class="token punctuation">:</span>http_latency<span class="token punctuation">:</span>ratio <span class="token punctuation">&gt;</span>= bool 0.99
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment"># Error budget remaining (percentage)</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">record</span><span class="token punctuation">:</span> slo<span class="token punctuation">:</span>http_availability<span class="token punctuation">:</span>error_budget_remaining
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          (sli:http_availability:ratio - 0.999) / (1 - 0.999) * 100</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment"># Error budget burn rate</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">record</span><span class="token punctuation">:</span> slo<span class="token punctuation">:</span>http_availability<span class="token punctuation">:</span>burn_rate_5m
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          (1 - (
+</span></span><span class="code-line"><span class="token scalar string">            sum(rate(http_requests_total{status!~"5.."}[5m]))
+</span></span><span class="code-line"><span class="token scalar string">            /
+</span></span><span class="code-line"><span class="token scalar string">            sum(rate(http_requests_total[5m]))
+</span></span><span class="code-line"><span class="token scalar string">          )) / (1 - 0.999)</span>
+</span></code></pre>
+<h3>SLO Alerting Rules</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">groups</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> slo_alerts
+</span><span class="code-line">    <span class="token key atrule">interval</span><span class="token punctuation">:</span> 1m
+</span><span class="code-line">    <span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token comment"># Fast burn: 14.4x rate, 1 hour window</span>
+</span><span class="code-line">      <span class="token comment"># Consumes 2% error budget in 1 hour</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> SLOErrorBudgetBurnFast
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          slo:http_availability:burn_rate_1h &gt; 14.4
+</span></span><span class="code-line"><span class="token scalar string">          and
+</span></span><span class="code-line"><span class="token scalar string">          slo:http_availability:burn_rate_5m &gt; 14.4</span>
+</span><span class="code-line">        <span class="token key atrule">for</span><span class="token punctuation">:</span> 2m
+</span><span class="code-line">        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">severity</span><span class="token punctuation">:</span> critical
+</span><span class="code-line">        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"Fast error budget burn detected"</span>
+</span><span class="code-line">          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Error budget burning at {{ $value }}x rate"</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment"># Slow burn: 6x rate, 6 hour window</span>
+</span><span class="code-line">      <span class="token comment"># Consumes 5% error budget in 6 hours</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> SLOErrorBudgetBurnSlow
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          slo:http_availability:burn_rate_6h &gt; 6
+</span></span><span class="code-line"><span class="token scalar string">          and
+</span></span><span class="code-line"><span class="token scalar string">          slo:http_availability:burn_rate_30m &gt; 6</span>
+</span><span class="code-line">        <span class="token key atrule">for</span><span class="token punctuation">:</span> 15m
+</span><span class="code-line">        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">severity</span><span class="token punctuation">:</span> warning
+</span><span class="code-line">        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"Slow error budget burn detected"</span>
+</span><span class="code-line">          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Error budget burning at {{ $value }}x rate"</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment"># Error budget exhausted</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> SLOErrorBudgetExhausted
+</span><span class="code-line">        <span class="token key atrule">expr</span><span class="token punctuation">:</span> slo<span class="token punctuation">:</span>http_availability<span class="token punctuation">:</span>error_budget_remaining &lt; 0
+</span><span class="code-line">        <span class="token key atrule">for</span><span class="token punctuation">:</span> 5m
+</span><span class="code-line">        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">severity</span><span class="token punctuation">:</span> critical
+</span><span class="code-line">        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"SLO error budget exhausted"</span>
+</span><span class="code-line">          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Error budget remaining: {{ $value }}%"</span>
+</span></code></pre>
+<h2>SLO Dashboard</h2>
+<p><strong>Grafana Dashboard Structure:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌────────────────────────────────────┐
+</span><span class="code-line">│ SLO Compliance (Current)           │
+</span><span class="code-line">│ ✓ 99.95% (Target: 99.9%)          │
+</span><span class="code-line">├────────────────────────────────────┤
+</span><span class="code-line">│ Error Budget Remaining: 65%        │
+</span><span class="code-line">│ ████████░░ 65%                     │
+</span><span class="code-line">├────────────────────────────────────┤
+</span><span class="code-line">│ SLI Trend (28 days)                │
+</span><span class="code-line">│ [Time series graph]                │
+</span><span class="code-line">├────────────────────────────────────┤
+</span><span class="code-line">│ Burn Rate Analysis                 │
+</span><span class="code-line">│ [Burn rate by time window]         │
+</span><span class="code-line">└────────────────────────────────────┘
+</span></code></pre>
+<p><strong>Example Queries:</strong></p>
+<pre class="language-promql"><code class="language-promql code-highlight"><span class="code-line"><span class="token comment"># Current SLO compliance</span>
+</span><span class="code-line">sli:http_availability:ratio <span class="token operator">*</span> <span class="token number">100</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Error budget remaining</span>
+</span><span class="code-line">slo:http_availability:error_budget_remaining
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Days until error budget exhausted (at current burn rate)</span>
+</span><span class="code-line"><span class="token punctuation">(</span>slo:http_availability:error_budget_remaining <span class="token operator">/</span> <span class="token number">100</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token operator">*</span>
+</span><span class="code-line"><span class="token number">28</span>
+</span><span class="code-line"><span class="token operator">/</span>
+</span><span class="code-line"><span class="token punctuation">(</span><span class="token number">1</span> <span class="token operator">-</span> sli:http_availability:ratio<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token punctuation">(</span><span class="token number">1</span> <span class="token operator">-</span> <span class="token number">0.999</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Additional patterns and templates</h2>
+<p>More detailed templates and worked examples live in <code>references/details.md</code>. Read that file for the full pattern library.</p></div>

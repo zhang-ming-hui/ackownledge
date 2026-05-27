@@ -1,0 +1,98 @@
+<p>Audit code for security vulnerabilities commonly introduced by AI code generation. These issues are prevalent in "vibe-coded" apps — projects built rapidly with AI assistance where security fundamentals get skipped.</p>
+<p>AI assistants consistently get these patterns wrong, leading to real breaches, stolen API keys, and drained billing accounts. This skill exists to catch those mistakes before they ship.</p>
+<h2>The Core Principle</h2>
+<p>Never trust the client. Every price, user ID, role, subscription status, feature flag, and rate limit counter must be validated or enforced server-side. If it exists only in the browser, mobile bundle, or request body, an attacker controls it.</p>
+<h2>Audit Process</h2>
+<p>Examine the codebase systematically. For each step, load the relevant reference file only if the codebase uses that technology or pattern. Skip steps that aren't relevant.</p>
+<ol>
+<li>
+<p><strong>Secrets & Environment Variables</strong> — Scan for hardcoded API keys, tokens, or credentials. Check for secrets exposed via client-side env var prefixes (<code>NEXT_PUBLIC_</code>, <code>VITE_</code>, <code>EXPO_PUBLIC_</code>). Verify <code>.env</code> is in <code>.gitignore</code>. See <code>references/secrets-and-env.md</code>.</p>
+</li>
+<li>
+<p><strong>Database Access Control</strong> — Check Supabase RLS policies, Firebase Security Rules, or Convex auth guards. This is the #1 source of critical vulnerabilities in vibe-coded apps. See <code>references/database-security.md</code>.</p>
+</li>
+<li>
+<p><strong>Authentication & Authorization</strong> — Validate JWT handling, middleware auth, Server Action protection, and session management. See <code>references/authentication.md</code>.</p>
+</li>
+</ol><ol start="4">
+<li>
+<p><strong>Rate Limiting & Abuse Prevention</strong> — Ensure auth endpoints, AI calls, and expensive operations have rate limits. Verify rate limit counters can't be tampered with. See <code>references/rate-limiting.md</code>.</p>
+</li>
+<li>
+<p><strong>Payment Security</strong> — Check for client-side price manipulation, webhook signature verification, and subscription status validation. See <code>references/payments.md</code>.</p>
+</li>
+<li>
+<p><strong>Mobile Security</strong> — Verify secure token storage, API key protection via backend proxy, and deep link validation. See <code>references/mobile.md</code>.</p>
+</li>
+<li>
+<p><strong>AI / LLM Integration</strong> — Check for exposed AI API keys, missing usage caps, prompt injection vectors, and unsafe output rendering. See <code>references/ai-integration.md</code>.</p>
+</li>
+<li>
+<p><strong>Deployment Configuration</strong> — Verify production settings, security headers, source map exposure, and environment separation. See <code>references/deployment.md</code>.</p>
+</li>
+<li>
+<p><strong>Data Access & Input Validation</strong> — Check for SQL injection, ORM misuse, and missing input validation. See <code>references/data-access.md</code>.</p>
+</li>
+</ol>
+<p>If doing a partial review or generating code in a specific area, load only the relevant reference files.</p>
+<h2>Core Instructions</h2>
+<ul>
+<li>Report only genuine security issues. Do not nitpick style or non-security concerns.</li>
+<li>When multiple issues exist, prioritize by exploitability and real-world impact.</li>
+<li>If the codebase doesn't use a particular technology (e.g., no Supabase), skip that section entirely.</li>
+<li>When generating new code, consult the relevant reference files proactively to avoid introducing vulnerabilities in the first place.</li>
+<li>If you find a critical issue (exposed secrets, disabled RLS, auth bypass), flag it immediately at the top of your response — don't bury it in a long list.</li>
+</ul>
+<h2>Output Format</h2>
+<p>Organize findings by severity: <strong>Critical</strong> → <strong>High</strong> → <strong>Medium</strong> → <strong>Low</strong>.</p>
+<p>For each issue:</p>
+<ol>
+<li>State the file and relevant line(s).</li>
+<li>Name the vulnerability.</li>
+<li>Explain what an attacker could do (concrete impact, not abstract risk).</li>
+<li>Show a before/after code fix.</li>
+</ol>
+<p>Skip areas with no issues. End with a prioritized summary.</p>
+<h3>Example Output</h3>
+<h4>Critical</h4>
+<p><strong><code>lib/supabase.ts:3</code> — Supabase <code>service_role</code> key exposed in client bundle</strong></p>
+<p>The <code>service_role</code> key bypasses all Row-Level Security. Anyone can extract it from the browser bundle and read, modify, or delete every row in your database.</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Before</span>
+</span><span class="code-line"><span class="token keyword">const</span> supabase <span class="token operator">=</span> <span class="token function">createClient</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NEXT_PUBLIC_SUPABASE_SERVICE_KEY</span><span class="token operator">!</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// After — use the anon key client-side; service_role belongs only in server-side code</span>
+</span><span class="code-line"><span class="token keyword">const</span> supabase <span class="token operator">=</span> <span class="token function">createClient</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NEXT_PUBLIC_SUPABASE_ANON_KEY</span><span class="token operator">!</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>High</h4>
+<p><strong><code>app/api/checkout/route.ts:15</code> — Price taken from client request body</strong></p>
+<p>An attacker can set any price (including $0.01) by modifying the request. Prices must be looked up server-side.</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Before</span>
+</span><span class="code-line"><span class="token keyword">const</span> session <span class="token operator">=</span> <span class="token keyword">await</span> stripe<span class="token punctuation">.</span>checkout<span class="token punctuation">.</span>sessions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  line_items<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> price_data<span class="token operator">:</span> <span class="token punctuation">{</span> unit_amount<span class="token operator">:</span> req<span class="token punctuation">.</span>body<span class="token punctuation">.</span>price <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// After — look up the price server-side</span>
+</span><span class="code-line"><span class="token keyword">const</span> product <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span>products<span class="token punctuation">.</span><span class="token function">findUnique</span><span class="token punctuation">(</span><span class="token punctuation">{</span> where<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token operator">:</span> req<span class="token punctuation">.</span>body<span class="token punctuation">.</span>productId <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> session <span class="token operator">=</span> <span class="token keyword">await</span> stripe<span class="token punctuation">.</span>checkout<span class="token punctuation">.</span>sessions<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  line_items<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> price<span class="token operator">:</span> product<span class="token punctuation">.</span>stripePriceId <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Summary</h3>
+<ol>
+<li><strong>Service role key exposed (Critical):</strong> Anyone can bypass all database security. Rotate the key immediately and move it to server-side only.</li>
+<li><strong>Client-controlled pricing (High):</strong> Attackers can purchase at any price. Use server-side price lookup.</li>
+</ol>
+<h2>When Generating Code</h2>
+<p>These rules also apply proactively. Before writing code that touches auth, payments, database access, API keys, or user data, consult the relevant reference file to avoid introducing the vulnerability in the first place. Prevention is better than detection.</p>
+<h2>References</h2>
+<ul>
+<li><code>references/secrets-and-env.md</code> — API keys, tokens, environment variable configuration, and <code>.gitignore</code> rules.</li>
+<li><code>references/database-security.md</code> — Supabase RLS, Firebase Security Rules, and Convex auth patterns.</li>
+<li><code>references/authentication.md</code> — JWT verification, middleware, Server Actions, and session management.</li>
+<li><code>references/rate-limiting.md</code> — Rate limiting strategies and abuse prevention.</li>
+<li><code>references/payments.md</code> — Stripe security, webhook verification, and price validation.</li>
+<li><code>references/mobile.md</code> — React Native and Expo security: secure storage, API proxy, deep links.</li>
+<li><code>references/ai-integration.md</code> — LLM API key protection, usage caps, prompt injection, and output sanitization.</li>
+<li><code>references/deployment.md</code> — Production configuration, security headers, and environment separation.</li>
+<li><code>references/data-access.md</code> — SQL injection prevention, ORM safety, and input validation.</li>
+</ul>

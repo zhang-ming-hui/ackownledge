@@ -1,0 +1,324 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Code Review Skill</h1>
+<p>You are performing a comprehensive code review on a diff. Your task is to analyze the changed code for security vulnerabilities, anti-patterns, and quality issues.</p>
+<h2>Input Model</h2>
+<p>This skill expects a <strong>diff</strong> to be provided in context before invocation. The caller is responsible for generating the diff.</p>
+<p><strong>Example invocations:</strong></p>
+<ul>
+<li>User pastes PR diff, then runs <code>/code-review</code></li>
+<li>Agent runs <code>git diff HEAD~1</code>, then invokes this skill</li>
+<li>CI tool provides diff content for review</li>
+</ul>
+<p>If no diff is present in context, ask the user to provide one or offer to generate one (e.g., <code>git diff</code>, <code>git diff main..HEAD</code>).</p>
+<hr>
+<h2>Domain Detection</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Auto-detect which checklists to apply based on directory paths in the diff:</p>
+<table>
+<thead>
+<tr>
+<th>Directory</th>
+<th>Domain</th>
+<th>Checklist</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>designer/</code></td>
+<td>Frontend</td>
+<td>Read <code>frontend.md</code></td>
+</tr>
+<tr>
+<td><code>server/</code></td>
+<td>Backend</td>
+<td>Read <code>backend.md</code></td>
+</tr>
+<tr>
+<td><code>rag/</code></td>
+<td>Backend</td>
+<td>Read <code>backend.md</code></td>
+</tr>
+<tr>
+<td><code>runtimes/universal/</code></td>
+<td>Backend</td>
+<td>Read <code>backend.md</code></td>
+</tr>
+<tr>
+<td><code>cli/</code></td>
+<td>CLI/Go</td>
+<td>Generic checks only</td>
+</tr>
+<tr>
+<td><code>config/</code></td>
+<td>Config</td>
+<td>Generic checks only</td>
+</tr>
+</tbody>
+</table>
+<p>If the diff spans multiple domains, load all relevant checklists.</p>
+<hr>
+<h2>Review Process</h2>
+<h3>Step 1: Parse the Diff</h3>
+<p>Extract from the diff:</p>
+<ul>
+<li>List of changed files</li>
+<li>Changed lines (additions and modifications)</li>
+<li>Detected domains based on file paths</li>
+</ul>
+<h3>Step 2: Initialize the Review Document</h3>
+<p>Create a review document using the <strong>temp-files pattern</strong>:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">SANITIZED_PATH</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">echo</span> <span class="token string">"<span class="token environment constant">$PWD</span>"</span> <span class="token operator">|</span> <span class="token function">tr</span> <span class="token string">'/'</span> <span class="token string">'-'</span><span class="token variable">)</span></span>
+</span><span class="code-line"><span class="token assign-left variable">REPORT_DIR</span><span class="token operator">=</span><span class="token string">"/tmp/claude/<span class="token variable">${SANITIZED_PATH}</span>/reviews"</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token string">"<span class="token variable">$REPORT_DIR</span>"</span>
+</span><span class="code-line"><span class="token assign-left variable">TIMESTAMP</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%Y%m%d-%H%M%S<span class="token variable">)</span></span>
+</span><span class="code-line"><span class="token assign-left variable">FILEPATH</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${REPORT_DIR}</span>/code-review-<span class="token variable">${TIMESTAMP}</span>.md"</span>
+</span></code></pre>
+<p>Initialize with this schema:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Code Review Report</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Date</span><span class="token punctuation">**</span></span>: {current date}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Reviewer</span><span class="token punctuation">**</span></span>: Code Review Agent
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Source</span><span class="token punctuation">**</span></span>: {e.g., "PR diff", "unstaged changes", "main..HEAD"}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Files Changed</span><span class="token punctuation">**</span></span>: {count}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Domains Detected</span><span class="token punctuation">**</span></span>: {list}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Status</span><span class="token punctuation">**</span></span>: In Progress
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Summary</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Category </span><span class="token punctuation">|</span><span class="token table-header important"> Items Checked </span><span class="token punctuation">|</span><span class="token table-header important"> Passed </span><span class="token punctuation">|</span><span class="token table-header important"> Failed </span><span class="token punctuation">|</span><span class="token table-header important"> Findings </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">----------</span><span class="token punctuation">|</span><span class="token punctuation">---------------</span><span class="token punctuation">|</span><span class="token punctuation">--------</span><span class="token punctuation">|</span><span class="token punctuation">--------</span><span class="token punctuation">|</span><span class="token punctuation">----------</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Security </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Code Quality </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> LLM Code Smells </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Impact Analysis </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Simplification </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span><span class="token table-data"> 0 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>{domain-specific categories added based on detected domains}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Detailed Findings</span>
+</span><span class="code-line">
+</span><span class="code-line">{findings added here as review progresses}
+</span></code></pre>
+<h3>Step 3: Review Changed Code</h3>
+<p>For EACH checklist item:</p>
+<ol>
+<li><strong>Scope feedback to diff lines only</strong> - Only flag issues in the changed code</li>
+<li><strong>Use file context</strong> - Read full file content to understand surrounding code</li>
+<li><strong>Apply relevant checks</strong> - Use domain-appropriate checklist items</li>
+<li><strong>Document findings</strong> - Record each violation found in changed code</li>
+</ol>
+<p><strong>Key principle</strong>: The diff is what gets reviewed. The rest of the file provides context to make that review accurate.</p>
+<h3>Step 4: Impact Analysis</h3>
+<p>Check if the diff might affect other parts of the codebase:</p>
+<ul>
+<li><strong>Changed exports/interfaces</strong> - Search for usages elsewhere that may break</li>
+<li><strong>Modified API signatures</strong> - Check for callers that need updating</li>
+<li><strong>Altered shared utilities</strong> - Look for consumers that may be affected</li>
+<li><strong>Config/schema changes</strong> - Find code that depends on old structure</li>
+</ul>
+<p>Report any unaccounted-for impacts as findings with severity based on risk.</p>
+<h3>Step 5: Document Each Finding</h3>
+<p>For each issue found, add an entry:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> [{CATEGORY}] {Item Name}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Status</span><span class="token punctuation">**</span></span>: FAIL
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Severity</span><span class="token punctuation">**</span></span>: Critical | High | Medium | Low
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Scope</span><span class="token punctuation">**</span></span>: Changed code | Impact analysis
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">####</span> Violation</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">File</span><span class="token punctuation">**</span></span>: <span class="token code-snippet code keyword">`path/to/file.ext`</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Line(s)</span><span class="token punctuation">**</span></span>: 42-48 (from diff)
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Code</span><span class="token punctuation">**</span></span>:
+</span></code></pre>
+<p>// problematic code snippet from diff</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">- **Issue**: {explanation of what's wrong}
+</span><span class="code-line">- **Recommendation**: {how to fix it}
+</span></code></pre>
+<h3>Step 6: Finalize the Report</h3>
+<p>After completing all checks:</p>
+<ol>
+<li>Update the summary table with final counts</li>
+<li>Add an executive summary:
+<ul>
+<li>Total issues found</li>
+<li>Critical issues requiring immediate attention</li>
+<li>Impact analysis results</li>
+<li>Recommended priority order for fixes</li>
+</ul>
+</li>
+<li>Update status to "Complete"</li>
+<li>Inform the user of the report location</li>
+</ol>
+<hr>
+<h2>Generic Review Categories</h2>
+<p>These checks apply to ALL changed code regardless of domain.</p>
+<hr>
+<h2>Category: Security Fundamentals</h2>
+<h3>Hardcoded Secrets</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>API keys, passwords, secrets in changed code</li>
+<li>Patterns: <code>api_key</code>, <code>apiKey</code>, <code>password</code>, <code>secret</code>, <code>token</code>, <code>credential</code> with literal values</li>
+</ul>
+<p><strong>Pass criteria</strong>: No hardcoded secrets in diff (should use environment variables)
+<strong>Severity</strong>: Critical</p>
+<hr>
+<h3>Eval and Dynamic Code Execution</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>JavaScript/TypeScript: <code>eval(</code>, <code>new Function(</code>, <code>setTimeout("</code>, <code>setInterval("</code></li>
+<li>Python: <code>eval(</code>, <code>exec(</code>, <code>compile(</code></li>
+</ul>
+<p><strong>Pass criteria</strong>: No dynamic code execution in changed lines
+<strong>Severity</strong>: Critical</p>
+<hr>
+<h3>Command Injection</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>Python: <code>subprocess</code> with <code>shell=True</code>, <code>os.system(</code></li>
+<li>Go: <code>exec.Command(</code> with unsanitized input</li>
+</ul>
+<p><strong>Pass criteria</strong>: No unvalidated user input in shell commands
+<strong>Severity</strong>: Critical</p>
+<hr>
+<h2>Category: Code Quality</h2>
+<h3>Console/Print Statements</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>JavaScript/TypeScript: <code>console.log</code>, <code>console.debug</code>, <code>console.info</code></li>
+<li>Python: <code>print(</code> statements</li>
+</ul>
+<p><strong>Pass criteria</strong>: No debug statements in production code changes
+<strong>Severity</strong>: Low</p>
+<hr>
+<h3>TODO/FIXME Comments</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li><code>TODO:</code>, <code>FIXME:</code>, <code>HACK:</code>, <code>XXX:</code> comments</li>
+</ul>
+<p><strong>Pass criteria</strong>: New TODOs should be tracked in issues
+<strong>Severity</strong>: Low</p>
+<hr>
+<h3>Empty Catch/Except Blocks</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>JavaScript/TypeScript: <code>catch { }</code> or <code>catch(e) { }</code></li>
+<li>Python: <code>except: pass</code> or empty except blocks</li>
+</ul>
+<p><strong>Pass criteria</strong>: All error handlers log or rethrow
+<strong>Severity</strong>: High</p>
+<hr>
+<h2>Category: LLM Code Smells</h2>
+<h3>Placeholder Implementations</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li><code>TODO</code>, <code>PLACEHOLDER</code>, <code>IMPLEMENT</code>, <code>NotImplemented</code></li>
+<li>Functions that just <code>return None</code>, <code>return []</code>, <code>return {}</code></li>
+</ul>
+<p><strong>Pass criteria</strong>: No placeholder implementations in production code
+<strong>Severity</strong>: High</p>
+<hr>
+<h3>Overly Generic Abstractions</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>New classes/functions with names like <code>GenericHandler</code>, <code>BaseManager</code>, <code>AbstractFactory</code></li>
+<li>Abstractions without clear reuse justification</li>
+</ul>
+<p><strong>Pass criteria</strong>: Abstractions are justified by actual reuse
+<strong>Severity</strong>: Low</p>
+<hr>
+<h2>Category: Impact Analysis</h2>
+<h3>Breaking Changes</h3>
+<p><strong>Check if diff modifies</strong>:</p>
+<ul>
+<li>Exported functions/classes - search for imports elsewhere</li>
+<li>API endpoints - search for callers</li>
+<li>Shared types/interfaces - search for usages</li>
+<li>Config schemas - search for consumers</li>
+</ul>
+<p><strong>Pass criteria</strong>: All impacted code identified and accounted for
+<strong>Severity</strong>: High (if unaccounted impacts found)</p>
+<hr>
+<h2>Category: Simplification</h2>
+<h3>Duplicate Logic</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>Repeated code patterns (not just syntactic similarity)</li>
+<li>Copy-pasted code with minor variations</li>
+<li>Similar validation, transformation, or formatting logic</li>
+</ul>
+<p><strong>Pass criteria</strong>: No obvious duplication in changed code
+<strong>Severity</strong>: Medium
+<strong>Suggestion</strong>: Extract shared logic into reusable functions</p>
+<hr>
+<h3>Unnecessary Complexity</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>Deeply nested conditionals (more than 3 levels)</li>
+<li>Functions doing multiple unrelated things</li>
+<li>Overly complex control flow</li>
+</ul>
+<p><strong>Pass criteria</strong>: Code is reasonably flat and focused
+<strong>Severity</strong>: Medium
+<strong>Suggestion</strong>: Use early returns, extract helper functions</p>
+<hr>
+<h3>Verbose Patterns</h3>
+<p><strong>Check diff for</strong>:</p>
+<ul>
+<li>Patterns that have simpler alternatives in the language</li>
+<li>Redundant null checks or type assertions</li>
+<li>Unnecessary intermediate variables</li>
+</ul>
+<p><strong>Pass criteria</strong>: Code uses idiomatic patterns
+<strong>Severity</strong>: Low
+<strong>Suggestion</strong>: Simplify using language built-ins</p>
+<hr>
+<h2>Domain-Specific Review Items</h2>
+<p>Based on detected domains, read and apply the appropriate checklists:</p>
+<ul>
+<li><strong>Frontend detected</strong> (<code>designer/</code>): Read <code>frontend.md</code> and apply those checks to changed code</li>
+<li><strong>Backend detected</strong> (<code>server/</code>, <code>rag/</code>, <code>runtimes/</code>): Read <code>backend.md</code> and apply those checks to changed code</li>
+</ul>
+<hr>
+<h2>Final Summary Template</h2>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Executive Summary</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Review completed</span><span class="token punctuation">**</span></span>: {timestamp}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Total findings</span><span class="token punctuation">**</span></span>: {count}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Critical Issues (Must Fix)</span>
+</span><span class="code-line"><span class="token list punctuation">1.</span> {issue 1}
+</span><span class="code-line"><span class="token list punctuation">2.</span> {issue 2}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Impact Analysis Results</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> {summary of any breaking changes or unaccounted impacts}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> High Priority (Should Fix)</span>
+</span><span class="code-line"><span class="token list punctuation">1.</span> {issue 1}
+</span><span class="code-line"><span class="token list punctuation">2.</span> {issue 2}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Recommendations</span>
+</span><span class="code-line">{Overall recommendations based on the changes reviewed}
+</span></code></pre>
+<hr>
+<h2>Notes for the Agent</h2>
+<ol>
+<li>
+<p><strong>Scope to diff</strong>: Only flag issues in the changed lines. Don't review unchanged code.</p>
+</li>
+<li>
+<p><strong>Use context</strong>: Read full files to understand the changes, but feedback targets the diff only.</p>
+</li>
+<li>
+<p><strong>Check impacts</strong>: When changes touch exports, APIs, or shared code, search for affected consumers.</p>
+</li>
+<li>
+<p><strong>Be specific</strong>: Include file paths, line numbers (from diff), and code snippets for every finding.</p>
+</li>
+<li>
+<p><strong>Prioritize</strong>: Flag critical security issues immediately.</p>
+</li>
+<li>
+<p><strong>Provide solutions</strong>: Each finding should include a recommendation for how to fix it.</p>
+</li>
+<li>
+<p><strong>Update incrementally</strong>: Update the review document after each category, not at the end.</p>
+</li>
+</ol></div>

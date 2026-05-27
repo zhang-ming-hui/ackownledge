@@ -1,0 +1,419 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>React State Management</h1>
+<p>Comprehensive guide to modern React state management patterns, from local component state to global stores and server state synchronization.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Setting up global state management in a React app</li>
+<li>Choosing between Redux Toolkit, Zustand, or Jotai</li>
+<li>Managing server state with React Query or SWR</li>
+<li>Implementing optimistic updates</li>
+<li>Debugging state-related issues</li>
+<li>Migrating from legacy Redux to modern patterns</li>
+</ul>
+<h2>Core Concepts</h2>
+<h3>1. State Categories</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+<th>Solutions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Local State</strong></td>
+<td>Component-specific, UI state</td>
+<td>useState, useReducer</td>
+</tr>
+<tr>
+<td><strong>Global State</strong></td>
+<td>Shared across components</td>
+<td>Redux Toolkit, Zustand, Jotai</td>
+</tr>
+<tr>
+<td><strong>Server State</strong></td>
+<td>Remote data, caching</td>
+<td>React Query, SWR, RTK Query</td>
+</tr>
+<tr>
+<td><strong>URL State</strong></td>
+<td>Route parameters, search</td>
+<td>React Router, nuqs</td>
+</tr>
+<tr>
+<td><strong>Form State</strong></td>
+<td>Input values, validation</td>
+<td>React Hook Form, Formik</td>
+</tr>
+</tbody>
+</table>
+<h3>2. Selection Criteria</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Small app, simple state → Zustand or Jotai
+</span><span class="code-line">Large app, complex state → Redux Toolkit
+</span><span class="code-line">Heavy server interaction → React Query + light client state
+</span><span class="code-line">Atomic/granular updates → Jotai
+</span></code></pre>
+<h2>Quick Start</h2>
+<h3>Zustand (Simplest)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// store/useStore.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> create <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> devtools<span class="token punctuation">,</span> persist <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">AppState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  user<span class="token operator">:</span> User <span class="token operator">|</span> <span class="token keyword">null</span>
+</span><span class="code-line">  theme<span class="token operator">:</span> <span class="token string">'light'</span> <span class="token operator">|</span> <span class="token string">'dark'</span>
+</span><span class="code-line">  <span class="token function-variable function">setUser</span><span class="token operator">:</span> <span class="token punctuation">(</span>user<span class="token operator">:</span> User <span class="token operator">|</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span>
+</span><span class="code-line">  <span class="token function-variable function">toggleTheme</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>AppState<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">devtools</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token function">persist</span><span class="token punctuation">(</span>
+</span><span class="code-line">      <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        user<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">        theme<span class="token operator">:</span> <span class="token string">'light'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function-variable function">setUser</span><span class="token operator">:</span> <span class="token punctuation">(</span>user<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> user <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function-variable function">toggleTheme</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">          theme<span class="token operator">:</span> state<span class="token punctuation">.</span>theme <span class="token operator">===</span> <span class="token string">'light'</span> <span class="token operator">?</span> <span class="token string">'dark'</span> <span class="token operator">:</span> <span class="token string">'light'</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'app-storage'</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Usage in component</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">Header</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> user<span class="token punctuation">,</span> theme<span class="token punctuation">,</span> toggleTheme <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>header className<span class="token operator">=</span><span class="token punctuation">{</span>theme<span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token punctuation">{</span>user<span class="token operator">?.</span>name<span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>button onClick<span class="token operator">=</span><span class="token punctuation">{</span>toggleTheme<span class="token punctuation">}</span><span class="token operator">&gt;</span>Toggle Theme<span class="token operator">&lt;</span><span class="token operator">/</span>button<span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>header<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Patterns</h2>
+<h3>Pattern 1: Redux Toolkit with TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// store/index.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> configureStore <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@reduxjs/toolkit"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> TypedUseSelectorHook<span class="token punctuation">,</span> useDispatch<span class="token punctuation">,</span> useSelector <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"react-redux"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> userReducer <span class="token keyword">from</span> <span class="token string">"./slices/userSlice"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> cartReducer <span class="token keyword">from</span> <span class="token string">"./slices/cartSlice"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> store <span class="token operator">=</span> <span class="token function">configureStore</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  reducer<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    user<span class="token operator">:</span> userReducer<span class="token punctuation">,</span>
+</span><span class="code-line">    cart<span class="token operator">:</span> cartReducer<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">middleware</span><span class="token operator">:</span> <span class="token punctuation">(</span>getDefaultMiddleware<span class="token punctuation">)</span> <span class="token operator">=&gt;</span>
+</span><span class="code-line">    <span class="token function">getDefaultMiddleware</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      serializableCheck<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        ignoredActions<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"persist/PERSIST"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">RootState</span> <span class="token operator">=</span> ReturnType<span class="token operator">&lt;</span><span class="token keyword">typeof</span> store<span class="token punctuation">.</span>getState<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">AppDispatch</span> <span class="token operator">=</span> <span class="token keyword">typeof</span> store<span class="token punctuation">.</span>dispatch<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Typed hooks</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token function-variable function">useAppDispatch</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> AppDispatch <span class="token operator">=</span> useDispatch<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> useAppSelector<span class="token operator">:</span> TypedUseSelectorHook<span class="token operator">&lt;</span>RootState<span class="token operator">&gt;</span> <span class="token operator">=</span> useSelector<span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// store/slices/userSlice.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createSlice<span class="token punctuation">,</span> createAsyncThunk<span class="token punctuation">,</span> PayloadAction <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@reduxjs/toolkit"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">User</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  email<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  current<span class="token operator">:</span> User <span class="token operator">|</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  status<span class="token operator">:</span> <span class="token string">"idle"</span> <span class="token operator">|</span> <span class="token string">"loading"</span> <span class="token operator">|</span> <span class="token string">"succeeded"</span> <span class="token operator">|</span> <span class="token string">"failed"</span><span class="token punctuation">;</span>
+</span><span class="code-line">  error<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> initialState<span class="token operator">:</span> UserState <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  current<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  status<span class="token operator">:</span> <span class="token string">"idle"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  error<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> fetchUser <span class="token operator">=</span> <span class="token function">createAsyncThunk</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token string">"user/fetchUser"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span>userId<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> rejectWithValue <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>userId<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>response<span class="token punctuation">.</span>ok<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">"Failed to fetch user"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token function">rejectWithValue</span><span class="token punctuation">(</span><span class="token punctuation">(</span>error <span class="token keyword">as</span> Error<span class="token punctuation">)</span><span class="token punctuation">.</span>message<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> userSlice <span class="token operator">=</span> <span class="token function">createSlice</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  initialState<span class="token punctuation">,</span>
+</span><span class="code-line">  reducers<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function-variable function">setUser</span><span class="token operator">:</span> <span class="token punctuation">(</span>state<span class="token punctuation">,</span> action<span class="token operator">:</span> PayloadAction<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      state<span class="token punctuation">.</span>current <span class="token operator">=</span> action<span class="token punctuation">.</span>payload<span class="token punctuation">;</span>
+</span><span class="code-line">      state<span class="token punctuation">.</span>status <span class="token operator">=</span> <span class="token string">"succeeded"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">clearUser</span><span class="token operator">:</span> <span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      state<span class="token punctuation">.</span>current <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">      state<span class="token punctuation">.</span>status <span class="token operator">=</span> <span class="token string">"idle"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">extraReducers</span><span class="token operator">:</span> <span class="token punctuation">(</span>builder<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    builder
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">addCase</span><span class="token punctuation">(</span>fetchUser<span class="token punctuation">.</span>pending<span class="token punctuation">,</span> <span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>status <span class="token operator">=</span> <span class="token string">"loading"</span><span class="token punctuation">;</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>error <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">addCase</span><span class="token punctuation">(</span>fetchUser<span class="token punctuation">.</span>fulfilled<span class="token punctuation">,</span> <span class="token punctuation">(</span>state<span class="token punctuation">,</span> action<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>status <span class="token operator">=</span> <span class="token string">"succeeded"</span><span class="token punctuation">;</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>current <span class="token operator">=</span> action<span class="token punctuation">.</span>payload<span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">addCase</span><span class="token punctuation">(</span>fetchUser<span class="token punctuation">.</span>rejected<span class="token punctuation">,</span> <span class="token punctuation">(</span>state<span class="token punctuation">,</span> action<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>status <span class="token operator">=</span> <span class="token string">"failed"</span><span class="token punctuation">;</span>
+</span><span class="code-line">        state<span class="token punctuation">.</span>error <span class="token operator">=</span> action<span class="token punctuation">.</span>payload <span class="token keyword">as</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token punctuation">{</span> setUser<span class="token punctuation">,</span> clearUser <span class="token punctuation">}</span> <span class="token operator">=</span> userSlice<span class="token punctuation">.</span>actions<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> userSlice<span class="token punctuation">.</span>reducer<span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Pattern 2: Zustand with Slices (Scalable)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// store/slices/createUserSlice.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> StateCreator <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zustand"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">interface</span> <span class="token class-name">UserSlice</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  user<span class="token operator">:</span> User <span class="token operator">|</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  isAuthenticated<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function-variable function">login</span><span class="token operator">:</span> <span class="token punctuation">(</span>credentials<span class="token operator">:</span> Credentials<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function-variable function">logout</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> createUserSlice<span class="token operator">:</span> StateCreator<span class="token operator">&lt;</span>
+</span><span class="code-line">  UserSlice <span class="token operator">&amp;</span> CartSlice<span class="token punctuation">,</span> <span class="token comment">// Combined store type</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  UserSlice
+</span><span class="code-line"><span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">(</span>set<span class="token punctuation">,</span> get<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  user<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  isAuthenticated<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">login</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>credentials<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token keyword">await</span> authApi<span class="token punctuation">.</span><span class="token function">login</span><span class="token punctuation">(</span>credentials<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> user<span class="token punctuation">,</span> isAuthenticated<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">logout</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> user<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span> isAuthenticated<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token comment">// Can access other slices</span>
+</span><span class="code-line">    <span class="token comment">// get().clearCart()</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// store/index.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> create <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zustand"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createUserSlice<span class="token punctuation">,</span> UserSlice <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"./slices/createUserSlice"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createCartSlice<span class="token punctuation">,</span> CartSlice <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"./slices/createCartSlice"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">StoreState</span> <span class="token operator">=</span> UserSlice <span class="token operator">&amp;</span> CartSlice<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>StoreState<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token operator">...</span>args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token operator">...</span><span class="token function">createUserSlice</span><span class="token punctuation">(</span><span class="token operator">...</span>args<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token operator">...</span><span class="token function">createCartSlice</span><span class="token punctuation">(</span><span class="token operator">...</span>args<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Selective subscriptions (prevents unnecessary re-renders)</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token function-variable function">useUser</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>user<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token function-variable function">useCart</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>cart<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Pattern 3: Jotai for Atomic State</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// atoms/userAtoms.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> atom <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'jotai'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> atomWithStorage <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'jotai/utils'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Basic atom</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> userAtom <span class="token operator">=</span> <span class="token generic-function"><span class="token function">atom</span><span class="token generic class-name"><span class="token operator">&lt;</span>User <span class="token operator">|</span> <span class="token keyword">null</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Derived atom (computed)</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> isAuthenticatedAtom <span class="token operator">=</span> <span class="token function">atom</span><span class="token punctuation">(</span><span class="token punctuation">(</span>get<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">get</span><span class="token punctuation">(</span>userAtom<span class="token punctuation">)</span> <span class="token operator">!==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Atom with localStorage persistence</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> themeAtom <span class="token operator">=</span> <span class="token generic-function"><span class="token function">atomWithStorage</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token string">'light'</span> <span class="token operator">|</span> <span class="token string">'dark'</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token string">'theme'</span><span class="token punctuation">,</span> <span class="token string">'light'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Async atom</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> userProfileAtom <span class="token operator">=</span> <span class="token function">atom</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span>get<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token function">get</span><span class="token punctuation">(</span>userAtom<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>user<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">null</span>
+</span><span class="code-line">  <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>user<span class="token punctuation">.</span>id<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/profile</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">return</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Write-only atom (action)</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> logoutAtom <span class="token operator">=</span> <span class="token function">atom</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>get<span class="token punctuation">,</span> set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">set</span><span class="token punctuation">(</span>userAtom<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token function">set</span><span class="token punctuation">(</span>cartAtom<span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">  localStorage<span class="token punctuation">.</span><span class="token function">removeItem</span><span class="token punctuation">(</span><span class="token string">'token'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Usage</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">Profile</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>user<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useAtom</span><span class="token punctuation">(</span>userAtom<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span><span class="token punctuation">,</span> logout<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useAtom</span><span class="token punctuation">(</span>logoutAtom<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>profile<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useAtom</span><span class="token punctuation">(</span>userProfileAtom<span class="token punctuation">)</span> <span class="token comment">// Suspense-enabled</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>Suspense fallback<span class="token operator">=</span><span class="token punctuation">{</span><span class="token operator">&lt;</span>Skeleton <span class="token operator">/</span><span class="token operator">&gt;</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>ProfileContent profile<span class="token operator">=</span><span class="token punctuation">{</span>profile<span class="token punctuation">}</span> onLogout<span class="token operator">=</span><span class="token punctuation">{</span>logout<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>Suspense<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern 4: React Query for Server State</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// hooks/useUsers.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useQuery<span class="token punctuation">,</span> useMutation<span class="token punctuation">,</span> useQueryClient <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@tanstack/react-query"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Query keys factory</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> userKeys <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  all<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"users"</span><span class="token punctuation">]</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">lists</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token operator">...</span>userKeys<span class="token punctuation">.</span>all<span class="token punctuation">,</span> <span class="token string">"list"</span><span class="token punctuation">]</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">list</span><span class="token operator">:</span> <span class="token punctuation">(</span>filters<span class="token operator">:</span> UserFilters<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token operator">...</span>userKeys<span class="token punctuation">.</span><span class="token function">lists</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> filters<span class="token punctuation">]</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">details</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token operator">...</span>userKeys<span class="token punctuation">.</span>all<span class="token punctuation">,</span> <span class="token string">"detail"</span><span class="token punctuation">]</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">detail</span><span class="token operator">:</span> <span class="token punctuation">(</span>id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">[</span><span class="token operator">...</span>userKeys<span class="token punctuation">.</span><span class="token function">details</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> id<span class="token punctuation">]</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Fetch hook</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">useUsers</span><span class="token punctuation">(</span>filters<span class="token operator">:</span> UserFilters<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token function">useQuery</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    queryKey<span class="token operator">:</span> userKeys<span class="token punctuation">.</span><span class="token function">list</span><span class="token punctuation">(</span>filters<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">queryFn</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">fetchUsers</span><span class="token punctuation">(</span>filters<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    staleTime<span class="token operator">:</span> <span class="token number">5</span> <span class="token operator">*</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">,</span> <span class="token comment">// 5 minutes</span>
+</span><span class="code-line">    gcTime<span class="token operator">:</span> <span class="token number">30</span> <span class="token operator">*</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">,</span> <span class="token comment">// 30 minutes (formerly cacheTime)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Single user hook</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">useUser</span><span class="token punctuation">(</span>id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token function">useQuery</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    queryKey<span class="token operator">:</span> userKeys<span class="token punctuation">.</span><span class="token function">detail</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">queryFn</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">fetchUser</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    enabled<span class="token operator">:</span> <span class="token operator">!</span><span class="token operator">!</span>id<span class="token punctuation">,</span> <span class="token comment">// Don't fetch if no id</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Mutation with optimistic update</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">useUpdateUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> queryClient <span class="token operator">=</span> <span class="token function">useQueryClient</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token function">useMutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    mutationFn<span class="token operator">:</span> updateUser<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">onMutate</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>newUser<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Cancel outgoing refetches</span>
+</span><span class="code-line">      <span class="token keyword">await</span> queryClient<span class="token punctuation">.</span><span class="token function">cancelQueries</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        queryKey<span class="token operator">:</span> userKeys<span class="token punctuation">.</span><span class="token function">detail</span><span class="token punctuation">(</span>newUser<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Snapshot previous value</span>
+</span><span class="code-line">      <span class="token keyword">const</span> previousUser <span class="token operator">=</span> queryClient<span class="token punctuation">.</span><span class="token function">getQueryData</span><span class="token punctuation">(</span>
+</span><span class="code-line">        userKeys<span class="token punctuation">.</span><span class="token function">detail</span><span class="token punctuation">(</span>newUser<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Optimistically update</span>
+</span><span class="code-line">      queryClient<span class="token punctuation">.</span><span class="token function">setQueryData</span><span class="token punctuation">(</span>userKeys<span class="token punctuation">.</span><span class="token function">detail</span><span class="token punctuation">(</span>newUser<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span> newUser<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> previousUser <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">onError</span><span class="token operator">:</span> <span class="token punctuation">(</span>err<span class="token punctuation">,</span> newUser<span class="token punctuation">,</span> context<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Rollback on error</span>
+</span><span class="code-line">      queryClient<span class="token punctuation">.</span><span class="token function">setQueryData</span><span class="token punctuation">(</span>
+</span><span class="code-line">        userKeys<span class="token punctuation">.</span><span class="token function">detail</span><span class="token punctuation">(</span>newUser<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        context<span class="token operator">?.</span>previousUser<span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">onSettled</span><span class="token operator">:</span> <span class="token punctuation">(</span>data<span class="token punctuation">,</span> error<span class="token punctuation">,</span> variables<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Refetch after mutation</span>
+</span><span class="code-line">      queryClient<span class="token punctuation">.</span><span class="token function">invalidateQueries</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        queryKey<span class="token operator">:</span> userKeys<span class="token punctuation">.</span><span class="token function">detail</span><span class="token punctuation">(</span>variables<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern 5: Combining Client + Server State</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Zustand for client state</span>
+</span><span class="code-line"><span class="token keyword">const</span> useUIStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>UIState<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  sidebarOpen<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">  modal<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">toggleSidebar</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> sidebarOpen<span class="token operator">:</span> <span class="token operator">!</span>s<span class="token punctuation">.</span>sidebarOpen <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">openModal</span><span class="token operator">:</span> <span class="token punctuation">(</span>modal<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> modal <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">closeModal</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> modal<span class="token operator">:</span> <span class="token keyword">null</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// React Query for server state</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">Dashboard</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> sidebarOpen<span class="token punctuation">,</span> toggleSidebar <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useUIStore</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> users<span class="token punctuation">,</span> isLoading <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useUsers</span><span class="token punctuation">(</span><span class="token punctuation">{</span> active<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> stats <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useStats</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>isLoading<span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token operator">&lt;</span>DashboardSkeleton <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>div className<span class="token operator">=</span><span class="token punctuation">{</span>sidebarOpen <span class="token operator">?</span> <span class="token string">'with-sidebar'</span> <span class="token operator">:</span> <span class="token string">''</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>Sidebar open<span class="token operator">=</span><span class="token punctuation">{</span>sidebarOpen<span class="token punctuation">}</span> onToggle<span class="token operator">=</span><span class="token punctuation">{</span>toggleSidebar<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>main<span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>StatsCards stats<span class="token operator">=</span><span class="token punctuation">{</span>stats<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>UserTable users<span class="token operator">=</span><span class="token punctuation">{</span>users<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span><span class="token operator">/</span>main<span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<h3>Do's</h3>
+<ul>
+<li><strong>Colocate state</strong> - Keep state as close to where it's used as possible</li>
+<li><strong>Use selectors</strong> - Prevent unnecessary re-renders with selective subscriptions</li>
+<li><strong>Normalize data</strong> - Flatten nested structures for easier updates</li>
+<li><strong>Type everything</strong> - Full TypeScript coverage prevents runtime errors</li>
+<li><strong>Separate concerns</strong> - Server state (React Query) vs client state (Zustand)</li>
+</ul>
+<h3>Don'ts</h3>
+<ul>
+<li><strong>Don't over-globalize</strong> - Not everything needs to be in global state</li>
+<li><strong>Don't duplicate server state</strong> - Let React Query manage it</li>
+<li><strong>Don't mutate directly</strong> - Always use immutable updates</li>
+<li><strong>Don't store derived data</strong> - Compute it instead</li>
+<li><strong>Don't mix paradigms</strong> - Pick one primary solution per category</li>
+</ul>
+<h2>Migration Guides</h2>
+<h3>From Legacy Redux to RTK</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Before (legacy Redux)</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token constant">ADD_TODO</span> <span class="token operator">=</span> <span class="token string">"ADD_TODO"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">addTodo</span> <span class="token operator">=</span> <span class="token punctuation">(</span>text<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> type<span class="token operator">:</span> <span class="token constant">ADD_TODO</span><span class="token punctuation">,</span> payload<span class="token operator">:</span> text <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">todosReducer</span><span class="token punctuation">(</span>state <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span> action<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">switch</span> <span class="token punctuation">(</span>action<span class="token punctuation">.</span>type<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token constant">ADD_TODO</span><span class="token operator">:</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">[</span><span class="token operator">...</span>state<span class="token punctuation">,</span> <span class="token punctuation">{</span> text<span class="token operator">:</span> action<span class="token punctuation">.</span>payload<span class="token punctuation">,</span> completed<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">default</span><span class="token operator">:</span>
+</span><span class="code-line">      <span class="token keyword">return</span> state<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// After (Redux Toolkit)</span>
+</span><span class="code-line"><span class="token keyword">const</span> todosSlice <span class="token operator">=</span> <span class="token function">createSlice</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token string">"todos"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  initialState<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  reducers<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function-variable function">addTodo</span><span class="token operator">:</span> <span class="token punctuation">(</span>state<span class="token punctuation">,</span> action<span class="token operator">:</span> PayloadAction<span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Immer allows "mutations"</span>
+</span><span class="code-line">      state<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">{</span> text<span class="token operator">:</span> action<span class="token punctuation">.</span>payload<span class="token punctuation">,</span> completed<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre></div>

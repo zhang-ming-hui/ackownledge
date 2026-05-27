@@ -1,3 +1,5 @@
+"""IR 检索效果离线评测工具。"""
+
 from __future__ import annotations
 
 import json
@@ -14,6 +16,7 @@ def evaluate_queries(
     top_k: int,
     mode: str = "hybrid",
 ) -> Dict:
+    """在单个评测集上执行检索并汇总指标。"""
     with eval_path.open("r", encoding="utf-8") as file:
         cases = json.load(file)
 
@@ -147,6 +150,7 @@ def compare_retrieval_modes(
     top_k: int,
     modes: List[str] | None = None,
 ) -> Dict:
+    """比较多种检索模式在同一评测集上的表现。"""
     modes = modes or ["tfidf", "bm25", "hybrid"]
     reports = [evaluate_queries(engine, eval_path, top_k=top_k, mode=mode) for mode in modes]
 
@@ -177,6 +181,7 @@ def compare_retrieval_modes(
 
 
 def print_evaluation_report(report: Dict) -> None:
+    """打印单次评测报告。"""
     metrics = report["metrics"]
     print(f"评测集: {report['eval_path']} | 样本数: {report['query_count']} | top_k: {report['top_k']}")
     print(f"Hit@{report['top_k']}: {metrics['hit_at_k']:.2%}")
@@ -210,6 +215,7 @@ def print_evaluation_report(report: Dict) -> None:
 
 
 def print_mode_comparison(report: Dict) -> None:
+    """打印模式比较摘要。"""
     print(f"Mode comparison | eval={report['eval_path']} | top_k={report['top_k']}")
     for item in report["summary"]:
         print(

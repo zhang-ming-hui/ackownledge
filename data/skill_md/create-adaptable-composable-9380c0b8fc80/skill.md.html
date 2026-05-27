@@ -1,0 +1,59 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Create Adaptable Composable</h1>
+<p>Adaptable composables are reusable functions that can accept both reactive and non-reactive inputs. This allows developers to use the composable in a variety of contexts without worrying about the reactivity of the inputs.</p>
+<p>Steps to design an adaptable composable in Vue.js:</p>
+<ol>
+<li>Confirm the composable's purpose and API design and expected inputs/outputs.</li>
+<li>Identify inputs params that should be reactive (MaybeRef / MaybeRefOrGetter).</li>
+<li>Use <code>toValue()</code> or <code>toRef()</code> to normalize inputs inside reactive effects.</li>
+<li>Implement the core logic of the composable using Vue's reactivity APIs.</li>
+</ol>
+<h2>Core Type Concepts</h2>
+<h3>Type Utilities</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">/**
+</span></span><span class="code-line"><span class="token comment"> * value or writable ref (value/ref/shallowRef/writable computed)
+</span></span><span class="code-line"><span class="token comment"> */</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">MaybeRef<span class="token operator">&lt;</span><span class="token constant">T</span> <span class="token operator">=</span> <span class="token builtin">any</span><span class="token operator">&gt;</span></span> <span class="token operator">=</span> <span class="token constant">T</span> <span class="token operator">|</span> Ref<span class="token operator">&lt;</span><span class="token constant">T</span><span class="token operator">&gt;</span> <span class="token operator">|</span> ShallowRef<span class="token operator">&lt;</span><span class="token constant">T</span><span class="token operator">&gt;</span> <span class="token operator">|</span> WritableComputedRef<span class="token operator">&lt;</span><span class="token constant">T</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>/**</p>
+<ul>
+<li>MaybeRef + ComputedRef + () =&gt; T
+*/
+export type MaybeRefOrGetter&lt;T = any&gt; = MaybeRef | ComputedRef | (() =&gt; T);</li>
+</ul>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">### Policy and Rules
+</span><span class="code-line">
+</span><span class="code-line">- Read-only, computed-friendly input: use `MaybeRefOrGetter`
+</span><span class="code-line">- Needs to be writable / two-way input: use `MaybeRef`
+</span><span class="code-line">- Parameter might be a function value (callback/predicate/comparator): do not use `MaybeRefOrGetter`, or you may accidentally invoke it as a getter.
+</span><span class="code-line">- DOM/Element targets: if you want computed/derived targets, use `MaybeRefOrGetter`.
+</span><span class="code-line">
+</span><span class="code-line">When `MaybeRefOrGetter` or `MaybeRef` is used: 
+</span><span class="code-line">- resolve reactive value using `toRef()` (e.g. watcher source)
+</span><span class="code-line">- resolve non-reactive value using `toValue()`
+</span><span class="code-line">
+</span><span class="code-line">### Examples
+</span><span class="code-line">
+</span><span class="code-line">Adaptable `useDocumentTitle` Composable: read-only title parameter
+</span><span class="code-line">
+</span><span class="code-line">```ts
+</span><span class="code-line">import { watch, toRef } from 'vue'
+</span><span class="code-line">import type { MaybeRefOrGetter } from 'vue'
+</span><span class="code-line">
+</span><span class="code-line">export function useDocumentTitle(title: MaybeRefOrGetter&lt;string&gt;) {
+</span><span class="code-line">  watch(toRef(title), (t) =&gt; {
+</span><span class="code-line">    document.title = t
+</span><span class="code-line">  }, { immediate: true })
+</span><span class="code-line">}
+</span></code></pre>
+<p>Adaptable <code>useCounter</code> Composable: two-way writable count parameter</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> watch<span class="token punctuation">,</span> toRef <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'vue'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token keyword">type</span> <span class="token punctuation">{</span> MaybeRef <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'vue'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">useCounter</span><span class="token punctuation">(</span>count<span class="token operator">:</span> MaybeRef<span class="token operator">&lt;</span><span class="token builtin">number</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> countRef <span class="token operator">=</span> <span class="token function">toRef</span><span class="token punctuation">(</span>count<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">function</span> <span class="token function">add</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    countRef<span class="token punctuation">.</span>value<span class="token operator">++</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> add <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

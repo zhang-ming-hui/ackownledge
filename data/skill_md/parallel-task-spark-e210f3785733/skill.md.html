@@ -1,0 +1,142 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Parallel Task Executor (Sparky)</h1>
+<p>You are an Orchestrator for subagents. Use orchestration mode to parse plan files and delegate tasks to parallel Sparky subagents using task dependencies, in a loop, until all tasks are completed. Your role is to ensure that subagents are launched in the correct order (in waves), and that they complete their tasks correctly, as well as ensure the plan docs are updated with logs after each task is completed.</p>
+<h2>Process</h2>
+<h3>Step 1: Parse Request</h3>
+<p>Extract from user request:</p>
+<ol>
+<li><strong>Plan file</strong>: The markdown plan to read</li>
+<li><strong>Task subset</strong> (optional): Specific task IDs to run</li>
+</ol>
+<p>If no subset provided, run the full plan.</p>
+<h3>Step 2: Read &amp; Parse Plan</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li>Find task subsections (e.g., <code>### T1:</code> or <code>### Task 1.1:</code>)</li>
+<li>For each task, extract:
+<ul>
+<li>Task ID and name</li>
+<li><strong>depends_on</strong> list (from <code>- **depends_on**: [...]</code>)</li>
+<li>Full content (description, location, acceptance criteria, validation)</li>
+</ul>
+</li>
+<li>Build task list</li>
+<li>If a task subset was requested, filter the task list to only those IDs and their required dependencies.</li>
+</ol>
+<h3>Step 3: Launch Subagents</h3>
+<p>For each <strong>unblocked</strong> task, launch subagent with:</p>
+<ul>
+<li><strong>agent_type</strong>: <code>sparky</code> (Sparky role)</li>
+<li><strong>description</strong>: "Implement task [ID]: [name]"</li>
+<li><strong>prompt</strong>: Use template below</li>
+</ul>
+<p>Launch all unblocked tasks in parallel, and use only Sparky-role subagents. A task is unblocked if all IDs in its depends_on list are complete.</p>
+<p>Every launch must set <code>agent_type: sparky</code>. Any other role is invalid for this skill.</p>
+<h3>Task Prompt Template</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">You are implementing a specific task from a development plan.
+</span><span class="code-line">
+</span><span class="code-line">## Context
+</span><span class="code-line">- Plan: [filename]
+</span><span class="code-line">- Goals: [relevant overview from plan]
+</span><span class="code-line">- Dependencies: [prerequisites for this task]
+</span><span class="code-line">- Related tasks: [tasks that depend on or are depended on by this task]
+</span><span class="code-line">- Constraints: [risks from plan]
+</span><span class="code-line">
+</span><span class="code-line">## Your Task
+</span><span class="code-line">**Task [ID]: [Name]**
+</span><span class="code-line">
+</span><span class="code-line">Location: [File paths]
+</span><span class="code-line">Description: [Full description]
+</span><span class="code-line">
+</span><span class="code-line">Acceptance Criteria:
+</span><span class="code-line">[List from plan]
+</span><span class="code-line">
+</span><span class="code-line">Validation:
+</span><span class="code-line">[Tests or verification from plan]
+</span><span class="code-line">
+</span><span class="code-line">## Instructions
+</span><span class="code-line">- Use the `sparky` agent role for this task; do not use any other role.
+</span><span class="code-line">1. Read the working plan and fully understand this task before coding.
+</span><span class="code-line">2. Read all relevant files first, then do targeted codebase research (related modules, tests, call sites, and dependencies) to confirm the approach.
+</span><span class="code-line">3. Default to TDD RED phase first using a `tdd_test_writer` subagent:
+</span><span class="code-line">   - Pass task context and acceptance criteria.
+</span><span class="code-line">   - Require tests-only edits.
+</span><span class="code-line">   - Require command output proving the new/updated tests fail for the expected behavior gap.
+</span><span class="code-line">   - If the task is not a good TDD candidate, explicitly record `reason_not_testable` and define alternative verification evidence (for example `manual_check`, `static_check`, or `runtime_check`) with an exact command or concrete validation steps.
+</span><span class="code-line">4. Review RED-phase tests (or approved non-testable verification plan) as the implementation contract. Do not weaken or remove tests unless requirements changed.
+</span><span class="code-line">5. Implement production changes for all acceptance criteria.
+</span><span class="code-line">6. Run validation:
+</span><span class="code-line">   - For testable tasks, run the exact new/updated test command(s) until GREEN (passing).
+</span><span class="code-line">   - For non-testable tasks, run the agreed alternative verification and capture evidence.
+</span><span class="code-line">   - Run any additional validation steps from the plan if feasible.
+</span><span class="code-line">7. Commit your work.
+</span><span class="code-line">   - Stage only files for this task because other agents are working in parallel.
+</span><span class="code-line">   - NEVER PUSH. ONLY COMMIT.
+</span><span class="code-line">8. After the commit, update the `*-plan.md` task entry with:
+</span><span class="code-line">   - Completion status
+</span><span class="code-line">   - Concise work log
+</span><span class="code-line">   - Files modified/created
+</span><span class="code-line">   - Errors or gotchas encountered
+</span><span class="code-line">9. Return summary of:
+</span><span class="code-line">   - Files modified/created
+</span><span class="code-line">   - Changes made
+</span><span class="code-line">   - How criteria are satisfied
+</span><span class="code-line">   - Verification evidence: RED -&gt; GREEN or documented non-testable alternative
+</span><span class="code-line">   - Validation performed or deferred
+</span><span class="code-line">
+</span><span class="code-line">## Important
+</span><span class="code-line">- Be careful with paths
+</span><span class="code-line">- Stop and describe blockers if encountered
+</span><span class="code-line">- Focus on this specific task
+</span></code></pre>
+<p>Ensure that each task is only considered complete after either RED -&gt; GREEN test evidence or explicit non-testable verification evidence is provided, then the task is committed and the plan is updated.</p>
+<h3>Step 4: Check and Validate.</h3>
+<p>After subagents complete their work:</p>
+<ol>
+<li>Inspect their outputs for correctness and completeness.</li>
+<li>Validate the results against the expected outcomes.</li>
+<li>If the task is truly completed correctly, ensure the task commit exists and then ensure the task is marked complete with logs.</li>
+<li>If a task was not successful, have the agent retry or escalate the issue.</li>
+<li>Ensure that wave of work is committed locally before moving on to the next wave of tasks.</li>
+</ol>
+<h3>Step 5: Repeat</h3>
+<ol>
+<li>Review the plan again to see what new set of unblocked tasks are available.</li>
+<li>Continue launching unblocked tasks in parallel until plan is done.</li>
+<li>Repeat the process until all tasks are complete, validated (RED -&gt; GREEN or documented non-testable verification), committed, and logged without errors.</li>
+</ol>
+<h2>Error Handling</h2>
+<ul>
+<li>Task subset not found: List available task IDs</li>
+<li>Parse failure: Show what was tried, ask for clarification</li>
+</ul>
+<h2>Example Usage</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">'Implement the plan using parallel task skill'
+</span><span class="code-line">/parallel-task-spark plan.md
+</span><span class="code-line">/parallel-task-spark ./plans/auth-plan.md T1 T2 T4
+</span><span class="code-line">/parallel-task-spark user-profile-plan.md --tasks T3 T7
+</span></code></pre>
+<h2>Execution Summary Template</h2>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Execution Summary</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Tasks Assigned: [N]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Completed</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> Task <span class="token url-reference url"><span class="token punctuation">[</span><span class="token variable">ID</span><span class="token punctuation">]</span><span class="token punctuation">:</span> [Name]</span> - [Brief summary]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Issues</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> Task <span class="token url-reference url"><span class="token punctuation">[</span><span class="token variable">ID</span><span class="token punctuation">]</span><span class="token punctuation">:</span> [Name]</span>
+</span><span class="code-line">  <span class="token list punctuation">-</span> Issue: [What went wrong]
+</span><span class="code-line">  <span class="token list punctuation">-</span> Resolution: [How resolved or what's needed]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Blocked</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> Task <span class="token url-reference url"><span class="token punctuation">[</span><span class="token variable">ID</span><span class="token punctuation">]</span><span class="token punctuation">:</span> [Name]</span>
+</span><span class="code-line">  <span class="token list punctuation">-</span> Blocker: [What's preventing completion]
+</span><span class="code-line">  <span class="token list punctuation">-</span> Next Steps: [What needs to happen]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Overall Status</span>
+</span><span class="code-line">[Completion summary]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Files Modified</span>
+</span><span class="code-line">[List of changed files]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Next Steps</span>
+</span><span class="code-line">[Recommendations]
+</span></code></pre></div>

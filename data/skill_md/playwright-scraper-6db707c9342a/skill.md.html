@@ -1,0 +1,42 @@
+<h2>playwright-scraper</h2>
+<h3>Purpose</h3>
+<p>This skill enables web scraping using Playwright, a Node.js library for browser automation. It focuses on handling dynamic content, authentication flows, pagination, data extraction, and screenshots to reliably scrape modern websites.</p>
+<h3>When to Use</h3>
+<p>Use this skill for scraping sites with JavaScript-rendered content (e.g., React or Angular apps), sites requiring login (e.g., dashboards), handling multi-page results (e.g., search results), or capturing visual data (e.g., screenshots for verification). Avoid for static HTML sites where simpler tools like requests suffice.</p>
+<h3>Key Capabilities</h3>
+<ul>
+<li>Dynamically load and interact with content using Playwright's browser control.</li>
+<li>Manage authentication flows, such as logging in via forms or API tokens.</li>
+<li>Handle pagination by navigating pages, clicking "next" buttons, or parsing URLs.</li>
+<li>Extract data using selectors, with options for JSON output or file saves.</li>
+<li>Capture screenshots or full-page PDFs for debugging or reporting.</li>
+<li>Supports headless or visible browser modes for flexibility.</li>
+</ul>
+<h3>Usage Patterns</h3>
+<p>Always initialize a browser context first, then create pages for navigation. Use async patterns for reliability. For authenticated scraping, handle cookies or sessions per context. Structure scripts to loop through pages for pagination and use try-catch for flaky elements. Pass configurations via JSON files or environment variables for reusability.</p><h3>Common Commands/API</h3>
+<p>Use Playwright's Node.js API. Install via <code>npm install playwright</code>. Key methods include:</p>
+<ul>
+<li>Launch browser: <code>const browser = await playwright.chromium.launch({ headless: true });</code></li>
+<li>Navigate page: <code>const page = await browser.newPage(); await page.goto('https://example.com');</code></li>
+<li>Handle auth: <code>await page.fill('#username', process.env.USERNAME); await page.fill('#password', process.env.PASSWORD); await page.click('#login');</code></li>
+<li>Extract data: <code>const data = await page.evaluate(() => document.querySelector('#target').innerText); console.log(data);</code></li>
+<li>Pagination: <code>while (await page.$('#next-button')) { await page.click('#next-button'); await page.waitForSelector('.item'); }</code></li>
+<li>Take screenshot: <code>await page.screenshot({ path: 'screenshot.png' });</code>
+CLI flags for running scripts: Use <code>npx playwright test</code> with flags like <code>--headed</code> for visible mode or <code>--timeout 30000</code> for extended waits.</li>
+</ul>
+<h3>Integration Notes</h3>
+<p>Integrate by importing Playwright in Node.js projects. For auth, use environment variables like <code>$PLAYWRIGHT_USERNAME</code> and <code>$PLAYWRIGHT_PASSWORD</code> to avoid hardcoding. Configuration format: Use a JSON file for settings, e.g., <code>{ "url": "https://target.com", "selector": "#data-element" }</code>. Pass it via script args: <code>node scraper.js --config config.json</code>. For larger systems, chain with tools like Puppeteer (if migrating) or export data to databases via <code>page.evaluate</code> results. Ensure compatibility with Node.js 14+ and handle proxy settings with <code>browser.launch({ proxy: { server: 'http://myproxy.com:8080' } })</code>.</p>
+<h3>Error Handling</h3>
+<p>Anticipate common errors like timeout on dynamic loads or selector failures. Use <code>page.waitForSelector</code> with timeouts: <code>await page.waitForSelector('#element', { timeout: 10000 }).catch(err => console.error('Element not found:', err));</code>. For network issues, wrap <code>page.goto</code> in try-catch: <code>try { await page.goto(url, { waitUntil: 'networkidle' }); } catch (e) { console.error('Navigation failed:', e.message); await browser.close(); }</code>. Handle authentication failures by checking for error elements: <code>if (await page.$('#error-message')) { throw new Error('Login failed'); }</code>. Log errors with details and retry up to 3 times using a loop.</p>
+<h3>Concrete Usage Examples</h3>
+<ol>
+<li><strong>Scraping a logged-in dashboard:</strong> First, set env vars: <code>export PLAYWRIGHT_USERNAME='user@example.com'</code> and <code>export PLAYWRIGHT_PASSWORD='securepass'</code>. Then, run: <code>const browser = await playwright.chromium.launch(); const page = await browser.newPage(); await page.goto('https://dashboard.com/login'); await page.fill('#username', process.env.PLAYWRIGHT_USERNAME); await page.fill('#password', process.env.PLAYWRIGHT_PASSWORD); await page.click('#submit'); const data = await page.evaluate(() => document.querySelector('#dashboard-data').innerText); console.log(data); await browser.close();</code> This extracts data from a protected page.</li>
+<li><strong>Handling pagination on a search site:</strong> Script: <code>const browser = await playwright.chromium.launch(); const page = await browser.newPage(); await page.goto('https://search.com?q=query'); let items = []; while (true) { items.push(...await page.$$eval('.result-item', elements => elements.map(el => el.innerText))); const nextButton = await page.$('#next-page'); if (!nextButton) break; await nextButton.click(); await page.waitForTimeout(2000); } console.log(items); await browser.close();</code> This collects results across multiple pages.</li>
+</ol>
+<h3>Graph Relationships</h3>
+<ul>
+<li>Related to: "selenium-automation" (alternative browser automation tool)</li>
+<li>Depends on: "node-runtime" (for Playwright execution)</li>
+<li>Complements: "data-extraction" (for post-processing scraped data)</li>
+<li>In cluster: "community" (shared with other open-source tools)</li>
+</ul>

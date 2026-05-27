@@ -1,0 +1,151 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Azure Observability Services</h1>
+<h2>Services</h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Use When</th>
+<th>MCP Tools</th>
+<th>CLI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Azure Monitor</td>
+<td>Metrics, alerts, dashboards</td>
+<td><code>azure__monitor</code></td>
+<td><code>az monitor</code></td>
+</tr>
+<tr>
+<td>Application Insights</td>
+<td>APM, distributed tracing</td>
+<td><code>azure__applicationinsights</code></td>
+<td><code>az monitor app-insights</code></td>
+</tr>
+<tr>
+<td>Log Analytics</td>
+<td>Log queries, KQL</td>
+<td><code>azure__kusto</code></td>
+<td><code>az monitor log-analytics</code></td>
+</tr>
+<tr>
+<td>Alerts</td>
+<td>Notifications, actions</td>
+<td>-</td>
+<td><code>az monitor alert</code></td>
+</tr>
+<tr>
+<td>Workbooks</td>
+<td>Interactive reports</td>
+<td><code>azure__workbooks</code></td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<h2>MCP Server (Preferred)</h2>
+<p>When Azure MCP is enabled:</p>
+<h3>Monitor</h3>
+<ul>
+<li><code>azure__monitor</code> with command <code>monitor_metrics_query</code> - Query metrics</li>
+<li><code>azure__monitor</code> with command <code>monitor_logs_query</code> - Query logs with KQL</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Application Insights</h3>
+<ul>
+<li><code>azure__applicationinsights</code> with command <code>applicationinsights_component_list</code> - List App Insights resources</li>
+</ul>
+<h3>Log Analytics</h3>
+<ul>
+<li><code>azure__kusto</code> with command <code>kusto_cluster_list</code> - List clusters</li>
+<li><code>azure__kusto</code> with command <code>kusto_query</code> - Execute KQL queries</li>
+</ul>
+<p><strong>If Azure MCP is not enabled:</strong> Run <code>/azure:setup</code> or enable via <code>/mcp</code>.</p>
+<h2>CLI Reference</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># List Log Analytics workspaces</span>
+</span><span class="code-line">az monitor log-analytics workspace list <span class="token parameter variable">--output</span> table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Query logs with KQL</span>
+</span><span class="code-line">az monitor log-analytics query <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--workspace</span> WORKSPACE_ID <span class="token punctuation">\</span>
+</span><span class="code-line">  --analytics-query <span class="token string">"AzureActivity | take 10"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># List Application Insights</span>
+</span><span class="code-line">az monitor app-insights component list <span class="token parameter variable">--output</span> table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># List alerts</span>
+</span><span class="code-line">az monitor alert list <span class="token parameter variable">--output</span> table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Query metrics</span>
+</span><span class="code-line">az monitor metrics list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--resource</span> RESOURCE_ID <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--metric</span> <span class="token string">"Percentage CPU"</span>
+</span></code></pre>
+<h2>Common KQL Queries</h2>
+<pre><code class="language-kql code-highlight"><span class="code-line">// Recent errors
+</span><span class="code-line">AppExceptions
+</span><span class="code-line">| where TimeGenerated &gt; ago(1h)
+</span><span class="code-line">| project TimeGenerated, Message, StackTrace
+</span><span class="code-line">| order by TimeGenerated desc
+</span><span class="code-line">
+</span><span class="code-line">// Request performance
+</span><span class="code-line">AppRequests
+</span><span class="code-line">| where TimeGenerated &gt; ago(1h)
+</span><span class="code-line">| summarize avg(DurationMs), count() by Name
+</span><span class="code-line">| order by avg_DurationMs desc
+</span><span class="code-line">
+</span><span class="code-line">// Resource usage
+</span><span class="code-line">AzureMetrics
+</span><span class="code-line">| where TimeGenerated &gt; ago(1h)
+</span><span class="code-line">| where MetricName == "Percentage CPU"
+</span><span class="code-line">| summarize avg(Average) by Resource
+</span></code></pre>
+<h2>Monitoring Strategy</h2>
+<table>
+<thead>
+<tr>
+<th>What to Monitor</th>
+<th>Service</th>
+<th>Metric/Log</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Application errors</td>
+<td>App Insights</td>
+<td>Exceptions, failed requests</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>App Insights</td>
+<td>Response time, dependencies</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>Azure Monitor</td>
+<td>CPU, memory, disk</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>Log Analytics</td>
+<td>Sign-ins, audit logs</td>
+</tr>
+<tr>
+<td>Costs</td>
+<td>Cost Management</td>
+<td>Budget alerts</td>
+</tr>
+</tbody>
+</table>
+<h2>SDK Quick References</h2>
+<p>For programmatic access to monitoring services, see the condensed SDK guides:</p>
+<ul>
+<li><strong>OpenTelemetry</strong>: <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-opentelemetry-py.md" target="_blank" rel="ugc nofollow noopener">Python</a> | <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-opentelemetry-ts.md" target="_blank" rel="ugc nofollow noopener">TypeScript</a> | <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-opentelemetry-exporter-py.md" target="_blank" rel="ugc nofollow noopener">Python Exporter</a></li>
+<li><strong>Monitor Query</strong>: <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-query-py.md" target="_blank" rel="ugc nofollow noopener">Python</a> | <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-query-java.md" target="_blank" rel="ugc nofollow noopener">Java</a></li>
+<li><strong>Log Ingestion</strong>: <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-ingestion-py.md" target="_blank" rel="ugc nofollow noopener">Python</a> | <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-monitor-ingestion-java.md" target="_blank" rel="ugc nofollow noopener">Java</a></li>
+<li><strong>App Insights Mgmt</strong>: <a href="https://github.com/microsoft/github-copilot-for-azure/blob/HEAD/plugin/skills/azure-observability/references/sdk/azure-mgmt-applicationinsights-dotnet.md" target="_blank" rel="ugc nofollow noopener">.NET</a></li>
+</ul>
+<h2>Service Details</h2>
+<p>For deep documentation on specific services:</p>
+<ul>
+<li>Application Insights setup -&gt; <code>appinsights-instrumentation</code> skill</li>
+<li>KQL query patterns -&gt; <a href="https://learn.microsoft.com/azure/azure-monitor/logs/log-query-overview" target="_blank" rel="ugc nofollow noopener">Log Analytics KQL documentation</a></li>
+<li>Alert configuration -&gt; <a href="https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-overview" target="_blank" rel="ugc nofollow noopener">Azure Monitor alerts documentation</a></li>
+</ul></div>

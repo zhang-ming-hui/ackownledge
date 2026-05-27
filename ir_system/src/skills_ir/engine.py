@@ -1,3 +1,10 @@
+"""IR 检索引擎的核心实现。
+
+该模块包含两条主链路：
+1. `build_index`：把共享技能数据集转换为 TF-IDF 与 BM25 共用的倒排索引。
+2. `search`：对用户查询执行分词、扩展、打分、融合、加权和去重，输出最终排序结果。
+"""
+
 from __future__ import annotations
 
 import json
@@ -15,9 +22,16 @@ INDEX_SCHEMA_VERSION = 3
 
 
 class SkillsIRSystem:
-    """TF-IDF + BM25 based retrieval engine."""
+    """基于 TF-IDF 与 BM25 的混合检索引擎。
+
+    设计目标不是做通用搜索库，而是围绕当前 skills 数据集提供：
+    - 可解释的离线索引结构；
+    - 对中文/英文混合查询友好的轻量检索；
+    - 可通过分数组件和规则加权进行调试的排序结果。
+    """
 
     def __init__(self, config: IRConfig) -> None:
+        """初始化索引结构和运行参数，但不立即加载数据。"""
         self.config = config
         self.data_path = config.paths.data_file
         self.index_path = config.paths.index_file
@@ -35,6 +49,7 @@ class SkillsIRSystem:
         self.bm25_b: float = 0.75
 
     def load_or_build(self) -> None:
+        """优先复用磁盘索引，必要时回退到重新构建。"""
         if self._can_reuse_index():
             try:
                 self._load_index()
@@ -44,6 +59,7 @@ class SkillsIRSystem:
         self.build_index()
 
     def _can_reuse_index(self) -> bool:
+        """判断当前磁盘索引是否满足“存在、较新、结构兼容”三个条件。"""
         if not self.index_path.exists() or not self.data_path.exists():
             return False
         if self.index_path.stat().st_mtime < self.data_path.stat().st_mtime:
@@ -57,6 +73,7 @@ class SkillsIRSystem:
 
     @staticmethod
     def _is_compatible_index_payload(payload: Dict) -> bool:
+        """校验索引文件是否包含当前版本所需的关键字段。"""
         required_keys = {
             "documents",
             "postings",
@@ -73,6 +90,7 @@ class SkillsIRSystem:
         return int(payload.get("index_version", 0)) >= INDEX_SCHEMA_VERSION
 
     def _refresh_document_stats(self) -> None:
+        """刷新 skill 名称统计，用于结果去重与重复度提示。"""
         self.skill_name_counts = Counter(
             normalize_text(str(doc.get("skill_name", "")))
             for doc in self.documents
@@ -81,9 +99,11 @@ class SkillsIRSystem:
 
     @staticmethod
     def _has_cjk(text: str) -> bool:
+        """判断查询中是否包含中日韩统一表意文字。"""
         return bool(re.search(r"[\u4e00-\u9fff]", text))
 
     def _hybrid_bm25_weight(self, query: str, query_tokens: List[str]) -> float:
+        """根据查询形态动态决定混合检索里 BM25 的占比。"""
         token_count = len({token for token in query_tokens if len(token) > 1})
         has_cjk = self._has_cjk(query)
 
@@ -99,6 +119,7 @@ class SkillsIRSystem:
         return 0.14
 
     def _load_index(self) -> None:
+        """从磁盘加载已经构建好的索引结构。"""
         with self.index_path.open("r", encoding="utf-8") as file:
             payload = json.load(file)
 
@@ -130,6 +151,7 @@ class SkillsIRSystem:
         self._refresh_document_stats()
 
     def build_index(self) -> Dict[str, int]:
+        """基于共享数据集构建 TF-IDF 与 BM25 所需的全部索引结构。"""
         with self.data_path.open("r", encoding="utf-8") as file:
             self.documents = json.load(file)
 
@@ -137,6 +159,7 @@ class SkillsIRSystem:
         doc_term_counts: Dict[str, Counter] = {}
         doc_freq: Counter = Counter()
 
+        # 第一阶段：把每个文档映射为带字段权重的 term 统计。
         for doc in self.documents:
             doc_id = str(doc["skill_id"])
             term_counts = weighted_terms(doc, self.config)
@@ -154,6 +177,7 @@ class SkillsIRSystem:
 
         postings: Dict[str, Dict[str, float]] = defaultdict(dict)
         doc_norms: Dict[str, float] = {}
+        # 第二阶段：为 TF-IDF 计算每个 term 在文档中的权重和文档向量范数。
         for doc_id, term_counts in doc_term_counts.items():
             norm_square = 0.0
             for term, tf in term_counts.items():
@@ -173,6 +197,7 @@ class SkillsIRSystem:
         doc_lengths: Dict[str, int] = {}
         total_length = 0
 
+        # 第三阶段：整理 BM25 需要的词频、文档长度和平均文档长度。
         for doc_id, term_counts in doc_term_counts.items():
             doc_len = sum(term_counts.values())
             doc_lengths[doc_id] = int(doc_len)
@@ -201,6 +226,7 @@ class SkillsIRSystem:
         return self.summary()
 
     def summary(self) -> Dict[str, int | float]:
+        """返回索引规模和统计摘要，便于日志与报告输出。"""
         return {
             "index_version": self.index_version,
             "document_count": len(self.documents),
@@ -212,6 +238,7 @@ class SkillsIRSystem:
         }
 
     def _bm25_score(self, query_tokens: List[str]) -> Dict[str, float]:
+        """计算查询在所有候选文档上的 BM25 原始得分。"""
         scores: Dict[str, float] = defaultdict(float)
         k1 = self.bm25_k1
         b = self.bm25_b
@@ -228,6 +255,7 @@ class SkillsIRSystem:
         return dict(scores)
 
     def search(self, query: str, top_k: int | None = None, mode: str = "hybrid") -> List[Dict]:
+        """执行一次检索，并返回按最终得分排序的结果列表。"""
         top_k = top_k or self.config.default_top_k
         base_tokens = tokenize(query, self.config)
         query_tokens = expand_query_tokens(base_tokens, self.config, raw_query=query)
@@ -237,6 +265,7 @@ class SkillsIRSystem:
 
         query_weights: Dict[str, float] = {}
         query_norm_square = 0.0
+        # 先把查询向量映射到与文档相同的 TF-IDF 空间。
         for term, tf in query_counts.items():
             weight = (1.0 + math.log(tf)) * self.idf[term]
             query_weights[term] = weight
@@ -244,6 +273,7 @@ class SkillsIRSystem:
         query_norm = math.sqrt(query_norm_square) or 1.0
 
         tfidf_scores: Dict[str, float] = defaultdict(float)
+        # 对倒排表做稀疏累加，避免遍历所有文档。
         for term, q_weight in query_weights.items():
             for doc_id, d_weight in self.postings.get(term, {}).items():
                 tfidf_scores[doc_id] += q_weight * d_weight
@@ -256,6 +286,7 @@ class SkillsIRSystem:
         if not all_doc_ids:
             return []
 
+        # BM25 原始分布通常与余弦相似度量纲不同，先归一化再做融合。
         bm25_max = max(bm25_scores.values()) if bm25_scores else 1.0
         bm25_max = bm25_max or 1.0
         docs_by_id = {str(doc["skill_id"]): doc for doc in self.documents}
@@ -278,6 +309,7 @@ class SkillsIRSystem:
                 bm25_weight = self._hybrid_bm25_weight(query, query_tokens)
                 base_score = (1.0 - bm25_weight) * cosine + bm25_weight * bm25_norm
 
+            # 规则加权用于弥补纯向量/统计打分对标题精确命中和热度的感知不足。
             score = self._apply_boosts(doc, query, query_tokens, base_score)
             skill_name = str(doc.get("skill_name", "")).strip()
             skill_key = normalize_text(skill_name) or doc_id
@@ -313,6 +345,7 @@ class SkillsIRSystem:
 
         deduped: List[Dict] = []
         seen_keys = set()
+        # 同名 skill 往往来自重复抓取或多版本镜像，这里只保留最高分的一条。
         for item in raw_results:
             key = item["skill_name_key"]
             if key in seen_keys:
@@ -331,6 +364,7 @@ class SkillsIRSystem:
         query_tokens: List[str],
         cosine_score: float,
     ) -> float:
+        """在基础相关性分上叠加规则化提升因子。"""
         score = cosine_score
         normalized_query = normalize_text(query)
         title = normalize_text(str(doc.get("skill_name", "")))
@@ -385,6 +419,7 @@ class SkillsIRSystem:
         return score + popularity
 
     def _make_snippet(self, doc: Dict, query_tokens: List[str]) -> str:
+        """从描述中选择与查询最相关的句子作为摘要片段。"""
         description = str(doc.get("description", "")).strip()
         if not description:
             return f"{doc.get('skill_name', '')} | {doc.get('category', '')}".strip(" |")
@@ -407,6 +442,7 @@ class SkillsIRSystem:
 
 
 def print_results(query: str, results: List[Dict]) -> None:
+    """以终端友好的方式输出检索结果。"""
     print(f"\nQuery: {query}")
     if not results:
         print("没有检索到匹配结果。")

@@ -1,0 +1,204 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>ADK Development Workflow &amp; Guidelines</h1>
+<h2>Session Continuity</h2>
+<p>If this is a long session, re-read the relevant skill before each phase —
+<code>/adk-cheatsheet</code> before writing code, <code>/adk-eval-guide</code> before running evals,
+<code>/adk-deploy-guide</code> before deploying, <code>/adk-scaffold</code> before scaffolding.
+Context compaction may have dropped earlier skill content.</p>
+<hr>
+<h2>DESIGN_SPEC.md — Your Primary Reference</h2>
+<p><strong>IMPORTANT</strong>: If <code>DESIGN_SPEC.md</code> exists in this project, it is your primary source of truth.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Read it FIRST to understand:</p>
+<ul>
+<li>Functional requirements and capabilities</li>
+<li>Success criteria and quality thresholds</li>
+<li>Agent behavior constraints</li>
+<li>Expected tools and integrations</li>
+</ul>
+<p><strong>The spec is your contract.</strong> All implementation decisions should align with it. When in doubt, refer back to DESIGN_SPEC.md.</p>
+<hr>
+<h2>Phase 1: Understand the Spec</h2>
+<p>Before writing any code:</p>
+<ol>
+<li>Read <code>DESIGN_SPEC.md</code> thoroughly</li>
+<li>Identify the core capabilities required</li>
+<li>Note any constraints or things the agent should NOT do</li>
+<li>Understand success criteria for evaluation</li>
+</ol>
+<h2>Phase 2: Build and Implement</h2>
+<p>Implement the agent logic:</p>
+<ol>
+<li>Write/modify code in the agent directory (check the agent guidance file, e.g. GEMINI.md or CLAUDE.md, for directory name)</li>
+<li>Use <code>make playground</code> (or <code>adk web .</code>) for interactive testing during development</li>
+<li>Iterate on the implementation based on user feedback</li>
+</ol>
+<p>For ADK API patterns and code examples, use <code>/adk-cheatsheet</code>.</p>
+<h2>Phase 3: Evaluate</h2>
+<p><strong>This is the most important phase.</strong> Evaluation validates agent behavior end-to-end using evalsets and scoring metrics.</p>
+<p><strong>MANDATORY:</strong> Activate <code>/adk-eval-guide</code> before running evaluation. It contains the evalset schema, config format, and critical gotchas. Do NOT skip this.</p>
+<p><strong>Tests (<code>pytest</code>) are NOT evaluation.</strong> They test code correctness but say nothing about whether the agent behaves correctly. Always run <code>adk eval</code>.</p>
+<ol>
+<li><strong>Start small</strong>: Begin with 1-2 sample eval cases, not a full suite</li>
+<li>Run evaluations: <code>adk eval</code> (or <code>make eval</code> if the project has a Makefile)</li>
+<li>Discuss results with the user</li>
+<li>Fix issues and iterate on the core cases first</li>
+<li>Only after core cases pass, add edge cases and new scenarios</li>
+<li>Repeat until quality thresholds are met</li>
+</ol>
+<p><strong>Expect 5-10+ iterations here.</strong></p>
+<h2>Phase 4: Deploy</h2>
+<p>Once evaluation thresholds are met:</p>
+<ol>
+<li>Deploy when ready — see <code>/adk-deploy-guide</code> for deployment options</li>
+</ol>
+<p><strong>IMPORTANT</strong>: Never deploy without explicit human approval.</p>
+<hr>
+<h1>Operational Guidelines for Coding Agents</h1>
+<h2>Principle 1: Code Preservation &amp; Isolation</h2>
+<p>When executing code modifications, your paramount objective is surgical precision. You <strong>must alter only the code segments directly targeted</strong> by the user's request, while <strong>strictly preserving all surrounding and unrelated code.</strong></p>
+<p><strong>Mandatory Pre-Execution Verification:</strong></p>
+<p>Before finalizing any code replacement, verify:</p>
+<ol>
+<li><strong>Target Identification:</strong> Clearly define the exact lines or expressions to be changed, based <em>solely</em> on the user's explicit instructions.</li>
+<li><strong>Preservation Check:</strong> Ensure all code, configuration values (e.g., <code>model</code>, <code>version</code>, <code>api_key</code>), comments, and formatting <em>outside</em> the identified target remain identical.</li>
+</ol>
+<p><strong>Example:</strong></p>
+<ul>
+<li><strong>User Request:</strong> "Change the agent's instruction to be a recipe suggester."</li>
+<li><strong>Incorrect (VIOLATION):</strong>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">root_agent <span class="token operator">=</span> Agent<span class="token punctuation">(</span>
+</span><span class="code-line">    name<span class="token operator">=</span><span class="token string">"recipe_suggester"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    model<span class="token operator">=</span><span class="token string">"gemini-1.5-flash"</span><span class="token punctuation">,</span>  <span class="token comment"># UNINTENDED - model was not requested to change</span>
+</span><span class="code-line">    instruction<span class="token operator">=</span><span class="token string">"You are a recipe suggester."</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+</li>
+<li><strong>Correct (COMPLIANT):</strong>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">root_agent <span class="token operator">=</span> Agent<span class="token punctuation">(</span>
+</span><span class="code-line">    name<span class="token operator">=</span><span class="token string">"recipe_suggester"</span><span class="token punctuation">,</span>  <span class="token comment"># OK, related to new purpose</span>
+</span><span class="code-line">    model<span class="token operator">=</span><span class="token string">"gemini-3-flash-preview"</span><span class="token punctuation">,</span>  <span class="token comment"># PRESERVED</span>
+</span><span class="code-line">    instruction<span class="token operator">=</span><span class="token string">"You are a recipe suggester."</span>  <span class="token comment"># OK, the direct target</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+</li>
+</ul>
+<h2>Principle 2: Execution Best Practices</h2>
+<ul>
+<li>
+<p><strong>Model Selection — CRITICAL:</strong></p>
+<ul>
+<li><strong>NEVER change the model unless explicitly asked.</strong> If the code uses <code>gemini-3-flash-preview</code>, keep it as <code>gemini-3-flash-preview</code>. Do NOT "upgrade" or "fix" model names.</li>
+<li>When creating NEW agents (not modifying existing), use Gemini 3 series: <code>gemini-3-flash-preview</code>, <code>gemini-3-pro-preview</code>.</li>
+<li>Do NOT use older models (<code>gemini-2.0-flash</code>, <code>gemini-1.5-flash</code>, etc.) unless the user explicitly requests them.</li>
+</ul>
+</li>
+<li>
+<p><strong>Location Matters More Than Model:</strong></p>
+<ul>
+<li>If a model returns a 404, it's almost always a <code>GOOGLE_CLOUD_LOCATION</code> issue (e.g., needing <code>global</code> instead of <code>us-central1</code>).</li>
+<li>Changing the model name to "fix" a 404 is a violation — fix the location instead.</li>
+<li>Some models (like <code>gemini-3-flash-preview</code>) require specific locations. Check the error message for hints.</li>
+</ul>
+</li>
+<li>
+<p><strong>ADK Built-in Tool Imports (Precision Required):</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># CORRECT - imports the tool instance</span>
+</span><span class="code-line"><span class="token keyword">from</span> google<span class="token punctuation">.</span>adk<span class="token punctuation">.</span>tools<span class="token punctuation">.</span>load_web_page <span class="token keyword">import</span> load_web_page
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># WRONG - imports the module, not the tool</span>
+</span><span class="code-line"><span class="token keyword">from</span> google<span class="token punctuation">.</span>adk<span class="token punctuation">.</span>tools <span class="token keyword">import</span> load_web_page
+</span></code></pre>
+<p>Pass the imported tool directly to <code>tools=[load_web_page]</code>, not <code>tools=[load_web_page.load_web_page]</code>.</p>
+</li>
+<li>
+<p><strong>Running Python Commands:</strong></p>
+<ul>
+<li>Always use <code>uv</code> to execute Python commands (e.g., <code>uv run python script.py</code>)</li>
+<li>Run <code>make install</code> (or <code>uv sync</code>) before executing scripts</li>
+<li>Consult <code>Makefile</code> and <code>README.md</code> for available commands (if present)</li>
+</ul>
+</li>
+<li>
+<p><strong>Breaking Infinite Loops:</strong></p>
+<ul>
+<li><strong>Stop immediately</strong> if you see the same error 3+ times in a row</li>
+<li><strong>Don't retry failed operations</strong> — fix the root cause first</li>
+<li><strong>RED FLAGS</strong>: Lock IDs incrementing, names appending v5-&gt;v6-&gt;v7, "I'll try one more time" repeatedly</li>
+<li><strong>State conflicts</strong> (Error 409: Resource already exists): Import existing resources with <code>terraform import</code> instead of retrying creation</li>
+<li><strong>Tool bugs</strong>: Fix source code bugs before continuing — don't work around them</li>
+<li><strong>When stuck</strong>: Run underlying commands directly (e.g., <code>terraform</code> CLI) instead of calling problematic tools</li>
+</ul>
+</li>
+<li>
+<p><strong>Troubleshooting:</strong></p>
+<ul>
+<li>Check <code>/adk-cheatsheet</code> first — it covers most common patterns</li>
+<li>Search the installed ADK package with Glob/Grep/Read (find it with <code>python -c "import google.adk; print(google.adk.__path__[0])"</code> — use <code>uv run python</code> if using uv)</li>
+<li>For ADK docs index, use <code>curl https://adk.dev/llms.txt</code></li>
+<li>For framework questions or GCP products, check official documentation</li>
+<li>When encountering persistent errors, a targeted Google Search often finds solutions faster</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>Scaffold as Reference</h2>
+<p>When you need specific infrastructure files but don't want to scaffold the current project directly, use the <code>/adk-scaffold</code> skill to create a temporary reference project in <code>/tmp/</code> and copy over what you need.</p>
+<p>See <code>/adk-scaffold</code> for full CLI commands and options.</p>
+<hr>
+<h2>Development Commands</h2>
+<p>Projects created via the Agent Starter Pack CLI include a Makefile with these commands.
+To create or enhance a project, see the <code>/adk-scaffold</code> skill for full instructions.
+For non-scaffolded projects, use the ADK CLI equivalents.</p>
+<table>
+<thead>
+<tr>
+<th>Make (scaffolded)</th>
+<th>ADK CLI equivalent</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make playground</code></td>
+<td><code>adk web .</code></td>
+<td>Interactive local testing</td>
+</tr>
+<tr>
+<td><code>make test</code></td>
+<td><code>pytest</code></td>
+<td>Run unit and integration tests</td>
+</tr>
+<tr>
+<td><code>make eval</code></td>
+<td><code>adk eval &lt;agent_dir&gt; &lt;evalset&gt;</code></td>
+<td>Run evaluation against evalsets</td>
+</tr>
+<tr>
+<td><code>make lint</code></td>
+<td><code>ruff check .</code></td>
+<td>Check code quality</td>
+</tr>
+<tr>
+<td><code>make setup-dev-env</code></td>
+<td>— (scaffolded only)</td>
+<td>Set up dev infrastructure (Terraform)</td>
+</tr>
+<tr>
+<td><code>make deploy</code></td>
+<td>— (scaffolded only)</td>
+<td>Deploy to dev (requires human approval)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Skills Version</h2>
+<blockquote>
+<p><strong>Troubleshooting hint:</strong> If you encounter repeated errors, unexpected tool
+failures, or instructions in these skills that seem incomplete or reference
+features you can't find, the skills may be outdated. Run:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">npx skills check -g
+</span></code></pre>
+<p>If it reports outdated skills, tell the user to update:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">npx skills update -g
+</span></code></pre>
+<p>Do NOT run this check on every session — only when you suspect stale skills
+are causing problems.</p>
+</blockquote></div>

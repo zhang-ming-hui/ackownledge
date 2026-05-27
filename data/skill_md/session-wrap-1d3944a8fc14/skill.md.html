@@ -1,0 +1,170 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Session Wrap Skill</h1>
+<p>Comprehensive session wrap-up workflow with multi-agent analysis.</p>
+<h2>Execution Flow</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────────────────────────────────────────────┐
+</span><span class="code-line">│  1. Check Git Status                                │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│  2. Phase 1: 4 Analysis Agents (Parallel)           │
+</span><span class="code-line">│     ┌─────────────────┬─────────────────┐           │
+</span><span class="code-line">│     │  doc-updater    │  automation-    │           │
+</span><span class="code-line">│     │  (docs update)  │  scout          │           │
+</span><span class="code-line">│     ├─────────────────┼─────────────────┤           │
+</span><span class="code-line">│     │  learning-      │  followup-      │           │
+</span><span class="code-line">│     │  extractor      │  suggester      │           │
+</span><span class="code-line">│     └─────────────────┴─────────────────┘           │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│  3. Phase 2: Validation Agent (Sequential)          │
+</span><span class="code-line">│     ┌───────────────────────────────────┐           │
+</span><span class="code-line">│     │       duplicate-checker           │           │
+</span><span class="code-line">│     │  (Validate Phase 1 proposals)     │           │
+</span><span class="code-line">│     └───────────────────────────────────┘           │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│  4. Integrate Results &amp; AskUserQuestion             │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│  5. Execute Selected Actions                        │
+</span><span class="code-line">└─────────────────────────────────────────────────────┘
+</span></code></pre>
+<h2>Step 1: Check Git Status</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> status <span class="token parameter variable">--short</span>
+</span><span class="code-line"><span class="token function">git</span> <span class="token function">diff</span> <span class="token parameter variable">--stat</span> HEAD~3 <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token function">git</span> <span class="token function">diff</span> <span class="token parameter variable">--stat</span>
+</span></code></pre>
+<h2>Step 2: Phase 1 - Analysis Agents (Parallel)</h2>
+<p>Execute 4 agents in parallel (single message with 4 Task calls).</p>
+<h3>Session Summary (Provide to all agents)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Session Summary:
+</span><span class="code-line">- Work: [Main tasks performed in session]
+</span><span class="code-line">- Files: [Created/modified files]
+</span><span class="code-line">- Decisions: [Key decisions made]
+</span></code></pre>
+<h3>Parallel Execution</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Task(
+</span><span class="code-line">    subagent_type="doc-updater",
+</span><span class="code-line">    description="Document update analysis",
+</span><span class="code-line">    prompt="[Session Summary]\n\nAnalyze if CLAUDE.md, context.md need updates."
+</span><span class="code-line">)
+</span><span class="code-line">
+</span><span class="code-line">Task(
+</span><span class="code-line">    subagent_type="automation-scout",
+</span><span class="code-line">    description="Automation pattern analysis",
+</span><span class="code-line">    prompt="[Session Summary]\n\nAnalyze repetitive patterns or automation opportunities."
+</span><span class="code-line">)
+</span><span class="code-line">
+</span><span class="code-line">Task(
+</span><span class="code-line">    subagent_type="learning-extractor",
+</span><span class="code-line">    description="Learning points extraction",
+</span><span class="code-line">    prompt="[Session Summary]\n\nExtract learnings, mistakes, and new discoveries."
+</span><span class="code-line">)
+</span><span class="code-line">
+</span><span class="code-line">Task(
+</span><span class="code-line">    subagent_type="followup-suggester",
+</span><span class="code-line">    description="Follow-up task suggestions",
+</span><span class="code-line">    prompt="[Session Summary]\n\nSuggest incomplete tasks and next session priorities."
+</span><span class="code-line">)
+</span></code></pre>
+<h3>Agent Roles</h3>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Role</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>doc-updater</strong></td>
+<td>Analyze CLAUDE.md/context.md updates</td>
+<td>Specific content to add</td>
+</tr>
+<tr>
+<td><strong>automation-scout</strong></td>
+<td>Detect automation patterns</td>
+<td>skill/command/agent suggestions</td>
+</tr>
+<tr>
+<td><strong>learning-extractor</strong></td>
+<td>Extract learning points</td>
+<td>TIL format summary</td>
+</tr>
+<tr>
+<td><strong>followup-suggester</strong></td>
+<td>Suggest follow-up tasks</td>
+<td>Prioritized task list</td>
+</tr>
+</tbody>
+</table>
+<h2>Step 3: Phase 2 - Validation Agent (Sequential)</h2>
+<p>Run after Phase 1 completes (dependency on Phase 1 results).</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Task(
+</span><span class="code-line">    subagent_type="duplicate-checker",
+</span><span class="code-line">    description="Phase 1 proposal validation",
+</span><span class="code-line">    prompt="""
+</span><span class="code-line">Validate Phase 1 analysis results.
+</span><span class="code-line">
+</span><span class="code-line">## doc-updater proposals:
+</span><span class="code-line">[doc-updater results]
+</span><span class="code-line">
+</span><span class="code-line">## automation-scout proposals:
+</span><span class="code-line">[automation-scout results]
+</span><span class="code-line">
+</span><span class="code-line">Check if proposals duplicate existing docs/automation:
+</span><span class="code-line">1. Complete duplicate: Recommend skip
+</span><span class="code-line">2. Partial duplicate: Suggest merge approach
+</span><span class="code-line">3. No duplicate: Approve for addition
+</span><span class="code-line">"""
+</span><span class="code-line">)
+</span></code></pre>
+<h2>Step 4: Integrate Results</h2>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Wrap Analysis Results</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Documentation Updates</span>
+</span><span class="code-line">[doc-updater summary]
+</span><span class="code-line"><span class="token list punctuation">-</span> Duplicate check: [duplicate-checker feedback]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Automation Suggestions</span>
+</span><span class="code-line">[automation-scout summary]
+</span><span class="code-line"><span class="token list punctuation">-</span> Duplicate check: [duplicate-checker feedback]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Learning Points</span>
+</span><span class="code-line">[learning-extractor summary]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Follow-up Tasks</span>
+</span><span class="code-line">[followup-suggester summary]
+</span></code></pre>
+<h2>Step 5: Action Selection</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">AskUserQuestion(
+</span><span class="code-line">    questions=[{
+</span><span class="code-line">        "question": "Which actions would you like to perform?",
+</span><span class="code-line">        "header": "Wrap Options",
+</span><span class="code-line">        "multiSelect": true,
+</span><span class="code-line">        "options": [
+</span><span class="code-line">            {"label": "Create commit (Recommended)", "description": "Commit changes"},
+</span><span class="code-line">            {"label": "Update CLAUDE.md", "description": "Document new knowledge/workflows"},
+</span><span class="code-line">            {"label": "Create automation", "description": "Generate skill/command/agent"},
+</span><span class="code-line">            {"label": "Skip", "description": "End without action"}
+</span><span class="code-line">        ]
+</span><span class="code-line">    }]
+</span><span class="code-line">)
+</span></code></pre>
+<h2>Step 6: Execute Selected Actions</h2>
+<p>Execute only the actions selected by user.</p>
+<hr>
+<h2>Quick Reference</h2>
+<h3>When to Use</h3>
+<ul>
+<li>End of significant work session</li>
+<li>Before switching to different project</li>
+<li>After completing a feature or fixing a bug</li>
+</ul>
+<h3>When to Skip</h3>
+<ul>
+<li>Very short session with trivial changes</li>
+<li>Only reading/exploring code</li>
+<li>Quick one-off question answered</li>
+</ul>
+<h3>Arguments</h3>
+<ul>
+<li>Empty: Proceed interactively (full workflow)</li>
+<li>Message provided: Use as commit message and commit directly</li>
+</ul>
+<h2>Additional Resources</h2>
+<p>See <code>references/multi-agent-patterns.md</code> for detailed orchestration patterns.</p></div>

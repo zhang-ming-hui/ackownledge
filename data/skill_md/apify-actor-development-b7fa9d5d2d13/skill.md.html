@@ -1,0 +1,226 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Apify Actor development</h1>
+<p><strong>Important:</strong> Before you begin, fill in the <code>generatedBy</code> property in the meta section of <code>.actor/actor.json</code>. Replace it with the tool and model you're currently using, such as "Claude Code with Claude Sonnet 4.5". This helps Apify monitor and improve AGENTS.md for specific AI tools and models.</p>
+<h2>What are Apify Actors?</h2>
+<p>Actors are serverless programs inspired by the UNIX philosophy - programs that do one thing well and can be easily combined to build complex systems. They're packaged as Docker images and run in isolated containers in the cloud.</p>
+<p><strong>Core Concepts:</strong></p>
+<ul>
+<li>Accept well-defined JSON input</li>
+<li>Perform isolated tasks (web scraping, automation, data processing)</li>
+<li>Produce structured JSON output to datasets and/or store data in key-value stores</li>
+<li>Can run from seconds to hours or even indefinitely</li>
+<li>Persist state and can be restarted</li>
+</ul>
+<h2>Prerequisites and setup (mandatory)</h2>
+<p>Before creating or modifying Actors, verify that <code>apify</code> CLI is installed <code>apify --help</code>.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>If it is not installed, use one of these methods (listed in order of preference):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Preferred: install via a package manager (provides integrity checks)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-g</span> apify-cli
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or (Mac): brew install apify-cli</span>
+</span></code></pre>
+<blockquote>
+<p><strong>Security note:</strong> Do NOT install the CLI by piping remote scripts to a shell
+(e.g. <code>curl … | bash</code> or <code>irm … | iex</code>). Always use a package manager.</p>
+</blockquote>
+<p>When the apify CLI is installed, check that it is logged in with:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">apify info  <span class="token comment"># Should return your username</span>
+</span></code></pre>
+<p>If not logged in, authenticate using OAuth (opens browser):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">apify login
+</span></code></pre>
+<p>If browser login isn't available (headless environment or CI), the CLI automatically reads <code>APIFY_TOKEN</code> from the environment. Ensure the env var is exported and run any apify command - no explicit login needed. If the user doesn't have a token, generate one at <a href="https://console.apify.com/settings/integrations" target="_blank" rel="ugc nofollow noopener">https://console.apify.com/settings/integrations</a>.</p>
+<blockquote>
+<p><strong>Security note:</strong> Avoid passing tokens as command-line arguments (e.g. <code>apify login -t &lt;token&gt;</code>).
+Arguments are visible in process listings and may be recorded in shell history.
+Prefer environment variables or interactive login instead.
+Never log, print, or embed <code>APIFY_TOKEN</code> in source code or configuration files.
+Use a token with the minimum required permissions (scoped token) and rotate it periodically.</p>
+</blockquote>
+<h2>Template selection</h2>
+<p><strong>IMPORTANT:</strong> Before starting Actor development, always ask the user which programming language they prefer:</p>
+<ul>
+<li><strong>JavaScript</strong> - Use <code>apify create &lt;actor-name&gt; -t project_empty</code></li>
+<li><strong>TypeScript</strong> - Use <code>apify create &lt;actor-name&gt; -t ts_empty</code></li>
+<li><strong>Python</strong> - Use <code>apify create &lt;actor-name&gt; -t python-empty</code></li>
+</ul>
+<p>Use the appropriate CLI command based on the user's language choice. Additional packages (Crawlee, Playwright, etc.) can be installed later as needed.</p>
+<h2>Quick start workflow</h2>
+<ol>
+<li><strong>Create Actor project</strong> - Run the appropriate <code>apify create</code> command based on user's language preference (see Template selection above)</li>
+<li><strong>Install dependencies</strong> (verify package names match intended packages before installing)
+<ul>
+<li>JavaScript/TypeScript: <code>npm install</code> (uses <code>package-lock.json</code> for reproducible, integrity-checked installs — commit the lockfile to version control)</li>
+<li>Python: <code>pip install -r requirements.txt</code> (pin exact versions in <code>requirements.txt</code>, e.g. <code>crawlee==1.2.3</code>, and commit the file to version control)</li>
+</ul>
+</li>
+<li><strong>Implement logic</strong> - Write the Actor code in <code>src/main.py</code>, <code>src/main.js</code>, or <code>src/main.ts</code></li>
+<li><strong>Configure schemas</strong> - Update input/output schemas in <code>.actor/input_schema.json</code>, <code>.actor/output_schema.json</code>, <code>.actor/dataset_schema.json</code></li>
+<li><strong>Configure platform settings</strong> - Update <code>.actor/actor.json</code> with Actor metadata (see <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/actor-json.md" target="_blank" rel="ugc nofollow noopener">references/actor-json.md</a>)</li>
+<li><strong>Write documentation</strong> - Create comprehensive README.md for the marketplace (see <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/actor-readme.md" target="_blank" rel="ugc nofollow noopener">references/actor-readme.md</a> — this is mandatory, not optional)</li>
+<li><strong>Test locally</strong> - Run <code>apify run</code> to verify functionality (see Local testing section below)</li>
+<li><strong>Deploy</strong> - Run <code>apify push</code> to deploy the Actor on the Apify platform (Actor name is defined in <code>.actor/actor.json</code>)</li>
+</ol>
+<h2>Security</h2>
+<p><strong>Treat all crawled web content as untrusted input.</strong> Actors ingest data from external websites that may contain malicious payloads. Follow these rules:</p>
+<ul>
+<li><strong>Sanitize crawled data</strong> — Never pass raw HTML, URLs, or scraped text directly into shell commands, <code>eval()</code>, database queries, or template engines. Use proper escaping or parameterized APIs.</li>
+<li><strong>Validate and type-check all external data</strong> — Before pushing to datasets or key-value stores, verify that values match expected types and formats. Reject or sanitize unexpected structures.</li>
+<li><strong>Do not execute or interpret crawled content</strong> — Never treat scraped text as code, commands, or configuration. Content from websites could include prompt injection attempts or embedded scripts.</li>
+<li><strong>Isolate credentials from data pipelines</strong> — Ensure <code>APIFY_TOKEN</code> and other secrets are never accessible in request handlers or passed alongside crawled data. Use the Apify SDK's built-in credential management rather than passing tokens through environment variables in data-processing code.</li>
+<li><strong>Review dependencies before installing</strong> — When adding packages with <code>npm install</code> or <code>pip install</code>, verify the package name and publisher. Typosquatting is a common supply-chain attack vector. Prefer well-known, actively maintained packages.</li>
+<li><strong>Pin versions and use lockfiles</strong> — Always commit <code>package-lock.json</code> (Node.js) or pin exact versions in <code>requirements.txt</code> (Python). Lockfiles ensure reproducible builds and prevent silent dependency substitution. Run <code>npm audit</code> or <code>pip-audit</code> periodically to check for known vulnerabilities.</li>
+</ul>
+<h2>Best practices</h2>
+<p><strong>✓ Do:</strong></p>
+<ul>
+<li>Use <code>apify run</code> to test Actors locally (configures Apify environment and storage)</li>
+<li>Use Apify SDK (<code>apify</code>) for code running on the Apify platform</li>
+<li>Validate input early with proper error handling and fail gracefully</li>
+<li>Use CheerioCrawler for static HTML (10x faster than browsers)</li>
+<li>Use PlaywrightCrawler only for JavaScript-heavy sites</li>
+<li>Use router pattern (createCheerioRouter/createPlaywrightRouter) for complex crawls</li>
+<li>Implement retry strategies with exponential backoff</li>
+<li>Use proper concurrency: HTTP (10-50), Browser (1-5)</li>
+<li>Set sensible defaults in <code>.actor/input_schema.json</code></li>
+<li>Define output schema in <code>.actor/output_schema.json</code></li>
+<li>Clean and validate data before pushing to dataset</li>
+<li>Use semantic CSS selectors with fallback strategies</li>
+<li>Respect robots.txt, ToS, and implement rate limiting</li>
+<li><strong>Always use <code>apify/log</code> package</strong> — censors sensitive data (API keys, tokens, credentials)</li>
+<li>Implement readiness probe handler (required if your Actor uses standby mode)</li>
+</ul>
+<p><strong>✗ Don't:</strong></p>
+<ul>
+<li>Use <code>npm start</code>, <code>npm run start</code>, <code>npx apify run</code>, or similar commands to run Actors (use <code>apify run</code> instead)</li>
+<li>Assume local storage from <code>apify run</code> is pushed to or visible in Apify Console — it is local-only; deploy with <code>apify push</code> and run on the platform to see results in Apify Console</li>
+<li>Rely on <code>Dataset.getInfo()</code> for final counts on Cloud</li>
+<li>Use browser crawlers when HTTP/Cheerio works</li>
+<li>Hard code values that should be in input schema or environment variables</li>
+<li>Skip input validation or error handling</li>
+<li>Overload servers - use appropriate concurrency and delays</li>
+<li>Scrape prohibited content or ignore Terms of Service</li>
+<li>Store personal/sensitive data unless explicitly permitted</li>
+<li>Use deprecated options like <code>requestHandlerTimeoutMillis</code> on CheerioCrawler (v3.x)</li>
+<li>Use <code>additionalHttpHeaders</code> - use <code>preNavigationHooks</code> instead</li>
+<li>Pass raw crawled content into shell commands, <code>eval()</code>, or code-generation functions</li>
+<li>Use <code>console.log()</code> or <code>print()</code> instead of the Apify logger — these bypass credential censoring</li>
+<li>Disable standby mode without explicit permission</li>
+</ul>
+<h2>Logging</h2>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/logging.md" target="_blank" rel="ugc nofollow noopener">references/logging.md</a> for complete logging documentation including available log levels and best practices for JavaScript/TypeScript and Python.</p>
+<h2>Commands</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Bootstrap &amp; local development</span>
+</span><span class="code-line">apify create <span class="token punctuation">[</span>name<span class="token punctuation">]</span>                    <span class="token comment"># Create new Actor project from a template</span>
+</span><span class="code-line">apify init                             <span class="token comment"># Initialize Actor in current directory</span>
+</span><span class="code-line">apify run                              <span class="token comment"># Run Actor locally with simulated platform env</span>
+</span><span class="code-line">apify run <span class="token parameter variable">--purge</span>                      <span class="token comment"># Run after clearing previous local storage</span>
+</span><span class="code-line">apify validate-schema                  <span class="token comment"># Validate .actor/input_schema.json</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Authentication &amp; account</span>
+</span><span class="code-line">apify login                            <span class="token comment"># Authenticate account (token stored in ~/.apify)</span>
+</span><span class="code-line">apify <span class="token builtin class-name">logout</span>                           <span class="token comment"># Remove stored credentials</span>
+</span><span class="code-line">apify info                             <span class="token comment"># Print currently authenticated account info</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Deployment &amp; remote execution</span>
+</span><span class="code-line">apify push                             <span class="token comment"># Deploy Actor to platform per .actor/actor.json</span>
+</span><span class="code-line">apify pull <span class="token operator">&lt;</span>actor<span class="token operator">&gt;</span>                     <span class="token comment"># Download Actor code from the platform</span>
+</span><span class="code-line">apify call <span class="token operator">&lt;</span>actor<span class="token operator">&gt;</span>                     <span class="token comment"># Execute Actor remotely on the platform</span>
+</span><span class="code-line">apify actors build <span class="token operator">&lt;</span>actor<span class="token operator">&gt;</span>             <span class="token comment"># Create a new build of an Actor</span>
+</span><span class="code-line">apify runs <span class="token function">ls</span>                          <span class="token comment"># List recent runs</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Discovery (search Apify Store for community Actors)</span>
+</span><span class="code-line">apify actors search <span class="token string">"&lt;query&gt;"</span> --user-agent <span class="token operator">&lt;</span>your-agent-name<span class="token operator">&gt;</span>
+</span><span class="code-line">apify actors info <span class="token operator">&lt;</span>actor<span class="token operator">&gt;</span>              <span class="token comment"># Details about a specific Actor</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Secrets (referenced from actor.json via "@mySecret")</span>
+</span><span class="code-line">apify secrets <span class="token function">add</span> <span class="token operator">&lt;</span>name<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>value<span class="token operator">&gt;</span>       <span class="token comment"># Store a secret locally; uploaded on push</span>
+</span><span class="code-line">apify secrets <span class="token function">ls</span>                       <span class="token comment"># List stored secret keys</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Direct API access</span>
+</span><span class="code-line">apify api <span class="token operator">&lt;</span>endpoint<span class="token operator">&gt;</span>                   <span class="token comment"># Authenticated HTTP request to Apify API</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Help</span>
+</span><span class="code-line">apify <span class="token builtin class-name">help</span>                             <span class="token comment"># List all commands</span>
+</span><span class="code-line">apify <span class="token operator">&lt;</span>command<span class="token operator">&gt;</span> <span class="token parameter variable">--help</span>                 <span class="token comment"># Detailed help for a specific command</span>
+</span></code></pre>
+<p>Note: If no dedicated Actor exists for your target, search Apify Store for community options with <code>apify actors search "&lt;query&gt;" --user-agent &lt;your-agent-name&gt;</code> before building from scratch.</p>
+<p>Tip: Inside a running Actor, prefer the SDK (<code>Actor.getInput()</code> / <code>Actor.get_input()</code>, <code>Actor.pushData()</code> / <code>Actor.push_data()</code>, <code>Actor.setValue()</code> / <code>Actor.set_value()</code>) over the equivalent <code>apify actor</code> runtime subcommands.</p>
+<p><strong>IMPORTANT:</strong> Always use <code>apify run</code> to test Actors locally. Do not use <code>npm run start</code>, <code>npm start</code>, <code>yarn start</code>, or other package manager commands - these will not properly configure the Apify environment and storage.</p>
+<h2>Apify platform environment</h2>
+<p>When the Actor runs on the Apify platform, the API token is automatically available via the <code>APIFY_TOKEN</code> environment variable (note: the variable is <code>APIFY_TOKEN</code>, not <code>APIFY_API_TOKEN</code>). The Apify SDK reads it automatically, so you do not need to pass it explicitly. Locally, run <code>apify login</code> once and the SDK will use your stored credentials.</p>
+<h2>Local testing</h2>
+<p>When testing an Actor locally with <code>apify run</code>, provide input data by creating a JSON file at:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">storage/key_value_stores/default/INPUT.json
+</span></code></pre>
+<p>This file should contain the input parameters defined in your <code>.actor/input_schema.json</code>. The actor will read this input when running locally, mirroring how it receives input on the Apify platform.</p>
+<p><strong>IMPORTANT - Local storage is NOT synced to Apify Console:</strong></p>
+<ul>
+<li>Running <code>apify run</code> stores all data (datasets, key-value stores, request queues) <strong>only on your local filesystem</strong> in the <code>storage/</code> directory.</li>
+<li>This data is <strong>never</strong> automatically uploaded or pushed to the Apify platform. It exists only on your machine.</li>
+<li>To verify results on Apify Console, you must deploy the Actor with <code>apify push</code> and then run it on the platform.</li>
+<li>Do <strong>not</strong> rely on checking Apify Console to verify results from local runs — instead, inspect the local <code>storage/</code> directory or check the Actor's log output.</li>
+</ul>
+<h2>Standby mode</h2>
+<p>Standby mode enables Actors to work as API servers - they remain ready in the background to handle HTTP requests.</p>
+<p><strong>When to use Standby mode:</strong> Use Standby when the Actor must handle interactive, real-time HTTP requests — API endpoints, webhook receivers, real-time data lookups, MCP servers, or scraping APIs serving on-demand single-URL requests.</p>
+<p>When building a Standby Actor, set <code>usesStandbyMode: true</code> in <code>.actor/actor.json</code> and implement an HTTP server. See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/standby-mode.md" target="_blank" rel="ugc nofollow noopener">references/standby-mode.md</a> for configuration, environment variables, complete code examples, and operational limits.</p>
+<h2>Project structure</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">.actor/
+</span><span class="code-line">├── actor.json           # Actor config: name, version, env vars, runtime
+</span><span class="code-line">├── input_schema.json    # Input validation &amp; Console form definition
+</span><span class="code-line">└── output_schema.json   # Output storage and display templates
+</span><span class="code-line">src/
+</span><span class="code-line">└── main.js/ts/py       # Actor entry point
+</span><span class="code-line">storage/                # Local-only storage (NOT synced to Apify Console)
+</span><span class="code-line">├── datasets/           # Output items (JSON objects)
+</span><span class="code-line">├── key_value_stores/   # Files, config, INPUT
+</span><span class="code-line">└── request_queues/     # Pending crawl requests
+</span><span class="code-line">Dockerfile              # Container image definition
+</span></code></pre>
+<h2>Actor configuration</h2>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/actor-json.md" target="_blank" rel="ugc nofollow noopener">references/actor-json.md</a> for complete actor.json structure and configuration options.</p>
+<h2>Input schema</h2>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/input-schema.md" target="_blank" rel="ugc nofollow noopener">references/input-schema.md</a> for input schema structure and examples.</p>
+<h2>Output schema</h2>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/output-schema.md" target="_blank" rel="ugc nofollow noopener">references/output-schema.md</a> for output schema structure, examples, and template variables.</p>
+<h2>Dataset schema</h2>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/dataset-schema.md" target="_blank" rel="ugc nofollow noopener">references/dataset-schema.md</a> for dataset schema structure, configuration, and display properties.</p>
+<h2>Key-value store schema</h2>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/key-value-store-schema.md" target="_blank" rel="ugc nofollow noopener">references/key-value-store-schema.md</a> for key-value store schema structure, collections, and configuration.</p>
+<h2>Actor README</h2>
+<p><strong>IMPORTANT:</strong> Always generate a README.md as part of Actor development. The README is the Actor's landing page on Apify Store and is critical for discoverability (SEO), user onboarding, and support. Do not consider an Actor complete without a proper README.</p>
+<p>See <a href="https://github.com/apify/agent-skills/blob/HEAD/skills/apify-actor-development/references/actor-readme.md" target="_blank" rel="ugc nofollow noopener">references/actor-readme.md</a> for the required structure, SEO best practices, and content guidelines. Also review these top Actors for best practices:</p>
+<ul>
+<li><a href="https://apify.com/apify/instagram-scraper" target="_blank" rel="ugc nofollow noopener">Instagram Scraper</a></li>
+<li><a href="https://apify.com/compass/crawler-google-places" target="_blank" rel="ugc nofollow noopener">Google Maps Scraper</a></li>
+</ul>
+<h2>MCP tools</h2>
+<h3>Apify MCP</h3>
+<p>If the Apify MCP server is configured, use these tools for documentation:</p>
+<ul>
+<li><code>search-apify-docs</code> - Search documentation</li>
+<li><code>fetch-apify-docs</code> - Get full doc pages</li>
+</ul>
+<p>Otherwise, the MCP Server url: <code>https://mcp.apify.com/?tools=docs</code>.</p>
+<h3>Playwright MCP (debugging)</h3>
+<p>The Playwright MCP server is a useful tool for debugging Actors that interact with the web - it lets the agent drive a real browser to inspect pages, capture selectors, and reproduce issues.</p>
+<p>Install with the Claude Code CLI:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">claude mcp <span class="token function">add</span> playwright npx @playwright/mcp@latest
+</span></code></pre>
+<p>Or add it manually to your MCP config:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"playwright"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"npx"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"@playwright/mcp@latest"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Resources</h2>
+<ul>
+<li><a href="https://docs.apify.com/llms.txt" target="_blank" rel="ugc nofollow noopener">docs.apify.com/llms.txt</a> - Apify quick reference documentation</li>
+<li><a href="https://docs.apify.com/llms-full.txt" target="_blank" rel="ugc nofollow noopener">docs.apify.com/llms-full.txt</a> - Apify complete documentation</li>
+<li><a href="https://crawlee.dev/llms.txt" target="_blank" rel="ugc nofollow noopener">https://crawlee.dev/llms.txt</a> - Crawlee quick reference documentation</li>
+<li><a href="https://crawlee.dev/llms-full.txt" target="_blank" rel="ugc nofollow noopener">https://crawlee.dev/llms-full.txt</a> - Crawlee complete documentation</li>
+<li><a href="https://raw.githubusercontent.com/apify/actor-whitepaper/refs/heads/master/README.md" target="_blank" rel="ugc nofollow noopener">whitepaper.actor</a> - Complete Actor specification</li>
+</ul></div>

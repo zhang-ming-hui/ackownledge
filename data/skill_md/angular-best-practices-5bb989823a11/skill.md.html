@@ -1,0 +1,108 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Angular 21 Best Practices</h1>
+<h2>TypeScript</h2>
+<ul>
+<li>Use strict type checking</li>
+<li>Prefer type inference when type is obvious</li>
+<li>Avoid <code>any</code>; use <code>unknown</code> when type is uncertain</li>
+</ul>
+<h2>Components</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Always use standalone components (do NOT set <code>standalone: true</code> — it's the default in v20+)</li>
+<li>Set <code>changeDetection: ChangeDetectionStrategy.OnPush</code></li>
+<li>Use <code>input()</code> and <code>output()</code> functions instead of decorators</li>
+<li>Use <code>computed()</code> for derived state</li>
+<li>Keep components small and single-responsibility</li>
+<li>Prefer inline templates for small components</li>
+<li>Use Reactive forms over Template-driven</li>
+<li>Use <code>class</code> bindings instead of <code>ngClass</code></li>
+<li>Use <code>style</code> bindings instead of <code>ngStyle</code></li>
+<li>For external templates/styles, use paths relative to the component TS file</li>
+<li>Do NOT use <code>@HostBinding</code>/<code>@HostListener</code> — use the <code>host</code> object in the decorator instead</li>
+</ul>
+<h2>State Management with Signals</h2>
+<ul>
+<li>Use signals for local component state</li>
+<li>Use <code>computed()</code> for derived state</li>
+<li>Keep state transformations pure and predictable</li>
+<li>Do NOT use <code>mutate</code> on signals — use <code>update</code> or <code>set</code> instead</li>
+</ul>
+<p>For complex derived state patterns, see <a href="https://github.com/boise-state-development/agentcore-public-stack/blob/HEAD/.claude/skills/angualar-best-practices/references/signal-patterns.md" target="_blank" rel="ugc nofollow noopener">references/signal-patterns.md</a>.</p>
+<h2>Resources (Async Data)</h2>
+<p>Use <code>resource()</code> for async data fetching with signals:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> userResource <span class="token operator">=</span> <span class="token function">resource</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function-variable function">params</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> id<span class="token operator">:</span> <span class="token function">userId</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">loader</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> params<span class="token punctuation">,</span> abortSignal <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>params<span class="token punctuation">.</span>id<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">{</span> signal<span class="token operator">:</span> abortSignal <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> userName <span class="token operator">=</span> <span class="token function">computed</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> userResource<span class="token punctuation">.</span><span class="token function">hasValue</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">?</span> userResource<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>name <span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Key <code>resource</code> patterns:</p>
+<ul>
+<li><code>params</code> returns <code>undefined</code> → loader doesn't run, status becomes <code>'idle'</code></li>
+<li>Use <code>abortSignal</code> to cancel in-flight requests</li>
+<li>Check <code>hasValue()</code> before accessing <code>value()</code> to handle loading/error states</li>
+<li>Status values: <code>'idle'</code>, <code>'loading'</code>, <code>'reloading'</code>, <code>'resolved'</code>, <code>'error'</code>, <code>'local'</code></li>
+</ul>
+<h2>Templates</h2>
+<ul>
+<li>Use native control flow: <code>@if</code>, <code>@for</code>, <code>@switch</code> (NOT <code>*ngIf</code>, <code>*ngFor</code>, <code>*ngSwitch</code>)</li>
+<li>Use async pipe for observables</li>
+<li>Keep templates simple — no complex logic</li>
+<li>Do NOT use arrow functions in templates (not supported)</li>
+<li>Do NOT assume globals like <code>new Date()</code> are available</li>
+</ul>
+<h2>Services</h2>
+<ul>
+<li>Single responsibility per service</li>
+<li>Use <code>providedIn: 'root'</code> for singletons</li>
+<li>Use <code>inject()</code> function instead of constructor injection</li>
+</ul>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token decorator"><span class="token at operator">@</span><span class="token function">Injectable</span></span><span class="token punctuation">(</span><span class="token punctuation">{</span> providedIn<span class="token operator">:</span> <span class="token string">'root'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">UserService</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">private</span> <span class="token keyword">readonly</span> http <span class="token operator">=</span> <span class="token function">inject</span><span class="token punctuation">(</span>HttpClient<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Routing</h2>
+<ul>
+<li>Implement lazy loading for feature routes:</li>
+</ul>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> routes<span class="token operator">:</span> Routes <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    path<span class="token operator">:</span> <span class="token string">'admin'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">loadComponent</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">import</span><span class="token punctuation">(</span><span class="token string">'./admin/admin.page'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span>m <span class="token operator">=&gt;</span> m<span class="token punctuation">.</span>AdminPage<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>File Naming</h2>
+<ul>
+<li>Routable view components: <code>file-name.page.ts</code>, <code>file-name.page.html</code>, <code>file-name.page.css</code></li>
+<li>Regular components: <code>file-name.component.ts</code></li>
+<li>Services: <code>file-name.service.ts</code></li>
+</ul>
+<h2>Icons (ng-icon)</h2>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> NgIcon<span class="token punctuation">,</span> provideIcons <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@ng-icons/core'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> heroSparkles<span class="token punctuation">,</span> heroTrash <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@ng-icons/heroicons/outline'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator"><span class="token at operator">@</span><span class="token function">Component</span></span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  selector<span class="token operator">:</span> <span class="token string">'app-example'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  changeDetection<span class="token operator">:</span> ChangeDetectionStrategy<span class="token punctuation">.</span>OnPush<span class="token punctuation">,</span>
+</span><span class="code-line">  imports<span class="token operator">:</span> <span class="token punctuation">[</span>NgIcon<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  providers<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">provideIcons</span><span class="token punctuation">(</span><span class="token punctuation">{</span> heroSparkles<span class="token punctuation">,</span> heroTrash <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  template<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">&lt;ng-icon name="heroSparkles" /&gt;</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">ExampleComponent</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Images</h2>
+<ul>
+<li>Use <code>NgOptimizedImage</code> for all static images</li>
+<li><code>NgOptimizedImage</code> does NOT work for inline base64 images</li>
+</ul>
+<h2>Styling</h2>
+<ul>
+<li>Use Tailwind 4.1 for CSS (see tailwind skill if available)</li>
+<li>Angular CDK is available when needed</li>
+</ul>
+<h2>Accessibility</h2>
+<ul>
+<li>MUST pass all AXE checks</li>
+<li>MUST meet WCAG AA minimums: focus management, color contrast, ARIA attributes</li>
+</ul></div>

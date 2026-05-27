@@ -1,0 +1,398 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Apache Spark Optimization</h1>
+<p>Production patterns for optimizing Apache Spark jobs including partitioning strategies, memory management, shuffle optimization, and performance tuning.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Optimizing slow Spark jobs</li>
+<li>Tuning memory and executor configuration</li>
+<li>Implementing efficient partitioning strategies</li>
+<li>Debugging Spark performance issues</li>
+<li>Scaling Spark pipelines for large datasets</li>
+<li>Reducing shuffle and data skew</li>
+</ul>
+<h2>Core Concepts</h2>
+<h3>1. Spark Execution Model</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Driver Program
+</span><span class="code-line">    ↓
+</span><span class="code-line">Job (triggered by action)
+</span><span class="code-line">    ↓
+</span><span class="code-line">Stages (separated by shuffles)
+</span><span class="code-line">    ↓
+</span><span class="code-line">Tasks (one per partition)
+</span></code></pre>
+<h3>2. Key Performance Factors</h3>
+<table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>Impact</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shuffle</strong></td>
+<td>Network I/O, disk I/O</td>
+<td>Minimize wide transformations</td>
+</tr>
+<tr>
+<td><strong>Data Skew</strong></td>
+<td>Uneven task duration</td>
+<td>Salting, broadcast joins</td>
+</tr>
+<tr>
+<td><strong>Serialization</strong></td>
+<td>CPU overhead</td>
+<td>Use Kryo, columnar formats</td>
+</tr>
+<tr>
+<td><strong>Memory</strong></td>
+<td>GC pressure, spills</td>
+<td>Tune executor memory</td>
+</tr>
+<tr>
+<td><strong>Partitions</strong></td>
+<td>Parallelism</td>
+<td>Right-size partitions</td>
+</tr>
+</tbody>
+</table>
+<h2>Quick Start</h2>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> pyspark<span class="token punctuation">.</span>sql <span class="token keyword">import</span> SparkSession
+</span><span class="code-line"><span class="token keyword">from</span> pyspark<span class="token punctuation">.</span>sql <span class="token keyword">import</span> functions <span class="token keyword">as</span> F
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create optimized Spark session</span>
+</span><span class="code-line">spark <span class="token operator">=</span> <span class="token punctuation">(</span>SparkSession<span class="token punctuation">.</span>builder
+</span><span class="code-line">    <span class="token punctuation">.</span>appName<span class="token punctuation">(</span><span class="token string">"OptimizedJob"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.adaptive.enabled"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.adaptive.coalescePartitions.enabled"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.adaptive.skewJoin.enabled"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.serializer"</span><span class="token punctuation">,</span> <span class="token string">"org.apache.spark.serializer.KryoSerializer"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.shuffle.partitions"</span><span class="token punctuation">,</span> <span class="token string">"200"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>getOrCreate<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Read with optimized settings</span>
+</span><span class="code-line">df <span class="token operator">=</span> <span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span><span class="token string">"parquet"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"mergeSchema"</span><span class="token punctuation">,</span> <span class="token string">"false"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>load<span class="token punctuation">(</span><span class="token string">"s3://bucket/data/"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Efficient transformations</span>
+</span><span class="code-line">result <span class="token operator">=</span> <span class="token punctuation">(</span>df
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">filter</span><span class="token punctuation">(</span>F<span class="token punctuation">.</span>col<span class="token punctuation">(</span><span class="token string">"date"</span><span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token string">"2024-01-01"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">,</span> <span class="token string">"amount"</span><span class="token punctuation">,</span> <span class="token string">"category"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"category"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>agg<span class="token punctuation">(</span>F<span class="token punctuation">.</span><span class="token builtin">sum</span><span class="token punctuation">(</span><span class="token string">"amount"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"total"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">result<span class="token punctuation">.</span>write<span class="token punctuation">.</span>mode<span class="token punctuation">(</span><span class="token string">"overwrite"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/output/"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Patterns</h2>
+<h3>Pattern 1: Optimal Partitioning</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Calculate optimal partition count</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">calculate_partitions</span><span class="token punctuation">(</span>data_size_gb<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> partition_size_mb<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">128</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">int</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    Optimal partition size: 128MB - 256MB
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    Too few: Under-utilization, memory pressure
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    Too many: Task scheduling overhead
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    """</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token builtin">max</span><span class="token punctuation">(</span><span class="token builtin">int</span><span class="token punctuation">(</span>data_size_gb <span class="token operator">*</span> <span class="token number">1024</span> <span class="token operator">/</span> partition_size_mb<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Repartition for even distribution</span>
+</span><span class="code-line">df_repartitioned <span class="token operator">=</span> df<span class="token punctuation">.</span>repartition<span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">,</span> <span class="token string">"partition_key"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Coalesce to reduce partitions (no shuffle)</span>
+</span><span class="code-line">df_coalesced <span class="token operator">=</span> df<span class="token punctuation">.</span>coalesce<span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Partition pruning with predicate pushdown</span>
+</span><span class="code-line">df <span class="token operator">=</span> <span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/data/"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">filter</span><span class="token punctuation">(</span>F<span class="token punctuation">.</span>col<span class="token punctuation">(</span><span class="token string">"date"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"2024-01-01"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment"># Spark pushes this down</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Write with partitioning for future queries</span>
+</span><span class="code-line"><span class="token punctuation">(</span>df<span class="token punctuation">.</span>write
+</span><span class="code-line">    <span class="token punctuation">.</span>partitionBy<span class="token punctuation">(</span><span class="token string">"year"</span><span class="token punctuation">,</span> <span class="token string">"month"</span><span class="token punctuation">,</span> <span class="token string">"day"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>mode<span class="token punctuation">(</span><span class="token string">"overwrite"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/partitioned_output/"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 2: Join Optimization</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> pyspark<span class="token punctuation">.</span>sql <span class="token keyword">import</span> functions <span class="token keyword">as</span> F
+</span><span class="code-line"><span class="token keyword">from</span> pyspark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>types <span class="token keyword">import</span> <span class="token operator">*</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 1. Broadcast Join - Small table joins</span>
+</span><span class="code-line"><span class="token comment"># Best when: One side &lt; 10MB (configurable)</span>
+</span><span class="code-line">small_df <span class="token operator">=</span> spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/small_table/"</span><span class="token punctuation">)</span>  <span class="token comment"># &lt; 10MB</span>
+</span><span class="code-line">large_df <span class="token operator">=</span> spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/large_table/"</span><span class="token punctuation">)</span>  <span class="token comment"># TBs</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Explicit broadcast hint</span>
+</span><span class="code-line">result <span class="token operator">=</span> large_df<span class="token punctuation">.</span>join<span class="token punctuation">(</span>
+</span><span class="code-line">    F<span class="token punctuation">.</span>broadcast<span class="token punctuation">(</span>small_df<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    on<span class="token operator">=</span><span class="token string">"key"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    how<span class="token operator">=</span><span class="token string">"left"</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Sort-Merge Join - Default for large tables</span>
+</span><span class="code-line"><span class="token comment"># Requires shuffle, but handles any size</span>
+</span><span class="code-line">result <span class="token operator">=</span> large_df1<span class="token punctuation">.</span>join<span class="token punctuation">(</span>large_df2<span class="token punctuation">,</span> on<span class="token operator">=</span><span class="token string">"key"</span><span class="token punctuation">,</span> how<span class="token operator">=</span><span class="token string">"inner"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Bucket Join - Pre-sorted, no shuffle at join time</span>
+</span><span class="code-line"><span class="token comment"># Write bucketed tables</span>
+</span><span class="code-line"><span class="token punctuation">(</span>df<span class="token punctuation">.</span>write
+</span><span class="code-line">    <span class="token punctuation">.</span>bucketBy<span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">,</span> <span class="token string">"customer_id"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>sortBy<span class="token punctuation">(</span><span class="token string">"customer_id"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>mode<span class="token punctuation">(</span><span class="token string">"overwrite"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>saveAsTable<span class="token punctuation">(</span><span class="token string">"bucketed_orders"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Join bucketed tables (no shuffle!)</span>
+</span><span class="code-line">orders <span class="token operator">=</span> spark<span class="token punctuation">.</span>table<span class="token punctuation">(</span><span class="token string">"bucketed_orders"</span><span class="token punctuation">)</span>
+</span><span class="code-line">customers <span class="token operator">=</span> spark<span class="token punctuation">.</span>table<span class="token punctuation">(</span><span class="token string">"bucketed_customers"</span><span class="token punctuation">)</span>  <span class="token comment"># Same bucket count</span>
+</span><span class="code-line">result <span class="token operator">=</span> orders<span class="token punctuation">.</span>join<span class="token punctuation">(</span>customers<span class="token punctuation">,</span> on<span class="token operator">=</span><span class="token string">"customer_id"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 4. Skew Join Handling</span>
+</span><span class="code-line"><span class="token comment"># Enable AQE skew join optimization</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.sql.adaptive.skewJoin.enabled"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.sql.adaptive.skewJoin.skewedPartitionFactor"</span><span class="token punctuation">,</span> <span class="token string">"5"</span><span class="token punctuation">)</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes"</span><span class="token punctuation">,</span> <span class="token string">"256MB"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Manual salting for severe skew</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">salt_join</span><span class="token punctuation">(</span>df_skewed<span class="token punctuation">,</span> df_other<span class="token punctuation">,</span> key_col<span class="token punctuation">,</span> num_salts<span class="token operator">=</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Add salt to distribute skewed keys"""</span>
+</span><span class="code-line">    <span class="token comment"># Add salt to skewed side</span>
+</span><span class="code-line">    df_salted <span class="token operator">=</span> df_skewed<span class="token punctuation">.</span>withColumn<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token string">"salt"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">(</span>F<span class="token punctuation">.</span>rand<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> num_salts<span class="token punctuation">)</span><span class="token punctuation">.</span>cast<span class="token punctuation">(</span><span class="token string">"int"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">.</span>withColumn<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token string">"salted_key"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        F<span class="token punctuation">.</span>concat<span class="token punctuation">(</span>F<span class="token punctuation">.</span>col<span class="token punctuation">(</span>key_col<span class="token punctuation">)</span><span class="token punctuation">,</span> F<span class="token punctuation">.</span>lit<span class="token punctuation">(</span><span class="token string">"_"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> F<span class="token punctuation">.</span>col<span class="token punctuation">(</span><span class="token string">"salt"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Explode other side with all salts</span>
+</span><span class="code-line">    df_exploded <span class="token operator">=</span> df_other<span class="token punctuation">.</span>crossJoin<span class="token punctuation">(</span>
+</span><span class="code-line">        spark<span class="token punctuation">.</span><span class="token builtin">range</span><span class="token punctuation">(</span>num_salts<span class="token punctuation">)</span><span class="token punctuation">.</span>withColumnRenamed<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">,</span> <span class="token string">"salt"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">.</span>withColumn<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token string">"salted_key"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        F<span class="token punctuation">.</span>concat<span class="token punctuation">(</span>F<span class="token punctuation">.</span>col<span class="token punctuation">(</span>key_col<span class="token punctuation">)</span><span class="token punctuation">,</span> F<span class="token punctuation">.</span>lit<span class="token punctuation">(</span><span class="token string">"_"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> F<span class="token punctuation">.</span>col<span class="token punctuation">(</span><span class="token string">"salt"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Join on salted key</span>
+</span><span class="code-line">    <span class="token keyword">return</span> df_salted<span class="token punctuation">.</span>join<span class="token punctuation">(</span>df_exploded<span class="token punctuation">,</span> on<span class="token operator">=</span><span class="token string">"salted_key"</span><span class="token punctuation">,</span> how<span class="token operator">=</span><span class="token string">"inner"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 3: Caching and Persistence</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> pyspark <span class="token keyword">import</span> StorageLevel
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Cache when reusing DataFrame multiple times</span>
+</span><span class="code-line">df <span class="token operator">=</span> spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/data/"</span><span class="token punctuation">)</span>
+</span><span class="code-line">df_filtered <span class="token operator">=</span> df<span class="token punctuation">.</span><span class="token builtin">filter</span><span class="token punctuation">(</span>F<span class="token punctuation">.</span>col<span class="token punctuation">(</span><span class="token string">"status"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"active"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Cache in memory (MEMORY_AND_DISK is default)</span>
+</span><span class="code-line">df_filtered<span class="token punctuation">.</span>cache<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or with specific storage level</span>
+</span><span class="code-line">df_filtered<span class="token punctuation">.</span>persist<span class="token punctuation">(</span>StorageLevel<span class="token punctuation">.</span>MEMORY_AND_DISK_SER<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Force materialization</span>
+</span><span class="code-line">df_filtered<span class="token punctuation">.</span>count<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use in multiple actions</span>
+</span><span class="code-line">agg1 <span class="token operator">=</span> df_filtered<span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"category"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>count<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">agg2 <span class="token operator">=</span> df_filtered<span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"region"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">sum</span><span class="token punctuation">(</span><span class="token string">"amount"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Unpersist when done</span>
+</span><span class="code-line">df_filtered<span class="token punctuation">.</span>unpersist<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Storage levels explained:</span>
+</span><span class="code-line"><span class="token comment"># MEMORY_ONLY - Fast, but may not fit</span>
+</span><span class="code-line"><span class="token comment"># MEMORY_AND_DISK - Spills to disk if needed (recommended)</span>
+</span><span class="code-line"><span class="token comment"># MEMORY_ONLY_SER - Serialized, less memory, more CPU</span>
+</span><span class="code-line"><span class="token comment"># DISK_ONLY - When memory is tight</span>
+</span><span class="code-line"><span class="token comment"># OFF_HEAP - Tungsten off-heap memory</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Checkpoint for complex lineage</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>sparkContext<span class="token punctuation">.</span>setCheckpointDir<span class="token punctuation">(</span><span class="token string">"s3://bucket/checkpoints/"</span><span class="token punctuation">)</span>
+</span><span class="code-line">df_complex <span class="token operator">=</span> <span class="token punctuation">(</span>df
+</span><span class="code-line">    <span class="token punctuation">.</span>join<span class="token punctuation">(</span>other_df<span class="token punctuation">,</span> <span class="token string">"key"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"category"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>agg<span class="token punctuation">(</span>F<span class="token punctuation">.</span><span class="token builtin">sum</span><span class="token punctuation">(</span><span class="token string">"amount"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">df_complex<span class="token punctuation">.</span>checkpoint<span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment"># Breaks lineage, materializes</span>
+</span></code></pre>
+<h3>Pattern 4: Memory Tuning</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Executor memory configuration</span>
+</span><span class="code-line"><span class="token comment"># spark-submit --executor-memory 8g --executor-cores 4</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Memory breakdown (8GB executor):</span>
+</span><span class="code-line"><span class="token comment"># - spark.memory.fraction = 0.6 (60% = 4.8GB for execution + storage)</span>
+</span><span class="code-line"><span class="token comment">#   - spark.memory.storageFraction = 0.5 (50% of 4.8GB = 2.4GB for cache)</span>
+</span><span class="code-line"><span class="token comment">#   - Remaining 2.4GB for execution (shuffles, joins, sorts)</span>
+</span><span class="code-line"><span class="token comment"># - 40% = 3.2GB for user data structures and internal metadata</span>
+</span><span class="code-line">
+</span><span class="code-line">spark <span class="token operator">=</span> <span class="token punctuation">(</span>SparkSession<span class="token punctuation">.</span>builder
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.executor.memory"</span><span class="token punctuation">,</span> <span class="token string">"8g"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.executor.memoryOverhead"</span><span class="token punctuation">,</span> <span class="token string">"2g"</span><span class="token punctuation">)</span>  <span class="token comment"># For non-JVM memory</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.memory.fraction"</span><span class="token punctuation">,</span> <span class="token string">"0.6"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.memory.storageFraction"</span><span class="token punctuation">,</span> <span class="token string">"0.5"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.shuffle.partitions"</span><span class="token punctuation">,</span> <span class="token string">"200"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token comment"># For memory-intensive operations</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.autoBroadcastJoinThreshold"</span><span class="token punctuation">,</span> <span class="token string">"50MB"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token comment"># Prevent OOM on large shuffles</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>config<span class="token punctuation">(</span><span class="token string">"spark.sql.files.maxPartitionBytes"</span><span class="token punctuation">,</span> <span class="token string">"128MB"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>getOrCreate<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Monitor memory usage</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">print_memory_usage</span><span class="token punctuation">(</span>spark<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Print current memory usage"""</span>
+</span><span class="code-line">    sc <span class="token operator">=</span> spark<span class="token punctuation">.</span>sparkContext
+</span><span class="code-line">    <span class="token keyword">for</span> executor <span class="token keyword">in</span> sc<span class="token punctuation">.</span>_jsc<span class="token punctuation">.</span>sc<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>getExecutorMemoryStatus<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keySet<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toArray<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        mem_status <span class="token operator">=</span> sc<span class="token punctuation">.</span>_jsc<span class="token punctuation">.</span>sc<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>getExecutorMemoryStatus<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span>executor<span class="token punctuation">)</span>
+</span><span class="code-line">        total <span class="token operator">=</span> mem_status<span class="token punctuation">.</span>_1<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token punctuation">(</span><span class="token number">1024</span><span class="token operator">**</span><span class="token number">3</span><span class="token punctuation">)</span>
+</span><span class="code-line">        free <span class="token operator">=</span> mem_status<span class="token punctuation">.</span>_2<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token punctuation">(</span><span class="token number">1024</span><span class="token operator">**</span><span class="token number">3</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">{</span>executor<span class="token punctuation">}</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">{</span>total<span class="token punctuation">:</span><span class="token format-spec">.2f</span><span class="token punctuation">}</span></span><span class="token string">GB total, </span><span class="token interpolation"><span class="token punctuation">{</span>free<span class="token punctuation">:</span><span class="token format-spec">.2f</span><span class="token punctuation">}</span></span><span class="token string">GB free"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 5: Shuffle Optimization</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Reduce shuffle data size</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.sql.shuffle.partitions"</span><span class="token punctuation">,</span> <span class="token string">"auto"</span><span class="token punctuation">)</span>  <span class="token comment"># With AQE</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.shuffle.compress"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.shuffle.spill.compress"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Pre-aggregate before shuffle</span>
+</span><span class="code-line">df_optimized <span class="token operator">=</span> <span class="token punctuation">(</span>df
+</span><span class="code-line">    <span class="token comment"># Local aggregation first (combiner)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"key"</span><span class="token punctuation">,</span> <span class="token string">"partition_col"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>agg<span class="token punctuation">(</span>F<span class="token punctuation">.</span><span class="token builtin">sum</span><span class="token punctuation">(</span><span class="token string">"value"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"partial_sum"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token comment"># Then global aggregation</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"key"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>agg<span class="token punctuation">(</span>F<span class="token punctuation">.</span><span class="token builtin">sum</span><span class="token punctuation">(</span><span class="token string">"partial_sum"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"total"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Avoid shuffle with map-side operations</span>
+</span><span class="code-line"><span class="token comment"># BAD: Shuffle for each distinct</span>
+</span><span class="code-line">distinct_count <span class="token operator">=</span> df<span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"category"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>distinct<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>count<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GOOD: Approximate distinct (no shuffle)</span>
+</span><span class="code-line">approx_count <span class="token operator">=</span> df<span class="token punctuation">.</span>select<span class="token punctuation">(</span>F<span class="token punctuation">.</span>approx_count_distinct<span class="token punctuation">(</span><span class="token string">"category"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use coalesce instead of repartition when reducing partitions</span>
+</span><span class="code-line">df_reduced <span class="token operator">=</span> df<span class="token punctuation">.</span>coalesce<span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span>  <span class="token comment"># No shuffle</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Optimize shuffle with compression</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.io.compression.codec"</span><span class="token punctuation">,</span> <span class="token string">"lz4"</span><span class="token punctuation">)</span>  <span class="token comment"># Fast compression</span>
+</span></code></pre>
+<h3>Pattern 6: Data Format Optimization</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Parquet optimizations</span>
+</span><span class="code-line"><span class="token punctuation">(</span>df<span class="token punctuation">.</span>write
+</span><span class="code-line">    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"compression"</span><span class="token punctuation">,</span> <span class="token string">"snappy"</span><span class="token punctuation">)</span>  <span class="token comment"># Fast compression</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"parquet.block.size"</span><span class="token punctuation">,</span> <span class="token number">128</span> <span class="token operator">*</span> <span class="token number">1024</span> <span class="token operator">*</span> <span class="token number">1024</span><span class="token punctuation">)</span>  <span class="token comment"># 128MB row groups</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/output/"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Column pruning - only read needed columns</span>
+</span><span class="code-line">df <span class="token operator">=</span> <span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/data/"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">,</span> <span class="token string">"amount"</span><span class="token punctuation">,</span> <span class="token string">"date"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment"># Spark only reads these columns</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Predicate pushdown - filter at storage level</span>
+</span><span class="code-line">df <span class="token operator">=</span> <span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"s3://bucket/partitioned/year=2024/"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">filter</span><span class="token punctuation">(</span>F<span class="token punctuation">.</span>col<span class="token punctuation">(</span><span class="token string">"status"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"active"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment"># Pushed to Parquet reader</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Delta Lake optimizations</span>
+</span><span class="code-line"><span class="token punctuation">(</span>df<span class="token punctuation">.</span>write
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span><span class="token string">"delta"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"optimizeWrite"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>  <span class="token comment"># Bin-packing</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"autoCompact"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>  <span class="token comment"># Compact small files</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>mode<span class="token punctuation">(</span><span class="token string">"overwrite"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span>save<span class="token punctuation">(</span><span class="token string">"s3://bucket/delta_table/"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Z-ordering for multi-dimensional queries</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>sql<span class="token punctuation">(</span><span class="token triple-quoted-string string">"""
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    OPTIMIZE delta.`s3://bucket/delta_table/`
+</span></span><span class="code-line"><span class="token triple-quoted-string string">    ZORDER BY (customer_id, date)
+</span></span><span class="code-line"><span class="token triple-quoted-string string">"""</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Pattern 7: Monitoring and Debugging</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Enable detailed metrics</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.sql.codegen.wholeStage"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">spark<span class="token punctuation">.</span>conf<span class="token punctuation">.</span><span class="token builtin">set</span><span class="token punctuation">(</span><span class="token string">"spark.sql.execution.arrow.pyspark.enabled"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Explain query plan</span>
+</span><span class="code-line">df<span class="token punctuation">.</span>explain<span class="token punctuation">(</span>mode<span class="token operator">=</span><span class="token string">"extended"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment"># Modes: simple, extended, codegen, cost, formatted</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Get physical plan statistics</span>
+</span><span class="code-line">df<span class="token punctuation">.</span>explain<span class="token punctuation">(</span>mode<span class="token operator">=</span><span class="token string">"cost"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Monitor task metrics</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">analyze_stage_metrics</span><span class="token punctuation">(</span>spark<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Analyze recent stage metrics"""</span>
+</span><span class="code-line">    status_tracker <span class="token operator">=</span> spark<span class="token punctuation">.</span>sparkContext<span class="token punctuation">.</span>statusTracker<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">for</span> stage_id <span class="token keyword">in</span> status_tracker<span class="token punctuation">.</span>getActiveStageIds<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        stage_info <span class="token operator">=</span> status_tracker<span class="token punctuation">.</span>getStageInfo<span class="token punctuation">(</span>stage_id<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Stage </span><span class="token interpolation"><span class="token punctuation">{</span>stage_id<span class="token punctuation">}</span></span><span class="token string">:"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  Tasks: </span><span class="token interpolation"><span class="token punctuation">{</span>stage_info<span class="token punctuation">.</span>numTasks<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  Completed: </span><span class="token interpolation"><span class="token punctuation">{</span>stage_info<span class="token punctuation">.</span>numCompletedTasks<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  Failed: </span><span class="token interpolation"><span class="token punctuation">{</span>stage_info<span class="token punctuation">.</span>numFailedTasks<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Identify data skew</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">check_partition_skew</span><span class="token punctuation">(</span>df<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Check for partition skew"""</span>
+</span><span class="code-line">    partition_counts <span class="token operator">=</span> <span class="token punctuation">(</span>df
+</span><span class="code-line">        <span class="token punctuation">.</span>withColumn<span class="token punctuation">(</span><span class="token string">"partition_id"</span><span class="token punctuation">,</span> F<span class="token punctuation">.</span>spark_partition_id<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span>groupBy<span class="token punctuation">(</span><span class="token string">"partition_id"</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span>count<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span>orderBy<span class="token punctuation">(</span>F<span class="token punctuation">.</span>desc<span class="token punctuation">(</span><span class="token string">"count"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    partition_counts<span class="token punctuation">.</span>show<span class="token punctuation">(</span><span class="token number">20</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    stats <span class="token operator">=</span> partition_counts<span class="token punctuation">.</span>select<span class="token punctuation">(</span>
+</span><span class="code-line">        F<span class="token punctuation">.</span><span class="token builtin">min</span><span class="token punctuation">(</span><span class="token string">"count"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"min"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        F<span class="token punctuation">.</span><span class="token builtin">max</span><span class="token punctuation">(</span><span class="token string">"count"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"max"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        F<span class="token punctuation">.</span>avg<span class="token punctuation">(</span><span class="token string">"count"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"avg"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        F<span class="token punctuation">.</span>stddev<span class="token punctuation">(</span><span class="token string">"count"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>alias<span class="token punctuation">(</span><span class="token string">"stddev"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    skew_ratio <span class="token operator">=</span> stats<span class="token punctuation">[</span><span class="token string">"max"</span><span class="token punctuation">]</span> <span class="token operator">/</span> stats<span class="token punctuation">[</span><span class="token string">"avg"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Skew ratio: </span><span class="token interpolation"><span class="token punctuation">{</span>skew_ratio<span class="token punctuation">:</span><span class="token format-spec">.2f</span><span class="token punctuation">}</span></span><span class="token string">x (&gt;2x indicates skew)"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Configuration Cheat Sheet</h2>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Production configuration template</span>
+</span><span class="code-line">spark_configs <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment"># Adaptive Query Execution (AQE)</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.adaptive.enabled"</span><span class="token punctuation">:</span> <span class="token string">"true"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.adaptive.coalescePartitions.enabled"</span><span class="token punctuation">:</span> <span class="token string">"true"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.adaptive.skewJoin.enabled"</span><span class="token punctuation">:</span> <span class="token string">"true"</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Memory</span>
+</span><span class="code-line">    <span class="token string">"spark.executor.memory"</span><span class="token punctuation">:</span> <span class="token string">"8g"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.executor.memoryOverhead"</span><span class="token punctuation">:</span> <span class="token string">"2g"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.memory.fraction"</span><span class="token punctuation">:</span> <span class="token string">"0.6"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.memory.storageFraction"</span><span class="token punctuation">:</span> <span class="token string">"0.5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Parallelism</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.shuffle.partitions"</span><span class="token punctuation">:</span> <span class="token string">"200"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.default.parallelism"</span><span class="token punctuation">:</span> <span class="token string">"200"</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Serialization</span>
+</span><span class="code-line">    <span class="token string">"spark.serializer"</span><span class="token punctuation">:</span> <span class="token string">"org.apache.spark.serializer.KryoSerializer"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.execution.arrow.pyspark.enabled"</span><span class="token punctuation">:</span> <span class="token string">"true"</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Compression</span>
+</span><span class="code-line">    <span class="token string">"spark.io.compression.codec"</span><span class="token punctuation">:</span> <span class="token string">"lz4"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.shuffle.compress"</span><span class="token punctuation">:</span> <span class="token string">"true"</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># Broadcast</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.autoBroadcastJoinThreshold"</span><span class="token punctuation">:</span> <span class="token string">"50MB"</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment"># File handling</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.files.maxPartitionBytes"</span><span class="token punctuation">:</span> <span class="token string">"128MB"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"spark.sql.files.openCostInBytes"</span><span class="token punctuation">:</span> <span class="token string">"4MB"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<h3>Do's</h3>
+<ul>
+<li><strong>Enable AQE</strong> - Adaptive query execution handles many issues</li>
+<li><strong>Use Parquet/Delta</strong> - Columnar formats with compression</li>
+<li><strong>Broadcast small tables</strong> - Avoid shuffle for small joins</li>
+<li><strong>Monitor Spark UI</strong> - Check for skew, spills, GC</li>
+<li><strong>Right-size partitions</strong> - 128MB - 256MB per partition</li>
+</ul>
+<h3>Don'ts</h3>
+<ul>
+<li><strong>Don't collect large data</strong> - Keep data distributed</li>
+<li><strong>Don't use UDFs unnecessarily</strong> - Use built-in functions</li>
+<li><strong>Don't over-cache</strong> - Memory is limited</li>
+<li><strong>Don't ignore data skew</strong> - It dominates job time</li>
+<li><strong>Don't use <code>.count()</code> for existence</strong> - Use <code>.take(1)</code> or <code>.isEmpty()</code></li>
+</ul></div>

@@ -1,0 +1,183 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Implementing Flutter Home Screen Widgets</h1>
+<h2>Contents</h2>
+<ul>
+<li><a href="#architecture--data-flow" target="_blank" rel="ugc nofollow noopener">Architecture &amp; Data Flow</a></li>
+<li><a href="#flutter-integration-workflow" target="_blank" rel="ugc nofollow noopener">Flutter Integration Workflow</a></li>
+<li><a href="#ios-implementation-workflow" target="_blank" rel="ugc nofollow noopener">iOS Implementation Workflow</a></li>
+<li><a href="#android-implementation-workflow" target="_blank" rel="ugc nofollow noopener">Android Implementation Workflow</a></li>
+<li><a href="#advanced-techniques" target="_blank" rel="ugc nofollow noopener">Advanced Techniques</a></li>
+<li><a href="#examples" target="_blank" rel="ugc nofollow noopener">Examples</a></li>
+</ul>
+<h2>Architecture &amp; Data Flow</h2>
+<p>Home Screen Widgets require native UI implementation (SwiftUI for iOS, XML/Kotlin for Android). The Flutter app communicates with these native widgets via shared local storage (<code>UserDefaults</code> on iOS, <code>SharedPreferences</code> on Android) using the <code>home_widget</code> package.</p>
+<ul>
+<li><strong>Data Write:</strong> Flutter app writes key-value pairs or renders images to a shared container.</li>
+<li><strong>Trigger:</strong> Flutter app signals the native OS to update the widget.</li>
+<li><strong>Data Read:</strong> Native widget wakes up, reads the key-value pairs or images from the shared container, and updates its UI.</li>
+</ul>
+<h2>Flutter Integration Workflow</h2>
+<p>Use this checklist to implement the Dart side of the Home Screen Widget integration.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 1: Initialize the App Group.</strong> Call <code>HomeWidget.setAppGroupId('&lt;YOUR_APP_GROUP&gt;')</code> in <code>initState()</code> or app startup.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 2: Save Data.</strong> Use <code>HomeWidget.saveWidgetData&lt;T&gt;('key', value)</code> to write data to shared storage.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 3: Trigger Update.</strong> Call <code>HomeWidget.updateWidget(iOSName: 'YourIOSWidget', androidName: 'YourAndroidWidget')</code> to notify the OS.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 4: Validate.</strong> Run Flutter build -&gt; review console for missing plugin registrations -&gt; fix.</li>
+</ul>
+<h2>iOS Implementation Workflow</h2>
+<p>If targeting iOS, implement the widget using Xcode and SwiftUI.</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 1: Create Target.</strong> Open <code>ios/Runner.xcworkspace</code> in Xcode. Add a new <strong>Widget Extension</strong> target. Disable "Include Live Activity" and "Include Configuration Intent" unless explicitly required.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 2: Configure App Groups.</strong> Add the <strong>App Groups</strong> capability to <em>both</em> the Runner target and the Widget Extension target. Ensure the App Group ID matches the one used in Dart.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 3: Define TimelineEntry.</strong> Create a struct conforming to <code>TimelineEntry</code> to hold the data passed from shared storage.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 4: Implement TimelineProvider.</strong>
+<ul>
+<li>In <code>getSnapshot</code> and <code>getTimeline</code>, instantiate <code>UserDefaults(suiteName: "&lt;YOUR_APP_GROUP&gt;")</code>.</li>
+<li>Extract values using <code>userDefaults?.string(forKey: "your_key")</code>.</li>
+<li>Return the populated <code>TimelineEntry</code>.</li>
+</ul>
+</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 5: Build UI.</strong> Implement the SwiftUI <code>View</code> to display the data from the <code>TimelineEntry</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 6: Validate.</strong> Run Xcode build for the Widget Extension -&gt; review provisioning/App Group errors -&gt; fix.</li>
+</ul>
+<h2>Android Implementation Workflow</h2>
+<p>If targeting Android, implement the widget using Android Studio and XML/Kotlin.</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 1: Create App Widget.</strong> Open the <code>android</code> folder in Android Studio. Right-click the app directory -&gt; <strong>New -&gt; Widget -&gt; App Widget</strong>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 2: Define Layout.</strong> Edit <code>res/layout/&lt;widget_name&gt;.xml</code> to define the UI using standard Android XML layouts (e.g., <code>RelativeLayout</code>, <code>TextView</code>, <code>ImageView</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 3: Implement AppWidgetProvider.</strong>
+<ul>
+<li>Open the generated Kotlin class extending <code>AppWidgetProvider</code>.</li>
+<li>In the <code>onUpdate</code> method, retrieve shared data using <code>HomeWidgetPlugin.getData(context)</code>.</li>
+<li>Extract values using <code>widgetData.getString("your_key", null)</code>.</li>
+<li>Update the UI using <code>RemoteViews</code> and <code>setTextViewText</code> or <code>setImageViewBitmap</code>.</li>
+<li>Call <code>appWidgetManager.updateAppWidget(appWidgetId, views)</code>.</li>
+</ul>
+</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Step 4: Validate.</strong> Run Android build -&gt; review Manifest registration errors -&gt; fix.</li>
+</ul>
+<h2>Advanced Techniques</h2>
+<h3>Rendering Flutter Widgets as Images</h3>
+<p>If the UI is too complex to recreate natively (e.g., custom charts), render the Flutter widget to an image and display the image in the native widget.</p>
+<ol>
+<li>Wrap the target Flutter widget with a <code>GlobalKey</code>.</li>
+<li>Call <code>HomeWidget.renderFlutterWidget()</code>, passing the widget, a filename, and the key.</li>
+<li><strong>iOS:</strong> Read the file path from <code>UserDefaults</code> and render using <code>UIImage(contentsOfFile:)</code> inside a SwiftUI <code>Image</code>.</li>
+<li><strong>Android:</strong> Read the file path from <code>SharedPreferences</code>, decode using <code>BitmapFactory.decodeFile()</code>, and render using <code>setImageViewBitmap()</code>.</li>
+</ol>
+<h3>Using Custom Flutter Fonts (iOS Only)</h3>
+<p>If utilizing custom fonts defined in Flutter on iOS Home Screen Widgets:</p>
+<ol>
+<li>Extract the Flutter asset bundle path in Swift.</li>
+<li>Register the font using <code>CTFontManagerRegisterFontsForURL</code>.</li>
+<li>Apply the font in SwiftUI using <code>Font.custom()</code>.</li>
+</ol>
+<h2>Examples</h2>
+<h3>Example: Flutter Data Update</h3>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:home_widget/home_widget.dart'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token class-name">String</span> appGroupId <span class="token operator">=</span> <span class="token string-literal"><span class="token string">'group.com.example.app'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token class-name">String</span> iOSWidgetName <span class="token operator">=</span> <span class="token string-literal"><span class="token string">'NewsWidgets'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token class-name">String</span> androidWidgetName <span class="token operator">=</span> <span class="token string-literal"><span class="token string">'NewsWidget'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token class-name">Future</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token keyword">void</span><span class="token punctuation">&gt;</span></span> <span class="token function">updateWidgetData</span><span class="token punctuation">(</span><span class="token class-name">String</span> title<span class="token punctuation">,</span> <span class="token class-name">String</span> description<span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">await</span> <span class="token class-name">HomeWidget</span><span class="token punctuation">.</span><span class="token function">setAppGroupId</span><span class="token punctuation">(</span>appGroupId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">await</span> <span class="token class-name">HomeWidget</span><span class="token punctuation">.</span>saveWidgetData<span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'headline_title'</span></span><span class="token punctuation">,</span> title<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">await</span> <span class="token class-name">HomeWidget</span><span class="token punctuation">.</span>saveWidgetData<span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'headline_description'</span></span><span class="token punctuation">,</span> description<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">await</span> <span class="token class-name">HomeWidget</span><span class="token punctuation">.</span><span class="token function">updateWidget</span><span class="token punctuation">(</span>
+</span><span class="code-line">    iOSName<span class="token punctuation">:</span> iOSWidgetName<span class="token punctuation">,</span>
+</span><span class="code-line">    androidName<span class="token punctuation">:</span> androidWidgetName<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example: iOS SwiftUI Provider &amp; View</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">WidgetKit</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">SwiftUI</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">NewsArticleEntry</span><span class="token punctuation">:</span> <span class="token class-name">TimelineEntry</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> date<span class="token punctuation">:</span> <span class="token class-name">Date</span>
+</span><span class="code-line">    <span class="token keyword">let</span> title<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">    <span class="token keyword">let</span> description<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">Provider</span><span class="token punctuation">:</span> <span class="token class-name">TimelineProvider</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">placeholder</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">NewsArticleEntry</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">NewsArticleEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> title<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Loading..."</span></span><span class="token punctuation">,</span> description<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Loading..."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">getSnapshot</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">,</span> completion<span class="token punctuation">:</span> <span class="token attribute atrule">@escaping</span> <span class="token punctuation">(</span><span class="token class-name">NewsArticleEntry</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> userDefaults <span class="token operator">=</span> <span class="token class-name">UserDefaults</span><span class="token punctuation">(</span>suiteName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"group.com.example.app"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">let</span> title <span class="token operator">=</span> userDefaults<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span>forKey<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"headline_title"</span></span><span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token string-literal"><span class="token string">"No Title"</span></span>
+</span><span class="code-line">        <span class="token keyword">let</span> description <span class="token operator">=</span> userDefaults<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span>forKey<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"headline_description"</span></span><span class="token punctuation">)</span> <span class="token operator">??</span> <span class="token string-literal"><span class="token string">"No Description"</span></span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token keyword">let</span> entry <span class="token operator">=</span> <span class="token class-name">NewsArticleEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> title<span class="token punctuation">:</span> title<span class="token punctuation">,</span> description<span class="token punctuation">:</span> description<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token function">completion</span><span class="token punctuation">(</span>entry<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">getTimeline</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">,</span> completion<span class="token punctuation">:</span> <span class="token attribute atrule">@escaping</span> <span class="token punctuation">(</span><span class="token class-name">Timeline</span><span class="token operator">&lt;</span><span class="token class-name">Entry</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">getSnapshot</span><span class="token punctuation">(</span><span class="token keyword">in</span><span class="token punctuation">:</span> context<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">(</span>entry<span class="token punctuation">)</span> <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token keyword">let</span> timeline <span class="token operator">=</span> <span class="token class-name">Timeline</span><span class="token punctuation">(</span>entries<span class="token punctuation">:</span> <span class="token punctuation">[</span>entry<span class="token punctuation">]</span><span class="token punctuation">,</span> policy<span class="token punctuation">:</span> <span class="token punctuation">.</span>atEnd<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token function">completion</span><span class="token punctuation">(</span>timeline<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">NewsWidgetsEntryView</span> <span class="token punctuation">:</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> entry<span class="token punctuation">:</span> <span class="token class-name">Provider</span><span class="token punctuation">.</span><span class="token class-name">Entry</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">VStack</span><span class="token punctuation">(</span>alignment<span class="token punctuation">:</span> <span class="token punctuation">.</span>leading<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">Text</span><span class="token punctuation">(</span>entry<span class="token punctuation">.</span>title<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>headline<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token class-name">Text</span><span class="token punctuation">(</span>entry<span class="token punctuation">.</span>description<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>subheadline<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example: Android Kotlin Provider</h3>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">package</span> com<span class="token punctuation">.</span>example<span class="token punctuation">.</span>app<span class="token punctuation">.</span>widgets
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">import</span> android<span class="token punctuation">.</span>appwidget<span class="token punctuation">.</span>AppWidgetManager
+</span><span class="code-line"><span class="token keyword">import</span> android<span class="token punctuation">.</span>appwidget<span class="token punctuation">.</span>AppWidgetProvider
+</span><span class="code-line"><span class="token keyword">import</span> android<span class="token punctuation">.</span>content<span class="token punctuation">.</span>Context
+</span><span class="code-line"><span class="token keyword">import</span> android<span class="token punctuation">.</span>widget<span class="token punctuation">.</span>RemoteViews
+</span><span class="code-line"><span class="token keyword">import</span> es<span class="token punctuation">.</span>antonborri<span class="token punctuation">.</span>home_widget<span class="token punctuation">.</span>HomeWidgetPlugin
+</span><span class="code-line"><span class="token keyword">import</span> com<span class="token punctuation">.</span>example<span class="token punctuation">.</span>app<span class="token punctuation">.</span>R
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> NewsWidget <span class="token operator">:</span> <span class="token function">AppWidgetProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">override</span> <span class="token keyword">fun</span> <span class="token function">onUpdate</span><span class="token punctuation">(</span>
+</span><span class="code-line">        context<span class="token operator">:</span> Context<span class="token punctuation">,</span>
+</span><span class="code-line">        appWidgetManager<span class="token operator">:</span> AppWidgetManager<span class="token punctuation">,</span>
+</span><span class="code-line">        appWidgetIds<span class="token operator">:</span> IntArray<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">for</span> <span class="token punctuation">(</span>appWidgetId <span class="token keyword">in</span> appWidgetIds<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">val</span> widgetData <span class="token operator">=</span> HomeWidgetPlugin<span class="token punctuation">.</span><span class="token function">getData</span><span class="token punctuation">(</span>context<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">val</span> views <span class="token operator">=</span> <span class="token function">RemoteViews</span><span class="token punctuation">(</span>context<span class="token punctuation">.</span>packageName<span class="token punctuation">,</span> R<span class="token punctuation">.</span>layout<span class="token punctuation">.</span>news_widget<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">apply</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">val</span> title <span class="token operator">=</span> widgetData<span class="token punctuation">.</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"headline_title"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"No Title"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token function">setTextViewText</span><span class="token punctuation">(</span>R<span class="token punctuation">.</span>id<span class="token punctuation">.</span>headline_title<span class="token punctuation">,</span> title<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">                <span class="token keyword">val</span> description <span class="token operator">=</span> widgetData<span class="token punctuation">.</span><span class="token function">getString</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"headline_description"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"No Description"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token function">setTextViewText</span><span class="token punctuation">(</span>R<span class="token punctuation">.</span>id<span class="token punctuation">.</span>headline_description<span class="token punctuation">,</span> description<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">            appWidgetManager<span class="token punctuation">.</span><span class="token function">updateAppWidget</span><span class="token punctuation">(</span>appWidgetId<span class="token punctuation">,</span> views<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Add this to your SwiftUI View struct</span>
+</span><span class="code-line"><span class="token keyword">var</span> bundle<span class="token punctuation">:</span> <span class="token constant">URL</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> bundle <span class="token operator">=</span> <span class="token class-name">Bundle</span><span class="token punctuation">.</span>main
+</span><span class="code-line">    <span class="token keyword">if</span> bundle<span class="token punctuation">.</span>bundleURL<span class="token punctuation">.</span>pathExtension <span class="token operator">==</span> <span class="token string-literal"><span class="token string">"appex"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">var</span> url <span class="token operator">=</span> bundle<span class="token punctuation">.</span>bundleURL<span class="token punctuation">.</span><span class="token function">deletingLastPathComponent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">deletingLastPathComponent</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        url<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span>component<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Frameworks/App.framework/flutter_assets"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> url
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">return</span> bundle<span class="token punctuation">.</span>bundleURL
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">init</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> <span class="token class-name">Provider</span><span class="token punctuation">.</span><span class="token class-name">Entry</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">self</span><span class="token punctuation">.</span>entry <span class="token operator">=</span> entry
+</span><span class="code-line">    <span class="token class-name">CTFontManagerRegisterFontsForURL</span><span class="token punctuation">(</span>
+</span><span class="code-line">        bundle<span class="token punctuation">.</span><span class="token function">appending</span><span class="token punctuation">(</span>path<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"/fonts/YourCustomFont.ttf"</span></span><span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token constant">CFURL</span><span class="token punctuation">,</span> 
+</span><span class="code-line">        <span class="token class-name">CTFontManagerScope</span><span class="token punctuation">.</span>process<span class="token punctuation">,</span> 
+</span><span class="code-line">        <span class="token nil constant">nil</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

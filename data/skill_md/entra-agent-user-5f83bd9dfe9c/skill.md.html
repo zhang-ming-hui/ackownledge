@@ -1,0 +1,306 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>SKILL: Creating Agent Users in Microsoft Entra Agent ID</h1>
+<h2>Overview</h2>
+<p>An <strong>agent user</strong> is a specialized user identity in Microsoft Entra ID that enables AI agents to act as digital workers. It allows agents to access APIs and services that strictly require user identities (e.g., Exchange mailboxes, Teams, org charts), while maintaining appropriate security boundaries.</p>
+<p>Agent users receive tokens with <code>idtyp=user</code>, unlike regular agent identities which receive <code>idtyp=app</code>.</p>
+<hr>
+<h2>Prerequisites</h2>
+<ul>
+<li>A <strong>Microsoft Entra tenant</strong> with Agent ID capabilities</li>
+<li>An <strong>agent identity</strong> (service principal of type <code>ServiceIdentity</code>) created from an <strong>agent identity blueprint</strong></li>
+<li>One of the following <strong>permissions</strong>:
+<ul>
+<li><code>AgentIdUser.ReadWrite.IdentityParentedBy</code> (least privileged)</li>
+<li><code>AgentIdUser.ReadWrite.All</code></li>
+<li><code>User.ReadWrite.All</code></li>
+</ul>
+</li>
+<li>The caller must have at minimum the <strong>Agent ID Administrator</strong> role (in delegated scenarios)</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><blockquote>
+<p><strong>Important:</strong> The <code>identityParentId</code> must reference a true agent identity (created via an agent identity blueprint), NOT a regular application service principal. You can verify by checking that the service principal has <code>@odata.type: #microsoft.graph.agentIdentity</code> and <code>servicePrincipalType: ServiceIdentity</code>.</p>
+</blockquote>
+<hr>
+<h2>Architecture</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Agent Identity Blueprint (application template)
+</span><span class="code-line">    │
+</span><span class="code-line">    ├── Agent Identity (service principal - ServiceIdentity)
+</span><span class="code-line">    │       │
+</span><span class="code-line">    │       └── Agent User (user - agentUser) ← 1:1 relationship
+</span><span class="code-line">    │
+</span><span class="code-line">    └── Agent Identity Blueprint Principal (service principal in tenant)
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Type</th>
+<th>Token Claim</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent Identity</td>
+<td>Service Principal</td>
+<td><code>idtyp=app</code></td>
+<td>Backend/API operations</td>
+</tr>
+<tr>
+<td>Agent User</td>
+<td>User (<code>agentUser</code>)</td>
+<td><code>idtyp=user</code></td>
+<td>Act as a digital worker in M365</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Step 1: Verify the Agent Identity Exists</h2>
+<p>Before creating an agent user, confirm the agent identity is a proper <code>agentIdentity</code> type:</p>
+<pre class="language-http"><code class="language-http code-highlight"><span class="code-line">GET https://graph.microsoft.com/beta/servicePrincipals/{agent-identity-id}
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Authorization</span><span class="token punctuation">:</span> <span class="token header-value">Bearer &lt;token&gt;</span></span>
+</span></code></pre>
+<p>Verify the response contains:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"@odata.type"</span><span class="token operator">:</span> <span class="token string">"#microsoft.graph.agentIdentity"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"servicePrincipalType"</span><span class="token operator">:</span> <span class="token string">"ServiceIdentity"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"agentIdentityBlueprintId"</span><span class="token operator">:</span> <span class="token string">"&lt;blueprint-id&gt;"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>PowerShell</h3>
+<pre class="language-powershell"><code class="language-powershell code-highlight"><span class="code-line"><span class="token function">Connect-MgGraph</span> <span class="token operator">-</span>Scopes <span class="token string">"Application.Read.All"</span> <span class="token operator">-</span>TenantId <span class="token string">"&lt;tenant&gt;"</span> <span class="token operator">-</span>UseDeviceCode <span class="token operator">-</span>NoWelcome
+</span><span class="code-line"><span class="token function">Invoke-MgGraphRequest</span> <span class="token operator">-</span>Method GET `
+</span><span class="code-line">  <span class="token operator">-</span>Uri <span class="token string">"https://graph.microsoft.com/beta/servicePrincipals/&lt;agent-identity-id&gt;"</span> <span class="token punctuation">|</span> <span class="token function">ConvertTo-Json</span> <span class="token operator">-</span>Depth 3
+</span></code></pre>
+<blockquote>
+<p><strong>Common mistake:</strong> Using an app registration's <code>appId</code> or a regular application service principal's <code>id</code> will fail. Only agent identities created from blueprints work.</p>
+</blockquote>
+<hr>
+<h2>Step 2: Create the Agent User</h2>
+<h3>HTTP Request</h3>
+<pre class="language-http"><code class="language-http code-highlight"><span class="code-line">POST https://graph.microsoft.com/beta/users/microsoft.graph.agentUser
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Content-Type</span><span class="token punctuation">:</span> <span class="token header-value">application/json</span></span>
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Authorization</span><span class="token punctuation">:</span> <span class="token header-value">Bearer &lt;token&gt;</span></span>
+</span><span class="code-line"><span class="token application-json">
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">{</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"accountEnabled"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"displayName"</span><span class="token operator">:</span> <span class="token string">"My Agent User"</span><span class="token punctuation">,</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"mailNickname"</span><span class="token operator">:</span> <span class="token string">"my-agent-user"</span><span class="token punctuation">,</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"userPrincipalName"</span><span class="token operator">:</span> <span class="token string">"my-agent-user@yourtenant.onmicrosoft.com"</span><span class="token punctuation">,</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"identityParentId"</span><span class="token operator">:</span> <span class="token string">"&lt;agent-identity-object-id&gt;"</span>
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">}</span>
+</span></span></code></pre>
+<h3>Required Properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>accountEnabled</code></td>
+<td>Boolean</td>
+<td><code>true</code> to enable the account</td>
+</tr>
+<tr>
+<td><code>displayName</code></td>
+<td>String</td>
+<td>Human-friendly name</td>
+</tr>
+<tr>
+<td><code>mailNickname</code></td>
+<td>String</td>
+<td>Mail alias (no spaces/special chars)</td>
+</tr>
+<tr>
+<td><code>userPrincipalName</code></td>
+<td>String</td>
+<td>UPN — must be unique in the tenant (<code>alias@verified-domain</code>)</td>
+</tr>
+<tr>
+<td><code>identityParentId</code></td>
+<td>String</td>
+<td>Object ID of the parent agent identity</td>
+</tr>
+</tbody>
+</table>
+<h3>PowerShell</h3>
+<pre class="language-powershell"><code class="language-powershell code-highlight"><span class="code-line"><span class="token function">Connect-MgGraph</span> <span class="token operator">-</span>Scopes <span class="token string">"User.ReadWrite.All"</span> <span class="token operator">-</span>TenantId <span class="token string">"&lt;tenant&gt;"</span> <span class="token operator">-</span>UseDeviceCode <span class="token operator">-</span>NoWelcome
+</span><span class="code-line">
+</span><span class="code-line"><span class="token variable">$body</span> = @<span class="token punctuation">{</span>
+</span><span class="code-line">  accountEnabled    = <span class="token boolean">$true</span>
+</span><span class="code-line">  displayName       = <span class="token string">"My Agent User"</span>
+</span><span class="code-line">  mailNickname      = <span class="token string">"my-agent-user"</span>
+</span><span class="code-line">  userPrincipalName = <span class="token string">"my-agent-user@yourtenant.onmicrosoft.com"</span>
+</span><span class="code-line">  identityParentId  = <span class="token string">"&lt;agent-identity-object-id&gt;"</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">|</span> <span class="token function">ConvertTo-Json</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">Invoke-MgGraphRequest</span> <span class="token operator">-</span>Method POST `
+</span><span class="code-line">  <span class="token operator">-</span>Uri <span class="token string">"https://graph.microsoft.com/beta/users/microsoft.graph.agentUser"</span> `
+</span><span class="code-line">  <span class="token operator">-</span>Body <span class="token variable">$body</span> <span class="token operator">-</span>ContentType <span class="token string">"application/json"</span> <span class="token punctuation">|</span> <span class="token function">ConvertTo-Json</span> <span class="token operator">-</span>Depth 3
+</span></code></pre>
+<h3>Key Notes</h3>
+<ul>
+<li><strong>No password</strong> — agent users cannot have passwords. They authenticate via their parent agent identity's credentials.</li>
+<li><strong>1:1 relationship</strong> — each agent identity can have at most one agent user. Attempting to create a second returns <code>400 Bad Request</code>.</li>
+<li>The <code>userPrincipalName</code> must be unique. Don't reuse an existing user's UPN.</li>
+</ul>
+<hr>
+<h2>Step 3: Assign a Manager (Optional)</h2>
+<p>Assigning a manager allows the agent user to appear in org charts (e.g., Teams).</p>
+<pre class="language-http"><code class="language-http code-highlight"><span class="code-line">PUT https://graph.microsoft.com/beta/users/{agent-user-id}/manager/$ref
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Content-Type</span><span class="token punctuation">:</span> <span class="token header-value">application/json</span></span>
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Authorization</span><span class="token punctuation">:</span> <span class="token header-value">Bearer &lt;token&gt;</span></span>
+</span><span class="code-line"><span class="token application-json">
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">{</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"@odata.id"</span><span class="token operator">:</span> <span class="token string">"https://graph.microsoft.com/beta/users/{manager-user-id}"</span>
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">}</span>
+</span></span></code></pre>
+<h3>PowerShell</h3>
+<pre class="language-powershell"><code class="language-powershell code-highlight"><span class="code-line"><span class="token variable">$managerBody</span> = <span class="token string">'{"@odata.id":"https://graph.microsoft.com/beta/users/&lt;manager-user-id&gt;"}'</span>
+</span><span class="code-line"><span class="token function">Invoke-MgGraphRequest</span> <span class="token operator">-</span>Method PUT `
+</span><span class="code-line">  <span class="token operator">-</span>Uri <span class="token string">"https://graph.microsoft.com/beta/users/&lt;agent-user-id&gt;/manager/`<span class="token variable">$ref</span>"</span> `
+</span><span class="code-line">  <span class="token operator">-</span>Body <span class="token variable">$managerBody</span> <span class="token operator">-</span>ContentType <span class="token string">"application/json"</span>
+</span></code></pre>
+<hr>
+<h2>Step 4: Set Usage Location and Assign Licenses (Optional)</h2>
+<p>A license is needed for the agent user to have a mailbox, Teams presence, etc. Usage location must be set first.</p>
+<h3>Set Usage Location</h3>
+<pre class="language-http"><code class="language-http code-highlight"><span class="code-line">PATCH https://graph.microsoft.com/beta/users/{agent-user-id}
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Content-Type</span><span class="token punctuation">:</span> <span class="token header-value">application/json</span></span>
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Authorization</span><span class="token punctuation">:</span> <span class="token header-value">Bearer &lt;token&gt;</span></span>
+</span><span class="code-line"><span class="token application-json">
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">{</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"usageLocation"</span><span class="token operator">:</span> <span class="token string">"US"</span>
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">}</span>
+</span></span></code></pre>
+<h3>List Available Licenses</h3>
+<pre class="language-http"><code class="language-http code-highlight"><span class="code-line">GET https://graph.microsoft.com/beta/subscribedSkus?$select=skuPartNumber,skuId,consumedUnits,prepaidUnits
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Authorization</span><span class="token punctuation">:</span> <span class="token header-value">Bearer &lt;token&gt;</span></span>
+</span></code></pre>
+<p>Requires <code>Organization.Read.All</code> permission.</p>
+<h3>Assign a License</h3>
+<pre class="language-http"><code class="language-http code-highlight"><span class="code-line">POST https://graph.microsoft.com/beta/users/{agent-user-id}/assignLicense
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Content-Type</span><span class="token punctuation">:</span> <span class="token header-value">application/json</span></span>
+</span><span class="code-line"><span class="token header"><span class="token header-name keyword">Authorization</span><span class="token punctuation">:</span> <span class="token header-value">Bearer &lt;token&gt;</span></span>
+</span><span class="code-line"><span class="token application-json">
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">{</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"addLicenses"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span></span><span class="code-line"><span class="token application-json">    <span class="token punctuation">{</span> <span class="token property">"skuId"</span><span class="token operator">:</span> <span class="token string">"&lt;sku-id&gt;"</span> <span class="token punctuation">}</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span></span><span class="code-line"><span class="token application-json">  <span class="token property">"removeLicenses"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+</span></span><span class="code-line"><span class="token application-json"><span class="token punctuation">}</span>
+</span></span></code></pre>
+<h3>PowerShell (all in one)</h3>
+<pre class="language-powershell"><code class="language-powershell code-highlight"><span class="code-line"><span class="token function">Connect-MgGraph</span> <span class="token operator">-</span>Scopes <span class="token string">"User.ReadWrite.All"</span><span class="token punctuation">,</span><span class="token string">"Organization.Read.All"</span> <span class="token operator">-</span>TenantId <span class="token string">"&lt;tenant&gt;"</span> <span class="token operator">-</span>NoWelcome
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Set usage location</span>
+</span><span class="code-line"><span class="token function">Invoke-MgGraphRequest</span> <span class="token operator">-</span>Method PATCH `
+</span><span class="code-line">  <span class="token operator">-</span>Uri <span class="token string">"https://graph.microsoft.com/beta/users/&lt;agent-user-id&gt;"</span> `
+</span><span class="code-line">  <span class="token operator">-</span>Body <span class="token string">'{"usageLocation":"US"}'</span> <span class="token operator">-</span>ContentType <span class="token string">"application/json"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Assign license</span>
+</span><span class="code-line"><span class="token variable">$licenseBody</span> = <span class="token string">'{"addLicenses":[{"skuId":"&lt;sku-id&gt;"}],"removeLicenses":[]}'</span>
+</span><span class="code-line"><span class="token function">Invoke-MgGraphRequest</span> <span class="token operator">-</span>Method POST `
+</span><span class="code-line">  <span class="token operator">-</span>Uri <span class="token string">"https://graph.microsoft.com/beta/users/&lt;agent-user-id&gt;/assignLicense"</span> `
+</span><span class="code-line">  <span class="token operator">-</span>Body <span class="token variable">$licenseBody</span> <span class="token operator">-</span>ContentType <span class="token string">"application/json"</span>
+</span></code></pre>
+<blockquote>
+<p><strong>Tip:</strong> You can also assign licenses via the <strong>Entra admin center</strong> under Identity → Users → All users → select the agent user → Licenses and apps.</p>
+</blockquote>
+<hr>
+<h2>Provisioning Times</h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Estimated Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exchange mailbox</td>
+<td>5–30 minutes</td>
+</tr>
+<tr>
+<td>Teams availability</td>
+<td>15 min – 24 hours</td>
+</tr>
+<tr>
+<td>Org chart / People search</td>
+<td>Up to 24–48 hours</td>
+</tr>
+<tr>
+<td>SharePoint / OneDrive</td>
+<td>5–30 minutes</td>
+</tr>
+<tr>
+<td>Global Address List</td>
+<td>Up to 24 hours</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Agent User Capabilities</h2>
+<ul>
+<li>✅ Added to Microsoft Entra groups (including dynamic groups)</li>
+<li>✅ Access user-only APIs (<code>idtyp=user</code> tokens)</li>
+<li>✅ Own a mailbox, calendar, and contacts</li>
+<li>✅ Participate in Teams chats and channels</li>
+<li>✅ Appear in org charts and People search</li>
+<li>✅ Added to administrative units</li>
+<li>✅ Assigned licenses</li>
+</ul>
+<h2>Agent User Security Constraints</h2>
+<ul>
+<li>❌ Cannot have passwords, passkeys, or interactive sign-in</li>
+<li>❌ Cannot be assigned privileged admin roles</li>
+<li>❌ Cannot be added to role-assignable groups</li>
+<li>❌ Permissions similar to guest users by default</li>
+<li>❌ Custom role assignment not available</li>
+</ul>
+<hr>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Agent user IdentityParent does not exist</code></td>
+<td><code>identityParentId</code> points to a non-existent or non-agent-identity object</td>
+<td>Verify the ID is an <code>agentIdentity</code> service principal, not a regular app</td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code> (identityParentId already linked)</td>
+<td>The agent identity already has an agent user</td>
+<td>Each agent identity supports only one agent user</td>
+</tr>
+<tr>
+<td><code>409 Conflict</code> on UPN</td>
+<td>The <code>userPrincipalName</code> is already taken</td>
+<td>Use a unique UPN</td>
+</tr>
+<tr>
+<td>License assignment fails</td>
+<td>Usage location not set</td>
+<td>Set <code>usageLocation</code> before assigning licenses</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>References</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/entra/agent-id/identity-platform/agent-identities" target="_blank" rel="ugc nofollow noopener">Agent identities</a></li>
+<li><a href="https://learn.microsoft.com/en-us/entra/agent-id/identity-platform/agent-users" target="_blank" rel="ugc nofollow noopener">Agent users</a></li>
+<li><a href="https://learn.microsoft.com/en-us/entra/agent-id/identity-platform/agent-service-principals" target="_blank" rel="ugc nofollow noopener">Agent service principals</a></li>
+<li><a href="https://learn.microsoft.com/en-us/entra/agent-id/identity-platform/create-blueprint" target="_blank" rel="ugc nofollow noopener">Create agent identity blueprint</a></li>
+<li><a href="https://learn.microsoft.com/en-us/entra/agent-id/identity-platform/create-delete-agent-identities" target="_blank" rel="ugc nofollow noopener">Create agent identities</a></li>
+<li><a href="https://learn.microsoft.com/en-us/graph/api/resources/agentuser?view=graph-rest-beta" target="_blank" rel="ugc nofollow noopener">agentUser resource type (Graph API)</a></li>
+<li><a href="https://learn.microsoft.com/en-us/graph/api/agentuser-post?view=graph-rest-beta" target="_blank" rel="ugc nofollow noopener">Create agentUser (Graph API)</a></li>
+</ul></div>

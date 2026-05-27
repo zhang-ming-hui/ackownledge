@@ -1,0 +1,231 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Agentation Self-Driving Mode</h1>
+<p>Autonomously critique a web page by adding design annotations via the Agentation toolbar — in a visible headed browser so the user can watch the agent work in real time, like watching a self-driving car navigate.</p>
+<h2>Launch — Always Headed</h2>
+<p>The browser MUST be visible. Never run headless. The user watches you scan, hover, click, and annotate.</p>
+<p><strong>Preflight</strong>: Verify <code>agent-browser</code> is available before anything else:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">command</span> <span class="token parameter variable">-v</span> agent-browser <span class="token operator">&gt;</span>/dev/null <span class="token operator">||</span> <span class="token punctuation">{</span> <span class="token builtin class-name">echo</span> <span class="token string">"ERROR: agent-browser not found. Install the agent-browser skill first."</span><span class="token punctuation">;</span> <span class="token builtin class-name">exit</span> <span class="token number">1</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Launch</strong>: Try opening directly first. Only close an existing session if the open command fails with a stale session error — this avoids killing a browser someone else is using:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Try to open. If it fails (stale session), close first then retry.</span>
+</span><span class="code-line">agent-browser <span class="token parameter variable">--headed</span> <span class="token function">open</span> <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">||</span> <span class="token punctuation">{</span> agent-browser close <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null<span class="token punctuation">;</span> agent-browser <span class="token parameter variable">--headed</span> <span class="token function">open</span> <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p>Then verify the Agentation toolbar is present and expand it:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Check toolbar exists on the page (data-feedback-toolbar is the root marker)</span>
+</span><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelector('[data-feedback-toolbar]') ? 'toolbar found' : 'NOT FOUND'"</span>
+</span><span class="code-line"><span class="token comment"># If "NOT FOUND": Agentation is not installed on this page — stop and tell the user</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Expand ONLY if collapsed (clicking when already expanded collapses it)</span>
+</span><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelector('[data-feedback-toolbar][class*=expanded]') ? 'already expanded' : (document.querySelector('[class*=toggleContent]')?.click(), 'expanding')"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Verify: take a snapshot and look for toolbar controls</span>
+</span><span class="code-line">agent-browser snapshot <span class="token parameter variable">-i</span>
+</span><span class="code-line"><span class="token comment"># If expanded: you'll see "Block page interactions" checkbox, color buttons (Purple, Blue, etc.)</span>
+</span><span class="code-line"><span class="token comment"># If collapsed: you'll only see the small toggle button — retry step 2</span>
+</span></code></pre>
+<p>"Block page interactions" must be checked (default: on).</p>
+<blockquote>
+<p><strong>eval quoting rule</strong>: Always use <code>[class*=toggleContent]</code> (no quotes around the attribute value) in eval strings. Do not use double-bang in eval because bash treats it as history expansion. Do not use backslash-escaped inner quotes either, as they break unpredictably across shells.</p>
+</blockquote>
+<h2>Critical: How to Create Annotations</h2>
+<p><strong>Standard element clicks (<code>click @ref</code>) do NOT trigger annotation dialogs.</strong> The Agentation overlay intercepts pointer events at the coordinate level. Use coordinate-based mouse events — this also makes the interaction visible in the browser as the cursor moves across the page.</p>
+<blockquote>
+<p><strong><code>@ref</code> compatibility</strong>: Only <code>click</code>, <code>fill</code>, <code>type</code>, <code>hover</code>, <code>focus</code>, <code>check</code>, <code>select</code>, <code>drag</code> support <code>@ref</code> syntax. The commands <code>scrollintoview</code>, <code>get box</code>, and <code>eval</code> do NOT — they expect CSS selectors. Use <code>eval</code> with <code>querySelector</code> for scrolling and position lookup.</p>
+</blockquote>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Take interactive snapshot — identify target element and build a CSS selector</span>
+</span><span class="code-line">agent-browser snapshot <span class="token parameter variable">-i</span>
+</span><span class="code-line"><span class="token comment"># Example: snapshot shows  heading "Point at bugs." [ref=e10]</span>
+</span><span class="code-line"><span class="token comment"># Derive a CSS selector: 'h1', or more specific: 'h1:first-of-type'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Scroll the element into view via eval (NOT scrollintoview @ref — that breaks)</span>
+</span><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelector('h1').scrollIntoView({block:'center'})"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Get its bounding box via eval (NOT get box @ref — that also breaks)</span>
+</span><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"<span class="token variable"><span class="token punctuation">((</span>r<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&gt;</span> r.x<span class="token operator">+</span>'<span class="token punctuation">,</span>'<span class="token operator">+</span>r.y<span class="token operator">+</span>'<span class="token punctuation">,</span>'<span class="token operator">+</span>r.width<span class="token operator">+</span>'<span class="token punctuation">,</span>'<span class="token operator">+</span>r.height<span class="token punctuation">)</span><span class="token punctuation">(</span>document.querySelector<span class="token punctuation">(</span>'h1'<span class="token punctuation">)</span>.getBoundingClientRect<span class="token punctuation">(</span><span class="token punctuation">))</span></span>"</span>
+</span><span class="code-line"><span class="token comment"># Returns: "383,245,200,40"  (parse these as x,y,width,height)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 4. Move cursor to element center, then click</span>
+</span><span class="code-line"><span class="token comment">#    centerX = x + width/2,  centerY = y + height/2</span>
+</span><span class="code-line">agent-browser mouse move <span class="token operator">&lt;</span>centerX<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>centerY<span class="token operator">&gt;</span>
+</span><span class="code-line">agent-browser mouse down left
+</span><span class="code-line">agent-browser mouse up left
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 5. Get the annotation dialog refs — read the FULL snapshot output</span>
+</span><span class="code-line"><span class="token comment">#    Dialog refs appear at the BOTTOM of the list, don't truncate with head/tail</span>
+</span><span class="code-line">agent-browser snapshot <span class="token parameter variable">-i</span>
+</span><span class="code-line"><span class="token comment"># Look for: textbox "What should change?" and "Cancel" / "Add" buttons</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 6. Type critique — fill and click DO support @ref</span>
+</span><span class="code-line">agent-browser fill @<span class="token operator">&lt;</span>textboxRef<span class="token operator">&gt;</span> <span class="token string">"Your critique here"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 7. Submit (Add button enables after text is filled)</span>
+</span><span class="code-line">agent-browser click @<span class="token operator">&lt;</span>addRef<span class="token operator">&gt;</span>
+</span></code></pre>
+<p>If no dialog appears after clicking, the toolbar may have collapsed. Re-expand (only if collapsed) and retry:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelector('[data-feedback-toolbar][class*=expanded]') ? 'ok' : (document.querySelector('[class*=toggleContent]')?.click(), 'expanded')"</span>
+</span></code></pre>
+<h3>Building CSS selectors from snapshots</h3>
+<p>The snapshot shows element roles, names, and refs. Map them to CSS selectors:</p>
+<table>
+<thead>
+<tr>
+<th>Snapshot line</th>
+<th>CSS selector</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>heading "Point at bugs." [ref=e10]</code></td>
+<td><code>h1</code> or <code>h1:first-of-type</code></td>
+</tr>
+<tr>
+<td><code>button "npm install agentation Copy" [ref=e15]</code></td>
+<td><code>button:has(code)</code> or by text content via eval</td>
+</tr>
+<tr>
+<td><code>link "Star on GitHub" [ref=e28]</code></td>
+<td><code>a[href*=github]</code></td>
+</tr>
+<tr>
+<td><code>paragraph (long text...) [ref=e20]</code></td>
+<td>Target by section: <code>section:nth-of-type(2) p</code></td>
+</tr>
+</tbody>
+</table>
+<p>When in doubt, use a broader selector and verify with eval:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelector('h2').textContent"</span>
+</span></code></pre>
+<h2>The Loop</h2>
+<p>Work top-to-bottom through the page. For each annotation:</p>
+<ol>
+<li>Scroll to the target area via eval (<code>scrollIntoView</code>)</li>
+<li>Pick a specific element — heading, paragraph, button, section container</li>
+<li>Get its bounding box via eval (<code>getBoundingClientRect</code>)</li>
+<li>Execute the coordinate-click sequence (<code>mouse move</code> → <code>mouse down</code> → <code>mouse up</code>)</li>
+<li>Read the <strong>full</strong> snapshot output to find dialog refs at the bottom</li>
+<li>Write the critique (<code>fill @ref</code>) and submit (<code>click @ref</code>)</li>
+<li>Verify the annotation was added (see below)</li>
+<li>Move to the next area</li>
+</ol>
+<h3>Verifying annotations</h3>
+<p>After submitting each annotation, confirm the count increased:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">agent-browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelectorAll('[data-annotation-marker]').length"</span>
+</span><span class="code-line"><span class="token comment"># Should return the expected count (1 after first, 2 after second, etc.)</span>
+</span></code></pre>
+<p>If the count didn't increase, the submission failed silently — re-snapshot and check if the dialog is still open.</p>
+<p>Aim for 5-8 annotations per page unless told otherwise.</p>
+<h2>What to Critique</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>What to look for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hero / above the fold</strong></td>
+<td>Headline hierarchy, CTA placement, visual grouping</td>
+</tr>
+<tr>
+<td><strong>Navigation</strong></td>
+<td>Label styling, category grouping, visual weight</td>
+</tr>
+<tr>
+<td><strong>Demo / illustrations</strong></td>
+<td>Clarity, depth, animation readability</td>
+</tr>
+<tr>
+<td><strong>Content sections</strong></td>
+<td>Spacing rhythm, callout treatments, typography hierarchy</td>
+</tr>
+<tr>
+<td><strong>Key taglines</strong></td>
+<td>Whether resonant lines get enough visual emphasis</td>
+</tr>
+<tr>
+<td><strong>CTAs and footer</strong></td>
+<td>Conversion weight, visual separation, final actions</td>
+</tr>
+</tbody>
+</table>
+<h2>Critique Style</h2>
+<p>2-3 sentences max per annotation:</p>
+<ul>
+<li><strong>Specific and actionable</strong>: "Stack the install command below the subheading at 16px" not "fix the layout"</li>
+<li><strong>1-2 concrete alternatives</strong>: Reference CSS values, layout patterns, or design systems</li>
+<li><strong>Name the principle</strong>: Visual hierarchy, Gestalt grouping, whitespace, emphasis, conversion design</li>
+<li><strong>Reference comparable products</strong>: "Like how Stripe/Linear/Vercel handles this"</li>
+</ul>
+<p>Bad: "This section needs work"
+Good: "This bullet list reads like docs, not a showcase. Use a 3-column card grid with icons — similar to Stripe's guidelines pattern. Creates visual rhythm and scannability."</p>
+<h2>Install</h2>
+<p>The skill must be symlinked into <code>~/.claude/skills/</code> for Claude Code to discover it:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">ln</span> <span class="token parameter variable">-s</span> <span class="token string">"<span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">pwd</span><span class="token variable">)</span></span>/skills/agentation-self-driving"</span> ~/.claude/skills/agentation-self-driving
+</span></code></pre>
+<p>Restart Claude Code after installing. Verify with <code>/agentation-self-driving</code> — if it loads the skill instructions, the symlink is working.</p>
+<h2>Troubleshooting</h2>
+<ul>
+<li><strong>"Browser not launched. Call launch first."</strong>: Stale session from a previous run — run <code>agent-browser close 2&gt;/dev/null</code> then retry the <code>--headed open</code> command</li>
+<li><strong>Toolbar not found on page</strong>: Agentation isn't installed — run <code>/agentation</code> to set it up first</li>
+<li><strong>No dialog after clicking</strong>: Toolbar collapsed — re-expand with the state-aware eval (check <code>[class*=expanded]</code> first), retry</li>
+<li><strong>Wrong element targeted</strong>: Click Cancel, scroll to intended element, retry with correct coordinates</li>
+<li><strong>Add button stays disabled</strong>: Text wasn't filled — re-snapshot and fill the textbox</li>
+<li><strong>Page navigated</strong>: "Block page interactions" is off — enable via toolbar settings</li>
+<li><strong>Annotation count didn't increase</strong>: Submission failed — dialog may still be open, re-snapshot and check</li>
+<li><strong>Interrupted mid-run (Ctrl+C)</strong>: The browser stays open with whatever state it was in. Run <code>agent-browser close</code> to clean up before starting a new session</li>
+</ul>
+<h2>agent-browser Pitfalls</h2>
+<p>These will silently break the workflow if you're not aware of them:</p>
+<table>
+<thead>
+<tr>
+<th>Pitfall</th>
+<th>What happens</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scrollintoview @ref</code></td>
+<td>Crashes: "Unsupported token @ref while parsing css selector"</td>
+<td>Use <code>eval "document.querySelector('sel').scrollIntoView({block:'center'})"</code></td>
+</tr>
+<tr>
+<td><code>get box @ref</code></td>
+<td>Same crash — <code>get box</code> parses refs as CSS selectors</td>
+<td>Use <code>eval "((r)=&gt;r.x+','+r.y+','+r.width+','+r.height)(document.querySelector('sel').getBoundingClientRect())"</code></td>
+</tr>
+<tr>
+<td><code>eval</code> with double-bang</td>
+<td>Bash expands double-bang as history substitution before the command runs</td>
+<td>Use <code>expr !== null</code> or <code>expr ? true : false</code> instead</td>
+</tr>
+<tr>
+<td><code>eval</code> with backslash-escaped quotes</td>
+<td>Escaped inner quotes break across shells</td>
+<td>Drop the quotes: <code>[class*=toggleContent]</code> works for simple values without spaces</td>
+</tr>
+<tr>
+<td><code>snapshot -i | head -50</code></td>
+<td>Annotation dialog refs (<code>textbox "What should change?"</code>, <code>Add</code>, <code>Cancel</code>) appear at the BOTTOM of the snapshot</td>
+<td>Always read the <strong>full</strong> snapshot output — never truncate</td>
+</tr>
+<tr>
+<td><code>click @ref</code> on overlay elements</td>
+<td>The click goes through to the real DOM, bypassing the Agentation overlay</td>
+<td>Use <code>mouse move</code> → <code>mouse down left</code> → <code>mouse up left</code> for coordinate-based clicks that the overlay intercepts</td>
+</tr>
+<tr>
+<td><code>--headed open</code> fails with "Browser not launched"</td>
+<td>Stale sessions from previous runs block new launches</td>
+<td>Run <code>agent-browser close 2&gt;/dev/null</code> then retry the open command</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rule of thumb</strong>: <code>@ref</code> works for interaction commands (<code>click</code>, <code>fill</code>, <code>type</code>, <code>hover</code>). For everything else (<code>eval</code>, <code>get</code>, <code>scrollintoview</code>), use CSS selectors via <code>querySelector</code> in an eval.</p>
+<h2>Two-Session Workflow (Full Self-Driving)</h2>
+<p>With MCP connected (toolbar shows "MCP Connected"), annotations auto-send to any listening agent. This enables:</p>
+<ul>
+<li><strong>Session 1</strong> (this skill): Watches the page, adds critique annotations in the visible browser</li>
+<li><strong>Session 2</strong>: Runs <code>agentation_watch_annotations</code> in a loop, receives annotations, edits code to address each one</li>
+</ul>
+<p>The user watches Session 1 drive through the page in the browser while Session 2 fixes issues in the codebase — fully autonomous design review and implementation.</p></div>

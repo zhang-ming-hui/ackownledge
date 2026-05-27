@@ -1,0 +1,44 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>skill-comply: Automated Compliance Measurement</h1>
+<p>Measures whether coding agents actually follow skills, rules, or agent definitions by:</p>
+<ol>
+<li>Auto-generating expected behavioral sequences (specs) from any .md file</li>
+<li>Auto-generating scenarios with decreasing prompt strictness (supportive → neutral → competing)</li>
+<li>Running <code>claude -p</code> and capturing tool call traces via stream-json</li>
+<li>Classifying tool calls against spec steps using LLM (not regex)</li>
+<li>Checking temporal ordering deterministically</li>
+<li>Generating self-contained reports with spec, prompts, and timelines</li>
+</ol>
+<h2>Supported Targets</h2>
+<ul>
+<li><strong>Skills</strong> (<code>skills/*/SKILL.md</code>): Workflow skills like search-first, TDD guides</li>
+<li><strong>Rules</strong> (<code>rules/common/*.md</code>): Mandatory rules like testing.md, security.md, git-workflow.md</li>
+<li><strong>Agent definitions</strong> (<code>agents/*.md</code>): Whether an agent gets invoked when expected (internal workflow verification not yet supported)</li>
+</ul>
+<h2>When to Activate</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>User runs <code>/skill-comply &lt;path&gt;</code></li>
+<li>User asks "is this rule actually being followed?"</li>
+<li>After adding new rules/skills, to verify agent compliance</li>
+<li>Periodically as part of quality maintenance</li>
+</ul>
+<h2>Usage</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Full run</span>
+</span><span class="code-line">uv run python <span class="token parameter variable">-m</span> scripts.run ~/.claude/rules/common/testing.md
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dry run (no cost, spec + scenarios only)</span>
+</span><span class="code-line">uv run python <span class="token parameter variable">-m</span> scripts.run --dry-run ~/.claude/skills/search-first/SKILL.md
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Custom models</span>
+</span><span class="code-line">uv run python <span class="token parameter variable">-m</span> scripts.run --gen-model haiku <span class="token parameter variable">--model</span> sonnet <span class="token operator">&lt;</span>path<span class="token operator">&gt;</span>
+</span></code></pre>
+<h2>Key Concept: Prompt Independence</h2>
+<p>Measures whether a skill/rule is followed even when the prompt doesn't explicitly support it.</p>
+<h2>Report Contents</h2>
+<p>Reports are self-contained and include:</p>
+<ol>
+<li>Expected behavioral sequence (auto-generated spec)</li>
+<li>Scenario prompts (what was asked at each strictness level)</li>
+<li>Compliance scores per scenario</li>
+<li>Tool call timelines with LLM classification labels</li>
+</ol>
+<h3>Advanced (optional)</h3>
+<p>For users familiar with hooks, reports also include hook promotion recommendations for steps with low compliance. This is informational — the main value is the compliance visibility itself.</p></div>

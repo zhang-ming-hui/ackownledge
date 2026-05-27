@@ -1,4 +1,4 @@
-"""Skills IE package entry point."""
+"""允许通过 `python -m skills_ie` 启动 CLI。"""
 
 from .cli import main
 

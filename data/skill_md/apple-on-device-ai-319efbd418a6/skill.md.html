@@ -1,0 +1,583 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>On-Device AI for Apple Platforms</h1>
+<p>Guide for selecting, deploying, and optimizing on-device ML models. Covers Apple
+Foundation Models, Core ML, MLX Swift, and llama.cpp.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#framework-selection-router" target="_blank" rel="ugc nofollow noopener">Framework Selection Router</a></li>
+<li><a href="#apple-foundation-models-overview" target="_blank" rel="ugc nofollow noopener">Apple Foundation Models Overview</a></li>
+<li><a href="#core-ml-overview" target="_blank" rel="ugc nofollow noopener">Core ML Overview</a></li>
+<li><a href="#mlx-swift-overview" target="_blank" rel="ugc nofollow noopener">MLX Swift Overview</a></li>
+<li><a href="#multi-backend-architecture" target="_blank" rel="ugc nofollow noopener">Multi-Backend Architecture</a></li>
+<li><a href="#performance-best-practices" target="_blank" rel="ugc nofollow noopener">Performance Best Practices</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul>
+<h2>Framework Selection Router</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Use this decision tree to pick the right framework for your use case.</p>
+<h3>Apple Foundation Models</h3>
+<p><strong>When to use:</strong> Text generation, summarization, entity extraction, structured
+output, and short dialog on iOS 26+ / macOS 26+ devices with Apple Intelligence
+enabled. Zero setup -- no API keys, no network, no model downloads.</p>
+<p><strong>Best for:</strong></p>
+<ul>
+<li>Generating text or structured data with <code>@Generable</code> types</li>
+<li>Summarization, classification, content tagging</li>
+<li>Tool-augmented generation with the <code>Tool</code> protocol</li>
+<li>Apps that need guaranteed on-device privacy</li>
+</ul>
+<p><strong>Not suited for:</strong> Complex math, code generation, factual accuracy tasks,
+or apps targeting pre-iOS 26 devices.</p>
+<h3>Core ML</h3>
+<p><strong>When to use:</strong> Deploying custom trained models (vision, NLP, audio) across all
+Apple platforms. Converting models from PyTorch, TensorFlow, or scikit-learn
+with coremltools.</p>
+<p><strong>Best for:</strong></p>
+<ul>
+<li>Image classification, object detection, segmentation</li>
+<li>Custom NLP classifiers, sentiment analysis models</li>
+<li>Audio/speech models via SoundAnalysis integration</li>
+<li>Any scenario needing Neural Engine optimization</li>
+<li>Models requiring quantization, palettization, or pruning</li>
+</ul>
+<h3>MLX Swift</h3>
+<p><strong>When to use:</strong> Running specific open-source LLMs (Llama, Mistral, Qwen, Gemma)
+on Apple Silicon with maximum throughput. Research and prototyping.</p>
+<p><strong>Best for:</strong></p>
+<ul>
+<li>Highest sustained token generation on Apple Silicon</li>
+<li>Running Hugging Face models from <code>mlx-community</code></li>
+<li>Research requiring automatic differentiation</li>
+<li>Fine-tuning workflows on Mac</li>
+</ul>
+<h3>llama.cpp</h3>
+<p><strong>When to use:</strong> Cross-platform LLM inference using GGUF model format. Production
+deployments needing broad device support.</p>
+<p><strong>Best for:</strong></p>
+<ul>
+<li>GGUF quantized models (Q4_K_M, Q5_K_M, Q8_0)</li>
+<li>Cross-platform apps (iOS + Android + desktop)</li>
+<li>Maximum compatibility with open-source model ecosystem</li>
+</ul>
+<h3>Quick Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Framework</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text generation, zero setup (iOS 26+)</td>
+<td>Foundation Models</td>
+</tr>
+<tr>
+<td>Structured output from on-device LLM</td>
+<td>Foundation Models (<code>@Generable</code>)</td>
+</tr>
+<tr>
+<td>Image classification, object detection</td>
+<td>Core ML</td>
+</tr>
+<tr>
+<td>Custom model from PyTorch/TensorFlow</td>
+<td>Core ML + coremltools</td>
+</tr>
+<tr>
+<td>Running specific open-source LLMs</td>
+<td>MLX Swift or llama.cpp</td>
+</tr>
+<tr>
+<td>Maximum throughput on Apple Silicon</td>
+<td>MLX Swift</td>
+</tr>
+<tr>
+<td>Cross-platform LLM inference</td>
+<td>llama.cpp</td>
+</tr>
+<tr>
+<td>OCR and text recognition</td>
+<td>Vision framework</td>
+</tr>
+<tr>
+<td>Sentiment analysis, NER, tokenization</td>
+<td>Natural Language framework</td>
+</tr>
+<tr>
+<td>Training custom classifiers on device</td>
+<td>Create ML</td>
+</tr>
+</tbody>
+</table>
+<h2>Apple Foundation Models Overview</h2>
+<p>On-device language model optimized for Apple Silicon. Available on devices
+supporting Apple Intelligence (iOS 26+, macOS 26+).</p>
+<ul>
+<li>Token budget covers input + output; check <code>contextSize</code> for the limit</li>
+<li>Check <code>supportedLanguages</code> for supported locales</li>
+<li>Guardrails always enforced, cannot be disabled</li>
+</ul>
+<h3>Availability Checking (Required)</h3>
+<p>Always check before using. Never crash on unavailability.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">FoundationModels</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">switch</span> <span class="token class-name">SystemLanguageModel</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span>availability <span class="token punctuation">{</span>
+</span><span class="code-line"><span class="token keyword">case</span> <span class="token punctuation">.</span>available<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token comment">// Proceed with model usage</span>
+</span><span class="code-line"><span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">unavailable</span><span class="token punctuation">(</span><span class="token punctuation">.</span>appleIntelligenceNotEnabled<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token comment">// Guide user to enable Apple Intelligence in Settings</span>
+</span><span class="code-line"><span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">unavailable</span><span class="token punctuation">(</span><span class="token punctuation">.</span>modelNotReady<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token comment">// Model is downloading; show loading state</span>
+</span><span class="code-line"><span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">unavailable</span><span class="token punctuation">(</span><span class="token punctuation">.</span>deviceNotEligible<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token comment">// Device cannot run Apple Intelligence; use fallback</span>
+</span><span class="code-line"><span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token comment">// Graceful fallback for any other reason</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Session Management</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Basic session</span>
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">LanguageModelSession</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Session with instructions</span>
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">LanguageModelSession</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string-literal"><span class="token string">"You are a helpful cooking assistant."</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Session with tools</span>
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">LanguageModelSession</span><span class="token punctuation">(</span>
+</span><span class="code-line">    tools<span class="token punctuation">:</span> <span class="token punctuation">[</span>weatherTool<span class="token punctuation">,</span> recipeTool<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string-literal"><span class="token string">"You are a helpful assistant with access to tools."</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Key rules:</p>
+<ul>
+<li>Sessions are stateful -- multi-turn conversations maintain context automatically</li>
+<li>One request at a time per session (check <code>session.isResponding</code>)</li>
+<li>Call <code>session.prewarm()</code> before user interaction for faster first response</li>
+<li>Save/restore transcripts: <code>LanguageModelSession(model: model, tools: [], transcript: savedTranscript)</code></li>
+</ul>
+<h3>Structured Output with <code>@Generable</code></h3>
+<p>The <code>@Generable</code> macro creates compile-time schemas for type-safe output:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token attribute atrule">@Generable</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">Recipe</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token attribute atrule">@Guide</span><span class="token punctuation">(</span>description<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"The recipe name"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">var</span> name<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token attribute atrule">@Guide</span><span class="token punctuation">(</span>description<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Cooking steps"</span></span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token function">count</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">var</span> steps<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">String</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token attribute atrule">@Guide</span><span class="token punctuation">(</span>description<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Prep time in minutes"</span></span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token function">range</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token operator">...</span><span class="token number">120</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">var</span> prepTime<span class="token punctuation">:</span> <span class="token class-name">Int</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> response <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> session<span class="token punctuation">.</span><span class="token function">respond</span><span class="token punctuation">(</span>
+</span><span class="code-line">    to<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Suggest a quick pasta recipe"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    generating<span class="token punctuation">:</span> <span class="token class-name">Recipe</span><span class="token punctuation">.</span><span class="token keyword">self</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token function">print</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>content<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+</span></code></pre>
+<h4><code>@Guide</code> Constraints</h4>
+<table>
+<thead>
+<tr>
+<th>Constraint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description:</code></td>
+<td>Natural language hint for generation</td>
+</tr>
+<tr>
+<td><code>.anyOf([values])</code></td>
+<td>Restrict to enumerated string values</td>
+</tr>
+<tr>
+<td><code>.count(n)</code></td>
+<td>Fixed array length</td>
+</tr>
+<tr>
+<td><code>.range(min...max)</code></td>
+<td>Numeric range</td>
+</tr>
+<tr>
+<td><code>.minimum(n)</code> / <code>.maximum(n)</code></td>
+<td>One-sided numeric bound</td>
+</tr>
+<tr>
+<td><code>.minimumCount(n)</code> / <code>.maximumCount(n)</code></td>
+<td>Array length bounds</td>
+</tr>
+<tr>
+<td><code>.constant(value)</code></td>
+<td>Always returns this value</td>
+</tr>
+<tr>
+<td><code>.pattern(regex)</code></td>
+<td>String format enforcement</td>
+</tr>
+<tr>
+<td><code>.element(guide)</code></td>
+<td>Guide applied to each array element</td>
+</tr>
+</tbody>
+</table>
+<p>Properties generate in declaration order. Place foundational data before
+dependent data for better results.</p>
+<h3>Streaming Structured Output</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> stream <span class="token operator">=</span> session<span class="token punctuation">.</span><span class="token function">streamResponse</span><span class="token punctuation">(</span>
+</span><span class="code-line">    to<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Suggest a recipe"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    generating<span class="token punctuation">:</span> <span class="token class-name">Recipe</span><span class="token punctuation">.</span><span class="token keyword">self</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">try</span> <span class="token keyword">await</span> snapshot <span class="token keyword">in</span> stream <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// snapshot.content is Recipe.PartiallyGenerated (all properties optional)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token keyword">let</span> name <span class="token operator">=</span> snapshot<span class="token punctuation">.</span>content<span class="token punctuation">.</span>name <span class="token punctuation">{</span> <span class="token function">updateNameLabel</span><span class="token punctuation">(</span>name<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Tool Calling</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">WeatherTool</span><span class="token punctuation">:</span> <span class="token class-name">Tool</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> name <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"weather"</span></span>
+</span><span class="code-line">    <span class="token keyword">let</span> description <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Get current weather for a city."</span></span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token attribute atrule">@Generable</span>
+</span><span class="code-line">    <span class="token keyword">struct</span> <span class="token class-name">Arguments</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token attribute atrule">@Guide</span><span class="token punctuation">(</span>description<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"The city name"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">var</span> city<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">call</span><span class="token punctuation">(</span>arguments<span class="token punctuation">:</span> <span class="token class-name">Arguments</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">String</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">fetchWeather</span><span class="token punctuation">(</span>arguments<span class="token punctuation">.</span>city<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> weather<span class="token punctuation">.</span>description
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Register tools at session creation. The model invokes them autonomously.</p>
+<h3>Error Handling</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">do</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> response <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> session<span class="token punctuation">.</span><span class="token function">respond</span><span class="token punctuation">(</span>to<span class="token punctuation">:</span> prompt<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token keyword">let</span> error <span class="token keyword">as</span> <span class="token class-name">LanguageModelSession</span><span class="token punctuation">.</span><span class="token class-name">GenerationError</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">switch</span> error <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">guardrailViolation</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Content triggered safety filters</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">exceededContextWindowSize</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Too many tokens; summarize and retry</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">concurrentRequests</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Another request is in progress on this session</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">unsupportedLanguageOrLocale</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Current locale not supported</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">unsupportedGuide</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// A @Guide constraint is not supported</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">assetsUnavailable</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Model assets not available on device</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">refusal</span><span class="token punctuation">(</span><span class="token keyword">let</span> refusal<span class="token punctuation">,</span> <span class="token omit keyword">_</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Model refused; stream refusal.explanation for details</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">rateLimited</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Too many requests; back off and retry</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span><span class="token function">decodingFailure</span><span class="token punctuation">(</span><span class="token keyword">let</span> context<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment">// Response could not be decoded into the expected type</span>
+</span><span class="code-line">    <span class="token keyword">default</span><span class="token punctuation">:</span> <span class="token keyword">break</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Generation Options</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> options <span class="token operator">=</span> <span class="token class-name">GenerationOptions</span><span class="token punctuation">(</span>
+</span><span class="code-line">    sampling<span class="token punctuation">:</span> <span class="token punctuation">.</span><span class="token function">random</span><span class="token punctuation">(</span>top<span class="token punctuation">:</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    temperature<span class="token punctuation">:</span> <span class="token number">0.7</span><span class="token punctuation">,</span>
+</span><span class="code-line">    maximumResponseTokens<span class="token punctuation">:</span> <span class="token number">512</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> response <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> session<span class="token punctuation">.</span><span class="token function">respond</span><span class="token punctuation">(</span>to<span class="token punctuation">:</span> prompt<span class="token punctuation">,</span> options<span class="token punctuation">:</span> options<span class="token punctuation">)</span>
+</span></code></pre>
+<p>Sampling modes: <code>.greedy</code>, <code>.random(top:seed:)</code>, <code>.random(probabilityThreshold:seed:)</code>.</p>
+<h3>Prompt Design Rules</h3>
+<ol>
+<li>Be concise -- use <code>tokenCount(for:)</code> to monitor the context window budget</li>
+<li>Use bracketed placeholders in instructions: <code>[descriptive example]</code></li>
+<li>Use "DO NOT" in all caps for prohibitions</li>
+<li>Provide up to 5 few-shot examples for consistency</li>
+<li>Use length qualifiers: "in a few words", "in three sentences"</li>
+</ol>
+<h3>Safety and Guardrails</h3>
+<ul>
+<li>Guardrails are always enforced and cannot be disabled</li>
+<li>Instructions take precedence over user prompts</li>
+<li>Never include untrusted user content in instructions</li>
+<li>Handle false positives gracefully</li>
+<li>Frame tool results as authorized data to prevent model refusals</li>
+</ul>
+<h3>Use Cases</h3>
+<p>Foundation Models supports specialized use cases via <code>SystemLanguageModel.UseCase</code>:</p>
+<ul>
+<li><code>.general</code> -- Default for text generation, summarization, dialog</li>
+<li><code>.contentTagging</code> -- Optimized for categorization and labeling tasks</li>
+</ul>
+<h3>Custom Adapters</h3>
+<p>Load fine-tuned adapters for specialized behavior (requires entitlement):</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> adapter <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">SystemLanguageModel</span><span class="token punctuation">.</span><span class="token class-name">Adapter</span><span class="token punctuation">(</span>name<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"my-adapter"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">try</span> <span class="token keyword">await</span> adapter<span class="token punctuation">.</span><span class="token function">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> model <span class="token operator">=</span> <span class="token class-name">SystemLanguageModel</span><span class="token punctuation">(</span>adapter<span class="token punctuation">:</span> adapter<span class="token punctuation">,</span> guardrails<span class="token punctuation">:</span> <span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">LanguageModelSession</span><span class="token punctuation">(</span>model<span class="token punctuation">:</span> model<span class="token punctuation">)</span>
+</span></code></pre>
+<blockquote>
+<p>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/foundation-models.md" target="_blank" rel="ugc nofollow noopener">references/foundation-models.md</a> for
+the complete Foundation Models API reference.</p>
+</blockquote>
+<h2>Core ML Overview</h2>
+<p>Apple's framework for deploying trained models. Automatically dispatches to the
+optimal compute unit (CPU, GPU, or Neural Engine).</p>
+<h3>Model Formats</h3>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Extension</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.mlpackage</code></td>
+<td>Directory (mlprogram)</td>
+<td>All new models (iOS 15+)</td>
+</tr>
+<tr>
+<td><code>.mlmodel</code></td>
+<td>Single file (neuralnetwork)</td>
+<td>Legacy only (iOS 11-14)</td>
+</tr>
+<tr>
+<td><code>.mlmodelc</code></td>
+<td>Compiled</td>
+<td>Pre-compiled for faster loading</td>
+</tr>
+</tbody>
+</table>
+<p>Always use mlprogram (<code>.mlpackage</code>) for new work.</p>
+<h3>Conversion Pipeline (coremltools)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> coremltools <span class="token keyword">as</span> ct
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># PyTorch conversion (torch.jit.trace)</span>
+</span><span class="code-line">model<span class="token punctuation">.</span><span class="token builtin">eval</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment"># CRITICAL: always call eval() before tracing</span>
+</span><span class="code-line">traced <span class="token operator">=</span> torch<span class="token punctuation">.</span>jit<span class="token punctuation">.</span>trace<span class="token punctuation">(</span>model<span class="token punctuation">,</span> example_input<span class="token punctuation">)</span>
+</span><span class="code-line">mlmodel <span class="token operator">=</span> ct<span class="token punctuation">.</span>convert<span class="token punctuation">(</span>
+</span><span class="code-line">    traced<span class="token punctuation">,</span>
+</span><span class="code-line">    inputs<span class="token operator">=</span><span class="token punctuation">[</span>ct<span class="token punctuation">.</span>TensorType<span class="token punctuation">(</span>shape<span class="token operator">=</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">224</span><span class="token punctuation">,</span> <span class="token number">224</span><span class="token punctuation">)</span><span class="token punctuation">,</span> name<span class="token operator">=</span><span class="token string">"image"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    minimum_deployment_target<span class="token operator">=</span>ct<span class="token punctuation">.</span>target<span class="token punctuation">.</span>iOS18<span class="token punctuation">,</span>
+</span><span class="code-line">    convert_to<span class="token operator">=</span><span class="token string">'mlprogram'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">mlmodel<span class="token punctuation">.</span>save<span class="token punctuation">(</span><span class="token string">"Model.mlpackage"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Optimization Techniques</h3>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Size Reduction</th>
+<th>Accuracy Impact</th>
+<th>Best Compute Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INT8 per-channel</td>
+<td>~4x</td>
+<td>Low</td>
+<td>CPU/GPU</td>
+</tr>
+<tr>
+<td>INT4 per-block</td>
+<td>~8x</td>
+<td>Medium</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td>Palettization 4-bit</td>
+<td>~8x</td>
+<td>Low-Medium</td>
+<td>Neural Engine</td>
+</tr>
+<tr>
+<td>W8A8 (weights+activations)</td>
+<td>~4x</td>
+<td>Low</td>
+<td>ANE (A17 Pro/M4+)</td>
+</tr>
+<tr>
+<td>Pruning 75%</td>
+<td>~4x</td>
+<td>Medium</td>
+<td>CPU/ANE</td>
+</tr>
+</tbody>
+</table>
+<h3>Swift Integration</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> config <span class="token operator">=</span> <span class="token class-name">MLModelConfiguration</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">config<span class="token punctuation">.</span>computeUnits <span class="token operator">=</span> <span class="token punctuation">.</span>all
+</span><span class="code-line"><span class="token keyword">let</span> model <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">MLModel</span><span class="token punctuation">(</span>contentsOf<span class="token punctuation">:</span> modelURL<span class="token punctuation">,</span> configuration<span class="token punctuation">:</span> config<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Async prediction (iOS 17+)</span>
+</span><span class="code-line"><span class="token keyword">let</span> output <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> model<span class="token punctuation">.</span><span class="token function">prediction</span><span class="token punctuation">(</span>from<span class="token punctuation">:</span> input<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>MLTensor (iOS 18+)</h3>
+<p>Swift type for multidimensional array operations:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">CoreML</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> tensor <span class="token operator">=</span> <span class="token class-name">MLTensor</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token number">1.0</span><span class="token punctuation">,</span> <span class="token number">2.0</span><span class="token punctuation">,</span> <span class="token number">3.0</span><span class="token punctuation">,</span> <span class="token number">4.0</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> reshaped <span class="token operator">=</span> tensor<span class="token punctuation">.</span><span class="token function">reshaped</span><span class="token punctuation">(</span>to<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> result <span class="token operator">=</span> tensor<span class="token punctuation">.</span><span class="token function">softmax</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<blockquote>
+<p>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/coreml-conversion.md" target="_blank" rel="ugc nofollow noopener">references/coreml-conversion.md</a> for the
+full conversion pipeline and <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/coreml-optimization.md" target="_blank" rel="ugc nofollow noopener">references/coreml-optimization.md</a>
+for optimization techniques.</p>
+</blockquote>
+<h2>MLX Swift Overview</h2>
+<p>Apple's ML framework for Swift. Highest sustained generation throughput on
+Apple Silicon via unified memory architecture.</p>
+<h3>Loading and Running LLMs</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token constant">MLX</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token constant">MLXLLM</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> config <span class="token operator">=</span> <span class="token class-name">ModelConfiguration</span><span class="token punctuation">(</span>id<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"mlx-community/Mistral-7B-Instruct-v0.3-4bit"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> model <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">LLMModelFactory</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">loadContainer</span><span class="token punctuation">(</span>configuration<span class="token punctuation">:</span> config<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">try</span> <span class="token keyword">await</span> model<span class="token punctuation">.</span>perform <span class="token punctuation">{</span> context <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">let</span> input <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>processor<span class="token punctuation">.</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">        input<span class="token punctuation">:</span> <span class="token class-name">UserInput</span><span class="token punctuation">(</span>prompt<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Hello"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> stream <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token function">generate</span><span class="token punctuation">(</span>
+</span><span class="code-line">        input<span class="token punctuation">:</span> input<span class="token punctuation">,</span>
+</span><span class="code-line">        parameters<span class="token punctuation">:</span> <span class="token class-name">GenerateParameters</span><span class="token punctuation">(</span>temperature<span class="token punctuation">:</span> <span class="token number">0.0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        context<span class="token punctuation">:</span> context
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token keyword">await</span> part <span class="token keyword">in</span> stream <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span>part<span class="token punctuation">.</span>chunk <span class="token operator">??</span> <span class="token string-literal"><span class="token string">""</span></span><span class="token punctuation">,</span> terminator<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">""</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Model Selection by Device</h3>
+<table>
+<thead>
+<tr>
+<th>Device</th>
+<th>RAM</th>
+<th>Recommended Model</th>
+<th>RAM Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iPhone 12-14</td>
+<td>4-6 GB</td>
+<td>SmolLM2-135M or Qwen 2.5 0.5B</td>
+<td>~0.3 GB</td>
+</tr>
+<tr>
+<td>iPhone 15 Pro+</td>
+<td>8 GB</td>
+<td>Gemma 3n E4B 4-bit</td>
+<td>~3.5 GB</td>
+</tr>
+<tr>
+<td>Mac 8 GB</td>
+<td>8 GB</td>
+<td>Llama 3.2 3B 4-bit</td>
+<td>~3 GB</td>
+</tr>
+<tr>
+<td>Mac 16 GB+</td>
+<td>16 GB+</td>
+<td>Mistral 7B 4-bit</td>
+<td>~6 GB</td>
+</tr>
+</tbody>
+</table>
+<h3>Memory Management</h3>
+<ol>
+<li>Never exceed 60% of total RAM on iOS</li>
+<li>Set GPU cache limits: <code>MLX.GPU.set(cacheLimit: 512 * 1024 * 1024)</code></li>
+<li>Unload models on app backgrounding</li>
+<li>Use "Increased Memory Limit" entitlement for larger models</li>
+<li>Physical device required (no simulator support for Metal GPU)</li>
+</ol>
+<blockquote>
+<p>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/mlx-swift.md" target="_blank" rel="ugc nofollow noopener">references/mlx-swift.md</a> for full MLX Swift
+patterns and llama.cpp integration.</p>
+</blockquote>
+<h2>Multi-Backend Architecture</h2>
+<p>When an app needs multiple AI backends (e.g., Foundation Models + MLX fallback):</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">respond</span><span class="token punctuation">(</span>to prompt<span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">String</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token class-name">SystemLanguageModel</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span>isAvailable <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">foundationModelsRespond</span><span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token function">canLoadMLXModel</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">mlxRespond</span><span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">throw</span> <span class="token class-name">AIError</span><span class="token punctuation">.</span>noBackendAvailable
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Serialize all model access through a coordinator actor to prevent contention:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">actor</span> <span class="token class-name">ModelCoordinator</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">withExclusiveAccess</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> work<span class="token punctuation">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">rethrows</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">work</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Performance Best Practices</h2>
+<ol>
+<li>Run outside debugger for accurate benchmarks (Xcode: Cmd-Opt-R, uncheck
+"Debug Executable")</li>
+<li>Call <code>session.prewarm()</code> for Foundation Models before user interaction</li>
+<li>Pre-compile Core ML models to <code>.mlmodelc</code> for faster loading</li>
+<li>Use EnumeratedShapes over RangeDim for Neural Engine optimization</li>
+<li>Use 4-bit palettization for best Neural Engine memory/latency gains</li>
+<li>Batch Vision framework requests in a single <code>perform()</code> call</li>
+<li>Use async prediction (iOS 17+) in Swift concurrency contexts</li>
+<li>Neural Engine (Core ML) is most energy-efficient for compatible operations</li>
+</ol>
+<h2>Common Mistakes</h2>
+<ol>
+<li><strong>No availability check.</strong> Calling <code>LanguageModelSession()</code> without checking
+<code>SystemLanguageModel.default.availability</code> crashes on unsupported devices.</li>
+<li><strong>No fallback UI.</strong> Users on pre-iOS 26 or devices without Apple Intelligence
+see nothing. Always provide a graceful degradation path.</li>
+<li><strong>Exceeding the context window.</strong> The token budget covers input + output.
+Monitor usage via <code>tokenCount(for:)</code> and summarize when needed.</li>
+<li><strong>Concurrent requests on one session.</strong> <code>LanguageModelSession</code> supports one
+request at a time. Check <code>session.isResponding</code> or serialize access.</li>
+<li><strong>Untrusted content in instructions.</strong> User input placed in the instructions
+parameter bypasses guardrail boundaries. Keep user content in the prompt.</li>
+<li><strong>Forgetting <code>model.eval()</code> before Core ML tracing.</strong> PyTorch models must be
+in eval mode before <code>torch.jit.trace</code>. Training-mode artifacts corrupt output.</li>
+<li><strong>Using neuralnetwork format.</strong> Always use <code>mlprogram</code> (.mlpackage) for new
+Core ML models. The legacy neuralnetwork format is deprecated.</li>
+<li><strong>Exceeding 60% RAM on iOS (MLX Swift).</strong> Large models cause OOM kills.</li>
+<li><strong>Running MLX in simulator.</strong> MLX requires Metal GPU -- use physical devices.</li>
+<li><strong>Not unloading models on background.</strong> Unload in <code>scenePhase == .background</code>.</li>
+</ol>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Framework selection matches use case and target OS version</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Foundation Models: availability checked before every API call</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Foundation Models: graceful fallback when model unavailable</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Foundation Models: session prewarm called before user interaction</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Foundation Models: <code>@Generable</code> properties in logical generation order</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Foundation Models: token budget accounted for (check <code>contextSize</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Core ML: model format is mlprogram (.mlpackage) for iOS 15+</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Core ML: model.eval() called before tracing/exporting PyTorch models</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Core ML: minimum_deployment_target set explicitly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Core ML: model accuracy validated after compression</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> MLX Swift: model size appropriate for target device RAM</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> MLX Swift: GPU cache limits set, models unloaded on backgrounding</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All model access serialized through coordinator actor</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Concurrency: model types and tool implementations are <code>Sendable</code>-conformant or <code>@MainActor</code>-isolated</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Physical device testing performed (not simulator)</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li><a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/foundation-models.md" target="_blank" rel="ugc nofollow noopener">Foundation Models API</a> -- LanguageModelSession, <code>@Generable</code>, tool calling, prompt design</li>
+<li><a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/coreml-conversion.md" target="_blank" rel="ugc nofollow noopener">Core ML Conversion</a> -- Model conversion from PyTorch, TensorFlow, other frameworks</li>
+<li><a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/coreml-optimization.md" target="_blank" rel="ugc nofollow noopener">Core ML Optimization</a> -- Quantization, palettization, pruning, performance tuning</li>
+<li><a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/apple-on-device-ai/references/mlx-swift.md" target="_blank" rel="ugc nofollow noopener">MLX Swift &amp; llama.cpp</a> -- MLX Swift patterns, llama.cpp integration, memory management</li>
+</ul></div>

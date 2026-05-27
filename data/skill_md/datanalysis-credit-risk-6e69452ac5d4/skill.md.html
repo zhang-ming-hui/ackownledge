@@ -1,0 +1,168 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Data Cleaning and Variable Screening</h1>
+<h2>Quick Start</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run the complete data cleaning pipeline</span>
+</span><span class="code-line">python <span class="token string">".github/skills/datanalysis-credit-risk/scripts/example.py"</span>
+</span></code></pre>
+<h2>Complete Process Description</h2>
+<p>The data cleaning pipeline consists of the following 11 steps, each executed independently without deleting the original data:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Get Data</strong> - Load and format raw data</li>
+<li><strong>Organization Sample Analysis</strong> - Statistics of sample count and bad sample rate for each organization</li>
+<li><strong>Separate OOS Data</strong> - Separate out-of-sample (OOS) samples from modeling samples</li>
+<li><strong>Filter Abnormal Months</strong> - Remove months with insufficient bad sample count or total sample count</li>
+<li><strong>Calculate Missing Rate</strong> - Calculate overall and organization-level missing rates for each feature</li>
+<li><strong>Drop High Missing Rate Features</strong> - Remove features with overall missing rate exceeding threshold</li>
+<li><strong>Drop Low IV Features</strong> - Remove features with overall IV too low or IV too low in too many organizations</li>
+<li><strong>Drop High PSI Features</strong> - Remove features with unstable PSI</li>
+<li><strong>Null Importance Denoising</strong> - Remove noise features using label permutation method</li>
+<li><strong>Drop High Correlation Features</strong> - Remove high correlation features based on original gain</li>
+<li><strong>Export Report</strong> - Generate Excel report containing details and statistics of all steps</li>
+</ol>
+<h2>Core Functions</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+<th>Module</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get_dataset()</code></td>
+<td>Load and format data</td>
+<td>references.func</td>
+</tr>
+<tr>
+<td><code>org_analysis()</code></td>
+<td>Organization sample analysis</td>
+<td>references.func</td>
+</tr>
+<tr>
+<td><code>missing_check()</code></td>
+<td>Calculate missing rate</td>
+<td>references.func</td>
+</tr>
+<tr>
+<td><code>drop_abnormal_ym()</code></td>
+<td>Filter abnormal months</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>drop_highmiss_features()</code></td>
+<td>Drop high missing rate features</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>drop_lowiv_features()</code></td>
+<td>Drop low IV features</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>drop_highpsi_features()</code></td>
+<td>Drop high PSI features</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>drop_highnoise_features()</code></td>
+<td>Null Importance denoising</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>drop_highcorr_features()</code></td>
+<td>Drop high correlation features</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>iv_distribution_by_org()</code></td>
+<td>IV distribution statistics</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>psi_distribution_by_org()</code></td>
+<td>PSI distribution statistics</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>value_ratio_distribution_by_org()</code></td>
+<td>Value ratio distribution statistics</td>
+<td>references.analysis</td>
+</tr>
+<tr>
+<td><code>export_cleaning_report()</code></td>
+<td>Export cleaning report</td>
+<td>references.analysis</td>
+</tr>
+</tbody>
+</table>
+<h2>Parameter Description</h2>
+<h3>Data Loading Parameters</h3>
+<ul>
+<li><code>DATA_PATH</code>: Data file path (best are parquet format)</li>
+<li><code>DATE_COL</code>: Date column name</li>
+<li><code>Y_COL</code>: Label column name</li>
+<li><code>ORG_COL</code>: Organization column name</li>
+<li><code>KEY_COLS</code>: Primary key column name list</li>
+</ul>
+<h3>OOS Organization Configuration</h3>
+<ul>
+<li><code>OOS_ORGS</code>: Out-of-sample organization list</li>
+</ul>
+<h3>Abnormal Month Filtering Parameters</h3>
+<ul>
+<li><code>min_ym_bad_sample</code>: Minimum bad sample count per month (default 10)</li>
+<li><code>min_ym_sample</code>: Minimum total sample count per month (default 500)</li>
+</ul>
+<h3>Missing Rate Parameters</h3>
+<ul>
+<li><code>missing_ratio</code>: Overall missing rate threshold (default 0.6)</li>
+</ul>
+<h3>IV Parameters</h3>
+<ul>
+<li><code>overall_iv_threshold</code>: Overall IV threshold (default 0.1)</li>
+<li><code>org_iv_threshold</code>: Single organization IV threshold (default 0.1)</li>
+<li><code>max_org_threshold</code>: Maximum tolerated low IV organization count (default 2)</li>
+</ul>
+<h3>PSI Parameters</h3>
+<ul>
+<li><code>psi_threshold</code>: PSI threshold (default 0.1)</li>
+<li><code>max_months_ratio</code>: Maximum unstable month ratio (default 1/3)</li>
+<li><code>max_orgs</code>: Maximum unstable organization count (default 6)</li>
+</ul>
+<h3>Null Importance Parameters</h3>
+<ul>
+<li><code>n_estimators</code>: Number of trees (default 100)</li>
+<li><code>max_depth</code>: Maximum tree depth (default 5)</li>
+<li><code>gain_threshold</code>: Gain difference threshold (default 50)</li>
+</ul>
+<h3>High Correlation Parameters</h3>
+<ul>
+<li><code>max_corr</code>: Correlation threshold (default 0.9)</li>
+<li><code>top_n_keep</code>: Keep top N features by original gain ranking (default 20)</li>
+</ul>
+<h2>Output Report</h2>
+<p>The generated Excel report contains the following sheets:</p>
+<ol>
+<li><strong>汇总</strong> - Summary information of all steps, including operation results and conditions</li>
+<li><strong>机构样本统计</strong> - Sample count and bad sample rate for each organization</li>
+<li><strong>分离OOS数据</strong> - OOS sample and modeling sample counts</li>
+<li><strong>Step4-异常月份处理</strong> - Abnormal months that were removed</li>
+<li><strong>缺失率明细</strong> - Overall and organization-level missing rates for each feature</li>
+<li><strong>Step5-有值率分布统计</strong> - Distribution of features in different value ratio ranges</li>
+<li><strong>Step6-高缺失率处理</strong> - High missing rate features that were removed</li>
+<li><strong>Step7-IV明细</strong> - IV values of each feature in each organization and overall</li>
+<li><strong>Step7-IV处理</strong> - Features that do not meet IV conditions and low IV organizations</li>
+<li><strong>Step7-IV分布统计</strong> - Distribution of features in different IV ranges</li>
+<li><strong>Step8-PSI明细</strong> - PSI values of each feature in each organization each month</li>
+<li><strong>Step8-PSI处理</strong> - Features that do not meet PSI conditions and unstable organizations</li>
+<li><strong>Step8-PSI分布统计</strong> - Distribution of features in different PSI ranges</li>
+<li><strong>Step9-null importance处理</strong> - Noise features that were removed</li>
+<li><strong>Step10-高相关性剔除</strong> - High correlation features that were removed</li>
+</ol>
+<h2>Features</h2>
+<ul>
+<li><strong>Interactive Input</strong>: Parameters can be input before each step execution, with default values supported</li>
+<li><strong>Independent Execution</strong>: Each step is executed independently without deleting original data, facilitating comparative analysis</li>
+<li><strong>Complete Report</strong>: Generate complete Excel report containing details, statistics, and distributions</li>
+<li><strong>Multi-process Support</strong>: IV and PSI calculations support multi-process acceleration</li>
+<li><strong>Organization-level Analysis</strong>: Support organization-level statistics and modeling/OOS distinction</li>
+</ul></div>

@@ -1,0 +1,329 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Convex Best Practices</h1>
+<p>Build production-ready Convex applications by following established patterns for function organization, query optimization, validation, TypeScript usage, and error handling.</p>
+<h2>Code Quality</h2>
+<p>All patterns in this skill comply with <code>@convex-dev/eslint-plugin</code>. Install it for build-time validation:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> i @convex-dev/eslint-plugin --save-dev
+</span></code></pre>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token comment">// eslint.config.js</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> defineConfig <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">"eslint/config"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports">convexPlugin</span> <span class="token keyword module">from</span> <span class="token string">"@convex-dev/eslint-plugin"</span><span class="token punctuation">;</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>export default defineConfig([
+...convexPlugin.configs.recommended,
+]);</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">The plugin enforces four rules:
+</span><span class="code-line">
+</span><span class="code-line">| Rule                                | What it enforces                  |
+</span><span class="code-line">| ----------------------------------- | --------------------------------- |
+</span><span class="code-line">| `no-old-registered-function-syntax` | Object syntax with `handler`      |
+</span><span class="code-line">| `require-argument-validators`       | `args: {}` on all functions       |
+</span><span class="code-line">| `explicit-table-ids`                | Table name in db operations       |
+</span><span class="code-line">| `import-wrong-runtime`              | No Node imports in Convex runtime |
+</span><span class="code-line">
+</span><span class="code-line">Docs: https://docs.convex.dev/eslint
+</span><span class="code-line">
+</span><span class="code-line">## Documentation Sources
+</span><span class="code-line">
+</span><span class="code-line">Before implementing, do not assume; fetch the latest documentation:
+</span><span class="code-line">
+</span><span class="code-line">- Primary: https://docs.convex.dev/understanding/best-practices/
+</span><span class="code-line">- Error Handling: https://docs.convex.dev/functions/error-handling
+</span><span class="code-line">- Write Conflicts: https://docs.convex.dev/error#1
+</span><span class="code-line">- For broader context: https://docs.convex.dev/llms.txt
+</span><span class="code-line">
+</span><span class="code-line">## Instructions
+</span><span class="code-line">
+</span><span class="code-line">### The Zen of Convex
+</span><span class="code-line">
+</span><span class="code-line">1. **Convex manages the hard parts** - Let Convex handle caching, real-time sync, and consistency
+</span><span class="code-line">2. **Functions are the API** - Design your functions as your application's interface
+</span><span class="code-line">3. **Schema is truth** - Define your data model explicitly in schema.ts
+</span><span class="code-line">4. **TypeScript everywhere** - Leverage end-to-end type safety
+</span><span class="code-line">5. **Queries are reactive** - Think in terms of subscriptions, not requests
+</span><span class="code-line">
+</span><span class="code-line">### Function Organization
+</span><span class="code-line">
+</span><span class="code-line">Organize your Convex functions by domain:
+</span><span class="code-line">
+</span><span class="code-line">```typescript
+</span><span class="code-line">// convex/users.ts - User-related functions
+</span><span class="code-line">import { query, mutation } from "./_generated/server";
+</span><span class="code-line">import { v } from "convex/values";
+</span><span class="code-line">
+</span><span class="code-line">export const get = query({
+</span><span class="code-line">  args: { userId: v.id("users") },
+</span><span class="code-line">  returns: v.union(
+</span><span class="code-line">    v.object({
+</span><span class="code-line">      _id: v.id("users"),
+</span><span class="code-line">      _creationTime: v.number(),
+</span><span class="code-line">      name: v.string(),
+</span><span class="code-line">      email: v.string(),
+</span><span class="code-line">    }),
+</span><span class="code-line">    v.null(),
+</span><span class="code-line">  ),
+</span><span class="code-line">  handler: async (ctx, args) =&gt; {
+</span><span class="code-line">    return await ctx.db.get("users", args.userId);
+</span><span class="code-line">  },
+</span><span class="code-line">});
+</span></code></pre>
+<h3>Argument and Return Validation</h3>
+<p>Always define validators for arguments AND return types:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> createTask <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    title<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    description<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">optional</span><span class="token punctuation">(</span>v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    priority<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">union</span><span class="token punctuation">(</span>v<span class="token punctuation">.</span><span class="token function">literal</span><span class="token punctuation">(</span><span class="token string">"low"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> v<span class="token punctuation">.</span><span class="token function">literal</span><span class="token punctuation">(</span><span class="token string">"medium"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> v<span class="token punctuation">.</span><span class="token function">literal</span><span class="token punctuation">(</span><span class="token string">"high"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">insert</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      title<span class="token operator">:</span> args<span class="token punctuation">.</span>title<span class="token punctuation">,</span>
+</span><span class="code-line">      description<span class="token operator">:</span> args<span class="token punctuation">.</span>description<span class="token punctuation">,</span>
+</span><span class="code-line">      priority<span class="token operator">:</span> args<span class="token punctuation">.</span>priority<span class="token punctuation">,</span>
+</span><span class="code-line">      completed<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      createdAt<span class="token operator">:</span> Date<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Query Patterns</h3>
+<p>Use indexes instead of filters for efficient queries:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Schema with index</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineSchema</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  tasks<span class="token operator">:</span> <span class="token function">defineTable</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    status<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    createdAt<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">index</span><span class="token punctuation">(</span><span class="token string">"by_user"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"userId"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token function">index</span><span class="token punctuation">(</span><span class="token string">"by_user_and_status"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">"userId"</span><span class="token punctuation">,</span> <span class="token string">"status"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Query using index</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> getTasksByUser <span class="token operator">=</span> <span class="token function">query</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    v<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      _id<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      _creationTime<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      status<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      createdAt<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">withIndex</span><span class="token punctuation">(</span><span class="token string">"by_user"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>q<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> q<span class="token punctuation">.</span><span class="token function">eq</span><span class="token punctuation">(</span><span class="token string">"userId"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>userId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">order</span><span class="token punctuation">(</span><span class="token string">"desc"</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Error Handling</h3>
+<p>Use ConvexError for user-facing errors:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> ConvexError <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"convex/values"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> updateTask <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    taskId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    title<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> task <span class="token operator">=</span> <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>taskId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>task<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">ConvexError</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        code<span class="token operator">:</span> <span class="token string">"NOT_FOUND"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        message<span class="token operator">:</span> <span class="token string">"Task not found"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">patch</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>taskId<span class="token punctuation">,</span> <span class="token punctuation">{</span> title<span class="token operator">:</span> args<span class="token punctuation">.</span>title <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Avoiding Write Conflicts (Optimistic Concurrency Control)</h3>
+<p>Convex uses OCC. Follow these patterns to minimize conflicts:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// GOOD: Make mutations idempotent</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> completeTask <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> taskId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> task <span class="token operator">=</span> <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>taskId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Early return if already complete (idempotent)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>task <span class="token operator">||</span> task<span class="token punctuation">.</span>status <span class="token operator">===</span> <span class="token string">"completed"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">patch</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>taskId<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      status<span class="token operator">:</span> <span class="token string">"completed"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      completedAt<span class="token operator">:</span> Date<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// GOOD: Patch directly without reading first when possible</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> updateNote <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"notes"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> content<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Patch directly - ctx.db.patch throws if document doesn't exist</span>
+</span><span class="code-line">    <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">patch</span><span class="token punctuation">(</span><span class="token string">"notes"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>id<span class="token punctuation">,</span> <span class="token punctuation">{</span> content<span class="token operator">:</span> args<span class="token punctuation">.</span>content <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// GOOD: Use Promise.all for parallel independent updates</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> reorderItems <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> itemIds<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"items"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> updates <span class="token operator">=</span> args<span class="token punctuation">.</span>itemIds<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span>id<span class="token punctuation">,</span> index<span class="token punctuation">)</span> <span class="token operator">=&gt;</span>
+</span><span class="code-line">      ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">patch</span><span class="token punctuation">(</span><span class="token string">"items"</span><span class="token punctuation">,</span> id<span class="token punctuation">,</span> <span class="token punctuation">{</span> order<span class="token operator">:</span> index <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">await</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">all</span><span class="token punctuation">(</span>updates<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>TypeScript Best Practices</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Id<span class="token punctuation">,</span> Doc <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"./_generated/dataModel"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Use Id type for document references</span>
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">UserId</span> <span class="token operator">=</span> Id<span class="token operator">&lt;</span><span class="token string">"users"</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Use Doc type for full documents</span>
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">User</span> <span class="token operator">=</span> Doc<span class="token operator">&lt;</span><span class="token string">"users"</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Define Record types properly</span>
+</span><span class="code-line"><span class="token keyword">const</span> userScores<span class="token operator">:</span> Record<span class="token operator">&lt;</span>Id<span class="token operator">&lt;</span><span class="token string">"users"</span><span class="token operator">&gt;</span><span class="token punctuation">,</span> <span class="token builtin">number</span><span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Internal vs Public Functions</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Public function - exposed to clients</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> getUser <span class="token operator">=</span> <span class="token function">query</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">union</span><span class="token punctuation">(</span>
+</span><span class="code-line">    v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    v<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">/* ... */</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// ...</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Internal function - only callable from other Convex functions</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> _updateUserStats <span class="token operator">=</span> <span class="token function">internalMutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// ...</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Examples</h2>
+<h3>Complete CRUD Pattern</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// convex/tasks.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> query<span class="token punctuation">,</span> mutation <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"./_generated/server"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> v <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"convex/values"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> ConvexError <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"convex/values"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> taskValidator <span class="token operator">=</span> v<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  _id<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  _creationTime<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  title<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  completed<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">boolean</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> list <span class="token operator">=</span> <span class="token function">query</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>taskValidator<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">withIndex</span><span class="token punctuation">(</span><span class="token string">"by_user"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>q<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> q<span class="token punctuation">.</span><span class="token function">eq</span><span class="token punctuation">(</span><span class="token string">"userId"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>userId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> create <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    title<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    userId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">insert</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      title<span class="token operator">:</span> args<span class="token punctuation">.</span>title<span class="token punctuation">,</span>
+</span><span class="code-line">      completed<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      userId<span class="token operator">:</span> args<span class="token punctuation">.</span>userId<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> update <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    taskId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    title<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">optional</span><span class="token punctuation">(</span>v<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    completed<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">optional</span><span class="token punctuation">(</span>v<span class="token punctuation">.</span><span class="token function">boolean</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> taskId<span class="token punctuation">,</span> <span class="token operator">...</span>updates <span class="token punctuation">}</span> <span class="token operator">=</span> args<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Remove undefined values</span>
+</span><span class="code-line">    <span class="token keyword">const</span> cleanUpdates <span class="token operator">=</span> Object<span class="token punctuation">.</span><span class="token function">fromEntries</span><span class="token punctuation">(</span>
+</span><span class="code-line">      Object<span class="token punctuation">.</span><span class="token function">entries</span><span class="token punctuation">(</span>updates<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">[</span>_<span class="token punctuation">,</span> v<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> v <span class="token operator">!==</span> <span class="token keyword">undefined</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>Object<span class="token punctuation">.</span><span class="token function">keys</span><span class="token punctuation">(</span>cleanUpdates<span class="token punctuation">)</span><span class="token punctuation">.</span>length <span class="token operator">&gt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">patch</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> taskId<span class="token punctuation">,</span> cleanUpdates<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> remove <span class="token operator">=</span> <span class="token function">mutation</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token punctuation">{</span> taskId<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">id</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  returns<span class="token operator">:</span> v<span class="token punctuation">.</span><span class="token function">null</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">handler</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">,</span> args<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">await</span> ctx<span class="token punctuation">.</span>db<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span><span class="token string">"tasks"</span><span class="token punctuation">,</span> args<span class="token punctuation">.</span>taskId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<ul>
+<li>Never run <code>npx convex deploy</code> unless explicitly instructed</li>
+<li>Never run any git commands unless explicitly instructed</li>
+<li>Always define return validators for functions</li>
+<li>Use indexes for all queries that filter data</li>
+<li>Make mutations idempotent to handle retries gracefully</li>
+<li>Use ConvexError for user-facing error messages</li>
+<li>Organize functions by domain (users.ts, tasks.ts, etc.)</li>
+<li>Use internal functions for sensitive operations</li>
+<li>Leverage TypeScript's Id and Doc types</li>
+</ul>
+<h2>Common Pitfalls</h2>
+<ol>
+<li><strong>Using filter instead of withIndex</strong> - Always define indexes and use withIndex</li>
+<li><strong>Missing return validators</strong> - Always specify the returns field</li>
+<li><strong>Non-idempotent mutations</strong> - Check current state before updating</li>
+<li><strong>Reading before patching unnecessarily</strong> - Patch directly when possible</li>
+<li><strong>Not handling null returns</strong> - Document IDs might not exist</li>
+</ol>
+<h2>References</h2>
+<ul>
+<li>Convex Documentation: <a href="https://docs.convex.dev/" target="_blank" rel="ugc nofollow noopener">https://docs.convex.dev/</a></li>
+<li>Convex LLMs.txt: <a href="https://docs.convex.dev/llms.txt" target="_blank" rel="ugc nofollow noopener">https://docs.convex.dev/llms.txt</a></li>
+<li>Best Practices: <a href="https://docs.convex.dev/understanding/best-practices/" target="_blank" rel="ugc nofollow noopener">https://docs.convex.dev/understanding/best-practices/</a></li>
+<li>Error Handling: <a href="https://docs.convex.dev/functions/error-handling" target="_blank" rel="ugc nofollow noopener">https://docs.convex.dev/functions/error-handling</a></li>
+<li>Write Conflicts: <a href="https://docs.convex.dev/error#1" target="_blank" rel="ugc nofollow noopener">https://docs.convex.dev/error#1</a></li>
+</ul></div>

@@ -1,0 +1,118 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Codex Skill Guide</h1>
+<h2>Running a Task</h2>
+<ol>
+<li>Default to <code>gpt-5.2</code> model. Ask the user (via <code>AskUserQuestion</code>) which reasoning effort to use (<code>xhigh</code>,<code>high</code>, <code>medium</code>, or <code>low</code>). User can override model if needed (see Model Options below).</li>
+<li>Select the sandbox mode required for the task; default to <code>--sandbox read-only</code> unless edits or network access are necessary.</li>
+<li>Assemble the command with the appropriate options:
+<ul>
+<li><code>-m, --model &lt;MODEL&gt;</code></li>
+<li><code>--config model_reasoning_effort="&lt;high|medium|low&gt;"</code></li>
+<li><code>--sandbox &lt;read-only|workspace-write|danger-full-access&gt;</code></li>
+<li><code>--full-auto</code></li>
+<li><code>-C, --cd &lt;DIR&gt;</code></li>
+<li><code>--skip-git-repo-check</code></li>
+</ul>
+</li>
+<li>Always use --skip-git-repo-check.</li>
+<li>When continuing a previous session, use <code>codex exec --skip-git-repo-check resume --last</code> via stdin. When resuming don't use any configuration flags unless explicitly requested by the user e.g. if he species the model or the reasoning effort when requesting to resume a session. Resume syntax: <code>echo "your prompt here" | codex exec --skip-git-repo-check resume --last 2&gt;/dev/null</code>. All flags have to be inserted between exec and resume.</li>
+<li><strong>IMPORTANT</strong>: By default, append <code>2&gt;/dev/null</code> to all <code>codex exec</code> commands to suppress thinking tokens (stderr). Only show stderr if the user explicitly requests to see thinking tokens or if debugging is needed.</li>
+<li>Run the command, capture stdout/stderr (filtered as appropriate), and summarize the outcome for the user.</li>
+<li><strong>After Codex completes</strong>, inform the user: "You can resume this Codex session at any time by saying 'codex resume' or asking me to continue with additional analysis or changes."</li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Quick Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Sandbox mode</th>
+<th>Key flags</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read-only review or analysis</td>
+<td><code>read-only</code></td>
+<td><code>--sandbox read-only 2&gt;/dev/null</code></td>
+</tr>
+<tr>
+<td>Apply local edits</td>
+<td><code>workspace-write</code></td>
+<td><code>--sandbox workspace-write --full-auto 2&gt;/dev/null</code></td>
+</tr>
+<tr>
+<td>Permit network or broad access</td>
+<td><code>danger-full-access</code></td>
+<td><code>--sandbox danger-full-access --full-auto 2&gt;/dev/null</code></td>
+</tr>
+<tr>
+<td>Resume recent session</td>
+<td>Inherited from original</td>
+<td><code>echo "prompt" | codex exec --skip-git-repo-check resume --last 2&gt;/dev/null</code> (no flags allowed)</td>
+</tr>
+<tr>
+<td>Run from another directory</td>
+<td>Match task needs</td>
+<td><code>-C &lt;DIR&gt;</code> plus other flags <code>2&gt;/dev/null</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Model Options</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Best for</th>
+<th>Context window</th>
+<th>Key features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gpt-5.2-max</code></td>
+<td><strong>Max model</strong>: Ultra-complex reasoning, deep problem analysis</td>
+<td>400K input / 128K output</td>
+<td>76.3% SWE-bench, adaptive reasoning, $1.25/$10.00</td>
+</tr>
+<tr>
+<td><code>gpt-5.2</code> ⭐</td>
+<td><strong>Flagship model</strong>: Software engineering, agentic coding workflows</td>
+<td>400K input / 128K output</td>
+<td>76.3% SWE-bench, adaptive reasoning, $1.25/$10.00</td>
+</tr>
+<tr>
+<td><code>gpt-5.2-mini</code></td>
+<td>Cost-efficient coding (4x more usage allowance)</td>
+<td>400K input / 128K output</td>
+<td>Near SOTA performance, $0.25/$2.00</td>
+</tr>
+<tr>
+<td><code>gpt-5.1-thinking</code></td>
+<td>Ultra-complex reasoning, deep problem analysis</td>
+<td>400K input / 128K output</td>
+<td>Adaptive thinking depth, runs 2x slower on hardest tasks</td>
+</tr>
+</tbody>
+</table>
+<p><strong>GPT-5.2 Advantages</strong>: 76.3% SWE-bench (vs 72.8% GPT-5), 30% faster on average tasks, better tool handling, reduced hallucinations, improved code quality. Knowledge cutoff: September 30, 2024.</p>
+<p><strong>Reasoning Effort Levels</strong>:</p>
+<ul>
+<li><code>xhigh</code> - Ultra-complex tasks (deep problem analysis, complex reasoning, deep understanding of the problem)</li>
+<li><code>high</code> - Complex tasks (refactoring, architecture, security analysis, performance optimization)</li>
+<li><code>medium</code> - Standard tasks (refactoring, code organization, feature additions, bug fixes)</li>
+<li><code>low</code> - Simple tasks (quick fixes, simple changes, code formatting, documentation)</li>
+</ul>
+<p><strong>Cached Input Discount</strong>: 90% off ($0.125/M tokens) for repeated context, cache lasts up to 24 hours.</p>
+<h2>Following Up</h2>
+<ul>
+<li>After every <code>codex</code> command, immediately use <code>AskUserQuestion</code> to confirm next steps, collect clarifications, or decide whether to resume with <code>codex exec resume --last</code>.</li>
+<li>When resuming, pipe the new prompt via stdin: <code>echo "new prompt" | codex exec resume --last 2&gt;/dev/null</code>. The resumed session automatically uses the same model, reasoning effort, and sandbox mode from the original session.</li>
+<li>Restate the chosen model, reasoning effort, and sandbox mode when proposing follow-up actions.</li>
+</ul>
+<h2>Error Handling</h2>
+<ul>
+<li>Stop and report failures whenever <code>codex --version</code> or a <code>codex exec</code> command exits non-zero; request direction before retrying.</li>
+<li>Before you use high-impact flags (<code>--full-auto</code>, <code>--sandbox danger-full-access</code>, <code>--skip-git-repo-check</code>) ask the user for permission using AskUserQuestion unless it was already given.</li>
+<li>When output includes warnings or partial results, summarize them and ask how to adjust using <code>AskUserQuestion</code>.</li>
+</ul>
+<h2>CLI Version</h2>
+<p>Requires Codex CLI v0.57.0 or later for GPT-5.2 model support. The CLI defaults to <code>gpt-5.2</code> on macOS/Linux and <code>gpt-5.2</code> on Windows. Check version: <code>codex --version</code></p>
+<p>Use <code>/model</code> slash command within a Codex session to switch models, or configure default in <code>~/.codex/config.toml</code>.</p></div>

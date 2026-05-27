@@ -1,0 +1,115 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>WP Block Themes</h1>
+<h2>When to use</h2>
+<p>Use this skill for block theme work such as:</p>
+<ul>
+<li>editing <code>theme.json</code> (presets, settings, styles, per-block styles)</li>
+<li>adding or changing templates (<code>templates/*.html</code>) and template parts (<code>parts/*.html</code>)</li>
+<li>adding patterns (<code>patterns/*.php</code>) and controlling what appears in the inserter</li>
+<li>adding style variations (<code>styles/*.json</code>)</li>
+<li>debugging “styles not applying” / “editor doesn’t reflect theme.json”</li>
+</ul>
+<h2>Inputs required</h2>
+<ul>
+<li>Repo root and which theme is targeted (theme directory if multiple exist).</li>
+<li>Target WordPress version range (theme.json version and features vary by core version).</li>
+<li>Where the issue manifests: Site Editor, post editor, frontend, or all.</li>
+</ul>
+<h2>Procedure</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>0) Triage and locate block theme roots</h3>
+<ol>
+<li>Run triage:
+<ul>
+<li><code>node skills/wp-project-triage/scripts/detect_wp_project.mjs</code></li>
+</ul>
+</li>
+<li>Detect theme roots + key folders:
+<ul>
+<li><code>node skills/wp-block-themes/scripts/detect_block_themes.mjs</code></li>
+</ul>
+</li>
+</ol>
+<p>If multiple themes exist, pick one and scope all changes to that theme root.</p>
+<h3>1) Create a new block theme (if needed)</h3>
+<p>If you are creating a new block theme from scratch (or converting a classic theme):</p>
+<ul>
+<li>Prefer starting from a known-good scaffold (or exporting from a WP environment) rather than guessing file layout.</li>
+<li>Be explicit about the minimum supported WordPress version because <code>theme.json</code> schema versions differ.</li>
+</ul>
+<p>Read:</p>
+<ul>
+<li><code>references/creating-new-block-theme.md</code></li>
+</ul>
+<p>After creating the theme root, re-run <code>detect_block_themes</code> and continue below.</p>
+<h3>2) Confirm theme type and override expectations</h3>
+<ul>
+<li>Block theme indicators:
+<ul>
+<li><code>theme.json</code> present</li>
+<li><code>templates/</code> and/or <code>parts/</code> present</li>
+</ul>
+</li>
+<li>Remember the style hierarchy:
+<ul>
+<li>core defaults → theme.json → child theme → user customizations</li>
+<li>user customizations can make theme.json edits appear “ignored”</li>
+</ul>
+</li>
+</ul>
+<p>Read:</p>
+<ul>
+<li><code>references/debugging.md</code> (style hierarchy + fastest checks)</li>
+</ul>
+<h3>3) Make <code>theme.json</code> changes safely</h3>
+<p>Decide whether you are changing:</p>
+<ul>
+<li><strong>settings</strong> (what the UI allows): presets, typography scale, colors, layout, spacing</li>
+<li><strong>styles</strong> (how it looks by default): CSS-like rules for elements/blocks</li>
+</ul>
+<p>Read:</p>
+<ul>
+<li><code>references/theme-json.md</code></li>
+</ul>
+<h3>4) Templates and template parts</h3>
+<ul>
+<li>Templates live under <code>templates/</code> and are HTML.</li>
+<li>Template parts live under <code>parts/</code> and must not be nested in subdirectories.</li>
+</ul>
+<p>Read:</p>
+<ul>
+<li><code>references/templates-and-parts.md</code></li>
+</ul>
+<h3>5) Patterns</h3>
+<p>Prefer filesystem patterns under <code>patterns/</code> when you want theme-owned patterns.</p>
+<p>Read:</p>
+<ul>
+<li><code>references/patterns.md</code></li>
+</ul>
+<h3>6) Style variations</h3>
+<p>Style variations are JSON files under <code>styles/</code>. Note: once a user picks a style variation, that selection is stored in the DB, so changing the file may not “update what the user sees” automatically.</p>
+<p>Read:</p>
+<ul>
+<li><code>references/style-variations.md</code></li>
+</ul>
+<h2>Verification</h2>
+<ul>
+<li>Site Editor reflects changes where expected (Styles UI, templates, patterns).</li>
+<li>Frontend renders with expected styles.</li>
+<li>If styles aren’t changing, confirm whether user customizations override theme defaults.</li>
+<li>Run the repo’s build/lint scripts if assets are involved (fonts, custom JS/CSS build).</li>
+</ul>
+<h2>Failure modes / debugging</h2>
+<p>Start with:</p>
+<ul>
+<li><code>references/debugging.md</code></li>
+</ul>
+<p>Common issues:</p>
+<ul>
+<li>wrong theme root (editing an inactive theme)</li>
+<li>user customizations override your defaults</li>
+<li>invalid <code>theme.json</code> shape/typos prevent application</li>
+<li>templates/parts in wrong folders (or nested parts)</li>
+</ul>
+<h2>Escalation</h2>
+<p>If upstream behavior is unclear, consult canonical docs:</p>
+<ul>
+<li>Theme Handbook and Block Editor Handbook for <code>theme.json</code>, templates, patterns, and style variations.</li>
+</ul></div>

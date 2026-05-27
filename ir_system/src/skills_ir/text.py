@@ -1,6 +1,4 @@
-'''
-中文分词和查询扩展
-'''
+"""IR 子系统的文本标准化、分词与查询扩展工具。"""
 
 from __future__ import annotations
 
@@ -25,10 +23,12 @@ FALLBACK_QUERY_EXPANSIONS = {
 
 
 def normalize_text(text: str) -> str:
+    """统一空白并转小写，作为全文匹配与去重的基础。"""
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
 def safe_number(value: object) -> float:
+    """把各种数值输入尽量安全地转换为浮点数。"""
     if value is None or value == "":
         return 0.0
     try:
@@ -38,6 +38,7 @@ def safe_number(value: object) -> float:
 
 
 def _english_variants(token: str) -> List[str]:
+    """为英文 token 生成拆分和简化变体，提升召回。"""
     variants = [token]
     for part in re.split(r"[-_./+]+", token):
         if part and part not in variants:
@@ -55,8 +56,15 @@ def _english_variants(token: str) -> List[str]:
 
     return variants
 
-# 提取中文块，将中文拆成整词、单词、双字片段
+
 def tokenize(text: str, config: IRConfig) -> List[str]:
+    """对英文和中文混合文本做轻量分词。
+
+    这里不依赖外部分词器，而是采用规则化处理：
+    - 英文保留原词、拆分词和简单词干变体。
+    - 中文同时保留整段、单字和双字片段。
+    - 停用词由配置统一控制。
+    """
     tokens: List[str] = []
     if not text:
         return tokens
@@ -75,6 +83,7 @@ def tokenize(text: str, config: IRConfig) -> List[str]:
         if chunk not in config.stopwords:
             tokens.append(chunk)
         if len(chunk) > 1:
+            # 单字和双字片段能在无外部分词器时弥补中文召回不足。
             tokens.extend(chunk)
             tokens.extend(chunk[i : i + 2] for i in range(len(chunk) - 1))
 
@@ -86,6 +95,7 @@ def expand_query_tokens(
     config: IRConfig,
     raw_query: str = "",
 ) -> List[str]:
+    """根据配置和兜底词典扩展查询词，增强语义召回。"""
     expanded = list(tokens)
     for token in list(tokens):
         expanded.extend(config.query_expansions.get(token, []))
@@ -106,6 +116,7 @@ def expand_query_tokens(
 
 
 def weighted_terms(document: Dict[str, str], config: IRConfig) -> Counter:
+    """按字段权重汇总文档词频，供索引构建使用。"""
     counts: Counter = Counter()
     for field, weight in config.field_weights.items():
         for token in tokenize(str(document.get(field, "")), config):

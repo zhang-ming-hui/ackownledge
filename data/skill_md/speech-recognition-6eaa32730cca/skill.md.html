@@ -1,0 +1,447 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Speech Recognition</h1>
+<p>Transcribe live and pre-recorded audio to text using Apple's Speech framework.
+Covers <code>SFSpeechRecognizer</code> (iOS 10+) and the new <code>SpeechAnalyzer</code> API (iOS 26+).</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#speechanalyzer-ios-26" target="_blank" rel="ugc nofollow noopener">SpeechAnalyzer (iOS 26+)</a></li>
+<li><a href="#sfspeechrecognizer-setup" target="_blank" rel="ugc nofollow noopener">SFSpeechRecognizer Setup</a></li>
+<li><a href="#authorization" target="_blank" rel="ugc nofollow noopener">Authorization</a></li>
+<li><a href="#live-microphone-transcription" target="_blank" rel="ugc nofollow noopener">Live Microphone Transcription</a></li>
+<li><a href="#pre-recorded-audio-file-recognition" target="_blank" rel="ugc nofollow noopener">Pre-Recorded Audio File Recognition</a></li>
+<li><a href="#on-device-vs-server-recognition" target="_blank" rel="ugc nofollow noopener">On-Device vs Server Recognition</a></li>
+<li><a href="#handling-results" target="_blank" rel="ugc nofollow noopener">Handling Results</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul>
+<h2>SpeechAnalyzer (iOS 26+)</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><code>SpeechAnalyzer</code> is an actor-based API introduced in iOS 26 that replaces
+<code>SFSpeechRecognizer</code> for new projects. It uses Swift concurrency, <code>AsyncSequence</code>
+for results, and supports modular analysis via <code>SpeechTranscriber</code>.</p>
+<h3>Basic transcription with SpeechAnalyzer</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">Speech</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 1. Create a transcriber module</span>
+</span><span class="code-line"><span class="token keyword">guard</span> <span class="token keyword">let</span> locale <span class="token operator">=</span> <span class="token class-name">SpeechTranscriber</span><span class="token punctuation">.</span><span class="token function">supportedLocale</span><span class="token punctuation">(</span>
+</span><span class="code-line">    equivalentTo<span class="token punctuation">:</span> <span class="token class-name">Locale</span><span class="token punctuation">.</span>current
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">let</span> transcriber <span class="token operator">=</span> <span class="token class-name">SpeechTranscriber</span><span class="token punctuation">(</span>locale<span class="token punctuation">:</span> locale<span class="token punctuation">,</span> preset<span class="token punctuation">:</span> <span class="token punctuation">.</span>offlineTranscription<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 2. Ensure assets are installed</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">AssetInventory</span><span class="token punctuation">.</span><span class="token function">assetInstallationRequest</span><span class="token punctuation">(</span>
+</span><span class="code-line">    supporting<span class="token punctuation">:</span> <span class="token punctuation">[</span>transcriber<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token keyword">await</span> request<span class="token punctuation">.</span><span class="token function">downloadAndInstall</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 3. Create input stream and analyzer</span>
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>inputSequence<span class="token punctuation">,</span> inputBuilder<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token class-name">AsyncStream</span><span class="token punctuation">.</span><span class="token function">makeStream</span><span class="token punctuation">(</span>of<span class="token punctuation">:</span> <span class="token class-name">AnalyzerInput</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> audioFormat <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token class-name">SpeechAnalyzer</span><span class="token punctuation">.</span><span class="token function">bestAvailableAudioFormat</span><span class="token punctuation">(</span>
+</span><span class="code-line">    compatibleWith<span class="token punctuation">:</span> <span class="token punctuation">[</span>transcriber<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> analyzer <span class="token operator">=</span> <span class="token class-name">SpeechAnalyzer</span><span class="token punctuation">(</span>modules<span class="token punctuation">:</span> <span class="token punctuation">[</span>transcriber<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 4. Feed audio buffers (from AVAudioEngine or file)</span>
+</span><span class="code-line"><span class="token class-name">Task</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Append PCM buffers converted to audioFormat</span>
+</span><span class="code-line">    <span class="token keyword">let</span> pcmBuffer<span class="token punctuation">:</span> <span class="token class-name">AVAudioPCMBuffer</span> <span class="token operator">=</span> <span class="token comment">// ... your audio buffer</span>
+</span><span class="code-line">    inputBuilder<span class="token punctuation">.</span><span class="token function">yield</span><span class="token punctuation">(</span><span class="token class-name">AnalyzerInput</span><span class="token punctuation">(</span>buffer<span class="token punctuation">:</span> pcmBuffer<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    inputBuilder<span class="token punctuation">.</span><span class="token function">finish</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 5. Consume results</span>
+</span><span class="code-line"><span class="token class-name">Task</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token keyword">try</span> <span class="token keyword">await</span> result <span class="token keyword">in</span> transcriber<span class="token punctuation">.</span>results <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> text <span class="token operator">=</span> <span class="token class-name">String</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>text<span class="token punctuation">.</span>characters<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token function">print</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 6. Run analysis</span>
+</span><span class="code-line"><span class="token keyword">let</span> lastSampleTime <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> analyzer<span class="token punctuation">.</span><span class="token function">analyzeSequence</span><span class="token punctuation">(</span>inputSequence<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 7. Finalize</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token keyword">let</span> lastSampleTime <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token keyword">await</span> analyzer<span class="token punctuation">.</span><span class="token function">finalizeAndFinish</span><span class="token punctuation">(</span>through<span class="token punctuation">:</span> lastSampleTime<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span> analyzer<span class="token punctuation">.</span><span class="token function">cancelAndFinishNow</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Transcribing an audio file with SpeechAnalyzer</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> transcriber <span class="token operator">=</span> <span class="token class-name">SpeechTranscriber</span><span class="token punctuation">(</span>locale<span class="token punctuation">:</span> locale<span class="token punctuation">,</span> preset<span class="token punctuation">:</span> <span class="token punctuation">.</span>offlineTranscription<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> audioFile <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">AVAudioFile</span><span class="token punctuation">(</span>forReading<span class="token punctuation">:</span> fileURL<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> analyzer <span class="token operator">=</span> <span class="token class-name">SpeechAnalyzer</span><span class="token punctuation">(</span>
+</span><span class="code-line">    inputAudioFile<span class="token punctuation">:</span> audioFile<span class="token punctuation">,</span> modules<span class="token punctuation">:</span> <span class="token punctuation">[</span>transcriber<span class="token punctuation">]</span><span class="token punctuation">,</span> finishAfterFile<span class="token punctuation">:</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">try</span> <span class="token keyword">await</span> result <span class="token keyword">in</span> transcriber<span class="token punctuation">.</span>results <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">print</span><span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>text<span class="token punctuation">.</span>characters<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Key differences from SFSpeechRecognizer</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>SFSpeechRecognizer</th>
+<th>SpeechAnalyzer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Concurrency</td>
+<td>Callbacks/delegates</td>
+<td>async/await + AsyncSequence</td>
+</tr>
+<tr>
+<td>Type</td>
+<td><code>class</code></td>
+<td><code>actor</code></td>
+</tr>
+<tr>
+<td>Modules</td>
+<td>Monolithic</td>
+<td>Composable (<code>SpeechTranscriber</code>, <code>SpeechDetector</code>)</td>
+</tr>
+<tr>
+<td>Audio input</td>
+<td><code>append(_:)</code> on request</td>
+<td><code>AsyncStream&lt;AnalyzerInput&gt;</code></td>
+</tr>
+<tr>
+<td>Availability</td>
+<td>iOS 10+</td>
+<td>iOS 26+</td>
+</tr>
+<tr>
+<td>On-device</td>
+<td><code>requiresOnDeviceRecognition</code></td>
+<td>Asset-based via <code>AssetInventory</code></td>
+</tr>
+</tbody>
+</table>
+<h2>SFSpeechRecognizer Setup</h2>
+<h3>Creating a recognizer with locale</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">Speech</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Default locale (user's current language)</span>
+</span><span class="code-line"><span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Specific locale</span>
+</span><span class="code-line"><span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span>locale<span class="token punctuation">:</span> <span class="token class-name">Locale</span><span class="token punctuation">(</span>identifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"en-US"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Check if recognition is available for this locale</span>
+</span><span class="code-line"><span class="token keyword">guard</span> <span class="token keyword">let</span> recognizer<span class="token punctuation">,</span> recognizer<span class="token punctuation">.</span>isAvailable <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Speech recognition not available"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Monitoring availability changes</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">SpeechManager</span><span class="token punctuation">:</span> <span class="token class-name">NSObject</span><span class="token punctuation">,</span> <span class="token class-name">SFSpeechRecognizerDelegate</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">override</span> <span class="token keyword">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">super</span><span class="token punctuation">.</span><span class="token keyword">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        recognizer<span class="token punctuation">.</span>delegate <span class="token operator">=</span> <span class="token keyword">self</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">speechRecognizer</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> speechRecognizer<span class="token punctuation">:</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">,</span>
+</span><span class="code-line">        availabilityDidChange available<span class="token punctuation">:</span> <span class="token class-name">Bool</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Update UI — disable record button when unavailable</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Authorization</h2>
+<p>Request <strong>both</strong> speech recognition and microphone permissions before starting
+live transcription. Add these keys to <code>Info.plist</code>:</p>
+<ul>
+<li><code>NSSpeechRecognitionUsageDescription</code></li>
+<li><code>NSMicrophoneUsageDescription</code></li>
+</ul>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">Speech</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">AVFoundation</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">requestPermissions</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token operator">-&gt;</span> <span class="token class-name">Bool</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> speechStatus <span class="token operator">=</span> <span class="token keyword">await</span> withCheckedContinuation <span class="token punctuation">{</span> continuation <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">.</span>requestAuthorization <span class="token punctuation">{</span> status <span class="token keyword">in</span>
+</span><span class="code-line">            continuation<span class="token punctuation">.</span><span class="token function">resume</span><span class="token punctuation">(</span>returning<span class="token punctuation">:</span> status<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> speechStatus <span class="token operator">==</span> <span class="token punctuation">.</span>authorized <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token boolean">false</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> micStatus<span class="token punctuation">:</span> <span class="token class-name">Bool</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token other-directive property">#available</span><span class="token punctuation">(</span>iOS <span class="token number">17</span><span class="token punctuation">,</span> <span class="token operator">*</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        micStatus <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token class-name">AVAudioApplication</span><span class="token punctuation">.</span><span class="token function">requestRecordPermission</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        micStatus <span class="token operator">=</span> <span class="token keyword">await</span> withCheckedContinuation <span class="token punctuation">{</span> continuation <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">AVAudioSession</span><span class="token punctuation">.</span><span class="token function">sharedInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>requestRecordPermission <span class="token punctuation">{</span> granted <span class="token keyword">in</span>
+</span><span class="code-line">                continuation<span class="token punctuation">.</span><span class="token function">resume</span><span class="token punctuation">(</span>returning<span class="token punctuation">:</span> granted<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">return</span> micStatus
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Live Microphone Transcription</h2>
+<p>The standard pattern: <code>AVAudioEngine</code> captures microphone audio → buffers are
+appended to <code>SFSpeechAudioBufferRecognitionRequest</code> → results stream in.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">Speech</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">AVFoundation</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">final</span> <span class="token keyword">class</span> <span class="token class-name">LiveTranscriber</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span>locale<span class="token punctuation">:</span> <span class="token class-name">Locale</span><span class="token punctuation">(</span>identifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"en-US"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">let</span> audioEngine <span class="token operator">=</span> <span class="token class-name">AVAudioEngine</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> recognitionRequest<span class="token punctuation">:</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token operator">?</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">var</span> recognitionTask<span class="token punctuation">:</span> <span class="token class-name">SFSpeechRecognitionTask</span><span class="token operator">?</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">startTranscribing</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Cancel any in-progress task</span>
+</span><span class="code-line">        recognitionTask<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">cancel</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        recognitionTask <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Configure audio session</span>
+</span><span class="code-line">        <span class="token keyword">let</span> audioSession <span class="token operator">=</span> <span class="token class-name">AVAudioSession</span><span class="token punctuation">.</span><span class="token function">sharedInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">try</span> audioSession<span class="token punctuation">.</span><span class="token function">setCategory</span><span class="token punctuation">(</span><span class="token punctuation">.</span>record<span class="token punctuation">,</span> mode<span class="token punctuation">:</span> <span class="token punctuation">.</span>measurement<span class="token punctuation">,</span> options<span class="token punctuation">:</span> <span class="token punctuation">.</span>duckOthers<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">try</span> audioSession<span class="token punctuation">.</span><span class="token function">setActive</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">,</span> options<span class="token punctuation">:</span> <span class="token punctuation">.</span>notifyOthersOnDeactivation<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Create request</span>
+</span><span class="code-line">        <span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        request<span class="token punctuation">.</span>shouldReportPartialResults <span class="token operator">=</span> <span class="token boolean">true</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>recognitionRequest <span class="token operator">=</span> request
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Start recognition task</span>
+</span><span class="code-line">        recognitionTask <span class="token operator">=</span> recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> result<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token keyword">let</span> result <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">let</span> text <span class="token operator">=</span> result<span class="token punctuation">.</span>bestTranscription<span class="token punctuation">.</span>formattedString
+</span><span class="code-line">                <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Transcription: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">text</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">                <span class="token keyword">if</span> result<span class="token punctuation">.</span>isFinal <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">stopTranscribing</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token keyword">let</span> error <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Recognition error: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">error</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">stopTranscribing</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Install audio tap</span>
+</span><span class="code-line">        <span class="token keyword">let</span> inputNode <span class="token operator">=</span> audioEngine<span class="token punctuation">.</span>inputNode
+</span><span class="code-line">        <span class="token keyword">let</span> recordingFormat <span class="token operator">=</span> inputNode<span class="token punctuation">.</span><span class="token function">outputFormat</span><span class="token punctuation">(</span>forBus<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">        inputNode<span class="token punctuation">.</span><span class="token function">installTap</span><span class="token punctuation">(</span>onBus<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span> bufferSize<span class="token punctuation">:</span> <span class="token number">1024</span><span class="token punctuation">,</span> format<span class="token punctuation">:</span> recordingFormat<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            buffer<span class="token punctuation">,</span> <span class="token omit keyword">_</span> <span class="token keyword">in</span>
+</span><span class="code-line">            request<span class="token punctuation">.</span><span class="token function">append</span><span class="token punctuation">(</span>buffer<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        audioEngine<span class="token punctuation">.</span><span class="token function">prepare</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">try</span> audioEngine<span class="token punctuation">.</span><span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">stopTranscribing</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        audioEngine<span class="token punctuation">.</span><span class="token function">stop</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        audioEngine<span class="token punctuation">.</span>inputNode<span class="token punctuation">.</span><span class="token function">removeTap</span><span class="token punctuation">(</span>onBus<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">        recognitionRequest<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">endAudio</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        recognitionRequest <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">        recognitionTask<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">cancel</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        recognitionTask <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Pre-Recorded Audio File Recognition</h2>
+<p>Use <code>SFSpeechURLRecognitionRequest</code> for audio files on disk:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">transcribeFile</span><span class="token punctuation">(</span>at url<span class="token punctuation">:</span> <span class="token constant">URL</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">String</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> recognizer<span class="token punctuation">.</span>isAvailable <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">throw</span> <span class="token class-name">SpeechError</span><span class="token punctuation">.</span>unavailable
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechURLRecognitionRequest</span><span class="token punctuation">(</span>url<span class="token punctuation">:</span> url<span class="token punctuation">)</span>
+</span><span class="code-line">    request<span class="token punctuation">.</span>shouldReportPartialResults <span class="token operator">=</span> <span class="token boolean">false</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> withCheckedThrowingContinuation <span class="token punctuation">{</span> continuation <span class="token keyword">in</span>
+</span><span class="code-line">        recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> result<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token keyword">let</span> error <span class="token punctuation">{</span>
+</span><span class="code-line">                continuation<span class="token punctuation">.</span><span class="token function">resume</span><span class="token punctuation">(</span>throwing<span class="token punctuation">:</span> error<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token keyword">let</span> result<span class="token punctuation">,</span> result<span class="token punctuation">.</span>isFinal <span class="token punctuation">{</span>
+</span><span class="code-line">                continuation<span class="token punctuation">.</span><span class="token function">resume</span><span class="token punctuation">(</span>
+</span><span class="code-line">                    returning<span class="token punctuation">:</span> result<span class="token punctuation">.</span>bestTranscription<span class="token punctuation">.</span>formattedString
+</span><span class="code-line">                <span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>On-Device vs Server Recognition</h2>
+<p>On-device recognition (iOS 13+) works offline but supports fewer locales:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span>locale<span class="token punctuation">:</span> <span class="token class-name">Locale</span><span class="token punctuation">(</span>identifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"en-US"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Check if on-device is supported for this locale</span>
+</span><span class="code-line"><span class="token keyword">if</span> recognizer<span class="token punctuation">.</span>supportsOnDeviceRecognition <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    request<span class="token punctuation">.</span>requiresOnDeviceRecognition <span class="token operator">=</span> <span class="token boolean">true</span>  <span class="token comment">// Force on-device</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<blockquote>
+<p><strong>Tip:</strong> On-device recognition avoids network latency and the one-minute
+audio limit imposed by server-based recognition. However, accuracy may be
+lower and not all locales are supported. Check <code>supportsOnDeviceRecognition</code>
+before forcing on-device mode.</p>
+</blockquote>
+<h2>Handling Results</h2>
+<h3>Partial vs final results</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>shouldReportPartialResults <span class="token operator">=</span> <span class="token boolean">true</span>  <span class="token comment">// default is true</span>
+</span><span class="code-line">
+</span><span class="code-line">recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> result<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> result <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> result<span class="token punctuation">.</span>isFinal <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Final transcription — recognition is complete</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">final</span> <span class="token operator">=</span> result<span class="token punctuation">.</span>bestTranscription<span class="token punctuation">.</span>formattedString
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Partial result — may change as more audio is processed</span>
+</span><span class="code-line">        <span class="token keyword">let</span> partial <span class="token operator">=</span> result<span class="token punctuation">.</span>bestTranscription<span class="token punctuation">.</span>formattedString
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Accessing alternative transcriptions and confidence</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line">recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> result<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> result <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Best transcription</span>
+</span><span class="code-line">    <span class="token keyword">let</span> best <span class="token operator">=</span> result<span class="token punctuation">.</span>bestTranscription
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// All alternatives (sorted by confidence, descending)</span>
+</span><span class="code-line">    <span class="token keyword">for</span> transcription <span class="token keyword">in</span> result<span class="token punctuation">.</span>transcriptions <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">for</span> segment <span class="token keyword">in</span> transcription<span class="token punctuation">.</span>segments <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">print</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">segment<span class="token punctuation">.</span>substring</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">segment<span class="token punctuation">.</span>confidence</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Adding punctuation (iOS 16+)</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>addsPunctuation <span class="token operator">=</span> <span class="token boolean">true</span>
+</span></code></pre>
+<h3>Contextual strings</h3>
+<p>Improve recognition of domain-specific terms:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>contextualStrings <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string-literal"><span class="token string">"SwiftUI"</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">"Xcode"</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">"CloudKit"</span></span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Common Mistakes</h2>
+<h3>Not requesting both speech and microphone authorization</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Only request speech authorization for live audio</span>
+</span><span class="code-line"><span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">.</span>requestAuthorization <span class="token punctuation">{</span> status <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token comment">// Missing microphone permission — audio engine will fail</span>
+</span><span class="code-line">    <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">startRecording</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Request both permissions before recording</span>
+</span><span class="code-line"><span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">.</span>requestAuthorization <span class="token punctuation">{</span> status <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> status <span class="token operator">==</span> <span class="token punctuation">.</span>authorized <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token class-name">AVAudioSession</span><span class="token punctuation">.</span><span class="token function">sharedInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>requestRecordPermission <span class="token punctuation">{</span> granted <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> granted <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span><span class="token function">startRecording</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Not handling availability changes</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Assume recognizer stays available after initial check</span>
+</span><span class="code-line"><span class="token keyword">let</span> recognizer <span class="token operator">=</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token comment">// Recognition may fail if network drops or locale changes</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Monitor availability via delegate</span>
+</span><span class="code-line">recognizer<span class="token punctuation">.</span>delegate <span class="token operator">=</span> <span class="token keyword">self</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">speechRecognizer</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token omit keyword">_</span> speechRecognizer<span class="token punctuation">:</span> <span class="token class-name">SFSpeechRecognizer</span><span class="token punctuation">,</span>
+</span><span class="code-line">    availabilityDidChange available<span class="token punctuation">:</span> <span class="token class-name">Bool</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    recordButton<span class="token punctuation">.</span>isEnabled <span class="token operator">=</span> available
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Not stopping the audio engine when recognition ends</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Leave audio engine running after recognition finishes</span>
+</span><span class="code-line">recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> result<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">if</span> result<span class="token operator">?</span><span class="token punctuation">.</span>isFinal <span class="token operator">==</span> <span class="token boolean">true</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Audio engine still running, wasting resources and battery</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Clean up all audio resources</span>
+</span><span class="code-line">recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> result<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token keyword">if</span> result<span class="token operator">?</span><span class="token punctuation">.</span>isFinal <span class="token operator">==</span> <span class="token boolean">true</span> <span class="token operator">||</span> error <span class="token operator">!=</span> <span class="token nil constant">nil</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>audioEngine<span class="token punctuation">.</span><span class="token function">stop</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>audioEngine<span class="token punctuation">.</span>inputNode<span class="token punctuation">.</span><span class="token function">removeTap</span><span class="token punctuation">(</span>onBus<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>recognitionRequest<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">endAudio</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token punctuation">.</span>recognitionRequest <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Assuming on-device recognition is available for all locales</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Force on-device without checking support</span>
+</span><span class="code-line"><span class="token keyword">let</span> request <span class="token operator">=</span> <span class="token class-name">SFSpeechAudioBufferRecognitionRequest</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>requiresOnDeviceRecognition <span class="token operator">=</span> <span class="token boolean">true</span> <span class="token comment">// May silently fail</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Check support before requiring on-device</span>
+</span><span class="code-line"><span class="token keyword">if</span> recognizer<span class="token punctuation">.</span>supportsOnDeviceRecognition <span class="token punctuation">{</span>
+</span><span class="code-line">    request<span class="token punctuation">.</span>requiresOnDeviceRecognition <span class="token operator">=</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Fall back to server-based or inform user</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Not handling the one-minute recognition limit</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Start one long continuous recognition session</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">startRecording</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// This will be cut off after ~60 seconds (server-based)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Restart recognition when approaching the limit</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">startRecording</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Use a timer to restart before the limit</span>
+</span><span class="code-line">    recognitionTimer <span class="token operator">=</span> <span class="token class-name">Timer</span><span class="token punctuation">.</span><span class="token function">scheduledTimer</span><span class="token punctuation">(</span>withTimeInterval<span class="token punctuation">:</span> <span class="token number">55</span><span class="token punctuation">,</span> repeats<span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token punctuation">[</span><span class="token keyword">weak</span> <span class="token keyword">self</span><span class="token punctuation">]</span> <span class="token omit keyword">_</span> <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token keyword">self</span><span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">restartRecognition</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Creating multiple simultaneous recognition tasks</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Start a new task without canceling the previous one</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">startRecording</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    recognitionTask <span class="token operator">=</span> recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token operator">...</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token comment">// Previous task is still running — undefined behavior</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Cancel existing task before creating a new one</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">startRecording</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    recognitionTask<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">cancel</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    recognitionTask <span class="token operator">=</span> <span class="token nil constant">nil</span>
+</span><span class="code-line">    recognitionTask <span class="token operator">=</span> recognizer<span class="token punctuation">.</span><span class="token function">recognitionTask</span><span class="token punctuation">(</span>with<span class="token punctuation">:</span> request<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token operator">...</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>NSSpeechRecognitionUsageDescription</code> is in Info.plist</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>NSMicrophoneUsageDescription</code> is in Info.plist (if using live audio)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Authorization is requested before starting recognition</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>SFSpeechRecognizerDelegate</code> is set to handle <code>availabilityDidChange</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Audio engine is stopped and tap removed when recognition ends</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>recognitionRequest.endAudio()</code> is called when done recording</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Previous <code>recognitionTask</code> is canceled before starting a new one</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>supportsOnDeviceRecognition</code> is checked before requiring on-device mode</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Partial results are handled separately from final (<code>isFinal</code>) results</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> One-minute limit is accounted for in server-based recognition</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> For iOS 26+: <code>AssetInventory</code> assets are installed before using <code>SpeechAnalyzer</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> For iOS 26+: <code>SpeechTranscriber.supportedLocale(equivalentTo:)</code> is checked</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li><a href="https://sosumi.ai/documentation/speech" target="_blank" rel="ugc nofollow noopener">Speech framework</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/speechanalyzer" target="_blank" rel="ugc nofollow noopener">SpeechAnalyzer</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/speechtranscriber" target="_blank" rel="ugc nofollow noopener">SpeechTranscriber</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/sfspeechrecognizer" target="_blank" rel="ugc nofollow noopener">SFSpeechRecognizer</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/sfspeechaudiobufferrecognitionrequest" target="_blank" rel="ugc nofollow noopener">SFSpeechAudioBufferRecognitionRequest</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/sfspeechurlrecognitionrequest" target="_blank" rel="ugc nofollow noopener">SFSpeechURLRecognitionRequest</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/sfspeechrecognitionresult" target="_blank" rel="ugc nofollow noopener">SFSpeechRecognitionResult</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/sfspeechrecognitionrequest" target="_blank" rel="ugc nofollow noopener">SFSpeechRecognitionRequest</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/assetinventory" target="_blank" rel="ugc nofollow noopener">AssetInventory</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/asking-permission-to-use-speech-recognition" target="_blank" rel="ugc nofollow noopener">Asking Permission to Use Speech Recognition</a></li>
+<li><a href="https://sosumi.ai/documentation/speech/recognizing-speech-in-live-audio" target="_blank" rel="ugc nofollow noopener">Recognizing Speech in Live Audio</a></li>
+</ul></div>

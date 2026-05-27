@@ -1,0 +1,287 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Crawl Skill</h1>
+<p>Crawl websites to extract content from multiple pages. Ideal for documentation, knowledge bases, and site-wide content extraction.</p>
+<h2>Authentication</h2>
+<p>The script uses OAuth via the Tavily MCP server. <strong>No manual setup required</strong> - on first run, it will:</p>
+<ol>
+<li>Check for existing tokens in <code>~/.mcp-auth/</code></li>
+<li>If none found, automatically open your browser for OAuth authentication</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> You must have an existing Tavily account. The OAuth flow only supports login — account creation is not available through this flow. <a href="https://tavily.com" target="_blank" rel="ugc nofollow noopener">Sign up at tavily.com</a> first if you don't have an account.</p>
+</blockquote>
+<h3>Alternative: API Key</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>If you prefer using an API key, get one at <a href="https://tavily.com" target="_blank" rel="ugc nofollow noopener">https://tavily.com</a> and add to <code>~/.claude/settings.json</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"env"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"TAVILY_API_KEY"</span><span class="token operator">:</span> <span class="token string">"tvly-your-api-key-here"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Quick Start</h2>
+<h3>Using the Script</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./scripts/crawl.sh <span class="token string">'&lt;json&gt;'</span> <span class="token punctuation">[</span>output_dir<span class="token punctuation">]</span>
+</span></code></pre>
+<p><strong>Examples:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Basic crawl</span>
+</span><span class="code-line">./scripts/crawl.sh <span class="token string">'{"url": "https://docs.example.com"}'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Deeper crawl with limits</span>
+</span><span class="code-line">./scripts/crawl.sh <span class="token string">'{"url": "https://docs.example.com", "max_depth": 2, "limit": 50}'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Save to files</span>
+</span><span class="code-line">./scripts/crawl.sh <span class="token string">'{"url": "https://docs.example.com", "max_depth": 2}'</span> ./docs
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Focused crawl with path filters</span>
+</span><span class="code-line">./scripts/crawl.sh <span class="token string">'{"url": "https://example.com", "max_depth": 2, "select_paths": ["/docs/.*", "/api/.*"], "exclude_paths": ["/blog/.*"]}'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With semantic instructions (for agentic use)</span>
+</span><span class="code-line">./scripts/crawl.sh <span class="token string">'{"url": "https://docs.example.com", "instructions": "Find API documentation", "chunks_per_source": 3}'</span>
+</span></code></pre>
+<p>When <code>output_dir</code> is provided, each crawled page is saved as a separate markdown file.</p>
+<h3>Basic Crawl</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--url</span> https://api.tavily.com/crawl <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">"Authorization: Bearer <span class="token variable">$TAVILY_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--data</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "url": "https://docs.example.com",
+</span></span><span class="code-line"><span class="token string">    "max_depth": 1,
+</span></span><span class="code-line"><span class="token string">    "limit": 20
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<h3>Focused Crawl with Instructions</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--url</span> https://api.tavily.com/crawl <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">"Authorization: Bearer <span class="token variable">$TAVILY_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--data</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "url": "https://docs.example.com",
+</span></span><span class="code-line"><span class="token string">    "max_depth": 2,
+</span></span><span class="code-line"><span class="token string">    "instructions": "Find API documentation and code examples",
+</span></span><span class="code-line"><span class="token string">    "chunks_per_source": 3,
+</span></span><span class="code-line"><span class="token string">    "select_paths": ["/docs/.*", "/api/.*"]
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<h2>API Reference</h2>
+<h3>Endpoint</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">POST https://api.tavily.com/crawl
+</span></code></pre>
+<h3>Headers</h3>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Authorization</code></td>
+<td><code>Bearer &lt;TAVILY_API_KEY&gt;</code></td>
+</tr>
+<tr>
+<td><code>Content-Type</code></td>
+<td><code>application/json</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Request Body</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>Required</td>
+<td>Root URL to begin crawling</td>
+</tr>
+<tr>
+<td><code>max_depth</code></td>
+<td>integer</td>
+<td>1</td>
+<td>Levels deep to crawl (1-5)</td>
+</tr>
+<tr>
+<td><code>max_breadth</code></td>
+<td>integer</td>
+<td>20</td>
+<td>Links per page</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td>50</td>
+<td>Total pages cap</td>
+</tr>
+<tr>
+<td><code>instructions</code></td>
+<td>string</td>
+<td>null</td>
+<td>Natural language guidance for focus</td>
+</tr>
+<tr>
+<td><code>chunks_per_source</code></td>
+<td>integer</td>
+<td>3</td>
+<td>Chunks per page (1-5, requires instructions)</td>
+</tr>
+<tr>
+<td><code>extract_depth</code></td>
+<td>string</td>
+<td><code>"basic"</code></td>
+<td><code>basic</code> or <code>advanced</code></td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>string</td>
+<td><code>"markdown"</code></td>
+<td><code>markdown</code> or <code>text</code></td>
+</tr>
+<tr>
+<td><code>select_paths</code></td>
+<td>array</td>
+<td>null</td>
+<td>Regex patterns to include</td>
+</tr>
+<tr>
+<td><code>exclude_paths</code></td>
+<td>array</td>
+<td>null</td>
+<td>Regex patterns to exclude</td>
+</tr>
+<tr>
+<td><code>allow_external</code></td>
+<td>boolean</td>
+<td>true</td>
+<td>Include external domain links</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>float</td>
+<td>150</td>
+<td>Max wait (10-150 seconds)</td>
+</tr>
+</tbody>
+</table>
+<h3>Response Format</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"base_url"</span><span class="token operator">:</span> <span class="token string">"https://docs.example.com"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"results"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://docs.example.com/page"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"raw_content"</span><span class="token operator">:</span> <span class="token string">"# Page Title\n\nContent..."</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"response_time"</span><span class="token operator">:</span> <span class="token number">12.5</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Depth vs Performance</h2>
+<table>
+<thead>
+<tr>
+<th>Depth</th>
+<th>Typical Pages</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>10-50</td>
+<td>Seconds</td>
+</tr>
+<tr>
+<td>2</td>
+<td>50-500</td>
+<td>Minutes</td>
+</tr>
+<tr>
+<td>3</td>
+<td>500-5000</td>
+<td>Many minutes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Start with <code>max_depth=1</code></strong> and increase only if needed.</p>
+<h2>Crawl for Context vs Data Collection</h2>
+<p><strong>For agentic use (feeding results into context):</strong> Always use <code>instructions</code> + <code>chunks_per_source</code>. This returns only relevant chunks instead of full pages, preventing context window explosion.</p>
+<p><strong>For data collection (saving to files):</strong> Omit <code>chunks_per_source</code> to get full page content.</p>
+<h2>Examples</h2>
+<h3>For Context: Agentic Research (Recommended)</h3>
+<p>Use when feeding crawl results into an LLM context:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--url</span> https://api.tavily.com/crawl <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">"Authorization: Bearer <span class="token variable">$TAVILY_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--data</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "url": "https://docs.example.com",
+</span></span><span class="code-line"><span class="token string">    "max_depth": 2,
+</span></span><span class="code-line"><span class="token string">    "instructions": "Find API documentation and authentication guides",
+</span></span><span class="code-line"><span class="token string">    "chunks_per_source": 3
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<p>Returns only the most relevant chunks (max 500 chars each) per page - fits in context without overwhelming it.</p>
+<h3>For Context: Targeted Technical Docs</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--url</span> https://api.tavily.com/crawl <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">"Authorization: Bearer <span class="token variable">$TAVILY_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--data</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "url": "https://example.com",
+</span></span><span class="code-line"><span class="token string">    "max_depth": 2,
+</span></span><span class="code-line"><span class="token string">    "instructions": "Find all documentation about authentication and security",
+</span></span><span class="code-line"><span class="token string">    "chunks_per_source": 3,
+</span></span><span class="code-line"><span class="token string">    "select_paths": ["/docs/.*", "/api/.*"]
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<h3>For Data Collection: Full Page Archive</h3>
+<p>Use when saving content to files for later processing:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--url</span> https://api.tavily.com/crawl <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">"Authorization: Bearer <span class="token variable">$TAVILY_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--data</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "url": "https://example.com/blog",
+</span></span><span class="code-line"><span class="token string">    "max_depth": 2,
+</span></span><span class="code-line"><span class="token string">    "max_breadth": 50,
+</span></span><span class="code-line"><span class="token string">    "select_paths": ["/blog/.*"],
+</span></span><span class="code-line"><span class="token string">    "exclude_paths": ["/blog/tag/.*", "/blog/category/.*"]
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<p>Returns full page content - use the script with <code>output_dir</code> to save as markdown files.</p>
+<h2>Map API (URL Discovery)</h2>
+<p>Use <code>map</code> instead of <code>crawl</code> when you only need URLs, not content:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--url</span> https://api.tavily.com/map <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">"Authorization: Bearer <span class="token variable">$TAVILY_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--data</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "url": "https://docs.example.com",
+</span></span><span class="code-line"><span class="token string">    "max_depth": 2,
+</span></span><span class="code-line"><span class="token string">    "instructions": "Find all API docs and guides"
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<p>Returns URLs only (faster than crawl):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"base_url"</span><span class="token operator">:</span> <span class="token string">"https://docs.example.com"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"results"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"https://docs.example.com/api/auth"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"https://docs.example.com/guides/quickstart"</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Tips</h2>
+<ul>
+<li><strong>Always use <code>chunks_per_source</code> for agentic workflows</strong> - prevents context explosion when feeding results to LLMs</li>
+<li><strong>Omit <code>chunks_per_source</code> only for data collection</strong> - when saving full pages to files</li>
+<li><strong>Start conservative</strong> (<code>max_depth=1</code>, <code>limit=20</code>) and scale up</li>
+<li><strong>Use path patterns</strong> to focus on relevant sections</li>
+<li><strong>Use Map first</strong> to understand site structure before full crawl</li>
+<li><strong>Always set a <code>limit</code></strong> to prevent runaway crawls</li>
+</ul></div>

@@ -1,0 +1,436 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>NuxtHub v0.10.6</h1>
+<p>Full-stack Nuxt framework with database, KV, blob, and cache. Multi-cloud support (Cloudflare, Vercel, Deno, Netlify).</p>
+<p><strong>For Nuxt server patterns:</strong> use <code>nuxt</code> skill (server.md)
+<strong>For content with database:</strong> use <code>nuxt-content</code> skill</p>
+<h2>Loading Files</h2>
+<p><strong>Consider loading these reference files based on your task:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <a href="https://github.com/onmax/nuxt-skills/blob/HEAD/skills/nuxthub/references/wrangler-templates.md" target="_blank" rel="ugc nofollow noopener">references/wrangler-templates.md</a> - if manually configuring wrangler.jsonc for Cloudflare deployment</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <a href="https://github.com/onmax/nuxt-skills/blob/HEAD/skills/nuxthub/references/providers.md" target="_blank" rel="ugc nofollow noopener">references/providers.md</a> - if deploying to Vercel, Netlify, Deno, AWS, or configuring external database/storage providers</li>
+</ul>
+<p><strong>DO NOT load all files at once.</strong> Load only what's relevant to your current task.</p>
+<h2>Installation</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx nuxi module <span class="token function">add</span> hub
+</span></code></pre>
+<h2>Configuration</h2>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// nuxt.config.ts</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineNuxtConfig</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  modules<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'@nuxthub/core'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  hub<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    db<span class="token operator">:</span> <span class="token string">'sqlite'</span><span class="token punctuation">,</span> <span class="token comment">// 'sqlite' | 'postgresql' | 'mysql'</span>
+</span><span class="code-line">    kv<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    blob<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    cache<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    dir<span class="token operator">:</span> <span class="token string">'.data'</span><span class="token punctuation">,</span> <span class="token comment">// local storage directory</span>
+</span><span class="code-line">    remote<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token comment">// use production bindings in dev (v0.10+)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Advanced Config</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line">hub<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  db<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    dialect<span class="token operator">:</span> <span class="token string">'postgresql'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    driver<span class="token operator">:</span> <span class="token string">'postgres-js'</span><span class="token punctuation">,</span> <span class="token comment">// Optional: auto-detected</span>
+</span><span class="code-line">    casing<span class="token operator">:</span> <span class="token string">'snake_case'</span><span class="token punctuation">,</span>  <span class="token comment">// camelCase JS -&gt; snake_case DB (v0.10.3+)</span>
+</span><span class="code-line">    migrationsDirs<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'server/db/custom-migrations/'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    applyMigrationsDuringBuild<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> <span class="token comment">// default</span>
+</span><span class="code-line">    replica<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token comment">// Read replica support (v0.10.6+)</span>
+</span><span class="code-line">      connection<span class="token operator">:</span> <span class="token punctuation">{</span> connectionString<span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">DATABASE_REPLICA_URL</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  remote<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token comment">// Use production Cloudflare bindings in dev (v0.10+)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>remote mode:</strong> When enabled, connects to production D1/KV/R2 during local development instead of local emulation. Useful for testing with production data.</p>
+<p><strong>Database replica (v0.10.6+):</strong> Configure read replicas to distribute database load. Queries use replicas automatically while writes go to primary.</p>
+<h2>Database</h2>
+<p>Type-safe SQL via Drizzle ORM. <code>db</code> and <code>schema</code> are auto-imported on server-side.</p>
+<h3>Schema Definition</h3>
+<p>Place in <code>server/db/schema.ts</code> or <code>server/db/schema/*.ts</code>:</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// server/db/schema.ts (SQLite)</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> integer<span class="token punctuation">,</span> sqliteTable<span class="token punctuation">,</span> text <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'drizzle-orm/sqlite-core'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token function">sqliteTable</span><span class="token punctuation">(</span><span class="token string">'users'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  id<span class="token operator">:</span> <span class="token function">integer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">primaryKey</span><span class="token punctuation">(</span><span class="token punctuation">{</span> autoIncrement<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  email<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unique</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  createdAt<span class="token operator">:</span> <span class="token function">integer</span><span class="token punctuation">(</span><span class="token punctuation">{</span> mode<span class="token operator">:</span> <span class="token string">'timestamp'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>PostgreSQL variant:</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> pgTable<span class="token punctuation">,</span> serial<span class="token punctuation">,</span> text<span class="token punctuation">,</span> timestamp <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'drizzle-orm/pg-core'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token function">pgTable</span><span class="token punctuation">(</span><span class="token string">'users'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  id<span class="token operator">:</span> <span class="token function">serial</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">primaryKey</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  email<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unique</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  createdAt<span class="token operator">:</span> <span class="token function">timestamp</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">defaultNow</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Database API</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// db and schema are auto-imported on server-side</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> db<span class="token punctuation">,</span> schema <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'hub:db'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Select</span>
+</span><span class="code-line"><span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">select</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span>query<span class="token punctuation">.</span>users<span class="token punctuation">.</span><span class="token function">findFirst</span><span class="token punctuation">(</span><span class="token punctuation">{</span> where<span class="token operator">:</span> <span class="token function">eq</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">.</span>id<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Insert</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">[</span>newUser<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">insert</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'John'</span><span class="token punctuation">,</span> email<span class="token operator">:</span> <span class="token string">'john@example.com'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">returning</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Update</span>
+</span><span class="code-line"><span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'Jane'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">where</span><span class="token punctuation">(</span><span class="token function">eq</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">.</span>id<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Delete</span>
+</span><span class="code-line"><span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">where</span><span class="token punctuation">(</span><span class="token function">eq</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">.</span>id<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Migrations</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx nuxt db generate                  <span class="token comment"># Generate migrations from schema</span>
+</span><span class="code-line">npx nuxt db migrate                   <span class="token comment"># Apply pending migrations</span>
+</span><span class="code-line">npx nuxt db sql <span class="token string">"SELECT * FROM users"</span> <span class="token comment"># Execute raw SQL</span>
+</span><span class="code-line">npx nuxt db drop <span class="token operator">&lt;</span>TABLE<span class="token operator">&gt;</span>              <span class="token comment"># Drop a specific table</span>
+</span><span class="code-line">npx nuxt db drop-all                  <span class="token comment"># Drop all tables (v0.10+)</span>
+</span><span class="code-line">npx nuxt db squash                    <span class="token comment"># Squash migrations into one (v0.10+)</span>
+</span><span class="code-line">npx nuxt db mark-as-migrated <span class="token punctuation">[</span>NAME<span class="token punctuation">]</span>   <span class="token comment"># Mark as migrated without running</span>
+</span></code></pre>
+<p>Migrations auto-apply during <code>npx nuxi dev</code> and <code>npx nuxi build</code>. Tracked in <code>_hub_migrations</code> table.</p>
+<h3>Database Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Dialect</th>
+<th>Local</th>
+<th>Production</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sqlite</td>
+<td><code>.data/db/sqlite.db</code></td>
+<td>D1 (Cloudflare), Turso (<code>TURSO_DATABASE_URL</code>, <code>TURSO_AUTH_TOKEN</code>)</td>
+</tr>
+<tr>
+<td>postgresql</td>
+<td>PGlite</td>
+<td>postgres-js (<code>DATABASE_URL</code>), neon-http (v0.10.2+, <code>DATABASE_URL</code>)</td>
+</tr>
+<tr>
+<td>mysql</td>
+<td>-</td>
+<td>mysql2 (<code>DATABASE_URL</code>, <code>MYSQL_URL</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2>KV Storage</h2>
+<p>Key-value storage. <code>kv</code> is auto-imported on server-side.</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> kv <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'hub:kv'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">'key'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token string">'value'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">'key'</span><span class="token punctuation">,</span> value<span class="token punctuation">,</span> <span class="token punctuation">{</span> ttl<span class="token operator">:</span> <span class="token number">60</span> <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token comment">// TTL in seconds</span>
+</span><span class="code-line"><span class="token keyword">const</span> value <span class="token operator">=</span> <span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'key'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> exists <span class="token operator">=</span> <span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">has</span><span class="token punctuation">(</span><span class="token string">'key'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">del</span><span class="token punctuation">(</span><span class="token string">'key'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> keys <span class="token operator">=</span> <span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">keys</span><span class="token punctuation">(</span><span class="token string">'prefix:'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">await</span> kv<span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token string">'prefix:'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>Constraints: max value 25 MiB, max key 512 bytes.</p>
+<h3>KV Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Package</th>
+<th>Env Vars</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upstash</td>
+<td><code>@upstash/redis</code></td>
+<td><code>UPSTASH_REDIS_REST_URL</code>, <code>UPSTASH_REDIS_REST_TOKEN</code></td>
+</tr>
+<tr>
+<td>Redis</td>
+<td><code>ioredis</code></td>
+<td><code>REDIS_URL</code></td>
+</tr>
+<tr>
+<td>Cloudflare KV</td>
+<td>-</td>
+<td><code>KV</code> binding in wrangler.jsonc</td>
+</tr>
+<tr>
+<td>Deno KV</td>
+<td>-</td>
+<td>Auto on Deno Deploy</td>
+</tr>
+<tr>
+<td>Vercel</td>
+<td>-</td>
+<td><code>KV_REST_API_URL</code>, <code>KV_REST_API_TOKEN</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Blob Storage</h2>
+<p>File storage. <code>blob</code> is auto-imported on server-side.</p>
+<h3>Blob API</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> blob <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'hub:blob'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Upload</span>
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> blob<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">'path/file.txt'</span><span class="token punctuation">,</span> body<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  contentType<span class="token operator">:</span> <span class="token string">'text/plain'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  access<span class="token operator">:</span> <span class="token string">'public'</span><span class="token punctuation">,</span> <span class="token comment">// 'public' | 'private' (v0.10.2+)</span>
+</span><span class="code-line">  addRandomSuffix<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">  prefix<span class="token operator">:</span> <span class="token string">'uploads'</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// Returns: { pathname, contentType, size, httpEtag, uploadedAt }</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Download</span>
+</span><span class="code-line"><span class="token keyword">const</span> file <span class="token operator">=</span> <span class="token keyword">await</span> blob<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'path/file.txt'</span><span class="token punctuation">)</span> <span class="token comment">// Returns Blob or null</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// List</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> blobs<span class="token punctuation">,</span> cursor<span class="token punctuation">,</span> hasMore<span class="token punctuation">,</span> folders <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> blob<span class="token punctuation">.</span><span class="token function">list</span><span class="token punctuation">(</span><span class="token punctuation">{</span> prefix<span class="token operator">:</span> <span class="token string">'uploads/'</span><span class="token punctuation">,</span> limit<span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span> folded<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Serve (with proper headers)</span>
+</span><span class="code-line"><span class="token keyword">return</span> blob<span class="token punctuation">.</span><span class="token function">serve</span><span class="token punctuation">(</span>event<span class="token punctuation">,</span> <span class="token string">'path/file.txt'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Delete</span>
+</span><span class="code-line"><span class="token keyword">await</span> blob<span class="token punctuation">.</span><span class="token function">del</span><span class="token punctuation">(</span><span class="token string">'path/file.txt'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">await</span> blob<span class="token punctuation">.</span><span class="token function">del</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'file1.txt'</span><span class="token punctuation">,</span> <span class="token string">'file2.txt'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token comment">// Multiple</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Metadata only</span>
+</span><span class="code-line"><span class="token keyword">const</span> meta <span class="token operator">=</span> <span class="token keyword">await</span> blob<span class="token punctuation">.</span><span class="token function">head</span><span class="token punctuation">(</span><span class="token string">'path/file.txt'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Upload Helpers</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// Server: Validate + upload handler</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">eventHandler</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> blob<span class="token punctuation">.</span><span class="token function">handleUpload</span><span class="token punctuation">(</span>event<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    formKey<span class="token operator">:</span> <span class="token string">'files'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    multiple<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    ensure<span class="token operator">:</span> <span class="token punctuation">{</span> maxSize<span class="token operator">:</span> <span class="token string">'10MB'</span><span class="token punctuation">,</span> types<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'image/png'</span><span class="token punctuation">,</span> <span class="token string">'image/jpeg'</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    put<span class="token operator">:</span> <span class="token punctuation">{</span> addRandomSuffix<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> prefix<span class="token operator">:</span> <span class="token string">'images'</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Validate before manual upload</span>
+</span><span class="code-line"><span class="token function">ensureBlob</span><span class="token punctuation">(</span>file<span class="token punctuation">,</span> <span class="token punctuation">{</span> maxSize<span class="token operator">:</span> <span class="token string">'10MB'</span><span class="token punctuation">,</span> types<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'image'</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Multipart upload for large files (&gt;10MB)</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">eventHandler</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> blob<span class="token punctuation">.</span><span class="token function">handleMultipartUpload</span><span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token comment">// Route: /api/files/multipart/[action]/[...pathname]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Vue Composables</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// Simple upload</span>
+</span><span class="code-line"><span class="token keyword">const</span> upload <span class="token operator">=</span> <span class="token function">useUpload</span><span class="token punctuation">(</span><span class="token string">'/api/upload'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">upload</span><span class="token punctuation">(</span>inputElement<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Multipart with progress</span>
+</span><span class="code-line"><span class="token keyword">const</span> mpu <span class="token operator">=</span> <span class="token function">useMultipartUpload</span><span class="token punctuation">(</span><span class="token string">'/api/files/multipart'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> completed<span class="token punctuation">,</span> progress<span class="token punctuation">,</span> abort <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">mpu</span><span class="token punctuation">(</span>file<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Blob Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Package</th>
+<th>Config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cloudflare R2</td>
+<td>-</td>
+<td><code>BLOB</code> binding in wrangler.jsonc</td>
+</tr>
+<tr>
+<td>Vercel Blob</td>
+<td><code>@vercel/blob</code></td>
+<td><code>BLOB_READ_WRITE_TOKEN</code></td>
+</tr>
+<tr>
+<td>S3</td>
+<td><code>aws4fetch</code></td>
+<td><code>S3_ACCESS_KEY_ID</code>, <code>S3_SECRET_ACCESS_KEY</code>, <code>S3_BUCKET</code>, <code>S3_REGION</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Cache</h2>
+<p>Response and function caching.</p>
+<h3>Route Handler Caching</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">cachedEventHandler</span><span class="token punctuation">(</span><span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token string">'cached'</span><span class="token punctuation">,</span> date<span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toISOString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  maxAge<span class="token operator">:</span> <span class="token number">60</span> <span class="token operator">*</span> <span class="token number">60</span><span class="token punctuation">,</span> <span class="token comment">// 1 hour</span>
+</span><span class="code-line">  <span class="token function-variable function">getKey</span><span class="token operator">:</span> event <span class="token operator">=&gt;</span> event<span class="token punctuation">.</span>path
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Function Caching</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> getStars <span class="token operator">=</span> <span class="token function">defineCachedFunction</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span>event<span class="token operator">:</span> H3Event<span class="token punctuation">,</span> repo<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">$fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://api.github.com/repos/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>repo<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> data<span class="token punctuation">.</span>stargazers_count
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> maxAge<span class="token operator">:</span> <span class="token number">3600</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">'ghStars'</span><span class="token punctuation">,</span> <span class="token function-variable function">getKey</span><span class="token operator">:</span> <span class="token punctuation">(</span>event<span class="token punctuation">,</span> repo<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> repo <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Cache Invalidation</h3>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// Remove specific</span>
+</span><span class="code-line"><span class="token keyword">await</span> <span class="token function">useStorage</span><span class="token punctuation">(</span><span class="token string">'cache'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">removeItem</span><span class="token punctuation">(</span><span class="token string">'nitro:functions:getStars:repo-name.json'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Clear by prefix</span>
+</span><span class="code-line"><span class="token keyword">await</span> <span class="token function">useStorage</span><span class="token punctuation">(</span><span class="token string">'cache'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">clear</span><span class="token punctuation">(</span><span class="token string">'nitro:handlers'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>Cache key pattern: <code>${group}:${name}:${getKey(...args)}.json</code> (defaults: group='nitro', name='handlers'|'functions'|'routes')</p>
+<h2>Deployment</h2>
+<h3>Cloudflare</h3>
+<p>NuxtHub auto-generates <code>wrangler.json</code> from your hub config - no manual wrangler.jsonc required:</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// nuxt.config.ts</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineNuxtConfig</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  hub<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    db<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      dialect<span class="token operator">:</span> <span class="token string">'sqlite'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      driver<span class="token operator">:</span> <span class="token string">'d1'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      connection<span class="token operator">:</span> <span class="token punctuation">{</span> databaseId<span class="token operator">:</span> <span class="token string">'&lt;database-id&gt;'</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    kv<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      driver<span class="token operator">:</span> <span class="token string">'cloudflare-kv-binding'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      namespaceId<span class="token operator">:</span> <span class="token string">'&lt;kv-namespace-id&gt;'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    cache<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      driver<span class="token operator">:</span> <span class="token string">'cloudflare-kv-binding'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      namespaceId<span class="token operator">:</span> <span class="token string">'&lt;cache-namespace-id&gt;'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    blob<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      driver<span class="token operator">:</span> <span class="token string">'cloudflare-r2'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      bucketName<span class="token operator">:</span> <span class="token string">'&lt;bucket-name&gt;'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Observability (recommended):</strong> Enable logging for production deployments:</p>
+<pre><code class="language-jsonc code-highlight"><span class="code-line">// wrangler.jsonc (optional)
+</span><span class="code-line">{
+</span><span class="code-line">  "observability": {
+</span><span class="code-line">    "logs": {
+</span><span class="code-line">      "enabled": true,
+</span><span class="code-line">      "head_sampling_rate": 1,
+</span><span class="code-line">      "invocation_logs": true,
+</span><span class="code-line">      "persist": true
+</span><span class="code-line">    }
+</span><span class="code-line">  }
+</span><span class="code-line">}
+</span></code></pre>
+<p>Create resources via Cloudflare dashboard or CLI:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx wrangler d1 create my-db              <span class="token comment"># Get database-id</span>
+</span><span class="code-line">npx wrangler kv namespace create KV       <span class="token comment"># Get kv-namespace-id</span>
+</span><span class="code-line">npx wrangler kv namespace create CACHE    <span class="token comment"># Get cache-namespace-id</span>
+</span><span class="code-line">npx wrangler r2 bucket create my-bucket   <span class="token comment"># Get bucket-name</span>
+</span></code></pre>
+<p>Deploy: Create <a href="https://dash.cloudflare.com/?to=/:account/workers-and-pages/create" target="_blank" rel="ugc nofollow noopener">Cloudflare Workers project</a>, link Git repo. Bindings auto-configured at build time.</p>
+<p><strong>Environments:</strong> Use <code>CLOUDFLARE_ENV=preview</code> for preview deployments.</p>
+<p>See <a href="https://github.com/onmax/nuxt-skills/blob/HEAD/skills/nuxthub/references/wrangler-templates.md" target="_blank" rel="ugc nofollow noopener">references/wrangler-templates.md</a> for manual wrangler.jsonc patterns and <a href="https://github.com/onmax/nuxt-skills/blob/HEAD/skills/nuxthub/references/providers.md" target="_blank" rel="ugc nofollow noopener">references/providers.md</a> for all provider configurations.</p>
+<h3>Other Providers</h3>
+<p>See <a href="https://github.com/onmax/nuxt-skills/blob/HEAD/skills/nuxthub/references/providers.md" target="_blank" rel="ugc nofollow noopener">references/providers.md</a> for detailed deployment patterns for:</p>
+<ul>
+<li><strong>Vercel:</strong> Postgres, Turso, Vercel Blob, Vercel KV</li>
+<li><strong>Netlify:</strong> External databases, S3, Upstash Redis</li>
+<li><strong>Deno Deploy:</strong> Deno KV</li>
+<li><strong>AWS/Self-hosted:</strong> S3, RDS, custom configs</li>
+</ul>
+<h3>D1 over HTTP</h3>
+<p>Query D1 from non-Cloudflare hosts:</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line">hub<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  db<span class="token operator">:</span> <span class="token punctuation">{</span> dialect<span class="token operator">:</span> <span class="token string">'sqlite'</span><span class="token punctuation">,</span> driver<span class="token operator">:</span> <span class="token string">'d1-http'</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Requires: <code>NUXT_HUB_CLOUDFLARE_ACCOUNT_ID</code>, <code>NUXT_HUB_CLOUDFLARE_API_TOKEN</code>, <code>NUXT_HUB_CLOUDFLARE_DATABASE_ID</code></p>
+<h2>Build-time Hooks</h2>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// Extend schema</span>
+</span><span class="code-line">nuxt<span class="token punctuation">.</span><span class="token function">hook</span><span class="token punctuation">(</span><span class="token string">'hub:db:schema:extend'</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> dialect<span class="token punctuation">,</span> paths <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  paths<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token keyword">await</span> <span class="token function">resolvePath</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">./schema/custom.</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>dialect<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Add migration directories</span>
+</span><span class="code-line">nuxt<span class="token punctuation">.</span><span class="token function">hook</span><span class="token punctuation">(</span><span class="token string">'hub:db:migrations:dirs'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>dirs<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  dirs<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token string">'./db-migrations'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Post-migration queries (idempotent)</span>
+</span><span class="code-line">nuxt<span class="token punctuation">.</span><span class="token function">hook</span><span class="token punctuation">(</span><span class="token string">'hub:db:queries:paths'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>paths<span class="token punctuation">,</span> dialect<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  paths<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">./seed.</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>dialect<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">.sql</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Type Sharing</h2>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// shared/types/db.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token keyword">type</span> <span class="token punctuation">{</span> users <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'~/server/db/schema'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">User</span> <span class="token operator">=</span> <span class="token keyword">typeof</span> users<span class="token punctuation">.</span>$inferSelect
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">NewUser</span> <span class="token operator">=</span> <span class="token keyword">typeof</span> users<span class="token punctuation">.</span>$inferInsert
+</span></code></pre>
+<h2>WebSocket / Realtime</h2>
+<p>Enable experimental WebSocket:</p>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// nuxt.config.ts</span>
+</span><span class="code-line">nitro<span class="token operator">:</span> <span class="token punctuation">{</span> experimental<span class="token operator">:</span> <span class="token punctuation">{</span> websocket<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-ts"><code class="language-ts code-highlight"><span class="code-line"><span class="token comment">// server/routes/ws/chat.ts</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineWebSocketHandler</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">open</span><span class="token punctuation">(</span>peer<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    peer<span class="token punctuation">.</span><span class="token function">subscribe</span><span class="token punctuation">(</span><span class="token string">'chat'</span><span class="token punctuation">)</span>
+</span><span class="code-line">    peer<span class="token punctuation">.</span><span class="token function">publish</span><span class="token punctuation">(</span><span class="token string">'chat'</span><span class="token punctuation">,</span> <span class="token string">'User joined'</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function">message</span><span class="token punctuation">(</span>peer<span class="token punctuation">,</span> message<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    peer<span class="token punctuation">.</span><span class="token function">publish</span><span class="token punctuation">(</span><span class="token string">'chat'</span><span class="token punctuation">,</span> message<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function">close</span><span class="token punctuation">(</span>peer<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    peer<span class="token punctuation">.</span><span class="token function">unsubscribe</span><span class="token punctuation">(</span><span class="token string">'chat'</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Deprecated (v0.10)</h2>
+<p>Removed Cloudflare-specific features:</p>
+<ul>
+<li><code>hubAI()</code> -&gt; Use AI SDK with Workers AI Provider</li>
+<li><code>hubBrowser()</code> -&gt; Puppeteer</li>
+<li><code>hubVectorize()</code> -&gt; Vectorize</li>
+<li>NuxtHub Admin -&gt; Sunset Dec 31, 2025</li>
+<li><code>npx nuxthub deploy</code> -&gt; Use wrangler deploy</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Import</th>
+<th>Access</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Database</td>
+<td><code>import { db, schema } from 'hub:db'</code></td>
+<td><code>db.select()</code>, <code>db.insert()</code>, etc.</td>
+</tr>
+<tr>
+<td>KV</td>
+<td><code>import { kv } from 'hub:kv'</code></td>
+<td><code>kv.get()</code>, <code>kv.set()</code>, etc.</td>
+</tr>
+<tr>
+<td>Blob</td>
+<td><code>import { blob } from 'hub:blob'</code></td>
+<td><code>blob.put()</code>, <code>blob.get()</code>, etc.</td>
+</tr>
+</tbody>
+</table>
+<p>All are auto-imported on server-side.</p>
+<h2>Resources</h2>
+<ul>
+<li><a href="https://hub.nuxt.com/docs/getting-started/installation" target="_blank" rel="ugc nofollow noopener">Installation</a></li>
+<li><a href="https://hub.nuxt.com/docs/getting-started/migration" target="_blank" rel="ugc nofollow noopener">Migration from v0.9</a></li>
+<li><a href="https://hub.nuxt.com/docs/database" target="_blank" rel="ugc nofollow noopener">Database</a></li>
+<li><a href="https://hub.nuxt.com/docs/blob" target="_blank" rel="ugc nofollow noopener">Blob</a></li>
+<li><a href="https://hub.nuxt.com/docs/kv" target="_blank" rel="ugc nofollow noopener">KV</a></li>
+<li><a href="https://hub.nuxt.com/docs/cache" target="_blank" rel="ugc nofollow noopener">Cache</a></li>
+<li><a href="https://hub.nuxt.com/docs/getting-started/deploy" target="_blank" rel="ugc nofollow noopener">Deploy</a></li>
+</ul></div>

@@ -1,0 +1,328 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Data Visualization Skill</h1>
+<p>Chart selection guidance, Python visualization code patterns, design principles, and accessibility considerations for creating effective data visualizations.</p>
+<h2>Chart Selection Guide</h2>
+<h3>Choose by Data Relationship</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>What You're Showing</th>
+<th>Best Chart</th>
+<th>Alternatives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Trend over time</strong></td>
+<td>Line chart</td>
+<td>Area chart (if showing cumulative or composition)</td>
+</tr>
+<tr>
+<td><strong>Comparison across categories</strong></td>
+<td>Vertical bar chart</td>
+<td>Horizontal bar (many categories), lollipop chart</td>
+</tr>
+<tr>
+<td><strong>Ranking</strong></td>
+<td>Horizontal bar chart</td>
+<td>Dot plot, slope chart (comparing two periods)</td>
+</tr>
+<tr>
+<td><strong>Part-to-whole composition</strong></td>
+<td>Stacked bar chart</td>
+<td>Treemap (hierarchical), waffle chart</td>
+</tr>
+<tr>
+<td><strong>Composition over time</strong></td>
+<td>Stacked area chart</td>
+<td>100% stacked bar (for proportion focus)</td>
+</tr>
+<tr>
+<td><strong>Distribution</strong></td>
+<td>Histogram</td>
+<td>Box plot (comparing groups), violin plot, strip plot</td>
+</tr>
+<tr>
+<td><strong>Correlation (2 variables)</strong></td>
+<td>Scatter plot</td>
+<td>Bubble chart (add 3rd variable as size)</td>
+</tr>
+<tr>
+<td><strong>Correlation (many variables)</strong></td>
+<td>Heatmap (correlation matrix)</td>
+<td>Pair plot</td>
+</tr>
+<tr>
+<td><strong>Geographic patterns</strong></td>
+<td>Choropleth map</td>
+<td>Bubble map, hex map</td>
+</tr>
+<tr>
+<td><strong>Flow / process</strong></td>
+<td>Sankey diagram</td>
+<td>Funnel chart (sequential stages)</td>
+</tr>
+<tr>
+<td><strong>Relationship network</strong></td>
+<td>Network graph</td>
+<td>Chord diagram</td>
+</tr>
+<tr>
+<td><strong>Performance vs. target</strong></td>
+<td>Bullet chart</td>
+<td>Gauge (single KPI only)</td>
+</tr>
+<tr>
+<td><strong>Multiple KPIs at once</strong></td>
+<td>Small multiples</td>
+<td>Dashboard with separate charts</td>
+</tr>
+</tbody>
+</table>
+<h3>When NOT to Use Certain Charts</h3>
+<ul>
+<li><strong>Pie charts</strong>: Avoid unless &lt;6 categories and exact proportions matter less than rough comparison. Humans are bad at comparing angles. Use bar charts instead.</li>
+<li><strong>3D charts</strong>: Never. They distort perception and add no information.</li>
+<li><strong>Dual-axis charts</strong>: Use cautiously. They can mislead by implying correlation. Clearly label both axes if used.</li>
+<li><strong>Stacked bar (many categories)</strong>: Hard to compare middle segments. Use small multiples or grouped bars instead.</li>
+<li><strong>Donut charts</strong>: Slightly better than pie charts but same fundamental issues. Use for single KPI display at most.</li>
+</ul>
+<h2>Python Visualization Code Patterns</h2>
+<h3>Setup and Style</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> matplotlib<span class="token punctuation">.</span>pyplot <span class="token keyword">as</span> plt
+</span><span class="code-line"><span class="token keyword">import</span> matplotlib<span class="token punctuation">.</span>ticker <span class="token keyword">as</span> mticker
+</span><span class="code-line"><span class="token keyword">import</span> seaborn <span class="token keyword">as</span> sns
+</span><span class="code-line"><span class="token keyword">import</span> pandas <span class="token keyword">as</span> pd
+</span><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Professional style setup</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>style<span class="token punctuation">.</span>use<span class="token punctuation">(</span><span class="token string">'seaborn-v0_8-whitegrid'</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>rcParams<span class="token punctuation">.</span>update<span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string">'figure.figsize'</span><span class="token punctuation">:</span> <span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'figure.dpi'</span><span class="token punctuation">:</span> <span class="token number">150</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'font.size'</span><span class="token punctuation">:</span> <span class="token number">11</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'axes.titlesize'</span><span class="token punctuation">:</span> <span class="token number">14</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'axes.titleweight'</span><span class="token punctuation">:</span> <span class="token string">'bold'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'axes.labelsize'</span><span class="token punctuation">:</span> <span class="token number">11</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'xtick.labelsize'</span><span class="token punctuation">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'ytick.labelsize'</span><span class="token punctuation">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'legend.fontsize'</span><span class="token punctuation">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">'figure.titlesize'</span><span class="token punctuation">:</span> <span class="token number">16</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Colorblind-friendly palettes</span>
+</span><span class="code-line">PALETTE_CATEGORICAL <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">'#4C72B0'</span><span class="token punctuation">,</span> <span class="token string">'#DD8452'</span><span class="token punctuation">,</span> <span class="token string">'#55A868'</span><span class="token punctuation">,</span> <span class="token string">'#C44E52'</span><span class="token punctuation">,</span> <span class="token string">'#8172B3'</span><span class="token punctuation">,</span> <span class="token string">'#937860'</span><span class="token punctuation">]</span>
+</span><span class="code-line">PALETTE_SEQUENTIAL <span class="token operator">=</span> <span class="token string">'YlOrRd'</span>
+</span><span class="code-line">PALETTE_DIVERGING <span class="token operator">=</span> <span class="token string">'RdBu_r'</span>
+</span></code></pre>
+<h3>Line Chart (Time Series)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">fig<span class="token punctuation">,</span> ax <span class="token operator">=</span> plt<span class="token punctuation">.</span>subplots<span class="token punctuation">(</span>figsize<span class="token operator">=</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> label<span class="token punctuation">,</span> group <span class="token keyword">in</span> df<span class="token punctuation">.</span>groupby<span class="token punctuation">(</span><span class="token string">'category'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    ax<span class="token punctuation">.</span>plot<span class="token punctuation">(</span>group<span class="token punctuation">[</span><span class="token string">'date'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> group<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> label<span class="token operator">=</span>label<span class="token punctuation">,</span> linewidth<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_title<span class="token punctuation">(</span><span class="token string">'Metric Trend by Category'</span><span class="token punctuation">,</span> fontweight<span class="token operator">=</span><span class="token string">'bold'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_xlabel<span class="token punctuation">(</span><span class="token string">'Date'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_ylabel<span class="token punctuation">(</span><span class="token string">'Value'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>legend<span class="token punctuation">(</span>loc<span class="token operator">=</span><span class="token string">'upper left'</span><span class="token punctuation">,</span> frameon<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'top'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'right'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Format dates on x-axis</span>
+</span><span class="code-line">fig<span class="token punctuation">.</span>autofmt_xdate<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">plt<span class="token punctuation">.</span>tight_layout<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>savefig<span class="token punctuation">(</span><span class="token string">'trend_chart.png'</span><span class="token punctuation">,</span> dpi<span class="token operator">=</span><span class="token number">150</span><span class="token punctuation">,</span> bbox_inches<span class="token operator">=</span><span class="token string">'tight'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Bar Chart (Comparison)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">fig<span class="token punctuation">,</span> ax <span class="token operator">=</span> plt<span class="token punctuation">.</span>subplots<span class="token punctuation">(</span>figsize<span class="token operator">=</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Sort by value for easy reading</span>
+</span><span class="code-line">df_sorted <span class="token operator">=</span> df<span class="token punctuation">.</span>sort_values<span class="token punctuation">(</span><span class="token string">'metric'</span><span class="token punctuation">,</span> ascending<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">bars <span class="token operator">=</span> ax<span class="token punctuation">.</span>barh<span class="token punctuation">(</span>df_sorted<span class="token punctuation">[</span><span class="token string">'category'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> df_sorted<span class="token punctuation">[</span><span class="token string">'metric'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> color<span class="token operator">=</span>PALETTE_CATEGORICAL<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add value labels</span>
+</span><span class="code-line"><span class="token keyword">for</span> bar <span class="token keyword">in</span> bars<span class="token punctuation">:</span>
+</span><span class="code-line">    width <span class="token operator">=</span> bar<span class="token punctuation">.</span>get_width<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    ax<span class="token punctuation">.</span>text<span class="token punctuation">(</span>width <span class="token operator">+</span> <span class="token number">0.5</span><span class="token punctuation">,</span> bar<span class="token punctuation">.</span>get_y<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> bar<span class="token punctuation">.</span>get_height<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">/</span><span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">{</span>width<span class="token punctuation">:</span><span class="token format-spec">,.0f</span><span class="token punctuation">}</span></span><span class="token string">'</span></span><span class="token punctuation">,</span> ha<span class="token operator">=</span><span class="token string">'left'</span><span class="token punctuation">,</span> va<span class="token operator">=</span><span class="token string">'center'</span><span class="token punctuation">,</span> fontsize<span class="token operator">=</span><span class="token number">10</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_title<span class="token punctuation">(</span><span class="token string">'Metric by Category (Ranked)'</span><span class="token punctuation">,</span> fontweight<span class="token operator">=</span><span class="token string">'bold'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_xlabel<span class="token punctuation">(</span><span class="token string">'Metric Value'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'top'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'right'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">plt<span class="token punctuation">.</span>tight_layout<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>savefig<span class="token punctuation">(</span><span class="token string">'bar_chart.png'</span><span class="token punctuation">,</span> dpi<span class="token operator">=</span><span class="token number">150</span><span class="token punctuation">,</span> bbox_inches<span class="token operator">=</span><span class="token string">'tight'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Histogram (Distribution)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">fig<span class="token punctuation">,</span> ax <span class="token operator">=</span> plt<span class="token punctuation">.</span>subplots<span class="token punctuation">(</span>figsize<span class="token operator">=</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">ax<span class="token punctuation">.</span>hist<span class="token punctuation">(</span>df<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> bins<span class="token operator">=</span><span class="token number">30</span><span class="token punctuation">,</span> color<span class="token operator">=</span>PALETTE_CATEGORICAL<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> edgecolor<span class="token operator">=</span><span class="token string">'white'</span><span class="token punctuation">,</span> alpha<span class="token operator">=</span><span class="token number">0.8</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add mean and median lines</span>
+</span><span class="code-line">mean_val <span class="token operator">=</span> df<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">median_val <span class="token operator">=</span> df<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>median<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>axvline<span class="token punctuation">(</span>mean_val<span class="token punctuation">,</span> color<span class="token operator">=</span><span class="token string">'red'</span><span class="token punctuation">,</span> linestyle<span class="token operator">=</span><span class="token string">'--'</span><span class="token punctuation">,</span> linewidth<span class="token operator">=</span><span class="token number">1.5</span><span class="token punctuation">,</span> label<span class="token operator">=</span><span class="token string-interpolation"><span class="token string">f'Mean: </span><span class="token interpolation"><span class="token punctuation">{</span>mean_val<span class="token punctuation">:</span><span class="token format-spec">,.1f</span><span class="token punctuation">}</span></span><span class="token string">'</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>axvline<span class="token punctuation">(</span>median_val<span class="token punctuation">,</span> color<span class="token operator">=</span><span class="token string">'green'</span><span class="token punctuation">,</span> linestyle<span class="token operator">=</span><span class="token string">'--'</span><span class="token punctuation">,</span> linewidth<span class="token operator">=</span><span class="token number">1.5</span><span class="token punctuation">,</span> label<span class="token operator">=</span><span class="token string-interpolation"><span class="token string">f'Median: </span><span class="token interpolation"><span class="token punctuation">{</span>median_val<span class="token punctuation">:</span><span class="token format-spec">,.1f</span><span class="token punctuation">}</span></span><span class="token string">'</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_title<span class="token punctuation">(</span><span class="token string">'Distribution of Values'</span><span class="token punctuation">,</span> fontweight<span class="token operator">=</span><span class="token string">'bold'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_xlabel<span class="token punctuation">(</span><span class="token string">'Value'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_ylabel<span class="token punctuation">(</span><span class="token string">'Frequency'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>legend<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'top'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'right'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">plt<span class="token punctuation">.</span>tight_layout<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>savefig<span class="token punctuation">(</span><span class="token string">'histogram.png'</span><span class="token punctuation">,</span> dpi<span class="token operator">=</span><span class="token number">150</span><span class="token punctuation">,</span> bbox_inches<span class="token operator">=</span><span class="token string">'tight'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Heatmap</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">fig<span class="token punctuation">,</span> ax <span class="token operator">=</span> plt<span class="token punctuation">.</span>subplots<span class="token punctuation">(</span>figsize<span class="token operator">=</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">8</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Pivot data for heatmap format</span>
+</span><span class="code-line">pivot <span class="token operator">=</span> df<span class="token punctuation">.</span>pivot_table<span class="token punctuation">(</span>index<span class="token operator">=</span><span class="token string">'row_dim'</span><span class="token punctuation">,</span> columns<span class="token operator">=</span><span class="token string">'col_dim'</span><span class="token punctuation">,</span> values<span class="token operator">=</span><span class="token string">'metric'</span><span class="token punctuation">,</span> aggfunc<span class="token operator">=</span><span class="token string">'sum'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">sns<span class="token punctuation">.</span>heatmap<span class="token punctuation">(</span>pivot<span class="token punctuation">,</span> annot<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> fmt<span class="token operator">=</span><span class="token string">',.0f'</span><span class="token punctuation">,</span> cmap<span class="token operator">=</span><span class="token string">'YlOrRd'</span><span class="token punctuation">,</span>
+</span><span class="code-line">            linewidths<span class="token operator">=</span><span class="token number">0.5</span><span class="token punctuation">,</span> ax<span class="token operator">=</span>ax<span class="token punctuation">,</span> cbar_kws<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">'label'</span><span class="token punctuation">:</span> <span class="token string">'Metric Value'</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_title<span class="token punctuation">(</span><span class="token string">'Metric by Row Dimension and Column Dimension'</span><span class="token punctuation">,</span> fontweight<span class="token operator">=</span><span class="token string">'bold'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_xlabel<span class="token punctuation">(</span><span class="token string">'Column Dimension'</span><span class="token punctuation">)</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>set_ylabel<span class="token punctuation">(</span><span class="token string">'Row Dimension'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">plt<span class="token punctuation">.</span>tight_layout<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>savefig<span class="token punctuation">(</span><span class="token string">'heatmap.png'</span><span class="token punctuation">,</span> dpi<span class="token operator">=</span><span class="token number">150</span><span class="token punctuation">,</span> bbox_inches<span class="token operator">=</span><span class="token string">'tight'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Small Multiples</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">categories <span class="token operator">=</span> df<span class="token punctuation">[</span><span class="token string">'category'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>unique<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">n_cats <span class="token operator">=</span> <span class="token builtin">len</span><span class="token punctuation">(</span>categories<span class="token punctuation">)</span>
+</span><span class="code-line">n_cols <span class="token operator">=</span> <span class="token builtin">min</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">,</span> n_cats<span class="token punctuation">)</span>
+</span><span class="code-line">n_rows <span class="token operator">=</span> <span class="token punctuation">(</span>n_cats <span class="token operator">+</span> n_cols <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">//</span> n_cols
+</span><span class="code-line">
+</span><span class="code-line">fig<span class="token punctuation">,</span> axes <span class="token operator">=</span> plt<span class="token punctuation">.</span>subplots<span class="token punctuation">(</span>n_rows<span class="token punctuation">,</span> n_cols<span class="token punctuation">,</span> figsize<span class="token operator">=</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token operator">*</span>n_cols<span class="token punctuation">,</span> <span class="token number">4</span><span class="token operator">*</span>n_rows<span class="token punctuation">)</span><span class="token punctuation">,</span> sharex<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> sharey<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">axes <span class="token operator">=</span> axes<span class="token punctuation">.</span>flatten<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">if</span> n_cats <span class="token operator">&gt;</span> <span class="token number">1</span> <span class="token keyword">else</span> <span class="token punctuation">[</span>axes<span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> i<span class="token punctuation">,</span> cat <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>categories<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    ax <span class="token operator">=</span> axes<span class="token punctuation">[</span>i<span class="token punctuation">]</span>
+</span><span class="code-line">    subset <span class="token operator">=</span> df<span class="token punctuation">[</span>df<span class="token punctuation">[</span><span class="token string">'category'</span><span class="token punctuation">]</span> <span class="token operator">==</span> cat<span class="token punctuation">]</span>
+</span><span class="code-line">    ax<span class="token punctuation">.</span>plot<span class="token punctuation">(</span>subset<span class="token punctuation">[</span><span class="token string">'date'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> subset<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> color<span class="token operator">=</span>PALETTE_CATEGORICAL<span class="token punctuation">[</span>i <span class="token operator">%</span> <span class="token builtin">len</span><span class="token punctuation">(</span>PALETTE_CATEGORICAL<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    ax<span class="token punctuation">.</span>set_title<span class="token punctuation">(</span>cat<span class="token punctuation">,</span> fontsize<span class="token operator">=</span><span class="token number">12</span><span class="token punctuation">)</span>
+</span><span class="code-line">    ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'top'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">    ax<span class="token punctuation">.</span>spines<span class="token punctuation">[</span><span class="token string">'right'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Hide empty subplots</span>
+</span><span class="code-line"><span class="token keyword">for</span> j <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span>i<span class="token operator">+</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>axes<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    axes<span class="token punctuation">[</span>j<span class="token punctuation">]</span><span class="token punctuation">.</span>set_visible<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">fig<span class="token punctuation">.</span>suptitle<span class="token punctuation">(</span><span class="token string">'Trends by Category'</span><span class="token punctuation">,</span> fontsize<span class="token operator">=</span><span class="token number">14</span><span class="token punctuation">,</span> fontweight<span class="token operator">=</span><span class="token string">'bold'</span><span class="token punctuation">,</span> y<span class="token operator">=</span><span class="token number">1.02</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>tight_layout<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">plt<span class="token punctuation">.</span>savefig<span class="token punctuation">(</span><span class="token string">'small_multiples.png'</span><span class="token punctuation">,</span> dpi<span class="token operator">=</span><span class="token number">150</span><span class="token punctuation">,</span> bbox_inches<span class="token operator">=</span><span class="token string">'tight'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Number Formatting Helpers</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">def</span> <span class="token function">format_number</span><span class="token punctuation">(</span>val<span class="token punctuation">,</span> format_type<span class="token operator">=</span><span class="token string">'number'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Format numbers for chart labels."""</span>
+</span><span class="code-line">    <span class="token keyword">if</span> format_type <span class="token operator">==</span> <span class="token string">'currency'</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token builtin">abs</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">1e9</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'$</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token operator">/</span><span class="token number">1e9</span><span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">B'</span></span>
+</span><span class="code-line">        <span class="token keyword">elif</span> <span class="token builtin">abs</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">1e6</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'$</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token operator">/</span><span class="token number">1e6</span><span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">M'</span></span>
+</span><span class="code-line">        <span class="token keyword">elif</span> <span class="token builtin">abs</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">1e3</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'$</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token operator">/</span><span class="token number">1e3</span><span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">K'</span></span>
+</span><span class="code-line">        <span class="token keyword">else</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'$</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token punctuation">:</span><span class="token format-spec">,.0f</span><span class="token punctuation">}</span></span><span class="token string">'</span></span>
+</span><span class="code-line">    <span class="token keyword">elif</span> format_type <span class="token operator">==</span> <span class="token string">'percent'</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">%'</span></span>
+</span><span class="code-line">    <span class="token keyword">elif</span> format_type <span class="token operator">==</span> <span class="token string">'number'</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token builtin">abs</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">1e9</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token operator">/</span><span class="token number">1e9</span><span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">B'</span></span>
+</span><span class="code-line">        <span class="token keyword">elif</span> <span class="token builtin">abs</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">1e6</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token operator">/</span><span class="token number">1e6</span><span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">M'</span></span>
+</span><span class="code-line">        <span class="token keyword">elif</span> <span class="token builtin">abs</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">1e3</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token operator">/</span><span class="token number">1e3</span><span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">}</span></span><span class="token string">K'</span></span>
+</span><span class="code-line">        <span class="token keyword">else</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">{</span>val<span class="token punctuation">:</span><span class="token format-spec">,.0f</span><span class="token punctuation">}</span></span><span class="token string">'</span></span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>val<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Usage with axis formatter</span>
+</span><span class="code-line">ax<span class="token punctuation">.</span>yaxis<span class="token punctuation">.</span>set_major_formatter<span class="token punctuation">(</span>mticker<span class="token punctuation">.</span>FuncFormatter<span class="token punctuation">(</span><span class="token keyword">lambda</span> x<span class="token punctuation">,</span> p<span class="token punctuation">:</span> format_number<span class="token punctuation">(</span>x<span class="token punctuation">,</span> <span class="token string">'currency'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Interactive Charts with Plotly</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> plotly<span class="token punctuation">.</span>express <span class="token keyword">as</span> px
+</span><span class="code-line"><span class="token keyword">import</span> plotly<span class="token punctuation">.</span>graph_objects <span class="token keyword">as</span> go
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Simple interactive line chart</span>
+</span><span class="code-line">fig <span class="token operator">=</span> px<span class="token punctuation">.</span>line<span class="token punctuation">(</span>df<span class="token punctuation">,</span> x<span class="token operator">=</span><span class="token string">'date'</span><span class="token punctuation">,</span> y<span class="token operator">=</span><span class="token string">'value'</span><span class="token punctuation">,</span> color<span class="token operator">=</span><span class="token string">'category'</span><span class="token punctuation">,</span>
+</span><span class="code-line">              title<span class="token operator">=</span><span class="token string">'Interactive Metric Trend'</span><span class="token punctuation">,</span>
+</span><span class="code-line">              labels<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">'value'</span><span class="token punctuation">:</span> <span class="token string">'Metric Value'</span><span class="token punctuation">,</span> <span class="token string">'date'</span><span class="token punctuation">:</span> <span class="token string">'Date'</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">fig<span class="token punctuation">.</span>update_layout<span class="token punctuation">(</span>hovermode<span class="token operator">=</span><span class="token string">'x unified'</span><span class="token punctuation">)</span>
+</span><span class="code-line">fig<span class="token punctuation">.</span>write_html<span class="token punctuation">(</span><span class="token string">'interactive_chart.html'</span><span class="token punctuation">)</span>
+</span><span class="code-line">fig<span class="token punctuation">.</span>show<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Interactive scatter with hover data</span>
+</span><span class="code-line">fig <span class="token operator">=</span> px<span class="token punctuation">.</span>scatter<span class="token punctuation">(</span>df<span class="token punctuation">,</span> x<span class="token operator">=</span><span class="token string">'metric_a'</span><span class="token punctuation">,</span> y<span class="token operator">=</span><span class="token string">'metric_b'</span><span class="token punctuation">,</span> color<span class="token operator">=</span><span class="token string">'category'</span><span class="token punctuation">,</span>
+</span><span class="code-line">                 size<span class="token operator">=</span><span class="token string">'size_metric'</span><span class="token punctuation">,</span> hover_data<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">'detail_field'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">                 title<span class="token operator">=</span><span class="token string">'Correlation Analysis'</span><span class="token punctuation">)</span>
+</span><span class="code-line">fig<span class="token punctuation">.</span>show<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Design Principles</h2>
+<h3>Color</h3>
+<ul>
+<li><strong>Use color purposefully</strong>: Color should encode data, not decorate</li>
+<li><strong>Highlight the story</strong>: Use a bright accent color for the key insight; grey everything else</li>
+<li><strong>Sequential data</strong>: Use a single-hue gradient (light to dark) for ordered values</li>
+<li><strong>Diverging data</strong>: Use a two-hue gradient with neutral midpoint for data with a meaningful center</li>
+<li><strong>Categorical data</strong>: Use distinct hues, maximum 6-8 before it gets confusing</li>
+<li><strong>Avoid red/green only</strong>: 8% of men are red-green colorblind. Use blue/orange as primary pair</li>
+</ul>
+<h3>Typography</h3>
+<ul>
+<li><strong>Title states the insight</strong>: "Revenue grew 23% YoY" beats "Revenue by Month"</li>
+<li><strong>Subtitle adds context</strong>: Date range, filters applied, data source</li>
+<li><strong>Axis labels are readable</strong>: Never rotated 90 degrees if avoidable. Shorten or wrap instead</li>
+<li><strong>Data labels add precision</strong>: Use on key points, not every single bar</li>
+<li><strong>Annotation highlights</strong>: Call out specific points with text annotations</li>
+</ul>
+<h3>Layout</h3>
+<ul>
+<li><strong>Reduce chart junk</strong>: Remove gridlines, borders, backgrounds that don't carry information</li>
+<li><strong>Sort meaningfully</strong>: Categories sorted by value (not alphabetically) unless there's a natural order (months, stages)</li>
+<li><strong>Appropriate aspect ratio</strong>: Time series wider than tall (3:1 to 2:1); comparisons can be squarer</li>
+<li><strong>White space is good</strong>: Don't cram charts together. Give each visualization room to breathe</li>
+</ul>
+<h3>Accuracy</h3>
+<ul>
+<li><strong>Bar charts start at zero</strong>: Always. A bar from 95 to 100 exaggerates a 5% difference</li>
+<li><strong>Line charts can have non-zero baselines</strong>: When the range of variation is meaningful</li>
+<li><strong>Consistent scales across panels</strong>: When comparing multiple charts, use the same axis range</li>
+<li><strong>Show uncertainty</strong>: Error bars, confidence intervals, or ranges when data is uncertain</li>
+<li><strong>Label your axes</strong>: Never make the reader guess what the numbers mean</li>
+</ul>
+<h2>Accessibility Considerations</h2>
+<h3>Color Blindness</h3>
+<ul>
+<li>Never rely on color alone to distinguish data series</li>
+<li>Add pattern fills, different line styles (solid, dashed, dotted), or direct labels</li>
+<li>Test with a colorblind simulator (e.g., Coblis, Sim Daltonism)</li>
+<li>Use the colorblind-friendly palette: <code>sns.color_palette("colorblind")</code></li>
+</ul>
+<h3>Screen Readers</h3>
+<ul>
+<li>Include alt text describing the chart's key finding</li>
+<li>Provide a data table alternative alongside the visualization</li>
+<li>Use semantic titles and labels</li>
+</ul>
+<h3>General Accessibility</h3>
+<ul>
+<li>Sufficient contrast between data elements and background</li>
+<li>Text size minimum 10pt for labels, 12pt for titles</li>
+<li>Avoid conveying information only through spatial position (add labels)</li>
+<li>Consider printing: does the chart work in black and white?</li>
+</ul>
+<h3>Accessibility Checklist</h3>
+<p>Before sharing a visualization:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Chart works without color (patterns, labels, or line styles differentiate series)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Text is readable at standard zoom level</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Title describes the insight, not just the data</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Axes are labeled with units</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Legend is clear and positioned without obscuring data</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Data source and date range are noted</li>
+</ul></div>

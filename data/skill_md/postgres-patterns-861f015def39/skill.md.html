@@ -1,0 +1,173 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>PostgreSQL Patterns</h1>
+<p>Quick reference for PostgreSQL best practices. For detailed guidance, use the <code>database-reviewer</code> agent.</p>
+<h2>When to Activate</h2>
+<ul>
+<li>Writing SQL queries or migrations</li>
+<li>Designing database schemas</li>
+<li>Troubleshooting slow queries</li>
+<li>Implementing Row Level Security</li>
+<li>Setting up connection pooling</li>
+</ul>
+<h2>Quick Reference</h2>
+<h3>Index Cheat Sheet</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Query Pattern</th>
+<th>Index Type</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WHERE col = value</code></td>
+<td>B-tree (default)</td>
+<td><code>CREATE INDEX idx ON t (col)</code></td>
+</tr>
+<tr>
+<td><code>WHERE col &gt; value</code></td>
+<td>B-tree</td>
+<td><code>CREATE INDEX idx ON t (col)</code></td>
+</tr>
+<tr>
+<td><code>WHERE a = x AND b &gt; y</code></td>
+<td>Composite</td>
+<td><code>CREATE INDEX idx ON t (a, b)</code></td>
+</tr>
+<tr>
+<td><code>WHERE jsonb @&gt; '{}'</code></td>
+<td>GIN</td>
+<td><code>CREATE INDEX idx ON t USING gin (col)</code></td>
+</tr>
+<tr>
+<td><code>WHERE tsv @@ query</code></td>
+<td>GIN</td>
+<td><code>CREATE INDEX idx ON t USING gin (col)</code></td>
+</tr>
+<tr>
+<td>Time-series ranges</td>
+<td>BRIN</td>
+<td><code>CREATE INDEX idx ON t USING brin (col)</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Data Type Quick Reference</h3>
+<table>
+<thead>
+<tr>
+<th>Use Case</th>
+<th>Correct Type</th>
+<th>Avoid</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IDs</td>
+<td><code>bigint</code></td>
+<td><code>int</code>, random UUID</td>
+</tr>
+<tr>
+<td>Strings</td>
+<td><code>text</code></td>
+<td><code>varchar(255)</code></td>
+</tr>
+<tr>
+<td>Timestamps</td>
+<td><code>timestamptz</code></td>
+<td><code>timestamp</code></td>
+</tr>
+<tr>
+<td>Money</td>
+<td><code>numeric(10,2)</code></td>
+<td><code>float</code></td>
+</tr>
+<tr>
+<td>Flags</td>
+<td><code>boolean</code></td>
+<td><code>varchar</code>, <code>int</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Common Patterns</h3>
+<p><strong>Composite Index Order:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Equality columns first, then range columns</span>
+</span><span class="code-line"><span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> idx <span class="token keyword">ON</span> orders <span class="token punctuation">(</span><span class="token keyword">status</span><span class="token punctuation">,</span> created_at<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">-- Works for: WHERE status = 'pending' AND created_at &gt; '2024-01-01'</span>
+</span></code></pre>
+<p><strong>Covering Index:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> idx <span class="token keyword">ON</span> users <span class="token punctuation">(</span>email<span class="token punctuation">)</span> INCLUDE <span class="token punctuation">(</span>name<span class="token punctuation">,</span> created_at<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">-- Avoids table lookup for SELECT email, name, created_at</span>
+</span></code></pre>
+<p><strong>Partial Index:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> idx <span class="token keyword">ON</span> users <span class="token punctuation">(</span>email<span class="token punctuation">)</span> <span class="token keyword">WHERE</span> deleted_at <span class="token operator">IS</span> <span class="token boolean">NULL</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">-- Smaller index, only includes active users</span>
+</span></code></pre>
+<p><strong>RLS Policy (Optimized):</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">CREATE</span> POLICY policy <span class="token keyword">ON</span> orders
+</span><span class="code-line">  <span class="token keyword">USING</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">SELECT</span> auth<span class="token punctuation">.</span>uid<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">=</span> user_id<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">-- Wrap in SELECT!</span>
+</span></code></pre>
+<p><strong>UPSERT:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">INSERT</span> <span class="token keyword">INTO</span> settings <span class="token punctuation">(</span>user_id<span class="token punctuation">,</span> <span class="token keyword">key</span><span class="token punctuation">,</span> <span class="token keyword">value</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">VALUES</span> <span class="token punctuation">(</span><span class="token number">123</span><span class="token punctuation">,</span> <span class="token string">'theme'</span><span class="token punctuation">,</span> <span class="token string">'dark'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">ON</span> CONFLICT <span class="token punctuation">(</span>user_id<span class="token punctuation">,</span> <span class="token keyword">key</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">DO</span> <span class="token keyword">UPDATE</span> <span class="token keyword">SET</span> <span class="token keyword">value</span> <span class="token operator">=</span> EXCLUDED<span class="token punctuation">.</span><span class="token keyword">value</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Cursor Pagination:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">SELECT</span> <span class="token operator">*</span> <span class="token keyword">FROM</span> products <span class="token keyword">WHERE</span> id <span class="token operator">&gt;</span> $last_id <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> id <span class="token keyword">LIMIT</span> <span class="token number">20</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">-- O(1) vs OFFSET which is O(n)</span>
+</span></code></pre>
+<p><strong>Queue Processing:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">UPDATE</span> jobs <span class="token keyword">SET</span> <span class="token keyword">status</span> <span class="token operator">=</span> <span class="token string">'processing'</span>
+</span><span class="code-line"><span class="token keyword">WHERE</span> id <span class="token operator">=</span> <span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token keyword">SELECT</span> id <span class="token keyword">FROM</span> jobs <span class="token keyword">WHERE</span> <span class="token keyword">status</span> <span class="token operator">=</span> <span class="token string">'pending'</span>
+</span><span class="code-line">  <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> created_at <span class="token keyword">LIMIT</span> <span class="token number">1</span>
+</span><span class="code-line">  <span class="token keyword">FOR</span> <span class="token keyword">UPDATE</span> SKIP LOCKED
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token keyword">RETURNING</span> <span class="token operator">*</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Anti-Pattern Detection</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Find unindexed foreign keys</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> conrelid::regclass<span class="token punctuation">,</span> a<span class="token punctuation">.</span>attname
+</span><span class="code-line"><span class="token keyword">FROM</span> pg_constraint c
+</span><span class="code-line"><span class="token keyword">JOIN</span> pg_attribute a <span class="token keyword">ON</span> a<span class="token punctuation">.</span>attrelid <span class="token operator">=</span> c<span class="token punctuation">.</span>conrelid <span class="token operator">AND</span> a<span class="token punctuation">.</span>attnum <span class="token operator">=</span> <span class="token keyword">ANY</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>conkey<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">WHERE</span> c<span class="token punctuation">.</span>contype <span class="token operator">=</span> <span class="token string">'f'</span>
+</span><span class="code-line">  <span class="token operator">AND</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span> <span class="token number">1</span> <span class="token keyword">FROM</span> pg_index i
+</span><span class="code-line">    <span class="token keyword">WHERE</span> i<span class="token punctuation">.</span>indrelid <span class="token operator">=</span> c<span class="token punctuation">.</span>conrelid <span class="token operator">AND</span> a<span class="token punctuation">.</span>attnum <span class="token operator">=</span> <span class="token keyword">ANY</span><span class="token punctuation">(</span>i<span class="token punctuation">.</span>indkey<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Find slow queries</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> query<span class="token punctuation">,</span> mean_exec_time<span class="token punctuation">,</span> calls
+</span><span class="code-line"><span class="token keyword">FROM</span> pg_stat_statements
+</span><span class="code-line"><span class="token keyword">WHERE</span> mean_exec_time <span class="token operator">&gt;</span> <span class="token number">100</span>
+</span><span class="code-line"><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> mean_exec_time <span class="token keyword">DESC</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Check table bloat</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> relname<span class="token punctuation">,</span> n_dead_tup<span class="token punctuation">,</span> last_vacuum
+</span><span class="code-line"><span class="token keyword">FROM</span> pg_stat_user_tables
+</span><span class="code-line"><span class="token keyword">WHERE</span> n_dead_tup <span class="token operator">&gt;</span> <span class="token number">1000</span>
+</span><span class="code-line"><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> n_dead_tup <span class="token keyword">DESC</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Configuration Template</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Connection limits (adjust for RAM)</span>
+</span><span class="code-line"><span class="token keyword">ALTER</span> SYSTEM <span class="token keyword">SET</span> max_connections <span class="token operator">=</span> <span class="token number">100</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">ALTER</span> SYSTEM <span class="token keyword">SET</span> work_mem <span class="token operator">=</span> <span class="token string">'8MB'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Timeouts</span>
+</span><span class="code-line"><span class="token keyword">ALTER</span> SYSTEM <span class="token keyword">SET</span> idle_in_transaction_session_timeout <span class="token operator">=</span> <span class="token string">'30s'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">ALTER</span> SYSTEM <span class="token keyword">SET</span> statement_timeout <span class="token operator">=</span> <span class="token string">'30s'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Monitoring</span>
+</span><span class="code-line"><span class="token keyword">CREATE</span> EXTENSION <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> pg_stat_statements<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Security defaults</span>
+</span><span class="code-line"><span class="token keyword">REVOKE</span> <span class="token keyword">ALL</span> <span class="token keyword">ON</span> <span class="token keyword">SCHEMA</span> <span class="token keyword">public</span> <span class="token keyword">FROM</span> <span class="token keyword">public</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">SELECT</span> pg_reload_conf<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Related</h2>
+<ul>
+<li>Agent: <code>database-reviewer</code> - Full database review workflow</li>
+<li>Skill: <code>clickhouse-io</code> - ClickHouse analytics patterns</li>
+<li>Skill: <code>backend-patterns</code> - API and backend patterns</li>
+</ul>
+<hr>
+<p><em>Based on Supabase Agent Skills (credit: Supabase team) (MIT License)</em></p></div>

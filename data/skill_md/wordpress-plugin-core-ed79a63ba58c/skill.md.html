@@ -1,0 +1,905 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>WordPress Plugin Development (Core)</h1>
+<p><strong>Last Updated</strong>: 2026-01-21
+<strong>Latest Versions</strong>: WordPress 6.9+ (Dec 2, 2025), PHP 8.0+ recommended, PHP 8.5 compatible
+<strong>Dependencies</strong>: None (WordPress 5.9+, PHP 7.4+ minimum)</p>
+<hr>
+<h2>Quick Start</h2>
+<p><strong>Architecture Patterns</strong>: Simple (functions only, &lt;5 functions) | OOP (medium plugins) | PSR-4 (modern/large, recommended 2025+)</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Plugin Header</strong> (only Plugin Name required):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span>
+</span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment">/**
+</span></span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment"> * Plugin Name: My Plugin
+</span></span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment"> * Version: 1.0.0
+</span></span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment"> * Requires at least: 5.9
+</span></span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment"> * Requires PHP: 7.4
+</span></span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment"> * Text Domain: my-plugin
+</span></span></span><span class="code-line"><span class="token php language-php"><span class="token doc-comment comment"> */</span>
+</span></span><span class="code-line"><span class="token php language-php">
+</span></span><span class="code-line"><span class="token php language-php"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'ABSPATH'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token keyword">exit</span><span class="token punctuation">;</span>
+</span></span></code></pre>
+<p><strong>Security Foundation</strong> (5 essentials before writing functionality):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// 1. Unique Prefix</span>
+</span><span class="code-line"><span class="token function">define</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'MYPL_VERSION'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'1.0.0'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_init</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* code */</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_init'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 2. ABSPATH Check (every PHP file)</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'ABSPATH'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token keyword">exit</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 3. Nonces</span>
+</span><span class="code-line"><span class="token function">wp_nonce_field</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_action'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_nonce'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">wp_verify_nonce</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'mypl_nonce'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_action'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 4. Sanitize Input, Escape Output</span>
+</span><span class="code-line"><span class="token variable">$clean</span> <span class="token operator">=</span> <span class="token function">sanitize_text_field</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'input'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token function">esc_html</span><span class="token punctuation">(</span> <span class="token variable">$output</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 5. Prepared Statements</span>
+</span><span class="code-line"><span class="token keyword">global</span> <span class="token variable">$wpdb</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span><span class="token punctuation">}</span></span>table WHERE id = %d"</span><span class="token punctuation">,</span> <span class="token variable">$id</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Security Foundation (Detailed)</h2>
+<h3>Unique Prefix (4-5 chars minimum)</h3>
+<p>Apply to: functions, classes, constants, options, transients, meta keys. Avoid: <code>wp_</code>, <code>__</code>, <code>_</code>.</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>  <span class="token comment">// ✅</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name-definition class-name">MyPL_Class</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>          <span class="token comment">// ✅</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>           <span class="token comment">// ❌ Will conflict</span>
+</span></code></pre>
+<h3>Capabilities Check (Not is_admin())</h3>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Security hole</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">is_admin</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* delete data */</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'manage_options'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* delete data */</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p>Common: <code>manage_options</code> (Admin), <code>edit_posts</code> (Editor/Author), <code>read</code> (Subscriber)</p>
+<h3>Security Trinity (Input → Processing → Output)</h3>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// Sanitize INPUT</span>
+</span><span class="code-line"><span class="token variable">$name</span> <span class="token operator">=</span> <span class="token function">sanitize_text_field</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$email</span> <span class="token operator">=</span> <span class="token function">sanitize_email</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'email'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$html</span> <span class="token operator">=</span> <span class="token function">wp_kses_post</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'content'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Allow safe HTML</span>
+</span><span class="code-line"><span class="token variable">$ids</span> <span class="token operator">=</span> <span class="token function">array_map</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'absint'</span><span class="token punctuation">,</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'ids'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Validate LOGIC</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">is_email</span><span class="token punctuation">(</span> <span class="token variable">$email</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token function">wp_die</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Invalid'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Escape OUTPUT</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token function">esc_html</span><span class="token punctuation">(</span> <span class="token variable">$name</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token string single-quoted-string">'&lt;a href="'</span> <span class="token operator">.</span> <span class="token function">esc_url</span><span class="token punctuation">(</span> <span class="token variable">$url</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'"&gt;'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token string single-quoted-string">'&lt;div class="'</span> <span class="token operator">.</span> <span class="token function">esc_attr</span><span class="token punctuation">(</span> <span class="token variable">$class</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'"&gt;'</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Nonces (CSRF Protection)</h3>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line">// Form
+</span><span class="code-line"><span class="token php language-php"><span class="token delimiter important">&lt;?php</span> <span class="token function">wp_nonce_field</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_action'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_nonce'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token delimiter important">?&gt;</span></span>
+</span><span class="code-line">if ( ! wp_verify_nonce( $_POST['mypl_nonce'], 'mypl_action' ) ) wp_die( 'Failed' );
+</span><span class="code-line">
+</span><span class="code-line">// AJAX
+</span><span class="code-line">check_ajax_referer( 'mypl-ajax-nonce', 'nonce' );
+</span><span class="code-line">wp_localize_script( 'mypl-script', 'mypl_ajax_object', array(
+</span><span class="code-line">    'ajaxurl' =&gt; admin_url( 'admin-ajax.php' ),
+</span><span class="code-line">    'nonce'   =&gt; wp_create_nonce( 'mypl-ajax-nonce' ),
+</span><span class="code-line">) );
+</span></code></pre>
+<h3>Prepared Statements</h3>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ SQL Injection</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"SELECT * FROM table WHERE id = <span class="token interpolation"><span class="token punctuation">{</span><span class="token global">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span>"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ Prepared (%s=String, %d=Integer, %f=Float)</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span><span class="token punctuation">}</span></span>table WHERE id = %d"</span><span class="token punctuation">,</span> <span class="token global">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// LIKE Queries</span>
+</span><span class="code-line"><span class="token variable">$search</span> <span class="token operator">=</span> <span class="token string single-quoted-string">'%'</span> <span class="token operator">.</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">esc_like</span><span class="token punctuation">(</span> <span class="token variable">$term</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'%'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"... WHERE title LIKE %s"</span><span class="token punctuation">,</span> <span class="token variable">$search</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Critical Rules</h2>
+<h3>Always Do</h3>
+<p>✅ <strong>Use unique prefix</strong> (4-5 chars) for all global code (functions, classes, options, transients)
+✅ <strong>Add ABSPATH check</strong> to every PHP file: <code>if ( ! defined( 'ABSPATH' ) ) exit;</code>
+✅ <strong>Check capabilities</strong> (<code>current_user_can()</code>) not just <code>is_admin()</code>
+✅ <strong>Verify nonces</strong> for all forms and AJAX requests
+✅ <strong>Use $wpdb-&gt;prepare()</strong> for all database queries with user input
+✅ <strong>Sanitize input</strong> with <code>sanitize_*()</code> functions before saving
+✅ <strong>Escape output</strong> with <code>esc_*()</code> functions before displaying
+✅ <strong>Flush rewrite rules</strong> on activation when registering custom post types
+✅ <strong>Use uninstall.php</strong> for permanent cleanup (not deactivation hook)
+✅ <strong>Follow WordPress Coding Standards</strong> (tabs for indentation, Yoda conditions)</p>
+<h3>Never Do</h3>
+<p>❌ <strong>Never use extract()</strong> - Creates security vulnerabilities
+❌ <strong>Never trust $_POST/$_GET</strong> without sanitization
+❌ <strong>Never concatenate user input into SQL</strong> - Always use prepare()
+❌ <strong>Never use <code>is_admin()</code> alone</strong> for permission checks
+❌ <strong>Never output unsanitized data</strong> - Always escape
+❌ <strong>Never use generic function/class names</strong> - Always prefix
+❌ <strong>Never use short PHP tags</strong> <code>&lt;?</code> or <code>&lt;?=</code> - Use <code>&lt;?php</code> only
+❌ <strong>Never delete user data on deactivation</strong> - Only on uninstall
+❌ <strong>Never register uninstall hook repeatedly</strong> - Only once on activation
+❌ <strong>Never use <code>register_uninstall_hook()</code> in main flow</strong> - Use uninstall.php instead</p>
+<hr>
+<h2>Known Issues Prevention</h2>
+<p>This skill prevents <strong>29</strong> documented issues:</p>
+<h3>Issue #1: SQL Injection</h3>
+<p><strong>Error</strong>: Database compromised via unescaped user input
+<strong>Source</strong>: <a href="https://patchstack.com/articles/sql-injection/" target="_blank" rel="ugc nofollow noopener">https://patchstack.com/articles/sql-injection/</a> (15% of all vulnerabilities)
+<strong>Why It Happens</strong>: Direct concatenation of user input into SQL queries
+<strong>Prevention</strong>: Always use <code>$wpdb-&gt;prepare()</code> with placeholders</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// VULNERABLE</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">query</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"DELETE FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span><span class="token punctuation">}</span></span>table WHERE id = <span class="token interpolation"><span class="token punctuation">{</span><span class="token global">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span>"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SECURE</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">query</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"DELETE FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span><span class="token punctuation">}</span></span>table WHERE id = %d"</span><span class="token punctuation">,</span> <span class="token global">$_GET</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'id'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #2: XSS (Cross-Site Scripting)</h3>
+<p><strong>Error</strong>: Malicious JavaScript executed in user browsers
+<strong>Source</strong>: <a href="https://patchstack.com" target="_blank" rel="ugc nofollow noopener">https://patchstack.com</a> (35% of all vulnerabilities)
+<strong>Why It Happens</strong>: Outputting unsanitized user data to HTML
+<strong>Prevention</strong>: Always escape output with context-appropriate function</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// VULNERABLE</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token string single-quoted-string">'&lt;div class="'</span> <span class="token operator">.</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'class'</span><span class="token punctuation">]</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'"&gt;'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SECURE</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token function">esc_html</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">echo</span> <span class="token string single-quoted-string">'&lt;div class="'</span> <span class="token operator">.</span> <span class="token function">esc_attr</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'class'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'"&gt;'</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #3: CSRF (Cross-Site Request Forgery)</h3>
+<p><strong>Error</strong>: Unauthorized actions performed on behalf of users
+<strong>Source</strong>: <a href="https://blog.nintechnet.com/25-wordpress-plugins-vulnerable-to-csrf-attacks/" target="_blank" rel="ugc nofollow noopener">https://blog.nintechnet.com/25-wordpress-plugins-vulnerable-to-csrf-attacks/</a>
+<strong>Why It Happens</strong>: No verification that requests originated from your site
+<strong>Prevention</strong>: Use nonces with <code>wp_nonce_field()</code> and <code>wp_verify_nonce()</code></p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// VULNERABLE</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'action'</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string single-quoted-string">'delete'</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">delete_user</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'user_id'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SECURE</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">wp_verify_nonce</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'nonce'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_delete_user'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">wp_die</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Security check failed'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">delete_user</span><span class="token punctuation">(</span> <span class="token function">absint</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'user_id'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #4: Missing Capability Checks</h3>
+<p><strong>Error</strong>: Regular users can access admin functions
+<strong>Source</strong>: WordPress Security Review Guidelines
+<strong>Why It Happens</strong>: Using <code>is_admin()</code> instead of <code>current_user_can()</code>
+<strong>Prevention</strong>: Always check capabilities, not just admin context</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// VULNERABLE</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">is_admin</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Any logged-in user can trigger this</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SECURE</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'manage_options'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Only administrators can trigger this</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Issue #5: Direct File Access</h3>
+<p><strong>Error</strong>: PHP files executed outside WordPress context
+<strong>Source</strong>: WordPress Plugin Handbook
+<strong>Why It Happens</strong>: No ABSPATH check at top of file
+<strong>Prevention</strong>: Add ABSPATH check to every PHP file</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// Add to top of EVERY PHP file</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'ABSPATH'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">exit</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Issue #6: Prefix Collision</h3>
+<p><strong>Error</strong>: Functions/classes conflict with other plugins
+<strong>Source</strong>: WordPress Coding Standards
+<strong>Why It Happens</strong>: Generic names without unique prefix
+<strong>Prevention</strong>: Use 4-5 character prefix on ALL global code</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// CAUSES CONFLICTS</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">init</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name-definition class-name">Settings</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">add_option</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'api_key'</span><span class="token punctuation">,</span> <span class="token variable">$value</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SAFE</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_init</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name-definition class-name">MyPL_Settings</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">add_option</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_api_key'</span><span class="token punctuation">,</span> <span class="token variable">$value</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #7: Rewrite Rules Not Flushed (and Performance)</h3>
+<p><strong>Error</strong>: Custom post types return 404 errors, or database overload from repeated flushing
+<strong>Source</strong>: <a href="https://developer.wordpress.org/plugins/" target="_blank" rel="ugc nofollow noopener">WordPress Plugin Handbook</a>, <a href="https://permalinkmanager.pro/blog/flush-rewrite-rules/" target="_blank" rel="ugc nofollow noopener">Permalink Manager Pro</a>
+<strong>Why It Happens</strong>: Forgot to flush rewrite rules after registering CPT, OR calling flush on every page load
+<strong>Prevention</strong>: Flush ONLY on activation/deactivation, NEVER on every page load</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ✅ CORRECT - Only flush on activation</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_activate</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">mypl_register_cpt</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">flush_rewrite_rules</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">register_activation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_activate'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_deactivate</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">flush_rewrite_rules</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">register_deactivation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_deactivate'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ WRONG - Causes database overload on EVERY page load</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_register_cpt'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'flush_rewrite_rules'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// BAD! Performance killer!</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ WRONG - In functions.php</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_register_cpt</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'book'</span><span class="token punctuation">,</span> <span class="token operator">...</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">flush_rewrite_rules</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// BAD! Runs every time</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>User-Facing Fix</strong>: If CPT shows 404, manually flush by going to Settings → Permalinks → Save Changes.</p>
+<h3>Issue #8: Transients Not Cleaned</h3>
+<p><strong>Error</strong>: Database accumulates expired transients
+<strong>Source</strong>: WordPress Transients API Documentation
+<strong>Why It Happens</strong>: No cleanup on uninstall
+<strong>Prevention</strong>: Delete transients in uninstall.php</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// uninstall.php</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WP_UNINSTALL_PLUGIN'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">exit</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">global</span> <span class="token variable">$wpdb</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">query</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"DELETE FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">options</span><span class="token punctuation">}</span></span> WHERE option_name LIKE '_transient_mypl_%'"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">query</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"DELETE FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">options</span><span class="token punctuation">}</span></span> WHERE option_name LIKE '_transient_timeout_mypl_%'"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #9: Scripts Loaded Everywhere</h3>
+<p><strong>Error</strong>: Performance degraded by unnecessary asset loading
+<strong>Source</strong>: WordPress Performance Best Practices
+<strong>Why It Happens</strong>: Enqueuing scripts/styles without conditional checks
+<strong>Prevention</strong>: Only load assets where needed</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// BAD - Loads on every page</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'wp_enqueue_scripts'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">wp_enqueue_script</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl-script'</span><span class="token punctuation">,</span> <span class="token variable">$url</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// GOOD - Only loads on specific page</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'wp_enqueue_scripts'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">is_page</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'my-page'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">wp_enqueue_script</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl-script'</span><span class="token punctuation">,</span> <span class="token variable">$url</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'jquery'</span> <span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'1.0'</span><span class="token punctuation">,</span> <span class="token constant boolean">true</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #10: Missing Sanitization on Save</h3>
+<p><strong>Error</strong>: Malicious data stored in database
+<strong>Source</strong>: WordPress Data Validation
+<strong>Why It Happens</strong>: Saving $_POST data without sanitization
+<strong>Prevention</strong>: Always sanitize before saving</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// VULNERABLE</span>
+</span><span class="code-line"><span class="token function">update_option</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_setting'</span><span class="token punctuation">,</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'value'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SECURE</span>
+</span><span class="code-line"><span class="token function">update_option</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_setting'</span><span class="token punctuation">,</span> <span class="token function">sanitize_text_field</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'value'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #11: Incorrect LIKE Queries</h3>
+<p><strong>Error</strong>: SQL syntax errors or injection vulnerabilities
+<strong>Source</strong>: WordPress $wpdb Documentation
+<strong>Why It Happens</strong>: LIKE wildcards not escaped properly
+<strong>Prevention</strong>: Use <code>$wpdb-&gt;esc_like()</code></p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// WRONG</span>
+</span><span class="code-line"><span class="token variable">$search</span> <span class="token operator">=</span> <span class="token string single-quoted-string">'%'</span> <span class="token operator">.</span> <span class="token variable">$term</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'%'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT</span>
+</span><span class="code-line"><span class="token variable">$search</span> <span class="token operator">=</span> <span class="token string single-quoted-string">'%'</span> <span class="token operator">.</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">esc_like</span><span class="token punctuation">(</span> <span class="token variable">$term</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'%'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$results</span> <span class="token operator">=</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"... WHERE title LIKE %s"</span><span class="token punctuation">,</span> <span class="token variable">$search</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #12: Using extract()</h3>
+<p><strong>Error</strong>: Variable collision and security vulnerabilities
+<strong>Source</strong>: WordPress Coding Standards
+<strong>Why It Happens</strong>: extract() creates variables from array keys
+<strong>Prevention</strong>: Never use extract(), access array elements directly</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// DANGEROUS</span>
+</span><span class="code-line"><span class="token function">extract</span><span class="token punctuation">(</span> <span class="token global">$_POST</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Now $any_array_key becomes a variable</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// SAFE</span>
+</span><span class="code-line"><span class="token variable">$name</span> <span class="token operator">=</span> <span class="token keyword">isset</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token function">sanitize_text_field</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'name'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">:</span> <span class="token string single-quoted-string">''</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #13: Missing Permission Callback in REST API</h3>
+<p><strong>Error</strong>: Endpoints accessible to everyone, allowing unauthorized access or privilege escalation
+<strong>Source</strong>: <a href="https://developer.wordpress.org/rest-api/" target="_blank" rel="ugc nofollow noopener">WordPress REST API Handbook</a>, <a href="https://patchstack.com/articles/critical-suretriggers-plugin-vulnerability-exploited-within-4-hours/" target="_blank" rel="ugc nofollow noopener">Patchstack CVE Database</a>
+<strong>Why It Happens</strong>: No <code>permission_callback</code> specified, or missing <code>show_in_index =&gt; false</code> for sensitive endpoints
+<strong>Prevention</strong>: Always add permission_callback AND hide sensitive endpoints from REST index</p>
+<p><strong>Real 2025-2026 Vulnerabilities</strong>:</p>
+<ul>
+<li><strong>All in One SEO (3M+ sites)</strong>: Missing permission check allowed contributor-level users to view global AI access token</li>
+<li><strong>AI Engine Plugin (CVE-2025-11749, CVSS 9.8 Critical)</strong>: Failed to set <code>show_in_index =&gt; false</code>, exposed bearer token in /wp-json/ index, full admin privileges granted to unauthenticated attackers</li>
+<li><strong>SureTriggers</strong>: Insufficient authorization checks exploited within 4 hours of disclosure</li>
+<li><strong>Worker for Elementor (CVE-2025-66144)</strong>: Subscriber-level privileges could invoke restricted features</li>
+</ul>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ VULNERABLE - Missing permission_callback (WordPress 5.5+ requires it!)</span>
+</span><span class="code-line"><span class="token function">register_rest_route</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'myplugin/v1'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'/data'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'methods'</span>  <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'GET'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'callback'</span> <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'my_callback'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ SECURE - Basic protection</span>
+</span><span class="code-line"><span class="token function">register_rest_route</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'myplugin/v1'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'/data'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'methods'</span>             <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'GET'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'callback'</span>            <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'my_callback'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'permission_callback'</span> <span class="token operator">=&gt;</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'edit_posts'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ SECURE - Hide sensitive endpoints from REST index</span>
+</span><span class="code-line"><span class="token function">register_rest_route</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'myplugin/v1'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'/admin'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'methods'</span>             <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'POST'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'callback'</span>            <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'my_admin_callback'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'permission_callback'</span> <span class="token operator">=&gt;</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'manage_options'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'show_in_index'</span>       <span class="token operator">=&gt;</span> <span class="token constant boolean">false</span><span class="token punctuation">,</span>  <span class="token comment">// Don't expose in /wp-json/</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>2025-2026 Statistics</strong>: 64,782 total vulnerabilities tracked, 333 new in one week, 236 remained unpatched. REST API auth issues represent significant percentage.</p>
+<h3>Issue #14: Uninstall Hook Registered Repeatedly</h3>
+<p><strong>Error</strong>: Option written on every page load
+<strong>Source</strong>: WordPress Plugin Handbook
+<strong>Why It Happens</strong>: register_uninstall_hook() called in main flow
+<strong>Prevention</strong>: Use uninstall.php file instead</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// BAD - Runs on every page load</span>
+</span><span class="code-line"><span class="token function">register_uninstall_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_uninstall'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// GOOD - Use uninstall.php file (preferred method)</span>
+</span><span class="code-line"><span class="token comment">// Create uninstall.php in plugin root</span>
+</span></code></pre>
+<h3>Issue #15: Data Deleted on Deactivation</h3>
+<p><strong>Error</strong>: Users lose data when temporarily disabling plugin
+<strong>Source</strong>: WordPress Plugin Development Best Practices
+<strong>Why It Happens</strong>: Confusion about deactivation vs uninstall
+<strong>Prevention</strong>: Only delete data in uninstall.php, never on deactivation</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// WRONG - Deletes user data on deactivation</span>
+</span><span class="code-line"><span class="token function">register_deactivation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">delete_option</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_user_settings'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT - Only clear temporary data on deactivation</span>
+</span><span class="code-line"><span class="token function">register_deactivation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">delete_transient</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_cache'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// CORRECT - Delete all data in uninstall.php</span>
+</span></code></pre>
+<h3>Issue #16: Using Deprecated Functions</h3>
+<p><strong>Error</strong>: Plugin breaks on WordPress updates
+<strong>Source</strong>: WordPress Deprecated Functions List
+<strong>Why It Happens</strong>: Using functions removed in newer WordPress versions
+<strong>Prevention</strong>: Enable WP_DEBUG during development</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// In wp-config.php (development only)</span>
+</span><span class="code-line"><span class="token function">define</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WP_DEBUG'</span><span class="token punctuation">,</span> <span class="token constant boolean">true</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">define</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WP_DEBUG_LOG'</span><span class="token punctuation">,</span> <span class="token constant boolean">true</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">define</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WP_DEBUG_DISPLAY'</span><span class="token punctuation">,</span> <span class="token constant boolean">false</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #17: Text Domain Mismatch</h3>
+<p><strong>Error</strong>: Translations don't load
+<strong>Source</strong>: WordPress Internationalization
+<strong>Why It Happens</strong>: Text domain doesn't match plugin slug
+<strong>Prevention</strong>: Use exact plugin slug everywhere</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// Plugin header</span>
+</span><span class="code-line"><span class="token comment">// Text Domain: my-plugin</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// In code - MUST MATCH EXACTLY</span>
+</span><span class="code-line"><span class="token function">__</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Text'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">_e</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Text'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #18: Missing Plugin Dependencies</h3>
+<p><strong>Error</strong>: Fatal error when required plugin is inactive
+<strong>Source</strong>: WordPress Plugin Dependencies
+<strong>Why It Happens</strong>: No check for required plugins
+<strong>Prevention</strong>: Check for dependencies on plugins_loaded</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'plugins_loaded'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">class_exists</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WooCommerce'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'admin_notices'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">echo</span> <span class="token string single-quoted-string">'&lt;div class="error"&gt;&lt;p&gt;My Plugin requires WooCommerce.&lt;/p&gt;&lt;/div&gt;'</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">return</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token comment">// Initialize plugin</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #19: Autosave Triggering Meta Save</h3>
+<p><strong>Error</strong>: Meta saved multiple times, performance issues
+<strong>Source</strong>: WordPress Post Meta
+<strong>Why It Happens</strong>: No autosave check in save_post hook
+<strong>Prevention</strong>: Check for DOING_AUTOSAVE constant</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'save_post'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span> <span class="token variable">$post_id</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'DOING_AUTOSAVE'</span> <span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token constant">DOING_AUTOSAVE</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Safe to save meta</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #20: admin-ajax.php Performance</h3>
+<p><strong>Error</strong>: Slow AJAX responses
+<strong>Source</strong>: <a href="https://deliciousbrains.com/comparing-wordpress-rest-api-performance-admin-ajax-php/" target="_blank" rel="ugc nofollow noopener">https://deliciousbrains.com/comparing-wordpress-rest-api-performance-admin-ajax-php/</a>
+<strong>Why It Happens</strong>: admin-ajax.php loads entire WordPress core
+<strong>Prevention</strong>: Use REST API for new projects (10x faster)</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// OLD: admin-ajax.php (still works but slower)</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'wp_ajax_mypl_action'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_ajax_handler'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// NEW: REST API (10x faster, recommended)</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'rest_api_init'</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">register_rest_route</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'myplugin/v1'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'/endpoint'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token string single-quoted-string">'methods'</span>             <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'POST'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string single-quoted-string">'callback'</span>            <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'mypl_rest_handler'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string single-quoted-string">'permission_callback'</span> <span class="token operator">=&gt;</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'edit_posts'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #21: Missing show_in_rest for Block Editor</h3>
+<p><strong>Error</strong>: Custom post types show classic editor instead of Gutenberg block editor
+<strong>Source</strong>: <a href="https://docs.wpvip.com/wordpress-on-vip/block-editor/" target="_blank" rel="ugc nofollow noopener">WordPress VIP Documentation</a>, <a href="https://github.com/WordPress/gutenberg/issues/7595" target="_blank" rel="ugc nofollow noopener">GitHub Issue #7595</a>
+<strong>Why It Happens</strong>: Forgot to set <code>show_in_rest =&gt; true</code> when registering custom post type
+<strong>Prevention</strong>: Always include show_in_rest for CPTs that need block editor</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Block editor won't work</span>
+</span><span class="code-line"><span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'book'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'public'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'supports'</span> <span class="token operator">=&gt;</span> <span class="token keyword">array</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'editor'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token comment">// Missing show_in_rest!</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT</span>
+</span><span class="code-line"><span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'book'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'public'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'show_in_rest'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span><span class="token punctuation">,</span>  <span class="token comment">// Required for block editor</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'supports'</span> <span class="token operator">=&gt;</span> <span class="token keyword">array</span><span class="token punctuation">(</span><span class="token string single-quoted-string">'editor'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Critical Rule</strong>: Only post types registered with <code>'show_in_rest' =&gt; true</code> are compatible with the block editor. The block editor is dependent on the WordPress REST API. For post types that are incompatible with the block editor—or have <code>show_in_rest =&gt; false</code>—the classic editor will load instead.</p>
+<h3>Issue #22: wpdb::prepare() Table Name Escaping</h3>
+<p><strong>Error</strong>: SQL syntax error from quoted table names, or hardcoded prefix breaks on different installations
+<strong>Source</strong>: <a href="https://github.com/WordPress/WordPress-Coding-Standards/issues/2442" target="_blank" rel="ugc nofollow noopener">WordPress Coding Standards Issue #2442</a>
+<strong>Why It Happens</strong>: Using table names as placeholders adds quotes around the table name
+<strong>Prevention</strong>: Table names must NOT be in prepare() placeholders</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Adds quotes around table name</span>
+</span><span class="code-line"><span class="token variable">$table</span> <span class="token operator">=</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'my_table'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string double-quoted-string">"SELECT * FROM %s WHERE id = %d"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token variable">$table</span><span class="token punctuation">,</span> <span class="token variable">$id</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Result: SELECT * FROM 'wp_my_table' WHERE id = 1</span>
+</span><span class="code-line"><span class="token comment">// FAILS - table name is quoted</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ WRONG - Hardcoded prefix</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string double-quoted-string">"SELECT * FROM wp_my_table WHERE id = %d"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token variable">$id</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// FAILS if user changed table prefix</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Table name NOT in prepare()</span>
+</span><span class="code-line"><span class="token variable">$table</span> <span class="token operator">=</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'my_table'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$table</span><span class="token punctuation">}</span></span> WHERE id = %d"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token variable">$id</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Using wpdb-&gt;prefix for built-in tables</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">posts</span><span class="token punctuation">}</span></span> WHERE ID = %d"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token variable">$id</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #23: Nonce Verification Edge Cases</h3>
+<p><strong>Error</strong>: Confusing user experience from nonce failures, or false sense of security
+<strong>Source</strong>: <a href="https://www.malcare.com/blog/wp_verify_nonce/" target="_blank" rel="ugc nofollow noopener">MalCare: wp_verify_nonce()</a>, <a href="https://pressidium.com/blog/nonces-in-wordpress-all-you-need-to-know/" target="_blank" rel="ugc nofollow noopener">Pressidium: Understanding Nonces</a>
+<strong>Why It Happens</strong>: Misunderstanding nonce behavior and limitations
+<strong>Prevention</strong>: Understand nonce edge cases and always combine with capability checks</p>
+<p><strong>Edge Cases</strong>:</p>
+<ol>
+<li><strong>Time-Based Return Values</strong>:</li>
+</ol>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token variable">$result</span> <span class="token operator">=</span> <span class="token function">wp_verify_nonce</span><span class="token punctuation">(</span> <span class="token variable">$nonce</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'action'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Returns 1: Valid, generated 0-12 hours ago</span>
+</span><span class="code-line"><span class="token comment">// Returns 2: Valid, generated 12-24 hours ago</span>
+</span><span class="code-line"><span class="token comment">// Returns false: Invalid or expired</span>
+</span></code></pre>
+<ol start="2">
+<li>
+<p><strong>Nonce Reusability</strong>: WordPress doesn't track if a nonce has been used. They can be used multiple times within the 12-24 hour window.</p>
+</li>
+<li>
+<p><strong>Session Invalidation</strong>: A nonce is only valid when tied to a valid session. If a user logs out, all their nonces become invalid, causing confusing UX if they had a form open.</p>
+</li>
+<li>
+<p><strong>Caching Problems</strong>: Cache issues can cause mismatches when caching plugins serve an older nonce.</p>
+</li>
+<li>
+<p><strong>NOT a Substitute for Authorization</strong>:</p>
+</li>
+</ol>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ INSUFFICIENT - Only checks origin, not permission</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">wp_verify_nonce</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'nonce'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'delete_user'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">delete_user</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'user_id'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Combine with capability check</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">wp_verify_nonce</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'nonce'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'delete_user'</span> <span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span>
+</span><span class="code-line">     <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'delete_users'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">delete_user</span><span class="token punctuation">(</span> <span class="token function">absint</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'user_id'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Key Principle (2025)</strong>: Nonces should never be relied on for authentication or authorization. Always assume nonces can be compromised. Protect your functions using current_user_can().</p>
+<h3>Issue #24: Hook Priority and Argument Count</h3>
+<p><strong>Error</strong>: Hook callback doesn't receive expected arguments, or runs in wrong order
+<strong>Source</strong>: <a href="https://kinsta.com/blog/wordpress-hooks/" target="_blank" rel="ugc nofollow noopener">Kinsta: WordPress Hooks Bootcamp</a>
+<strong>Why It Happens</strong>: Default is only 1 argument, priority defaults to 10
+<strong>Prevention</strong>: Specify argument count and priority explicitly when needed</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Only receives $post_id</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'save_post'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my_save_function'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">my_save_function</span><span class="token punctuation">(</span> <span class="token variable">$post_id</span><span class="token punctuation">,</span> <span class="token variable">$post</span><span class="token punctuation">,</span> <span class="token variable">$update</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// $post and $update are NULL!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Specify argument count</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'save_post'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my_save_function'</span><span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">3</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">my_save_function</span><span class="token punctuation">(</span> <span class="token variable">$post_id</span><span class="token punctuation">,</span> <span class="token variable">$post</span><span class="token punctuation">,</span> <span class="token variable">$update</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Now all 3 arguments are available</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Priority matters (lower number = runs earlier)</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'first_function'</span><span class="token punctuation">,</span> <span class="token number">5</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// Runs first</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'second_function'</span><span class="token punctuation">,</span> <span class="token number">10</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Default priority</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'third_function'</span><span class="token punctuation">,</span> <span class="token number">15</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// Runs last</span>
+</span></code></pre>
+<p><strong>Best Practices</strong>:</p>
+<ul>
+<li>Always prefix custom hook names to avoid collisions: <code>do_action( 'mypl_data_processed' )</code> not <code>do_action( 'data_processed' )</code></li>
+<li>Filters must RETURN modified data, not echo it</li>
+<li>Hook placement affects backwards compatibility - choose carefully</li>
+</ul>
+<h3>Issue #25: Custom Post Type URL Conflicts</h3>
+<p><strong>Error</strong>: Individual CPT posts return 404 errors despite permalinks flushed
+<strong>Source</strong>: <a href="https://permalinkmanager.pro/blog/wordpress-url-conflicts/" target="_blank" rel="ugc nofollow noopener">Permalink Manager Pro: URL Conflicts</a>
+<strong>Why It Happens</strong>: CPT slug matches a page slug, creating URL conflict
+<strong>Prevention</strong>: Use different slug for CPT or rename the page</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ CONFLICT - Page and CPT use same slug</span>
+</span><span class="code-line"><span class="token comment">// Page URL: example.com/portfolio/</span>
+</span><span class="code-line"><span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'portfolio'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'rewrite'</span> <span class="token operator">=&gt;</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'slug'</span> <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'portfolio'</span> <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Individual posts 404: example.com/portfolio/my-project/</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ SOLUTION 1 - Use different slug for CPT</span>
+</span><span class="code-line"><span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'portfolio'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'rewrite'</span> <span class="token operator">=&gt;</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'slug'</span> <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'projects'</span> <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Posts: example.com/projects/my-project/</span>
+</span><span class="code-line"><span class="token comment">// Page: example.com/portfolio/</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ SOLUTION 2 - Use hierarchical slug</span>
+</span><span class="code-line"><span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'portfolio'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'rewrite'</span> <span class="token operator">=&gt;</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'slug'</span> <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'work/portfolio'</span> <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Posts: example.com/work/portfolio/my-project/</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ SOLUTION 3 - Rename the page slug</span>
+</span><span class="code-line"><span class="token comment">// Change page from /portfolio/ to /our-portfolio/</span>
+</span></code></pre>
+<h3>Issue #26: WordPress 6.8 bcrypt Password Hashing Migration</h3>
+<p><strong>Error</strong>: Custom password hash handling breaks after WordPress 6.8 upgrade
+<strong>Source</strong>: <a href="https://make.wordpress.org/core/2025/02/17/wordpress-6-8-will-use-bcrypt-for-password-hashing/" target="_blank" rel="ugc nofollow noopener">WordPress Core Make</a>, <a href="https://core.trac.wordpress.org/ticket/21022" target="_blank" rel="ugc nofollow noopener">GitHub Issue #21022</a>
+<strong>Why It Happens</strong>: WordPress 6.8+ switched from phpass to bcrypt password hashing
+<strong>Prevention</strong>: Use WordPress password functions, don't handle hashes directly</p>
+<p><strong>What Changed</strong> (WordPress 6.8, April 2025):</p>
+<ul>
+<li>Default password hashing algorithm changed from phpass to bcrypt</li>
+<li>New hash prefix: <code>$wp$2y$</code> (SHA-384 pre-hashed bcrypt)</li>
+<li>Existing passwords automatically rehashed on next login</li>
+<li>Popular bcrypt plugins (roots/wp-password-bcrypt) now redundant</li>
+</ul>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ✅ SAFE - These functions continue to work without changes</span>
+</span><span class="code-line"><span class="token function">wp_hash_password</span><span class="token punctuation">(</span> <span class="token variable">$password</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">wp_check_password</span><span class="token punctuation">(</span> <span class="token variable">$password</span><span class="token punctuation">,</span> <span class="token variable">$hash</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ⚠️ NEEDS UPDATE - Direct phpass hash handling</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">strpos</span><span class="token punctuation">(</span> <span class="token variable">$hash</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'$P$'</span> <span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">0</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Custom phpass logic - needs update for bcrypt</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ NEW - Detect hash type</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">strpos</span><span class="token punctuation">(</span> <span class="token variable">$hash</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'$wp$2y$'</span> <span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">0</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// bcrypt hash (WordPress 6.8+)</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">elseif</span> <span class="token punctuation">(</span> <span class="token function">strpos</span><span class="token punctuation">(</span> <span class="token variable">$hash</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'$P$'</span> <span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">0</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// phpass hash (WordPress &lt;6.8)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Action Required</strong>:</p>
+<ul>
+<li>Review plugins that directly handle password hashes</li>
+<li>Remove bcrypt plugins when upgrading to 6.8+</li>
+<li>No action needed for standard wp_hash_password/wp_check_password usage</li>
+</ul>
+<h3>Issue #27: WordPress 6.9 WP_Dependencies Deprecation</h3>
+<p><strong>Error</strong>: "Deprecated: Function WP_Dependencies-&gt;add_data() was called with an argument that is deprecated"
+<strong>Source</strong>: <a href="https://wordpress.org/documentation/wordpress-version/version-6-9/" target="_blank" rel="ugc nofollow noopener">WordPress 6.9 Documentation</a>, <a href="https://wordpress.org/support/topic/after-automatic-updating-to-6-9-deprecated-function-wp_dependencies/" target="_blank" rel="ugc nofollow noopener">WordPress Support Forum</a>
+<strong>Why It Happens</strong>: WordPress 6.9 (Dec 2, 2025) deprecated WP_Dependencies object methods
+<strong>Prevention</strong>: Test plugins with WP_DEBUG enabled on WordPress 6.9, replace deprecated methods</p>
+<p><strong>Affected Plugins</strong> (confirmed):</p>
+<ul>
+<li>WooCommerce (fixed in 10.4.2)</li>
+<li>Yoast SEO (fixed in 26.6)</li>
+<li>Elementor (requires 3.24+)</li>
+</ul>
+<p><strong>Breaking Changes</strong>: WordPress 6.9 removed or modified several deprecated functions that older themes and plugins relied on, breaking custom menu walkers, classic widgets, media modals, and customizer features.</p>
+<p><strong>Action Required</strong>:</p>
+<ul>
+<li>Test plugins with WP_DEBUG enabled on WordPress 6.9</li>
+<li>Replace deprecated WP_Dependencies methods</li>
+<li>Check for deprecation notices in debug.log</li>
+<li>While top 1,000 plugins patched within hours, unmaintained plugins often lag behind</li>
+</ul>
+<h3>Issue #28: Translation Loading Changes in WordPress 6.7</h3>
+<p><strong>Error</strong>: Translations don't load or debug notices appear
+<strong>Source</strong>: <a href="https://developer.woocommerce.com/2024/11/11/developer-advisory-translation-loading-changes-in-wordpress-6-7/" target="_blank" rel="ugc nofollow noopener">WooCommerce Developer Blog</a>, <a href="https://make.wordpress.org/core/2024/10/23/wordpress-6-7-field-guide/" target="_blank" rel="ugc nofollow noopener">WordPress 6.7 Field Guide</a>
+<strong>Why It Happens</strong>: WordPress 6.7+ changed when/how translations load
+<strong>Prevention</strong>: Load translations after 'init' priority 10, ensure text domain matches plugin slug</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Loading too early</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'load_plugin_textdomain'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Load after 'init' priority 10</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'load_plugin_textdomain'</span><span class="token punctuation">,</span> <span class="token number">11</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Ensure text domain matches plugin slug EXACTLY</span>
+</span><span class="code-line"><span class="token comment">// Plugin header: Text Domain: my-plugin</span>
+</span><span class="code-line"><span class="token function">__</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Text'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Must match exactly</span>
+</span></code></pre>
+<p><strong>Action Required</strong>:</p>
+<ul>
+<li>Review when load_plugin_textdomain() is called</li>
+<li>Ensure text domain matches plugin slug exactly</li>
+<li>Test with WP_DEBUG enabled</li>
+</ul>
+<h3>Issue #29: wpdb::prepare() Missing Placeholders Error</h3>
+<p><strong>Error</strong>: "The query argument of wpdb::prepare() must have a placeholder"
+<strong>Source</strong>: <a href="https://developer.wordpress.org/reference/classes/wpdb/" target="_blank" rel="ugc nofollow noopener">WordPress $wpdb Documentation</a>, <a href="https://www.sitepoint.com/working-with-databases-in-wordpress/" target="_blank" rel="ugc nofollow noopener">SitePoint: Working with Databases</a>
+<strong>Why It Happens</strong>: Using prepare() without any placeholders
+<strong>Prevention</strong>: Don't use prepare() if no dynamic data</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">posts</span><span class="token punctuation">}</span></span>"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Error: The query argument of wpdb::prepare() must have a placeholder</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Don't use prepare() if no dynamic data</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">posts</span><span class="token punctuation">}</span></span>"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Use prepare() for dynamic data</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">posts</span><span class="token punctuation">}</span></span> WHERE ID = %d"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token variable">$post_id</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Additional wpdb::prepare() Mistakes</strong>:</p>
+<ol>
+<li><strong>Percentage Sign Handling</strong>:</li>
+</ol>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">posts</span><span class="token punctuation">}</span></span> WHERE post_title LIKE '%test%'"</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT</span>
+</span><span class="code-line"><span class="token variable">$search</span> <span class="token operator">=</span> <span class="token string single-quoted-string">'%'</span> <span class="token operator">.</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">esc_like</span><span class="token punctuation">(</span> <span class="token variable">$term</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'%'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">get_results</span><span class="token punctuation">(</span> <span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string double-quoted-string">"SELECT * FROM <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">posts</span><span class="token punctuation">}</span></span> WHERE post_title LIKE %s"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token variable">$search</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<ol start="2">
+<li><strong>Mixing Argument Formats</strong>:</li>
+</ol>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Can't mix individual args and array</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"... WHERE id = %d AND name = %s"</span><span class="token punctuation">,</span> <span class="token variable">$id</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token variable">$name</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Pick one format</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"... WHERE id = %d AND name = %s"</span><span class="token punctuation">,</span> <span class="token variable">$id</span><span class="token punctuation">,</span> <span class="token variable">$name</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// OR</span>
+</span><span class="code-line"><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token function">prepare</span><span class="token punctuation">(</span> <span class="token string double-quoted-string">"... WHERE id = %d AND name = %s"</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token variable">$id</span><span class="token punctuation">,</span> <span class="token variable">$name</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Plugin Architecture Patterns</h2>
+<h3>Simple (Functions Only)</h3>
+<p>Small plugins (&lt;5 functions):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function-definition function">mypl_init</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* code */</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_init'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>OOP (Singleton)</h3>
+<p>Medium plugins:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token keyword">class</span> <span class="token class-name-definition class-name">MyPL_Plugin</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token variable">$instance</span> <span class="token operator">=</span> <span class="token constant">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">function</span> <span class="token function-definition function">get_instance</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token constant">null</span> <span class="token operator">===</span> <span class="token scope"><span class="token keyword">self</span><span class="token punctuation">::</span></span><span class="token variable">$instance</span> <span class="token punctuation">)</span> <span class="token scope"><span class="token keyword">self</span><span class="token punctuation">::</span></span><span class="token variable">$instance</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token keyword">self</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token scope"><span class="token keyword">self</span><span class="token punctuation">::</span></span><span class="token variable">$instance</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">function</span> <span class="token function-definition function">__construct</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'init'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token this keyword">$this</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'init'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token scope">MyPL_Plugin<span class="token punctuation">::</span></span><span class="token function">get_instance</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>PSR-4 (Modern, Recommended 2025+)</h3>
+<p>Large/team plugins:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my-plugin/
+</span><span class="code-line">├── my-plugin.php
+</span><span class="code-line">├── composer.json → "psr-4": { "MyPlugin\\": "src/" }
+</span><span class="code-line">└── src/Admin.php
+</span><span class="code-line">
+</span><span class="code-line">// my-plugin.php
+</span><span class="code-line">require_once __DIR__ . '/vendor/autoload.php';
+</span><span class="code-line">use MyPlugin\Admin;
+</span><span class="code-line">new Admin();
+</span></code></pre>
+<hr>
+<h2>Common Patterns</h2>
+<p><strong>Custom Post Types</strong> (CRITICAL: Flush rewrite rules on activation, show_in_rest for block editor):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// show_in_rest =&gt; true REQUIRED for Gutenberg block editor</span>
+</span><span class="code-line"><span class="token function">register_post_type</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'book'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'public'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'show_in_rest'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span><span class="token punctuation">,</span>  <span class="token comment">// Without this, block editor won't work!</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'supports'</span> <span class="token operator">=&gt;</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'editor'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'title'</span> <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">register_activation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">mypl_register_cpt</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">flush_rewrite_rules</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// NEVER call on every page load</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Custom Taxonomies</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">register_taxonomy</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'genre'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'book'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'hierarchical'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'show_in_rest'</span> <span class="token operator">=&gt;</span> <span class="token constant boolean">true</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Meta Boxes</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">add_meta_box</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'book_details'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'Book Details'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_meta_box_html'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'book'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// Save: Check nonce, DOING_AUTOSAVE, current_user_can('edit_post')</span>
+</span><span class="code-line"><span class="token function">update_post_meta</span><span class="token punctuation">(</span> <span class="token variable">$post_id</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'_book_isbn'</span><span class="token punctuation">,</span> <span class="token function">sanitize_text_field</span><span class="token punctuation">(</span> <span class="token global">$_POST</span><span class="token punctuation">[</span><span class="token string single-quoted-string">'book_isbn'</span><span class="token punctuation">]</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Settings API</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">register_setting</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_options'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_api_key'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'sanitize_callback'</span> <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'sanitize_text_field'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">add_settings_section</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_section'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'API Settings'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'callback'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">add_settings_field</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_api_key'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'API Key'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'field_callback'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_section'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>REST API</strong> (10x faster than admin-ajax.php):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">register_rest_route</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'myplugin/v1'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'/data'</span><span class="token punctuation">,</span> <span class="token keyword">array</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'methods'</span>             <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'POST'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'callback'</span>            <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'mypl_rest_callback'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'permission_callback'</span> <span class="token operator">=&gt;</span> <span class="token keyword">fn</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">current_user_can</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'edit_posts'</span> <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>AJAX</strong> (Legacy, use REST API for new projects):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'wp_ajax_mypl_action'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_ajax_handler'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">check_ajax_referer</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl-ajax-nonce'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'nonce'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">wp_send_json_success</span><span class="token punctuation">(</span> <span class="token keyword">array</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'message'</span> <span class="token operator">=&gt;</span> <span class="token string single-quoted-string">'Success'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Custom Tables</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token keyword">global</span> <span class="token variable">$wpdb</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$sql</span> <span class="token operator">=</span> <span class="token string double-quoted-string">"CREATE TABLE <span class="token interpolation"><span class="token punctuation">{</span><span class="token variable">$wpdb</span><span class="token operator">-&gt;</span><span class="token property">prefix</span><span class="token punctuation">}</span></span>mypl_data (id bigint AUTO_INCREMENT PRIMARY KEY, ...)"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">require_once</span> <span class="token constant">ABSPATH</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'wp-admin/includes/upgrade.php'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">dbDelta</span><span class="token punctuation">(</span> <span class="token variable">$sql</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Transients</strong> (Caching):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token variable">$data</span> <span class="token operator">=</span> <span class="token function">get_transient</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_data'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token constant boolean">false</span> <span class="token operator">===</span> <span class="token variable">$data</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token variable">$data</span> <span class="token operator">=</span> <span class="token function">expensive_operation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">set_transient</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_data'</span><span class="token punctuation">,</span> <span class="token variable">$data</span><span class="token punctuation">,</span> <span class="token number">12</span> <span class="token operator">*</span> <span class="token constant">HOUR_IN_SECONDS</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Bundled Resources</h2>
+<p><strong>Templates</strong>: <code>plugin-simple/</code>, <code>plugin-oop/</code>, <code>plugin-psr4/</code>, <code>examples/meta-box.php</code>, <code>examples/settings-page.php</code>, <code>examples/custom-post-type.php</code>, <code>examples/rest-endpoint.php</code>, <code>examples/ajax-handler.php</code></p>
+<p><strong>Scripts</strong>: <code>scaffold-plugin.sh</code>, <code>check-security.sh</code>, <code>validate-headers.sh</code></p>
+<p><strong>References</strong>: <code>security-checklist.md</code>, <code>hooks-reference.md</code>, <code>sanitization-guide.md</code>, <code>wpdb-patterns.md</code>, <code>common-errors.md</code></p>
+<hr>
+<h2>Advanced Topics</h2>
+<p><strong>i18n</strong> (Internationalization):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">load_plugin_textdomain</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'my-plugin'</span><span class="token punctuation">,</span> <span class="token constant boolean">false</span><span class="token punctuation">,</span> <span class="token function">dirname</span><span class="token punctuation">(</span> <span class="token function">plugin_basename</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'/languages'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">__</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Text'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Return translated</span>
+</span><span class="code-line"><span class="token function">_e</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Text'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Echo translated</span>
+</span><span class="code-line"><span class="token function">esc_html__</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'Text'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'my-plugin'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Translate + escape</span>
+</span></code></pre>
+<p><strong>WP-CLI</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WP_CLI'</span> <span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token constant">WP_CLI</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token scope">WP_CLI<span class="token punctuation">::</span></span><span class="token function">add_command</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'MyPL_CLI_Command'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Cron Events</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token function">register_activation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token keyword">fn</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">wp_schedule_event</span><span class="token punctuation">(</span> <span class="token function">time</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'daily'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_daily_task'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">register_deactivation_hook</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span><span class="token punctuation">,</span> <span class="token keyword">fn</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">wp_clear_scheduled_hook</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_daily_task'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'mypl_daily_task'</span><span class="token punctuation">,</span> <span class="token string single-quoted-string">'mypl_do_daily_task'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Plugin Dependencies</strong>:</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token operator">!</span> <span class="token function">class_exists</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'WooCommerce'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">deactivate_plugins</span><span class="token punctuation">(</span> <span class="token function">plugin_basename</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">add_action</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'admin_notices'</span><span class="token punctuation">,</span> <span class="token keyword">fn</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">echo</span> <span class="token string single-quoted-string">'&lt;div class="error"&gt;&lt;p&gt;Requires WooCommerce&lt;/p&gt;&lt;/div&gt;'</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Distribution &amp; Auto-Updates</h2>
+<p><strong>GitHub Auto-Updates</strong> (Plugin Update Checker by YahnisElsts):</p>
+<pre class="language-php"><code class="language-php code-highlight"><span class="code-line"><span class="token comment">// 1. Install: git submodule add https://github.com/YahnisElsts/plugin-update-checker.git</span>
+</span><span class="code-line"><span class="token comment">// 2. Add to main plugin file</span>
+</span><span class="code-line"><span class="token keyword">require</span> <span class="token function">plugin_dir_path</span><span class="token punctuation">(</span> <span class="token constant">__FILE__</span> <span class="token punctuation">)</span> <span class="token operator">.</span> <span class="token string single-quoted-string">'plugin-update-checker/plugin-update-checker.php'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token package">YahnisElsts<span class="token punctuation">\</span>PluginUpdateChecker<span class="token punctuation">\</span>v5<span class="token punctuation">\</span>PucFactory</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token variable">$updateChecker</span> <span class="token operator">=</span> <span class="token scope">PucFactory<span class="token punctuation">::</span></span><span class="token function">buildUpdateChecker</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'https://github.com/yourusername/your-plugin/'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token constant">__FILE__</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string single-quoted-string">'your-plugin-slug'</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token variable">$updateChecker</span><span class="token operator">-&gt;</span><span class="token function">getVcsApi</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-&gt;</span><span class="token function">enableReleaseAssets</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Use GitHub Releases</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Private repos: Define token in wp-config.php</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span> <span class="token function">defined</span><span class="token punctuation">(</span> <span class="token string single-quoted-string">'YOUR_PLUGIN_GITHUB_TOKEN'</span> <span class="token punctuation">)</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token variable">$updateChecker</span><span class="token operator">-&gt;</span><span class="token function">setAuthentication</span><span class="token punctuation">(</span> <span class="token constant">YOUR_PLUGIN_GITHUB_TOKEN</span> <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Deployment</strong>:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> tag <span class="token number">1.0</span>.1 <span class="token operator">&amp;&amp;</span> <span class="token function">git</span> push origin main <span class="token operator">&amp;&amp;</span> <span class="token function">git</span> push origin <span class="token number">1.0</span>.1
+</span><span class="code-line"><span class="token comment"># Create GitHub Release with ZIP (exclude .git, tests)</span>
+</span></code></pre>
+<p><strong>Alternatives</strong>: Git Updater (no coding), Custom Update Server (full control), Freemius (commercial)</p>
+<p><strong>Security</strong>: Use HTTPS, never hardcode tokens, validate licenses, rate limit update checks</p>
+<p><strong>CRITICAL</strong>: ZIP must contain plugin folder: <code>plugin.zip/my-plugin/my-plugin.php</code></p>
+<p><strong>Resources</strong>: See <code>references/github-auto-updates.md</code>, <code>examples/github-updater.php</code></p>
+<hr>
+<h2>Dependencies</h2>
+<p><strong>Required</strong>:</p>
+<ul>
+<li>WordPress 5.9+ (recommend 6.7+)</li>
+<li>PHP 7.4+ (recommend 8.0+)</li>
+</ul>
+<p><strong>Optional</strong>:</p>
+<ul>
+<li>Composer 2.0+ - For PSR-4 autoloading</li>
+<li>WP-CLI 2.0+ - For command-line plugin management</li>
+<li>Query Monitor - For debugging and performance analysis</li>
+</ul>
+<hr>
+<h2>Official Documentation</h2>
+<ul>
+<li><strong>WordPress Plugin Handbook</strong>: <a href="https://developer.wordpress.org/plugins/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/plugins/</a></li>
+<li><strong>WordPress Coding Standards</strong>: <a href="https://developer.wordpress.org/coding-standards/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/coding-standards/</a></li>
+<li><strong>WordPress REST API</strong>: <a href="https://developer.wordpress.org/rest-api/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/rest-api/</a></li>
+<li><strong>WordPress Database Class ($wpdb)</strong>: <a href="https://developer.wordpress.org/reference/classes/wpdb/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/reference/classes/wpdb/</a></li>
+<li><strong>WordPress Security</strong>: <a href="https://developer.wordpress.org/apis/security/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/apis/security/</a></li>
+<li><strong>Settings API</strong>: <a href="https://developer.wordpress.org/plugins/settings/settings-api/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/plugins/settings/settings-api/</a></li>
+<li><strong>Custom Post Types</strong>: <a href="https://developer.wordpress.org/plugins/post-types/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/plugins/post-types/</a></li>
+<li><strong>Transients API</strong>: <a href="https://developer.wordpress.org/apis/transients/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/apis/transients/</a></li>
+<li><strong>Context7 Library ID</strong>: /websites/developer_wordpress</li>
+</ul>
+<hr>
+<h2>Troubleshooting</h2>
+<p><strong>Fatal Error</strong>: Enable WP_DEBUG, check wp-content/debug.log, verify prefixed names, check dependencies</p>
+<p><strong>404 on CPT</strong>: Flush rewrite rules via Settings → Permalinks → Save</p>
+<p><strong>Nonce Fails</strong>: Check nonce name/action match, verify not expired (24h default)</p>
+<p><strong>AJAX Returns 0/-1</strong>: Verify action name matches <code>wp_ajax_{action}</code>, check nonce sent/verified</p>
+<p><strong>HTML Stripped</strong>: Use <code>wp_kses_post()</code> not <code>sanitize_text_field()</code> for safe HTML</p>
+<p><strong>Query Fails</strong>: Use <code>$wpdb-&gt;prepare()</code>, check <code>$wpdb-&gt;prefix</code>, verify syntax</p>
+<hr>
+<h2>Complete Setup Checklist</h2>
+<p>Use this checklist to verify your plugin:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Plugin header complete with all fields</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> ABSPATH check at top of every PHP file</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All functions/classes use unique prefix</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All forms have nonce verification</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All user input is sanitized</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All output is escaped</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All database queries use $wpdb-&gt;prepare()</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Capability checks (not just is_admin())</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Custom post types flush rewrite rules on activation</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Deactivation hook only clears temporary data</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> uninstall.php handles permanent cleanup</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Text domain matches plugin slug</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Scripts/styles only load where needed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> WP_DEBUG enabled during development</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tested with Query Monitor for performance</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No deprecated function warnings</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Works with latest WordPress version</li>
+</ul>
+<hr>
+<p><strong>Questions? Issues?</strong></p>
+<ol>
+<li>Check <code>references/common-errors.md</code> for extended troubleshooting</li>
+<li>Verify all steps in the security foundation</li>
+<li>Check official docs: <a href="https://developer.wordpress.org/plugins/" target="_blank" rel="ugc nofollow noopener">https://developer.wordpress.org/plugins/</a></li>
+<li>Enable WP_DEBUG and check debug.log</li>
+<li>Use Query Monitor plugin to debug hooks and queries</li>
+</ol>
+<hr>
+<p><strong>Last verified</strong>: 2026-01-21 | <strong>Skill version</strong>: 2.0.0 | <strong>Changes</strong>: Added 9 new issues from WordPress 6.7-6.9 research (bcrypt migration, WP_Dependencies deprecation, translation loading, REST API CVEs 2025-2026, wpdb::prepare() edge cases, nonce limitations, hook gotchas, CPT URL conflicts). Updated from 20 to 29 documented errors prevented. Error count: 20 → 29. Version: 1.x → 2.0.0 (major version due to significant WordPress version-specific content additions).</p></div>

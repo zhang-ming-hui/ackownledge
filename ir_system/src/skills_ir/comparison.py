@@ -1,8 +1,12 @@
-'''
-多模式检索效果比较工具
-用于在多个评测集上同时运行 TF-IDF、BM25、Hybrid 三种检索模式，汇总各项指标，
-分析哪种模式在哪个指标上更优，并产出可读的报告。
-'''
+"""IR 多模式比较与报告生成工具。
+
+本模块用于把 `tfidf`、`bm25`、`hybrid` 三种检索模式
+放到同一套评测集中进行横向比较，并输出：
+- 聚合指标
+- 每个评测集的胜出模式
+- 失败桶统计
+- Markdown 报告
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ from .evaluation import evaluate_queries
 
 
 def _save_text_atomic(path: Path, text: str) -> None:
+    """以原子方式保存文本报告。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         "w",
@@ -28,14 +33,9 @@ def _save_text_atomic(path: Path, text: str) -> None:
         temp_path = Path(file.name)
     temp_path.replace(path)
 
-'''
-从单次评测返回的 report 字典中提取汇总的指标总计值，计算平均指标。
 
-report 中包含 metric_totals（一个包含 hit_count、top1_count、reciprocal_rank_sum、recall_sum、precision_sum 的 Counter）和 query_count。
-
-返回字典：hit_at_k, top1_accuracy, mrr_at_k, recall_at_k, precision_at_k，均为平均值（总和除以查询数）。
-'''
 def _metrics_from_totals(report: Dict[str, Any]) -> Dict[str, float]:
+    """把累加指标恢复成平均指标。"""
     totals = report.get("metric_totals", {})
     count = max(int(report.get("query_count", 0)), 1)
     return {
@@ -47,11 +47,8 @@ def _metrics_from_totals(report: Dict[str, Any]) -> Dict[str, float]:
     }
 
 
-'''
-失败桶是一个字典：键为失败原因分类（如 “no_match”, “low_rank” 等），值为失败样本列表（每个样本包含 query, expected, top_results 等）。
-该函数遍历每个失败桶，取第一个样本格式化输出字符串，便于报告展示。最多返回 6 行，避免报告过长。
-'''
 def _top_failure_examples(failure_buckets: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+    """为每个失败桶提取少量代表样例，便于报告展示。"""
     lines: List[str] = []
     for bucket_name, items in sorted(failure_buckets.items()):
         if not items:
@@ -64,22 +61,18 @@ def _top_failure_examples(failure_buckets: Dict[str, List[Dict[str, Any]]]) -> L
         )
     return lines[:6]
 
-'''
-对每一个评测文件，分别以 tfidf、bm25、hybrid 模式运行检索评测。
 
-
-'''
 def compare_retrieval_modes(
     engine,
     eval_paths: Iterable[Path],
     top_k: int,
     modes: Iterable[str] = ("tfidf", "bm25", "hybrid"),
 ) -> Dict[str, Any]:
+    """在多个评测集上比较不同检索模式。"""
     eval_paths = [Path(path) for path in eval_paths]
     modes = list(modes)
 
     per_eval_reports: List[Dict[str, Any]] = []
-    aggregate: Dict[str, Any] = {}
     aggregate_by_mode: Dict[str, Dict[str, Any]] = {}
 
     for mode in modes:
@@ -125,15 +118,7 @@ def compare_retrieval_modes(
         )
 
     for mode, payload in aggregate_by_mode.items():
-        totals = payload["metric_totals"]
-        count = max(payload["query_count"], 1)
-        payload["metrics"] = {
-            "hit_at_k": float(totals.get("hit_count", 0)) / count,
-            "top1_accuracy": float(totals.get("top1_count", 0)) / count,
-            "mrr_at_k": float(totals.get("reciprocal_rank_sum", 0.0)) / count,
-            "recall_at_k": float(totals.get("recall_sum", 0.0)) / count,
-            "precision_at_k": float(totals.get("precision_sum", 0.0)) / count,
-        }
+        payload["metrics"] = _metrics_from_totals(payload)
         payload["failure_count"] = sum(payload["failure_bucket_counts"].values())
         payload["failure_examples"] = {
             bucket: list(examples[:3]) for bucket, examples in payload["failure_examples"].items()
@@ -154,7 +139,7 @@ def compare_retrieval_modes(
 
     mode_win_counts = Counter()
     for report in per_eval_reports:
-        for metric_name, mode in report["winner_by_metric"].items():
+        for _, mode in report["winner_by_metric"].items():
             mode_win_counts[mode] += 1
 
     findings = [
@@ -193,6 +178,7 @@ def compare_retrieval_modes(
 
 
 def render_comparison_markdown(report: Dict[str, Any], title: str = "IR algorithm comparison") -> str:
+    """把模式比较结果渲染为 Markdown。"""
     lines: List[str] = []
     lines.append(f"# {title}")
     lines.append("")
@@ -245,6 +231,7 @@ def render_comparison_markdown(report: Dict[str, Any], title: str = "IR algorith
 
 
 def print_comparison_report(report: Dict[str, Any]) -> None:
+    """把模式比较结果输出到终端。"""
     print(f"Eval sets: {', '.join(Path(p).name for p in report.get('eval_paths', []))}")
     print(f"Top K: {report.get('top_k')} | modes: {', '.join(report.get('modes', []))}")
     print(f"Best mode by MRR@K: {report['aggregate'].get('best_mode_by_mrr', '')}")

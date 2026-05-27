@@ -1,0 +1,249 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Apollo MCP Server Guide</h1>
+<p>Apollo MCP Server exposes GraphQL operations as MCP tools, enabling AI agents to interact with GraphQL APIs through the Model Context Protocol.</p>
+<h2>Quick Start</h2>
+<h3>Step 1: Install</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Linux / MacOS</span>
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-sSL</span> https://mcp.apollo.dev/download/nix/latest <span class="token operator">|</span> <span class="token function">sh</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Windows</span>
+</span><span class="code-line">iwr <span class="token string">'https://mcp.apollo.dev/download/win/latest'</span> <span class="token operator">|</span> iex
+</span></code></pre>
+<h3>Step 2: Configure</h3>
+<p>Create <code>config.yaml</code> in your project root:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># config.yaml</span>
+</span><span class="code-line"><span class="token key atrule">transport</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> streamable_http
+</span><span class="code-line"><span class="token key atrule">schema</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> local
+</span><span class="code-line">  <span class="token key atrule">path</span><span class="token punctuation">:</span> ./schema.graphql
+</span><span class="code-line"><span class="token key atrule">operations</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> local
+</span><span class="code-line">  <span class="token key atrule">paths</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> ./operations/
+</span><span class="code-line"><span class="token key atrule">introspection</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">introspect</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">search</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">validate</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">execute</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<p>Start the server:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">apollo-mcp-server ./config.yaml
+</span></code></pre>
+<p>The MCP endpoint is available at <code>http://127.0.0.1:8000/mcp</code> (streamable_http defaults: address <code>127.0.0.1</code>, port <code>8000</code>). The GraphQL endpoint defaults to <code>http://localhost:4000/</code> — override with the <code>endpoint</code> key if your API runs elsewhere.</p>
+<h3>Step 3: Connect</h3>
+<p>Add to your MCP client configuration:</p>
+<p><strong>Streamable HTTP (recommended):</strong></p>
+<p>Claude Desktop (<code>claude_desktop_config.json</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"graphql-api"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"npx"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"mcp-remote"</span><span class="token punctuation">,</span> <span class="token string">"http://127.0.0.1:8000/mcp"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Claude Code:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">claude mcp <span class="token function">add</span> graphql-api -- npx mcp-remote http://127.0.0.1:8000/mcp
+</span></code></pre>
+<p><strong>Stdio (client launches the server directly):</strong></p>
+<p>Claude Desktop (<code>claude_desktop_config.json</code>) or Claude Code (<code>.mcp.json</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"graphql-api"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"./apollo-mcp-server"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"./config.yaml"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Built-in Tools</h2>
+<p>Apollo MCP Server provides four introspection tools:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>introspect</code></td>
+<td>Explore schema types in detail</td>
+<td>Need type definitions, fields, relationships</td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td>Find types in schema</td>
+<td>Looking for specific types or fields</td>
+</tr>
+<tr>
+<td><code>validate</code></td>
+<td>Check operation validity</td>
+<td>Before executing operations</td>
+</tr>
+<tr>
+<td><code>execute</code></td>
+<td>Run ad-hoc GraphQL operations</td>
+<td>Testing or one-off queries</td>
+</tr>
+</tbody>
+</table>
+<h2>Defining Custom Tools</h2>
+<p>MCP tools are created from GraphQL operations. Three methods:</p>
+<h3>1. Operation Files (Recommended)</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">operations</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> local
+</span><span class="code-line">  <span class="token key atrule">paths</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> ./operations/
+</span></code></pre>
+<p>Each file must contain exactly one operation. Each named operation becomes an MCP tool.</p>
+<pre class="language-graphql"><code class="language-graphql code-highlight"><span class="code-line"><span class="token comment"># operations/GetUser.graphql</span>
+</span><span class="code-line"><span class="token keyword">query</span> <span class="token definition-query function">GetUser</span><span class="token punctuation">(</span><span class="token variable">$id</span><span class="token punctuation">:</span> <span class="token scalar">ID</span><span class="token operator">!</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property-query">user</span><span class="token punctuation">(</span><span class="token attr-name">id</span><span class="token punctuation">:</span> <span class="token variable">$id</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">id</span>
+</span><span class="code-line">    <span class="token property">name</span>
+</span><span class="code-line">    <span class="token property">email</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-graphql"><code class="language-graphql code-highlight"><span class="code-line"><span class="token comment"># operations/CreateUser.graphql</span>
+</span><span class="code-line"><span class="token keyword">mutation</span> <span class="token definition-mutation function">CreateUser</span><span class="token punctuation">(</span><span class="token variable variable-input">$input</span><span class="token punctuation">:</span> <span class="token atom-input class-name">CreateUserInput</span><span class="token operator">!</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property-query property-mutation">createUser</span><span class="token punctuation">(</span><span class="token attr-name">input</span><span class="token punctuation">:</span> <span class="token variable variable-input">$input</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">id</span>
+</span><span class="code-line">    <span class="token property">name</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>2. Operation Collections</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">operations</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> collection
+</span><span class="code-line">  <span class="token key atrule">id</span><span class="token punctuation">:</span> your<span class="token punctuation">-</span>collection<span class="token punctuation">-</span>id
+</span></code></pre>
+<p>Use GraphOS Studio to manage operations collaboratively.</p>
+<h3>3. Persisted Queries</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">operations</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> manifest
+</span><span class="code-line">  <span class="token key atrule">path</span><span class="token punctuation">:</span> ./persisted<span class="token punctuation">-</span>query<span class="token punctuation">-</span>manifest.json
+</span></code></pre>
+<p>For production environments with pre-approved operations.</p>
+<h2>Reference Files</h2>
+<p>Detailed documentation for specific topics:</p>
+<ul>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/apollo-mcp-server/references/tools.md" target="_blank" rel="ugc nofollow noopener">Tools</a> - Introspection tools and minify notation</li>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/apollo-mcp-server/references/configuration.md" target="_blank" rel="ugc nofollow noopener">Configuration</a> - All configuration options</li>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/apollo-mcp-server/references/troubleshooting.md" target="_blank" rel="ugc nofollow noopener">Troubleshooting</a> - Common issues and solutions</li>
+</ul>
+<h2>Key Rules</h2>
+<h3>Security</h3>
+<ul>
+<li><strong>Never expose sensitive operations</strong> without authentication</li>
+<li>Use <code>headers</code> configuration for API keys and tokens</li>
+<li>Disable introspection tools in production (they are disabled by default)</li>
+<li>Set <code>overrides.mutation_mode: explicit</code> to require confirmation for mutations</li>
+</ul>
+<h3>Authentication</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># Static header</span>
+</span><span class="code-line"><span class="token key atrule">headers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">Authorization</span><span class="token punctuation">:</span> <span class="token string">"Bearer ${env.API_TOKEN}"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dynamic header forwarding</span>
+</span><span class="code-line"><span class="token key atrule">forward_headers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> x<span class="token punctuation">-</span>forwarded<span class="token punctuation">-</span>token
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># OAuth (streamable_http transport)</span>
+</span><span class="code-line"><span class="token key atrule">transport</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> streamable_http
+</span><span class="code-line">  <span class="token key atrule">auth</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">servers</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> https<span class="token punctuation">:</span>//auth.example.com/.well<span class="token punctuation">-</span>known/openid<span class="token punctuation">-</span>configuration
+</span><span class="code-line">    <span class="token key atrule">audiences</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> https<span class="token punctuation">:</span>//api.example.com
+</span></code></pre>
+<h3>Token Optimization</h3>
+<p>Enable minification to reduce token usage:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">introspection</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">introspect</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">minify</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">search</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">minify</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<p>Minified output uses compact notation:</p>
+<ul>
+<li><strong>T</strong> = type, <strong>I</strong> = input, <strong>E</strong> = enum</li>
+<li><strong>s</strong> = String, <strong>i</strong> = Int, <strong>b</strong> = Boolean, <strong>f</strong> = Float, <strong>d</strong> = ID</li>
+<li><strong>!</strong> = required, <strong>[]</strong> = list</li>
+</ul>
+<h3>Mutations</h3>
+<p>Control mutation behavior via the <code>overrides</code> section:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">overrides</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">mutation_mode</span><span class="token punctuation">:</span> all       <span class="token comment"># Execute mutations directly</span>
+</span><span class="code-line">  <span class="token comment"># mutation_mode: explicit  # Require explicit confirmation</span>
+</span><span class="code-line">  <span class="token comment"># mutation_mode: none      # Block all mutations (default)</span>
+</span></code></pre>
+<h2>Common Patterns</h2>
+<h3>GraphOS Cloud Schema</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># schema.source defaults to uplink — can be omitted when graphos is configured</span>
+</span><span class="code-line"><span class="token key atrule">graphos</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">apollo_key</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span>env.APOLLO_KEY<span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">apollo_graph_ref</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>graph@production
+</span></code></pre>
+<h3>Local Development</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">transport</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> streamable_http
+</span><span class="code-line"><span class="token key atrule">schema</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> local
+</span><span class="code-line">  <span class="token key atrule">path</span><span class="token punctuation">:</span> ./schema.graphql
+</span><span class="code-line"><span class="token key atrule">introspection</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">introspect</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">search</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">validate</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">execute</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line"><span class="token key atrule">overrides</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">mutation_mode</span><span class="token punctuation">:</span> all
+</span></code></pre>
+<h3>Production Setup</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">transport</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> streamable_http
+</span><span class="code-line"><span class="token key atrule">endpoint</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//api.production.com/graphql
+</span><span class="code-line"><span class="token key atrule">operations</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span> manifest
+</span><span class="code-line">  <span class="token key atrule">path</span><span class="token punctuation">:</span> ./persisted<span class="token punctuation">-</span>query<span class="token punctuation">-</span>manifest.json
+</span><span class="code-line"><span class="token key atrule">graphos</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">apollo_key</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span>env.APOLLO_KEY<span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">apollo_graph_ref</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span>env.APOLLO_GRAPH_REF<span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">headers</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">Authorization</span><span class="token punctuation">:</span> <span class="token string">"Bearer ${env.API_TOKEN}"</span>
+</span><span class="code-line"><span class="token key atrule">health_check</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<h3>Docker</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">transport</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> streamable_http
+</span><span class="code-line">  <span class="token key atrule">address</span><span class="token punctuation">:</span> 0.0.0.0
+</span><span class="code-line">  <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">8000</span>
+</span><span class="code-line"><span class="token key atrule">endpoint</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span>env.GRAPHQL_ENDPOINT<span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">graphos</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">apollo_key</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span>env.APOLLO_KEY<span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token key atrule">apollo_graph_ref</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span>env.APOLLO_GRAPH_REF<span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token key atrule">health_check</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<h2>Ground Rules</h2>
+<ul>
+<li>ALWAYS configure authentication before exposing to AI agents</li>
+<li>ALWAYS use <code>mutation_mode: explicit</code> or <code>mutation_mode: none</code> in shared environments</li>
+<li>NEVER expose introspection tools with write access to production data</li>
+<li>PREFER operation files over ad-hoc execute for predictable behavior</li>
+<li>PREFER streamable_http transport for remote and multi-client deployments</li>
+<li>USE stdio only when the MCP client launches the server process directly</li>
+<li>USE GraphOS Studio collections for team collaboration</li>
+</ul></div>

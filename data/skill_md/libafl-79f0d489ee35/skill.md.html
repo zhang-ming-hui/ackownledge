@@ -1,0 +1,644 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>LibAFL</h1>
+<p>LibAFL is a modular fuzzing library that implements features from AFL-based fuzzers like AFL++. Unlike traditional fuzzers, LibAFL provides all functionality in a modular and customizable way as a Rust library. It can be used as a drop-in replacement for libFuzzer or as a library to build custom fuzzers from scratch.</p>
+<h2>When to Use</h2>
+<table>
+<thead>
+<tr>
+<th>Fuzzer</th>
+<th>Best For</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>libFuzzer</td>
+<td>Quick setup, single-threaded</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>AFL++</td>
+<td>Multi-core, general purpose</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>LibAFL</td>
+<td>Custom fuzzers, advanced features, research</td>
+<td>High</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Choose LibAFL when:</strong></p>
+<ul>
+<li>You need custom mutation strategies or feedback mechanisms</li>
+<li>Standard fuzzers don't support your target architecture</li>
+<li>You want to implement novel fuzzing techniques</li>
+<li>You need fine-grained control over fuzzing components</li>
+<li>You're conducting fuzzing research</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Quick Start</h2>
+<p>LibAFL can be used as a drop-in replacement for libFuzzer with minimal setup:</p>
+<pre><code class="language-c++ code-highlight"><span class="code-line">extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+</span><span class="code-line">    // Call your code with fuzzer-provided data
+</span><span class="code-line">    my_function(data, size);
+</span><span class="code-line">    return 0;
+</span><span class="code-line">}
+</span></code></pre>
+<p>Build LibAFL's libFuzzer compatibility layer:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> clone https://github.com/AFLplusplus/LibAFL
+</span><span class="code-line"><span class="token builtin class-name">cd</span> LibAFL/libafl_libfuzzer_runtime
+</span><span class="code-line">./build.sh
+</span></code></pre>
+<p>Compile and run:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang++ <span class="token parameter variable">-DNO_MAIN</span> <span class="token parameter variable">-g</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer-no-link libFuzzer.a harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span><span class="code-line">./fuzz corpus/
+</span></code></pre>
+<h2>Installation</h2>
+<h3>Prerequisites</h3>
+<ul>
+<li>Clang/LLVM 15-18</li>
+<li>Rust (via rustup)</li>
+<li>Additional system dependencies</li>
+</ul>
+<h3>Linux/macOS</h3>
+<p>Install Clang:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">apt</span> <span class="token function">install</span> clang
+</span></code></pre>
+<p>Or install a specific version via apt.llvm.org:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">wget</span> https://apt.llvm.org/llvm.sh
+</span><span class="code-line"><span class="token function">chmod</span> +x llvm.sh
+</span><span class="code-line"><span class="token function">sudo</span> ./llvm.sh <span class="token number">15</span>
+</span></code></pre>
+<p>Configure environment for Rust:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">RUSTFLAGS</span><span class="token operator">=</span><span class="token string">"-C linker=/usr/bin/clang-15"</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">CC</span><span class="token operator">=</span><span class="token string">"clang-15"</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">CXX</span><span class="token operator">=</span><span class="token string">"clang++-15"</span>
+</span></code></pre>
+<p>Install Rust:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--proto</span> <span class="token string">'=https'</span> <span class="token parameter variable">--tlsv1.2</span> <span class="token parameter variable">-sSf</span> https://sh.rustup.rs <span class="token operator">|</span> <span class="token function">sh</span>
+</span></code></pre>
+<p>Install additional dependencies:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">apt</span> <span class="token function">install</span> libssl-dev pkg-config
+</span></code></pre>
+<p>For libFuzzer compatibility mode, install nightly Rust:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">rustup toolchain <span class="token function">install</span> nightly <span class="token parameter variable">--component</span> llvm-tools
+</span></code></pre>
+<h3>Verification</h3>
+<p>Build LibAFL to verify installation:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">cd</span> LibAFL/libafl_libfuzzer_runtime
+</span><span class="code-line">./build.sh
+</span><span class="code-line"><span class="token comment"># Should produce libFuzzer.a</span>
+</span></code></pre>
+<h2>Writing a Harness</h2>
+<p>LibAFL harnesses follow the same pattern as libFuzzer when using drop-in replacement mode:</p>
+<pre><code class="language-c++ code-highlight"><span class="code-line">extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+</span><span class="code-line">    // Your fuzzing target code here
+</span><span class="code-line">    return 0;
+</span><span class="code-line">}
+</span></code></pre>
+<p>When building custom fuzzers with LibAFL as a Rust library, harness logic is integrated directly into the fuzzer. See the "Writing a Custom Fuzzer" section below for the full pattern.</p>
+<blockquote>
+<p><strong>See Also:</strong> For detailed harness writing techniques, see the <strong>harness-writing</strong> technique skill.</p>
+</blockquote>
+<h2>Usage Modes</h2>
+<p>LibAFL supports two primary usage modes:</p>
+<h3>1. libFuzzer Drop-in Replacement</h3>
+<p>Use LibAFL as a replacement for libFuzzer with existing harnesses.</p>
+<p><strong>Compilation:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang++ <span class="token parameter variable">-DNO_MAIN</span> <span class="token parameter variable">-g</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer-no-link libFuzzer.a harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<p><strong>Running:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz corpus/
+</span></code></pre>
+<p><strong>Recommended for long campaigns:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">-fork</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-ignore_crashes</span><span class="token operator">=</span><span class="token number">1</span> corpus/
+</span></code></pre>
+<h3>2. Custom Fuzzer as Rust Library</h3>
+<p>Build a fully customized fuzzer using LibAFL components.</p>
+<p><strong>Create project:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cargo</span> init <span class="token parameter variable">--lib</span> my_fuzzer
+</span><span class="code-line"><span class="token builtin class-name">cd</span> my_fuzzer
+</span><span class="code-line"><span class="token function">cargo</span> <span class="token function">add</span> libafl@0.13 libafl_targets@0.13 libafl_bolts@0.13 libafl_cc@0.13 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--features</span> <span class="token string">"libafl_targets@0.13/libfuzzer,libafl_targets@0.13/sancov_pcguard_hitcounts"</span>
+</span></code></pre>
+<p><strong>Configure Cargo.toml:</strong></p>
+<pre class="language-toml"><code class="language-toml code-highlight"><span class="code-line"><span class="token punctuation">[</span><span class="token table class-name">lib</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key property">crate-type</span> <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token string">"staticlib"</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Writing a Custom Fuzzer</h2>
+<blockquote>
+<p><strong>See Also:</strong> For detailed harness writing techniques, patterns for handling complex inputs,
+and advanced strategies, see the <strong>fuzz-harness-writing</strong> technique skill.</p>
+</blockquote>
+<h3>Fuzzer Components</h3>
+<p>A LibAFL fuzzer consists of modular components:</p>
+<ol>
+<li><strong>Observers</strong> - Collect execution feedback (coverage, timing)</li>
+<li><strong>Feedback</strong> - Determine if inputs are interesting</li>
+<li><strong>Objective</strong> - Define fuzzing goals (crashes, timeouts)</li>
+<li><strong>State</strong> - Maintain corpus and metadata</li>
+<li><strong>Mutators</strong> - Generate new inputs</li>
+<li><strong>Scheduler</strong> - Select which inputs to mutate</li>
+<li><strong>Executor</strong> - Run the target with inputs</li>
+</ol>
+<h3>Basic Fuzzer Structure</h3>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libafl<span class="token punctuation">::</span>prelude<span class="token punctuation">::</span></span><span class="token operator">*</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libafl_bolts<span class="token punctuation">::</span>prelude<span class="token punctuation">::</span></span><span class="token operator">*</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libafl_targets<span class="token punctuation">::</span></span><span class="token punctuation">{</span>libfuzzer_test_one_input<span class="token punctuation">,</span> std_edges_map_observer<span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token attribute attr-name">#[no_mangle]</span>
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">fn</span> <span class="token function-definition function">libafl_main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> <span class="token keyword">mut</span> run_client <span class="token operator">=</span> <span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>state<span class="token punctuation">:</span> <span class="token class-name">Option</span><span class="token operator">&lt;</span>_<span class="token operator">&gt;</span><span class="token punctuation">,</span> <span class="token keyword">mut</span> restarting_mgr<span class="token punctuation">,</span> _core_id<span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// 1. Setup observers</span>
+</span><span class="code-line">        <span class="token keyword">let</span> edges_observer <span class="token operator">=</span> <span class="token class-name">HitcountsMapObserver</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token keyword">unsafe</span> <span class="token punctuation">{</span> <span class="token function">std_edges_map_observer</span><span class="token punctuation">(</span><span class="token string">"edges"</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">track_indices</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">let</span> time_observer <span class="token operator">=</span> <span class="token class-name">TimeObserver</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token string">"time"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 2. Define feedback</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> feedback <span class="token operator">=</span> <span class="token macro property">feedback_or!</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token class-name">MaxMapFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>edges_observer<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token class-name">TimeFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>time_observer<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 3. Define objective</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> objective <span class="token operator">=</span> <span class="token macro property">feedback_or_fast!</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token class-name">CrashFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token class-name">TimeoutFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 4. Create or restore state</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> state <span class="token operator">=</span> state<span class="token punctuation">.</span><span class="token function">unwrap_or_else</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">StdState</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>
+</span><span class="code-line">                <span class="token class-name">StdRand</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token class-name">InMemoryCorpus</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token class-name">OnDiskCorpus</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>output_dir<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token operator">&amp;</span><span class="token keyword">mut</span> feedback<span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token operator">&amp;</span><span class="token keyword">mut</span> objective<span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 5. Setup mutator</span>
+</span><span class="code-line">        <span class="token keyword">let</span> mutator <span class="token operator">=</span> <span class="token class-name">StdScheduledMutator</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token function">havoc_mutations</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> stages <span class="token operator">=</span> <span class="token macro property">tuple_list!</span><span class="token punctuation">(</span><span class="token class-name">StdMutationalStage</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>mutator<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 6. Setup scheduler</span>
+</span><span class="code-line">        <span class="token keyword">let</span> scheduler <span class="token operator">=</span> <span class="token class-name">IndexesLenTimeMinimizerScheduler</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token operator">&amp;</span>edges_observer<span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token class-name">QueueScheduler</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 7. Create fuzzer</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> fuzzer <span class="token operator">=</span> <span class="token class-name">StdFuzzer</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>scheduler<span class="token punctuation">,</span> feedback<span class="token punctuation">,</span> objective<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 8. Define harness</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> harness <span class="token operator">=</span> <span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>input<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token class-name">BytesInput</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">let</span> buf <span class="token operator">=</span> input<span class="token punctuation">.</span><span class="token function">target_bytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">as_slice</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token function">libfuzzer_test_one_input</span><span class="token punctuation">(</span>buf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token class-name">ExitKind</span><span class="token punctuation">::</span><span class="token class-name">Ok</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 9. Setup executor</span>
+</span><span class="code-line">        <span class="token keyword">let</span> <span class="token keyword">mut</span> executor <span class="token operator">=</span> <span class="token class-name">InProcessExecutor</span><span class="token punctuation">::</span><span class="token function">with_timeout</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token operator">&amp;</span><span class="token keyword">mut</span> harness<span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token macro property">tuple_list!</span><span class="token punctuation">(</span>edges_observer<span class="token punctuation">,</span> time_observer<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token operator">&amp;</span><span class="token keyword">mut</span> fuzzer<span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token operator">&amp;</span><span class="token keyword">mut</span> state<span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token operator">&amp;</span><span class="token keyword">mut</span> restarting_mgr<span class="token punctuation">,</span>
+</span><span class="code-line">            timeout<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 10. Load initial inputs</span>
+</span><span class="code-line">        <span class="token keyword">if</span> state<span class="token punctuation">.</span><span class="token function">must_load_initial_inputs</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            state<span class="token punctuation">.</span><span class="token function">load_initial_inputs</span><span class="token punctuation">(</span>
+</span><span class="code-line">                <span class="token operator">&amp;</span><span class="token keyword">mut</span> fuzzer<span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token operator">&amp;</span><span class="token keyword">mut</span> executor<span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token operator">&amp;</span><span class="token keyword">mut</span> restarting_mgr<span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token operator">&amp;</span>input_dir
+</span><span class="code-line">            <span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// 11. Start fuzzing</span>
+</span><span class="code-line">        fuzzer<span class="token punctuation">.</span><span class="token function">fuzz_loop</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token keyword">mut</span> stages<span class="token punctuation">,</span> <span class="token operator">&amp;</span><span class="token keyword">mut</span> executor<span class="token punctuation">,</span> <span class="token operator">&amp;</span><span class="token keyword">mut</span> state<span class="token punctuation">,</span> <span class="token operator">&amp;</span><span class="token keyword">mut</span> restarting_mgr<span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token class-name">Ok</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Launch fuzzer</span>
+</span><span class="code-line">    <span class="token class-name">Launcher</span><span class="token punctuation">::</span><span class="token function">builder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">run_client</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token keyword">mut</span> run_client<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">cores</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>cores<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">launch</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Compilation</h2>
+<h3>Verbose Mode</h3>
+<p>Manually specify all instrumentation flags:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang++-15 <span class="token parameter variable">-DNO_MAIN</span> <span class="token parameter variable">-g</span> <span class="token parameter variable">-O2</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  -fsanitize-coverage<span class="token operator">=</span>trace-pc-guard <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>address <span class="token punctuation">\</span>
+</span><span class="code-line">  -Wl,--whole-archive target/release/libmy_fuzzer.a -Wl,--no-whole-archive <span class="token punctuation">\</span>
+</span><span class="code-line">  main.cc harness.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<h3>Compiler Wrapper (Recommended)</h3>
+<p>Create a LibAFL compiler wrapper to handle instrumentation automatically.</p>
+<p><strong>Create <code>src/bin/libafl_cc.rs</code>:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libafl_cc<span class="token punctuation">::</span></span><span class="token punctuation">{</span><span class="token class-name">ClangWrapper</span><span class="token punctuation">,</span> <span class="token class-name">CompilerWrapper</span><span class="token punctuation">,</span> <span class="token class-name">Configuration</span><span class="token punctuation">,</span> <span class="token class-name">ToolWrapper</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">fn</span> <span class="token function-definition function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> args<span class="token punctuation">:</span> <span class="token class-name">Vec</span><span class="token operator">&lt;</span><span class="token class-name">String</span><span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token namespace">env<span class="token punctuation">::</span></span><span class="token function">args</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">let</span> <span class="token keyword">mut</span> cc <span class="token operator">=</span> <span class="token class-name">ClangWrapper</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    cc<span class="token punctuation">.</span><span class="token function">cpp</span><span class="token punctuation">(</span>is_cpp<span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">parse_args</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>args<span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">link_staticlib</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>dir<span class="token punctuation">,</span> <span class="token string">"my_fuzzer"</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">add_args</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token class-name">Configuration</span><span class="token punctuation">::</span><span class="token class-name">GenerateCoverageMap</span><span class="token punctuation">.</span><span class="token function">to_flags</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">add_args</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token class-name">Configuration</span><span class="token punctuation">::</span><span class="token class-name">AddressSanitizer</span><span class="token punctuation">.</span><span class="token function">to_flags</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Compile and use:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cargo</span> build <span class="token parameter variable">--release</span>
+</span><span class="code-line">target/release/libafl_cxx <span class="token parameter variable">-DNO_MAIN</span> <span class="token parameter variable">-g</span> <span class="token parameter variable">-O2</span> main.cc harness.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<blockquote>
+<p><strong>See Also:</strong> For detailed sanitizer configuration, common issues, and advanced flags,
+see the <strong>address-sanitizer</strong> and <strong>undefined-behavior-sanitizer</strong> technique skills.</p>
+</blockquote>
+<h2>Running Campaigns</h2>
+<h3>Basic Run</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">--cores</span> <span class="token number">0</span> <span class="token parameter variable">--input</span> corpus/
+</span></code></pre>
+<h3>Multi-Core Fuzzing</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">--cores</span> <span class="token number">0,8</span>-15 <span class="token parameter variable">--input</span> corpus/
+</span></code></pre>
+<p>This runs 9 clients: one on core 0, and 8 on cores 8-15.</p>
+<h3>With Options</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">--cores</span> <span class="token number">0</span>-7 <span class="token parameter variable">--input</span> corpus/ <span class="token parameter variable">--output</span> crashes/ <span class="token parameter variable">--timeout</span> <span class="token number">1000</span>
+</span></code></pre>
+<h3>Text User Interface (TUI)</h3>
+<p>Enable graphical statistics view:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">-tui</span><span class="token operator">=</span><span class="token number">1</span> corpus/
+</span></code></pre>
+<h3>Interpreting Output</h3>
+<table>
+<thead>
+<tr>
+<th>Output</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>corpus: N</code></td>
+<td>Number of interesting test cases found</td>
+</tr>
+<tr>
+<td><code>objectives: N</code></td>
+<td>Number of crashes/timeouts found</td>
+</tr>
+<tr>
+<td><code>executions: N</code></td>
+<td>Total number of target invocations</td>
+</tr>
+<tr>
+<td><code>exec/sec: N</code></td>
+<td>Current execution throughput</td>
+</tr>
+<tr>
+<td><code>edges: X%</code></td>
+<td>Code coverage percentage</td>
+</tr>
+<tr>
+<td><code>clients: N</code></td>
+<td>Number of parallel fuzzing processes</td>
+</tr>
+</tbody>
+</table>
+<p>The fuzzer emits two main event types:</p>
+<ul>
+<li><strong>UserStats</strong> - Regular heartbeat with current statistics</li>
+<li><strong>Testcase</strong> - New interesting input discovered</li>
+</ul>
+<h2>Advanced Usage</h2>
+<h3>Tips and Tricks</h3>
+<table>
+<thead>
+<tr>
+<th>Tip</th>
+<th>Why It Helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Use <code>-fork=1 -ignore_crashes=1</code></td>
+<td>Continue fuzzing after first crash</td>
+</tr>
+<tr>
+<td>Use <code>InMemoryOnDiskCorpus</code></td>
+<td>Persist corpus across restarts</td>
+</tr>
+<tr>
+<td>Enable TUI with <code>-tui=1</code></td>
+<td>Better visualization of progress</td>
+</tr>
+<tr>
+<td>Use specific LLVM version</td>
+<td>Avoid compatibility issues</td>
+</tr>
+<tr>
+<td>Set <code>RUSTFLAGS</code> correctly</td>
+<td>Prevent linking errors</td>
+</tr>
+</tbody>
+</table>
+<h3>Crash Deduplication</h3>
+<p>Avoid storing duplicate crashes from the same bug:</p>
+<p><strong>Add backtrace observer:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">let</span> backtrace_observer <span class="token operator">=</span> <span class="token class-name">BacktraceObserver</span><span class="token punctuation">::</span><span class="token function">owned</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"BacktraceObserver"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token namespace">libafl<span class="token punctuation">::</span>observers<span class="token punctuation">::</span></span><span class="token class-name">HarnessType</span><span class="token punctuation">::</span><span class="token class-name">InProcess</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Update executor:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">let</span> <span class="token keyword">mut</span> executor <span class="token operator">=</span> <span class="token class-name">InProcessExecutor</span><span class="token punctuation">::</span><span class="token function">with_timeout</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&amp;</span><span class="token keyword">mut</span> harness<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token macro property">tuple_list!</span><span class="token punctuation">(</span>edges_observer<span class="token punctuation">,</span> time_observer<span class="token punctuation">,</span> backtrace_observer<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token operator">&amp;</span><span class="token keyword">mut</span> fuzzer<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token operator">&amp;</span><span class="token keyword">mut</span> state<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token operator">&amp;</span><span class="token keyword">mut</span> restarting_mgr<span class="token punctuation">,</span>
+</span><span class="code-line">    timeout<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Update objective with hash feedback:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">let</span> <span class="token keyword">mut</span> objective <span class="token operator">=</span> <span class="token macro property">feedback_and!</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token macro property">feedback_or_fast!</span><span class="token punctuation">(</span><span class="token class-name">CrashFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token class-name">TimeoutFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">NewHashFeedback</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>backtrace_observer<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>This ensures only crashes with unique backtraces are saved.</p>
+<h3>Dictionary Fuzzing</h3>
+<p>Use dictionaries to guide fuzzing toward specific tokens:</p>
+<p><strong>Add tokens from file:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">let</span> <span class="token keyword">mut</span> tokens <span class="token operator">=</span> <span class="token class-name">Tokens</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token keyword">let</span> <span class="token class-name">Some</span><span class="token punctuation">(</span>tokenfile<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token operator">&amp;</span>tokenfile <span class="token punctuation">{</span>
+</span><span class="code-line">    tokens<span class="token punctuation">.</span><span class="token function">add_from_file</span><span class="token punctuation">(</span>tokenfile<span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">state<span class="token punctuation">.</span><span class="token function">add_metadata</span><span class="token punctuation">(</span>tokens<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Update mutator:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">let</span> mutator <span class="token operator">=</span> <span class="token class-name">StdScheduledMutator</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token function">havoc_mutations</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">merge</span><span class="token punctuation">(</span><span class="token function">tokens_mutations</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Hard-coded tokens example (PNG):</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line">state<span class="token punctuation">.</span><span class="token function">add_metadata</span><span class="token punctuation">(</span><span class="token class-name">Tokens</span><span class="token punctuation">::</span><span class="token function">from</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token macro property">vec!</span><span class="token punctuation">[</span><span class="token number">137</span><span class="token punctuation">,</span> <span class="token number">80</span><span class="token punctuation">,</span> <span class="token number">78</span><span class="token punctuation">,</span> <span class="token number">71</span><span class="token punctuation">,</span> <span class="token number">13</span><span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">26</span><span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token comment">// PNG header</span>
+</span><span class="code-line">    <span class="token string">"IHDR"</span><span class="token punctuation">.</span><span class="token function">as_bytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">to_vec</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"IDAT"</span><span class="token punctuation">.</span><span class="token function">as_bytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">to_vec</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"PLTE"</span><span class="token punctuation">.</span><span class="token function">as_bytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">to_vec</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"IEND"</span><span class="token punctuation">.</span><span class="token function">as_bytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">to_vec</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<blockquote>
+<p><strong>See Also:</strong> For detailed dictionary creation strategies and format-specific dictionaries,
+see the <strong>fuzzing-dictionaries</strong> technique skill.</p>
+</blockquote>
+<h3>Auto Tokens</h3>
+<p>Automatically extract magic values and checksums from the program:</p>
+<p><strong>Enable in compiler wrapper:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line">cc<span class="token punctuation">.</span><span class="token function">add_pass</span><span class="token punctuation">(</span><span class="token class-name">LLVMPasses</span><span class="token punctuation">::</span><span class="token class-name">AutoTokens</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Load auto tokens in fuzzer:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line">tokens <span class="token operator">+=</span> <span class="token namespace">libafl_targets<span class="token punctuation">::</span></span><span class="token function">autotokens</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Verify tokens section:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"p (uint8_t *)__token_start"</span> <span class="token operator">|</span> gdb fuzz
+</span></code></pre>
+<h3>Performance Tuning</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-core fuzzing</td>
+<td>Linear speedup with cores</td>
+</tr>
+<tr>
+<td><code>InMemoryCorpus</code></td>
+<td>Faster but non-persistent</td>
+</tr>
+<tr>
+<td><code>InMemoryOnDiskCorpus</code></td>
+<td>Balanced speed and persistence</td>
+</tr>
+<tr>
+<td>Sanitizers</td>
+<td>2-5x slowdown, essential for bugs</td>
+</tr>
+<tr>
+<td>Optimization level <code>-O2</code></td>
+<td>Balance between speed and coverage</td>
+</tr>
+</tbody>
+</table>
+<h3>Debugging Fuzzer</h3>
+<p>Run fuzzer in single-process mode for easier debugging:</p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token comment">// Replace launcher with direct call</span>
+</span><span class="code-line"><span class="token function">run_client</span><span class="token punctuation">(</span><span class="token class-name">None</span><span class="token punctuation">,</span> <span class="token class-name">SimpleEventManager</span><span class="token punctuation">::</span><span class="token function">new</span><span class="token punctuation">(</span>monitor<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">unwrap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Comment out:</span>
+</span><span class="code-line"><span class="token comment">// Launcher::builder()</span>
+</span><span class="code-line"><span class="token comment">//     .run_client(&amp;mut run_client)</span>
+</span><span class="code-line"><span class="token comment">//     ...</span>
+</span><span class="code-line"><span class="token comment">//     .launch()</span>
+</span></code></pre>
+<p>Then debug with GDB:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">gdb <span class="token parameter variable">--args</span> ./fuzz <span class="token parameter variable">--cores</span> <span class="token number">0</span> <span class="token parameter variable">--input</span> corpus/
+</span></code></pre>
+<h2>Real-World Examples</h2>
+<h3>Example: libpng</h3>
+<p>Fuzzing libpng using LibAFL:</p>
+<p><strong>1. Get source code:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-L</span> <span class="token parameter variable">-O</span> https://downloads.sourceforge.net/project/libpng/libpng16/1.6.37/libpng-1.6.37.tar.xz
+</span><span class="code-line"><span class="token function">tar</span> xf libpng-1.6.37.tar.xz
+</span><span class="code-line"><span class="token builtin class-name">cd</span> libpng-1.6.37/
+</span><span class="code-line"><span class="token function">apt</span> <span class="token function">install</span> zlib1g-dev
+</span></code></pre>
+<p><strong>2. Set compiler wrapper:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">FUZZER_CARGO_DIR</span><span class="token operator">=</span><span class="token string">"/path/to/libafl/project"</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">CC</span><span class="token operator">=</span><span class="token variable">$FUZZER_CARGO_DIR</span>/target/release/libafl_cc
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">CXX</span><span class="token operator">=</span><span class="token variable">$FUZZER_CARGO_DIR</span>/target/release/libafl_cxx
+</span></code></pre>
+<p><strong>3. Build static library:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./configure --enable-shared<span class="token operator">=</span>no
+</span><span class="code-line"><span class="token function">make</span>
+</span></code></pre>
+<p><strong>4. Get harness:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-O</span> https://raw.githubusercontent.com/glennrp/libpng/f8e5fa92b0e37ab597616f554bee254157998227/contrib/oss-fuzz/libpng_read_fuzzer.cc
+</span></code></pre>
+<p><strong>5. Link fuzzer:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token variable">$CXX</span> libpng_read_fuzzer.cc .libs/libpng16.a <span class="token parameter variable">-lz</span> <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<p><strong>6. Prepare seeds:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> seeds/
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-o</span> seeds/input.png https://raw.githubusercontent.com/glennrp/libpng/acfd50ae0ba3198ad734e5d4dec2b05341e50924/contrib/pngsuite/iftp1n3p08.png
+</span></code></pre>
+<p><strong>7. Get dictionary (optional):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-O</span> https://raw.githubusercontent.com/glennrp/libpng/2fff013a6935967960a5ae626fc21432807933dd/contrib/oss-fuzz/png.dict
+</span></code></pre>
+<p><strong>8. Start fuzzing:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">--input</span> seeds/ <span class="token parameter variable">--cores</span> <span class="token number">0</span> <span class="token parameter variable">-x</span> png.dict
+</span></code></pre>
+<h3>Example: CMake Project</h3>
+<p>Integrate LibAFL with CMake build system:</p>
+<p><strong>CMakeLists.txt:</strong></p>
+<pre class="language-cmake"><code class="language-cmake code-highlight"><span class="code-line"><span class="token keyword">project</span><span class="token punctuation">(</span>BuggyProgram<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">cmake_minimum_required</span><span class="token punctuation">(</span><span class="token property">VERSION</span> <span class="token number">3.0</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">add_executable</span><span class="token punctuation">(</span>buggy_program main.cc<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">add_executable</span><span class="token punctuation">(</span>fuzz main.cc harness.cc<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">target_compile_definitions</span><span class="token punctuation">(</span>fuzz <span class="token namespace">PRIVATE</span> NO_MAIN=<span class="token number">1</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">target_compile_options</span><span class="token punctuation">(</span>fuzz <span class="token namespace">PRIVATE</span> -g -O2<span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Build non-instrumented binary:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmake <span class="token parameter variable">-DCMAKE_C_COMPILER</span><span class="token operator">=</span>clang <span class="token parameter variable">-DCMAKE_CXX_COMPILER</span><span class="token operator">=</span>clang++ <span class="token builtin class-name">.</span>
+</span><span class="code-line">cmake <span class="token parameter variable">--build</span> <span class="token builtin class-name">.</span> <span class="token parameter variable">--target</span> buggy_program
+</span></code></pre>
+<p><strong>Build fuzzer:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">FUZZER_CARGO_DIR</span><span class="token operator">=</span><span class="token string">"/path/to/libafl/project"</span>
+</span><span class="code-line">cmake <span class="token parameter variable">-DCMAKE_C_COMPILER</span><span class="token operator">=</span><span class="token variable">$FUZZER_CARGO_DIR</span>/target/release/libafl_cc <span class="token punctuation">\</span>
+</span><span class="code-line">      <span class="token parameter variable">-DCMAKE_CXX_COMPILER</span><span class="token operator">=</span><span class="token variable">$FUZZER_CARGO_DIR</span>/target/release/libafl_cxx <span class="token builtin class-name">.</span>
+</span><span class="code-line">cmake <span class="token parameter variable">--build</span> <span class="token builtin class-name">.</span> <span class="token parameter variable">--target</span> fuzz
+</span></code></pre>
+<p><strong>Run fuzzing:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz <span class="token parameter variable">--input</span> seeds/ <span class="token parameter variable">--cores</span> <span class="token number">0</span>
+</span></code></pre>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No coverage increases</td>
+<td>Instrumentation failed</td>
+<td>Verify compiler wrapper used, check for <code>-fsanitize-coverage</code></td>
+</tr>
+<tr>
+<td>Fuzzer won't start</td>
+<td>Empty corpus with no interesting inputs</td>
+<td>Provide seed inputs that trigger code paths</td>
+</tr>
+<tr>
+<td>Linker errors with <code>libafl_main</code></td>
+<td>Runtime not linked</td>
+<td>Use <code>-Wl,--whole-archive</code> or <code>-u libafl_main</code></td>
+</tr>
+<tr>
+<td>LLVM version mismatch</td>
+<td>LibAFL requires LLVM 15-18</td>
+<td>Install compatible LLVM version, set environment variables</td>
+</tr>
+<tr>
+<td>Rust compilation fails</td>
+<td>Outdated Rust or Cargo</td>
+<td>Update Rust with <code>rustup update</code></td>
+</tr>
+<tr>
+<td>Slow fuzzing</td>
+<td>Sanitizers enabled</td>
+<td>Expected 2-5x slowdown, necessary for finding bugs</td>
+</tr>
+<tr>
+<td>Environment variable interference</td>
+<td><code>CC</code>, <code>CXX</code>, <code>RUSTFLAGS</code> set</td>
+<td>Unset after building LibAFL project</td>
+</tr>
+<tr>
+<td>Cannot attach debugger</td>
+<td>Multi-process fuzzing</td>
+<td>Run in single-process mode (see Debugging section)</td>
+</tr>
+</tbody>
+</table>
+<h2>Related Skills</h2>
+<h3>Technique Skills</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>fuzz-harness-writing</strong></td>
+<td>Detailed guidance on writing effective harnesses</td>
+</tr>
+<tr>
+<td><strong>address-sanitizer</strong></td>
+<td>Memory error detection during fuzzing</td>
+</tr>
+<tr>
+<td><strong>undefined-behavior-sanitizer</strong></td>
+<td>Undefined behavior detection</td>
+</tr>
+<tr>
+<td><strong>coverage-analysis</strong></td>
+<td>Measuring and improving code coverage</td>
+</tr>
+<tr>
+<td><strong>fuzzing-corpus</strong></td>
+<td>Building and managing seed corpora</td>
+</tr>
+<tr>
+<td><strong>fuzzing-dictionaries</strong></td>
+<td>Creating dictionaries for format-aware fuzzing</td>
+</tr>
+</tbody>
+</table>
+<h3>Related Fuzzers</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>When to Consider</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>libfuzzer</strong></td>
+<td>Simpler setup, don't need LibAFL's advanced features</td>
+</tr>
+<tr>
+<td><strong>aflpp</strong></td>
+<td>Multi-core fuzzing without custom fuzzer development</td>
+</tr>
+<tr>
+<td><strong>cargo-fuzz</strong></td>
+<td>Fuzzing Rust projects with less setup</td>
+</tr>
+</tbody>
+</table>
+<h2>Resources</h2>
+<h3>Official Documentation</h3>
+<ul>
+<li><a href="https://aflplus.plus/libafl-book/" target="_blank" rel="ugc nofollow noopener">LibAFL Book</a> - Official handbook with comprehensive documentation</li>
+<li><a href="https://github.com/AFLplusplus/LibAFL" target="_blank" rel="ugc nofollow noopener">LibAFL GitHub</a> - Source code and examples</li>
+<li><a href="https://docs.rs/libafl/latest/libafl/" target="_blank" rel="ugc nofollow noopener">LibAFL API Documentation</a> - Rust API reference</li>
+</ul>
+<h3>Examples and Tutorials</h3>
+<ul>
+<li><a href="https://github.com/AFLplusplus/LibAFL/tree/main/fuzzers" target="_blank" rel="ugc nofollow noopener">LibAFL Examples</a> - Collection of example fuzzers</li>
+<li><a href="https://github.com/AFLplusplus/LibAFL/tree/main/fuzzers/fuzz_anything/cargo_fuzz" target="_blank" rel="ugc nofollow noopener">cargo-fuzz with LibAFL</a> - Using LibAFL as cargo-fuzz backend</li>
+<li><a href="https://github.com/trailofbits/testing-handbook/tree/main/materials/fuzzing/libafl" target="_blank" rel="ugc nofollow noopener">Testing Handbook LibAFL Examples</a> - Complete working examples from this handbook</li>
+</ul></div>

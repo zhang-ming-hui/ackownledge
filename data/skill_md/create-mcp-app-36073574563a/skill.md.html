@@ -1,0 +1,207 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Create MCP App</h1>
+<p>Build interactive UIs that run inside MCP-enabled hosts like Claude Desktop. An MCP App combines an MCP tool with an HTML resource to display rich, interactive content.</p>
+<h2>Core Concept: Tool + Resource</h2>
+<p>Every MCP App requires two parts linked together:</p>
+<ol>
+<li><strong>Tool</strong> - Called by the LLM/host, returns data</li>
+<li><strong>Resource</strong> - Serves the bundled HTML UI that displays the data</li>
+</ol>
+<p>The tool's <code>_meta.ui.resourceUri</code> references the resource's URI.</p>
+<p>Host calls tool → Host renders resource UI → Server returns result → UI receives result.</p>
+<h2>Quick Start Decision Tree</h2>
+<h3>Framework Selection</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Framework</th>
+<th>SDK Support</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>React</td>
+<td><code>useApp</code> hook provided</td>
+<td>Teams familiar with React</td>
+</tr>
+<tr>
+<td>Vanilla JS</td>
+<td>Manual lifecycle</td>
+<td>Simple apps, no build complexity</td>
+</tr>
+<tr>
+<td>Vue/Svelte/Preact/Solid</td>
+<td>Manual lifecycle</td>
+<td>Framework preference</td>
+</tr>
+</tbody>
+</table>
+<h3>Project Context</h3>
+<p><strong>Adding to existing MCP server:</strong></p>
+<ul>
+<li>Import <code>registerAppTool</code>, <code>registerAppResource</code> from SDK</li>
+<li>Add tool registration with <code>_meta.ui.resourceUri</code></li>
+<li>Add resource registration serving bundled HTML</li>
+</ul>
+<p><strong>Creating new MCP server:</strong></p>
+<ul>
+<li>Set up server with transport (stdio or HTTP)</li>
+<li>Register tools and resources</li>
+<li>Configure build system with <code>vite-plugin-singlefile</code></li>
+</ul>
+<h2>Getting Reference Code</h2>
+<p>Clone the SDK repository for working examples and API documentation:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> clone <span class="token parameter variable">--branch</span> <span class="token string">"v<span class="token variable"><span class="token variable">$(</span><span class="token function">npm</span> view @modelcontextprotocol/ext-apps version<span class="token variable">)</span></span>"</span> <span class="token parameter variable">--depth</span> <span class="token number">1</span> https://github.com/modelcontextprotocol/ext-apps.git /tmp/mcp-ext-apps
+</span></code></pre>
+<h3>Framework Templates</h3>
+<p>Learn and adapt from <code>/tmp/mcp-ext-apps/examples/basic-server-{framework}/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Key Files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>basic-server-vanillajs/</code></td>
+<td><code>server.ts</code>, <code>src/mcp-app.ts</code>, <code>mcp-app.html</code></td>
+</tr>
+<tr>
+<td><code>basic-server-react/</code></td>
+<td><code>server.ts</code>, <code>src/mcp-app.tsx</code> (uses <code>useApp</code> hook)</td>
+</tr>
+<tr>
+<td><code>basic-server-vue/</code></td>
+<td><code>server.ts</code>, <code>src/App.vue</code></td>
+</tr>
+<tr>
+<td><code>basic-server-svelte/</code></td>
+<td><code>server.ts</code>, <code>src/App.svelte</code></td>
+</tr>
+<tr>
+<td><code>basic-server-preact/</code></td>
+<td><code>server.ts</code>, <code>src/mcp-app.tsx</code></td>
+</tr>
+<tr>
+<td><code>basic-server-solid/</code></td>
+<td><code>server.ts</code>, <code>src/mcp-app.tsx</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each template includes:</p>
+<ul>
+<li><code>server.ts</code> with <code>registerAppTool</code> and <code>registerAppResource</code></li>
+<li><code>main.ts</code> entry point with HTTP and stdio transport setup</li>
+<li>Client-side app (e.g., <code>src/mcp-app.ts</code>, <code>src/mcp-app.tsx</code>) with lifecycle handlers</li>
+<li><code>src/global.css</code> with global styles and host style variable fallbacks</li>
+<li><code>vite.config.ts</code> using <code>vite-plugin-singlefile</code></li>
+<li><code>package.json</code> with <code>npm run</code> scripts and required dependencies</li>
+<li><code>.gitignore</code> excluding <code>node_modules/</code> and <code>dist/</code></li>
+</ul>
+<h3>API Reference (Source Files)</h3>
+<p>Read JSDoc documentation directly from <code>/tmp/mcp-ext-apps/src/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/app.ts</code></td>
+<td><code>App</code> class, handlers (<code>ontoolinput</code>, <code>ontoolresult</code>, <code>onhostcontextchanged</code>, <code>onteardown</code>, etc.), lifecycle</td>
+</tr>
+<tr>
+<td><code>src/server/index.ts</code></td>
+<td><code>registerAppTool</code>, <code>registerAppResource</code>, helper functions</td>
+</tr>
+<tr>
+<td><code>src/spec.types.ts</code></td>
+<td>All type definitions: <code>McpUiHostContext</code>, <code>McpUiStyleVariableKey</code> (CSS variable names), <code>McpUiResourceCsp</code> (CSP configuration), etc.</td>
+</tr>
+<tr>
+<td><code>src/styles.ts</code></td>
+<td><code>applyDocumentTheme</code>, <code>applyHostStyleVariables</code>, <code>applyHostFonts</code></td>
+</tr>
+<tr>
+<td><code>src/react/useApp.tsx</code></td>
+<td><code>useApp</code> hook for React apps</td>
+</tr>
+</tbody>
+</table>
+<h3>Advanced Patterns</h3>
+<p>See <code>/tmp/mcp-ext-apps/docs/patterns.md</code> for detailed recipes:</p>
+<ul>
+<li><strong>App-only tools</strong> — <code>visibility: ["app"]</code>, hiding tools from model</li>
+<li><strong>Polling</strong> — real-time dashboards, interval management</li>
+<li><strong>Chunked responses</strong> — large files, pagination, base64 encoding</li>
+<li><strong>Error handling</strong> — <code>isError</code>, informing model of failures</li>
+<li><strong>Binary resources</strong> — audio/video/etc via <code>resources/read</code>, blob field</li>
+<li><strong>Network requests</strong> — assets, fetch, CSP, <code>_meta.ui.csp</code>, CORS, <code>_meta.ui.domain</code></li>
+<li><strong>Host context</strong> — theme, styling, fonts, safe area insets</li>
+<li><strong>Fullscreen mode</strong> — <code>requestDisplayMode</code>, display mode changes</li>
+<li><strong>Model context</strong> — <code>updateModelContext</code>, <code>sendMessage</code>, keeping model informed</li>
+<li><strong>View state</strong> — <code>viewUUID</code>, localStorage, state recovery</li>
+<li><strong>Visibility-based pause</strong> — IntersectionObserver, pausing animations/WebGL</li>
+<li><strong>Streaming input</strong> — <code>ontoolinputpartial</code>, progressive rendering</li>
+</ul>
+<h3>Reference Host Implementation</h3>
+<p><code>/tmp/mcp-ext-apps/examples/basic-host/</code> shows one way an MCP Apps-capable host could be implemented. Real-world hosts like Claude Desktop are more sophisticated—use basic-host for local testing and protocol understanding, not as a guarantee of host behavior.</p>
+<h2>Critical Implementation Notes</h2>
+<h3>Adding Dependencies</h3>
+<p><strong>Always</strong> use <code>npm install</code> to add dependencies rather than manually writing version numbers:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @modelcontextprotocol/ext-apps @modelcontextprotocol/sdk zod express cors
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-D</span> typescript vite vite-plugin-singlefile concurrently cross-env @types/node @types/express @types/cors
+</span></code></pre>
+<p>This lets npm resolve the latest compatible versions. <strong>Never</strong> specify version numbers from memory.</p>
+<h3>TypeScript Server Execution</h3>
+<p>Unless the user has specified otherwise, use <code>tsx</code> for running TypeScript server files. For example:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-D</span> tsx
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">npm</span> pkg <span class="token builtin class-name">set</span> <span class="token assign-left variable">scripts.dev</span><span class="token operator">=</span><span class="token string">"cross-env NODE_ENV=development concurrently 'cross-env INPUT=mcp-app.html vite build --watch' 'tsx --watch main.ts'"</span>
+</span></code></pre>
+<blockquote>
+<p>[!NOTE]
+The SDK examples use <code>bun</code> but generated projects should default to <code>tsx</code> for broader compatibility.</p>
+</blockquote>
+<h3>Handler Registration Order</h3>
+<p>Register ALL handlers BEFORE calling <code>app.connect()</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">App</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">"My App"</span><span class="token punctuation">,</span> version<span class="token operator">:</span> <span class="token string">"1.0.0"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Register handlers first</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function-variable function">ontoolinput</span> <span class="token operator">=</span> <span class="token punctuation">(</span>params<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token comment">/* handle input */</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function-variable function">ontoolresult</span> <span class="token operator">=</span> <span class="token punctuation">(</span>result<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token comment">/* handle result */</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function-variable function">onhostcontextchanged</span> <span class="token operator">=</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token comment">/* handle context */</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function-variable function">onteardown</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// etc.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Then connect</span>
+</span><span class="code-line"><span class="token keyword">await</span> app<span class="token punctuation">.</span><span class="token function">connect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Common Mistakes to Avoid</h2>
+<ol>
+<li><strong>No text fallback</strong> - Always provide <code>content</code> array for non-UI hosts</li>
+<li><strong>Missing CSP configuration</strong> - MCP Apps HTML is served as an MCP resource with no same-origin server; ALL network requests—even to <code>localhost</code>—require a CSP configuration</li>
+<li><strong>CSP or CORS config in wrong _meta object</strong> - <code>_meta.ui.csp</code> and <code>_meta.ui.domain</code> go in the <code>contents[]</code> objects returned by <code>registerAppResource()</code>'s read callback, not in <code>registerAppResource()</code>'s config object</li>
+<li><strong>Handlers after app.connect()</strong> - Register ALL handlers BEFORE calling <code>app.connect()</code></li>
+<li><strong>No streaming for large inputs</strong> - Use <code>ontoolinputpartial</code> to show progress during input generation</li>
+</ol>
+<h2>Testing</h2>
+<h3>Using basic-host</h3>
+<p>Test MCP Apps locally with the basic-host example:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Terminal 1: Build and run your server</span>
+</span><span class="code-line"><span class="token function">npm</span> run build <span class="token operator">&amp;&amp;</span> <span class="token function">npm</span> run serve
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Terminal 2: Run basic-host (from cloned repo)</span>
+</span><span class="code-line"><span class="token builtin class-name">cd</span> /tmp/mcp-ext-apps/examples/basic-host
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span>
+</span><span class="code-line"><span class="token assign-left variable">SERVERS</span><span class="token operator">=</span><span class="token string">'["http://localhost:3001/mcp"]'</span> <span class="token function">npm</span> run start
+</span><span class="code-line"><span class="token comment"># Open http://localhost:8080</span>
+</span></code></pre>
+<p>Configure <code>SERVERS</code> with a JSON array of your server URLs (default: <code>http://localhost:3001/mcp</code>).</p>
+<h3>Debug with sendLog</h3>
+<p>Send debug logs to the host application (rather than just the iframe's dev console):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">await</span> app<span class="token punctuation">.</span><span class="token function">sendLog</span><span class="token punctuation">(</span><span class="token punctuation">{</span> level<span class="token operator">:</span> <span class="token string">"info"</span><span class="token punctuation">,</span> data<span class="token operator">:</span> <span class="token string">"Debug message"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">await</span> app<span class="token punctuation">.</span><span class="token function">sendLog</span><span class="token punctuation">(</span><span class="token punctuation">{</span> level<span class="token operator">:</span> <span class="token string">"error"</span><span class="token punctuation">,</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> error<span class="token operator">:</span> err<span class="token punctuation">.</span>message <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre></div>

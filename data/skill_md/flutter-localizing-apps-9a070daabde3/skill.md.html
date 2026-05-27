@@ -1,0 +1,162 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Localizing Flutter Applications</h1>
+<h2>Contents</h2>
+<ul>
+<li><a href="#core-configuration" target="_blank" rel="ugc nofollow noopener">Core Configuration</a></li>
+<li><a href="#defining-arb-resources" target="_blank" rel="ugc nofollow noopener">Defining ARB Resources</a></li>
+<li><a href="#app-integration" target="_blank" rel="ugc nofollow noopener">App Integration</a></li>
+<li><a href="#advanced-formatting" target="_blank" rel="ugc nofollow noopener">Advanced Formatting</a></li>
+<li><a href="#workflows" target="_blank" rel="ugc nofollow noopener">Workflows</a></li>
+<li><a href="#troubleshooting--gotchas" target="_blank" rel="ugc nofollow noopener">Troubleshooting &amp; Gotchas</a></li>
+</ul>
+<h2>Core Configuration</h2>
+<p>Configure the project to support code generation for localizations.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li>Add required dependencies to <code>pubspec.yaml</code>:</li>
+</ol>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">dependencies</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">flutter</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">sdk</span><span class="token punctuation">:</span> flutter
+</span><span class="code-line">  <span class="token key atrule">flutter_localizations</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">sdk</span><span class="token punctuation">:</span> flutter
+</span><span class="code-line">  <span class="token key atrule">intl</span><span class="token punctuation">:</span> any
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">flutter</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">generate</span><span class="token punctuation">:</span> <span class="token boolean important">true</span> <span class="token comment"># Required for l10n code generation</span>
+</span></code></pre>
+<ol start="2">
+<li>Create an <code>l10n.yaml</code> file in the project root to configure the <code>gen-l10n</code> tool:</li>
+</ol>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">arb-dir</span><span class="token punctuation">:</span> lib/l10n
+</span><span class="code-line"><span class="token key atrule">template-arb-file</span><span class="token punctuation">:</span> app_en.arb
+</span><span class="code-line"><span class="token key atrule">output-localization-file</span><span class="token punctuation">:</span> app_localizations.dart
+</span><span class="code-line"><span class="token comment"># Optional: Set to false to generate files into lib/ instead of the synthetic package</span>
+</span><span class="code-line"><span class="token comment"># synthetic-package: false </span>
+</span></code></pre>
+<h2>Defining ARB Resources</h2>
+<p>Store localized strings in Application Resource Bundle (<code>.arb</code>) files within the configured <code>arb-dir</code>.</p>
+<p>Create the template file (e.g., <code>lib/l10n/app_en.arb</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"helloWorld"</span><span class="token operator">:</span> <span class="token string">"Hello World!"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"@helloWorld"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"The conventional newborn programmer greeting"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Create translation files (e.g., <code>lib/l10n/app_es.arb</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"helloWorld"</span><span class="token operator">:</span> <span class="token string">"¡Hola Mundo!"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>App Integration</h2>
+<p>Initialize the <code>Localizations</code> widget by configuring the root <code>MaterialApp</code> or <code>CupertinoApp</code>.</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:flutter_localizations/flutter_localizations.dart'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:flutter_gen/gen_l10n/app_localizations.dart'</span></span><span class="token punctuation">;</span> <span class="token comment">// Adjust import if synthetic-package is false</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">return</span> <span class="token class-name">MaterialApp</span><span class="token punctuation">(</span>
+</span><span class="code-line">  title<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'Localized App'</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">  localizationsDelegates<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token class-name">AppLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">GlobalMaterialLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">GlobalWidgetsLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">GlobalCupertinoLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  supportedLocales<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token class-name">Locale</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'en'</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token comment">// English</span>
+</span><span class="code-line">    <span class="token class-name">Locale</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'es'</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token comment">// Spanish</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  home<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token class-name">MyHomePage</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Access localized values in the widget tree using the generated <code>AppLocalizations</code> class:</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token class-name">AppLocalizations</span><span class="token punctuation">.</span><span class="token function">of</span><span class="token punctuation">(</span>context<span class="token punctuation">)</span><span class="token operator">!</span><span class="token punctuation">.</span>helloWorld<span class="token punctuation">)</span>
+</span></code></pre>
+<p><em>Note: If using <code>WidgetsApp</code> instead of <code>MaterialApp</code>, omit <code>GlobalMaterialLocalizations.delegate</code>.</em></p>
+<h2>Advanced Formatting</h2>
+<p>Use placeholders, plurals, and selects for dynamic content. Define parameters in the <code>@key</code> metadata.</p>
+<h3>Placeholders</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"hello"</span><span class="token operator">:</span> <span class="token string">"Hello {userName}"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token property">"@hello"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"A message with a single parameter"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"placeholders"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"userName"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"String"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"example"</span><span class="token operator">:</span> <span class="token string">"Bob"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Plurals</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"nWombats"</span><span class="token operator">:</span> <span class="token string">"{count, plural, =0{no wombats} =1{1 wombat} other{{count} wombats}}"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token property">"@nWombats"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"placeholders"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"count"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"num"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"format"</span><span class="token operator">:</span> <span class="token string">"compact"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Selects (Gender/Enums)</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"pronoun"</span><span class="token operator">:</span> <span class="token string">"{gender, select, male{he} female{she} other{they}}"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token property">"@pronoun"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"placeholders"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"gender"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"String"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Dates and Numbers</h3>
+<p>Use <code>format</code> and <code>optionalParameters</code> to leverage <code>intl</code> formatting.</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"dateMessage"</span><span class="token operator">:</span> <span class="token string">"Date: {date}"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token property">"@dateMessage"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"placeholders"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"date"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"DateTime"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"format"</span><span class="token operator">:</span> <span class="token string">"yMd"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Workflows</h2>
+<h3>Task Progress: Adding a New Language</h3>
+<p>Copy this checklist to track progress when introducing a new locale.</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Create a new <code>.arb</code> file in the <code>arb-dir</code> (e.g., <code>app_fr.arb</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Translate all keys present in the template <code>.arb</code> file.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Add the new <code>Locale</code> to the <code>supportedLocales</code> list in <code>MaterialApp</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Run validator -&gt; Execute <code>flutter gen-l10n</code> to verify ARB syntax and regenerate <code>AppLocalizations</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Review errors -&gt; Fix any missing placeholders or malformed plural/select statements.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> If targeting iOS, complete the "Configuring iOS App Bundle" workflow.</li>
+</ul>
+<h3>Task Progress: Configuring iOS App Bundle</h3>
+<p>Flutter handles runtime localization, but iOS requires bundle-level configuration for the App Store and system settings.</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Open <code>ios/Runner.xcodeproj</code> in Xcode.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Select the <code>Runner</code> project in the Project Navigator.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Navigate to the <code>Info</code> tab.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Under the <strong>Localizations</strong> section, click the <code>+</code> button.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Add the newly supported languages/regions.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Run validator -&gt; Build the iOS app to ensure <code>project.pbxproj</code> is correctly updated.</li>
+</ul>
+<h2>Troubleshooting &amp; Gotchas</h2>
+<h3>Missing Localizations Ancestor</h3>
+<p>Widgets like <code>TextField</code> and <code>CupertinoTabBar</code> require a <code>Localizations</code> ancestor with specific delegates (<code>MaterialLocalizations</code> or <code>CupertinoLocalizations</code>).</p>
+<p><strong>Error:</strong> <code>No MaterialLocalizations found.</code> or <code>CupertinoTabBar requires a Localizations parent...</code>
+<strong>Fix:</strong> Ensure the widget is a descendant of <code>MaterialApp</code>/<code>CupertinoApp</code>. If building a standalone widget tree (e.g., in tests or a custom <code>WidgetsApp</code>), wrap the widget in a <code>Localizations</code> widget:</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token class-name">Localizations</span><span class="token punctuation">(</span>
+</span><span class="code-line">  locale<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token class-name">Locale</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'en'</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">'US'</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  delegates<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token class-name">DefaultWidgetsLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token class-name">DefaultMaterialLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span> <span class="token comment">// Required for TextField</span>
+</span><span class="code-line">    <span class="token class-name">DefaultCupertinoLocalizations</span><span class="token punctuation">.</span>delegate<span class="token punctuation">,</span> <span class="token comment">// Required for CupertinoTabBar</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  child<span class="token punctuation">:</span> child<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Advanced Locale Definition</h3>
+<p>If supporting languages with multiple scripts (e.g., Chinese), use <code>Locale.fromSubtags</code> to explicitly define the <code>scriptCode</code> and <code>countryCode</code> to prevent Flutter from resolving to an unexpected variant.</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line">supportedLocales<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token class-name">Locale</span><span class="token punctuation">.</span><span class="token function">fromSubtags</span><span class="token punctuation">(</span>languageCode<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'zh'</span></span><span class="token punctuation">,</span> scriptCode<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'Hans'</span></span><span class="token punctuation">,</span> countryCode<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'CN'</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token class-name">Locale</span><span class="token punctuation">.</span><span class="token function">fromSubtags</span><span class="token punctuation">(</span>languageCode<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'zh'</span></span><span class="token punctuation">,</span> scriptCode<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'Hant'</span></span><span class="token punctuation">,</span> countryCode<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'TW'</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span></code></pre></div>

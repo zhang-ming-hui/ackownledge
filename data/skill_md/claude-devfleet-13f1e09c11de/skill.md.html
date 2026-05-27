@@ -1,0 +1,126 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Claude DevFleet Multi-Agent Orchestration</h1>
+<h2>When to Use</h2>
+<p>Use this skill when you need to dispatch multiple Claude Code agents to work on coding tasks in parallel. Each agent runs in an isolated git worktree with full tooling.</p>
+<p>Requires a running Claude DevFleet instance connected via MCP:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">claude mcp <span class="token function">add</span> devfleet <span class="token parameter variable">--transport</span> http http://localhost:18801/mcp
+</span></code></pre>
+<h2>How It Works</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">User → "Build a REST API with auth and tests"
+</span><span class="code-line">  ↓
+</span><span class="code-line">plan_project(prompt) → project_id + mission DAG
+</span><span class="code-line">  ↓
+</span><span class="code-line">Show plan to user → get approval
+</span><span class="code-line">  ↓
+</span><span class="code-line">dispatch_mission(M1) → Agent 1 spawns in worktree
+</span><span class="code-line">  ↓
+</span><span class="code-line">M1 completes → auto-merge → auto-dispatch M2 (depends_on M1)
+</span><span class="code-line">  ↓
+</span><span class="code-line">M2 completes → auto-merge
+</span><span class="code-line">  ↓
+</span><span class="code-line">get_report(M2) → files_changed, what_done, errors, next_steps
+</span><span class="code-line">  ↓
+</span><span class="code-line">Report back to user
+</span></code></pre>
+<h3>Tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>plan_project(prompt)</code></td>
+<td>AI breaks a description into a project with chained missions</td>
+</tr>
+<tr>
+<td><code>create_project(name, path?, description?)</code></td>
+<td>Create a project manually, returns <code>project_id</code></td>
+</tr>
+<tr>
+<td><code>create_mission(project_id, title, prompt, depends_on?, auto_dispatch?)</code></td>
+<td>Add a mission. <code>depends_on</code> is a list of mission ID strings (e.g., <code>["abc-123"]</code>). Set <code>auto_dispatch=true</code> to auto-start when deps are met.</td>
+</tr>
+<tr>
+<td><code>dispatch_mission(mission_id, model?, max_turns?)</code></td>
+<td>Start an agent on a mission</td>
+</tr>
+<tr>
+<td><code>cancel_mission(mission_id)</code></td>
+<td>Stop a running agent</td>
+</tr>
+<tr>
+<td><code>wait_for_mission(mission_id, timeout_seconds?)</code></td>
+<td>Block until a mission completes (see note below)</td>
+</tr>
+<tr>
+<td><code>get_mission_status(mission_id)</code></td>
+<td>Check mission progress without blocking</td>
+</tr>
+<tr>
+<td><code>get_report(mission_id)</code></td>
+<td>Read structured report (files changed, tested, errors, next steps)</td>
+</tr>
+<tr>
+<td><code>get_dashboard()</code></td>
+<td>System overview: running agents, stats, recent activity</td>
+</tr>
+<tr>
+<td><code>list_projects()</code></td>
+<td>Browse all projects</td>
+</tr>
+<tr>
+<td><code>list_missions(project_id, status?)</code></td>
+<td>List missions in a project</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note on <code>wait_for_mission</code>:</strong> This blocks the conversation for up to <code>timeout_seconds</code> (default 600). For long-running missions, prefer polling with <code>get_mission_status</code> every 30–60 seconds instead, so the user sees progress updates.</p>
+</blockquote>
+<h3>Workflow: Plan → Dispatch → Monitor → Report</h3>
+<ol>
+<li><strong>Plan</strong>: Call <code>plan_project(prompt="...")</code> → returns <code>project_id</code> + list of missions with <code>depends_on</code> chains and <code>auto_dispatch=true</code>.</li>
+<li><strong>Show plan</strong>: Present mission titles, types, and dependency chain to the user.</li>
+<li><strong>Dispatch</strong>: Call <code>dispatch_mission(mission_id=&lt;first_mission_id&gt;)</code> on the root mission (empty <code>depends_on</code>). Remaining missions auto-dispatch as their dependencies complete (because <code>plan_project</code> sets <code>auto_dispatch=true</code> on them).</li>
+<li><strong>Monitor</strong>: Call <code>get_mission_status(mission_id=...)</code> or <code>get_dashboard()</code> to check progress.</li>
+<li><strong>Report</strong>: Call <code>get_report(mission_id=...)</code> when missions complete. Share highlights with the user.</li>
+</ol>
+<h3>Concurrency</h3>
+<p>DevFleet runs up to 3 concurrent agents by default (configurable via <code>DEVFLEET_MAX_AGENTS</code>). When all slots are full, missions with <code>auto_dispatch=true</code> queue in the mission watcher and dispatch automatically as slots free up. Check <code>get_dashboard()</code> for current slot usage.</p>
+<h2>Examples</h2>
+<h3>Full auto: plan and launch</h3>
+<ol>
+<li><code>plan_project(prompt="...")</code> → shows plan with missions and dependencies.</li>
+<li>Dispatch the first mission (the one with empty <code>depends_on</code>).</li>
+<li>Remaining missions auto-dispatch as dependencies resolve (they have <code>auto_dispatch=true</code>).</li>
+<li>Report back with project ID and mission count so the user knows what was launched.</li>
+<li>Poll with <code>get_mission_status</code> or <code>get_dashboard()</code> periodically until all missions reach a terminal state (<code>completed</code>, <code>failed</code>, or <code>cancelled</code>).</li>
+<li><code>get_report(mission_id=...)</code> for each terminal mission — summarize successes and call out failures with errors and next steps.</li>
+</ol>
+<h3>Manual: step-by-step control</h3>
+<ol>
+<li><code>create_project(name="My Project")</code> → returns <code>project_id</code>.</li>
+<li><code>create_mission(project_id=project_id, title="...", prompt="...", auto_dispatch=true)</code> for the first (root) mission → capture <code>root_mission_id</code>.
+<code>create_mission(project_id=project_id, title="...", prompt="...", auto_dispatch=true, depends_on=["&lt;root_mission_id&gt;"])</code> for each subsequent task.</li>
+<li><code>dispatch_mission(mission_id=...)</code> on the first mission to start the chain.</li>
+<li><code>get_report(mission_id=...)</code> when done.</li>
+</ol>
+<h3>Sequential with review</h3>
+<ol>
+<li><code>create_project(name="...")</code> → get <code>project_id</code>.</li>
+<li><code>create_mission(project_id=project_id, title="Implement feature", prompt="...")</code> → get <code>impl_mission_id</code>.</li>
+<li><code>dispatch_mission(mission_id=impl_mission_id)</code>, then poll with <code>get_mission_status</code> until complete.</li>
+<li><code>get_report(mission_id=impl_mission_id)</code> to review results.</li>
+<li><code>create_mission(project_id=project_id, title="Review", prompt="...", depends_on=[impl_mission_id], auto_dispatch=true)</code> — auto-starts since the dependency is already met.</li>
+</ol>
+<h2>Guidelines</h2>
+<ul>
+<li>Always confirm the plan with the user before dispatching, unless they said to go ahead.</li>
+<li>Include mission titles and IDs when reporting status.</li>
+<li>If a mission fails, read its report before retrying.</li>
+<li>Check <code>get_dashboard()</code> for agent slot availability before bulk dispatching.</li>
+<li>Mission dependencies form a DAG — do not create circular dependencies.</li>
+<li>Each agent runs in an isolated git worktree and auto-merges on completion. If a merge conflict occurs, the changes remain on the agent's worktree branch for manual resolution.</li>
+<li>When manually creating missions, always set <code>auto_dispatch=true</code> if you want them to trigger automatically when dependencies complete. Without this flag, missions stay in <code>draft</code> status.</li>
+</ul></div>

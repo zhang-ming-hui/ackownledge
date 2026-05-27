@@ -1,0 +1,331 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>sf-apex: Salesforce Apex Code Generation and Review</h1>
+<p>Use this skill when the user needs <strong>production Apex</strong>: new classes, triggers, selectors, services, async jobs, invocable methods, test classes, or evidence-based review of existing <code>.cls</code> / <code>.trigger</code> code.</p>
+<h2>When This Skill Owns the Task</h2>
+<p>Use <code>sf-apex</code> when the work involves:</p>
+<ul>
+<li>Apex class generation or refactoring</li>
+<li>trigger design and trigger-framework decisions</li>
+<li><code>@InvocableMethod</code>, Queueable, Batch, Schedulable, or test-class work</li>
+<li>review of bulkification, sharing, security, testing, or maintainability</li>
+</ul>
+<p>Delegate elsewhere when the user is:</p>
+<ul>
+<li>editing LWC JavaScript / HTML / CSS → <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-lwc/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-lwc</a></li>
+<li>building Flow XML or Flow orchestration → <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-flow/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-flow</a></li>
+<li>writing SOQL only → <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-soql/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-soql</a></li>
+<li>deploying or validating metadata to orgs → <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-deploy/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-deploy</a></li>
+</ul>
+<hr></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Required Context to Gather First</h2>
+<p>Ask for or infer:</p>
+<ul>
+<li>class type: trigger, service, selector, batch, queueable, schedulable, invocable, test</li>
+<li>target object(s) and business goal</li>
+<li>whether code is net-new, refactor, or fix</li>
+<li>org / API constraints if known</li>
+<li>expected test coverage or deployment target</li>
+</ul>
+<p>Before authoring, inspect the project shape:</p>
+<ul>
+<li>existing classes / triggers</li>
+<li>current trigger framework or handler pattern</li>
+<li>related tests, flows, and selectors</li>
+<li>whether TAF is already in use</li>
+</ul>
+<hr>
+<h2>Recommended Workflow</h2>
+<h3>1. Discover local architecture</h3>
+<p>Check for:</p>
+<ul>
+<li>existing trigger handlers / frameworks</li>
+<li>service-selector-domain conventions</li>
+<li>related tests and data factories</li>
+<li>invocable or async patterns already used in the repo</li>
+</ul>
+<h3>2. Choose the smallest correct pattern</h3>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Preferred pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>simple reusable logic</td>
+<td>service class</td>
+</tr>
+<tr>
+<td>query-heavy data access</td>
+<td>selector</td>
+</tr>
+<tr>
+<td>single object trigger behavior</td>
+<td>one trigger + handler / TAF action</td>
+</tr>
+<tr>
+<td>Flow needs complex logic</td>
+<td><code>@InvocableMethod</code></td>
+</tr>
+<tr>
+<td>background processing</td>
+<td>Queueable by default</td>
+</tr>
+<tr>
+<td>very large datasets</td>
+<td>Batch Apex or <code>Database.Cursor</code> patterns</td>
+</tr>
+<tr>
+<td>repeatable verification</td>
+<td>dedicated test class + test data factory</td>
+</tr>
+</tbody>
+</table>
+<h3>3. Author with guardrails</h3>
+<p>Generate code that is:</p>
+<ul>
+<li>bulk-safe</li>
+<li>sharing-aware</li>
+<li>CRUD/FLS-safe where applicable</li>
+<li>testable in isolation</li>
+<li>consistent with project naming and layering</li>
+</ul>
+<h3>4. Validate and score</h3>
+<p>Evaluate against the 150-point rubric before handoff.</p>
+<h3>5. Hand off deploy/test next steps</h3>
+<p>When org validation is needed, hand off to:</p>
+<ul>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-testing/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-testing</a> for test execution loops</li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-deploy/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-deploy</a> for deploy / dry-run / verification</li>
+</ul>
+<hr>
+<h2>Generation Guardrails</h2>
+<p>Never generate these without explicitly stopping and explaining the problem:</p>
+<table>
+<thead>
+<tr>
+<th>Anti-pattern</th>
+<th>Why it blocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SOQL in loops</td>
+<td>governor-limit failure</td>
+</tr>
+<tr>
+<td>DML in loops</td>
+<td>governor-limit failure</td>
+</tr>
+<tr>
+<td>missing sharing model</td>
+<td>security / data exposure risk</td>
+</tr>
+<tr>
+<td>hardcoded IDs</td>
+<td>deployment and portability failure</td>
+</tr>
+<tr>
+<td>empty <code>catch</code> blocks</td>
+<td>silent failure / poor observability</td>
+</tr>
+<tr>
+<td>string-built SOQL with user input</td>
+<td>injection risk</td>
+</tr>
+<tr>
+<td>tests without assertions</td>
+<td>false-positive test suite</td>
+</tr>
+</tbody>
+</table>
+<p>Default fix direction:</p>
+<ul>
+<li>query once, operate on collections</li>
+<li>use <code>with sharing</code> unless justified otherwise</li>
+<li>use bind variables and <code>WITH USER_MODE</code> where appropriate</li>
+<li>create assertions for positive, negative, and bulk cases</li>
+</ul>
+<p>See <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/anti-patterns.md" target="_blank" rel="ugc nofollow noopener">references/anti-patterns.md</a> and <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/security-guide.md" target="_blank" rel="ugc nofollow noopener">references/security-guide.md</a>.</p>
+<hr>
+<h2>High-Signal Build Rules</h2>
+<h3>Trigger architecture</h3>
+<ul>
+<li>Prefer <strong>one trigger per object</strong>.</li>
+<li>If TAF is already installed and used, extend it instead of inventing a second trigger pattern.</li>
+<li>Triggers should delegate logic; avoid heavy business logic directly in trigger bodies.</li>
+</ul>
+<h3>Async choice</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>standard async work</td>
+<td>Queueable</td>
+</tr>
+<tr>
+<td>very large record processing</td>
+<td>Batch Apex</td>
+</tr>
+<tr>
+<td>recurring schedule</td>
+<td>Scheduled Flow or Schedulable</td>
+</tr>
+<tr>
+<td>post-job cleanup</td>
+<td>Finalizer</td>
+</tr>
+<tr>
+<td>long-running Lightning callouts</td>
+<td><code>Continuation</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Testing minimums</h3>
+<p>Use the <strong>PNB</strong> pattern for every feature:</p>
+<ul>
+<li><strong>Positive</strong> path</li>
+<li><strong>Negative</strong> / error path</li>
+<li><strong>Bulk</strong> path (251+ records where relevant)</li>
+</ul>
+<h3>Modern Apex expectations</h3>
+<p>Prefer current idioms when available:</p>
+<ul>
+<li>safe navigation: <code>obj?.Field__c</code></li>
+<li>null coalescing: <code>value ?? fallback</code></li>
+<li><code>Assert.*</code> over legacy assertion style</li>
+<li><code>WITH USER_MODE</code> and explicit security handling where relevant</li>
+</ul>
+<hr>
+<h2>Output Format</h2>
+<p>When finishing, report in this order:</p>
+<ol>
+<li><strong>What was created or reviewed</strong></li>
+<li><strong>Files changed</strong></li>
+<li><strong>Key design decisions</strong></li>
+<li><strong>Risk / guardrail notes</strong></li>
+<li><strong>Test guidance</strong></li>
+<li><strong>Deployment guidance</strong></li>
+</ol>
+<p>Suggested shape:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Apex work: &lt;summary&gt;
+</span><span class="code-line">Files: &lt;paths&gt;
+</span><span class="code-line">Design: &lt;pattern / framework choices&gt;
+</span><span class="code-line">Risks: &lt;security, bulkification, async, dependency notes&gt;
+</span><span class="code-line">Tests: &lt;what to run / add&gt;
+</span><span class="code-line">Deploy: &lt;dry-run or next step&gt;
+</span></code></pre>
+<hr>
+<h2>LSP Validation Note</h2>
+<p>This skill supports an LSP-assisted authoring loop for <code>.cls</code> and <code>.trigger</code> files:</p>
+<ul>
+<li>syntax issues can be detected immediately after write/edit</li>
+<li>the skill can auto-fix common syntax errors in a short loop</li>
+<li>semantic quality still depends on the 150-point review rubric</li>
+</ul>
+<p>Full guide: <a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/troubleshooting.md#lsp-based-validation-auto-fix-loop" target="_blank" rel="ugc nofollow noopener">references/troubleshooting.md</a></p>
+<hr>
+<h2>Cross-Skill Integration</h2>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Delegate to</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>describe objects / fields first</td>
+<td><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-metadata/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-metadata</a></td>
+<td>avoid coding against wrong schema</td>
+</tr>
+<tr>
+<td>seed bulk or edge-case data</td>
+<td><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-data/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-data</a></td>
+<td>create realistic test datasets</td>
+</tr>
+<tr>
+<td>run Apex tests / fix failing tests</td>
+<td><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-testing/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-testing</a></td>
+<td>execute and iterate on failures</td>
+</tr>
+<tr>
+<td>deploy to org</td>
+<td><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-deploy/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-deploy</a></td>
+<td>validation and deployment orchestration</td>
+</tr>
+<tr>
+<td>build Flow that calls Apex</td>
+<td><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-flow/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-flow</a></td>
+<td>declarative orchestration</td>
+</tr>
+<tr>
+<td>build LWC that calls Apex</td>
+<td><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/../sf-lwc/SKILL.md" target="_blank" rel="ugc nofollow noopener">sf-lwc</a></td>
+<td>UI/controller integration</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Reference Map</h2>
+<h3>Start here</h3>
+<ul>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/patterns-deep-dive.md" target="_blank" rel="ugc nofollow noopener">references/patterns-deep-dive.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/security-guide.md" target="_blank" rel="ugc nofollow noopener">references/security-guide.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/bulkification-guide.md" target="_blank" rel="ugc nofollow noopener">references/bulkification-guide.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/testing-patterns.md" target="_blank" rel="ugc nofollow noopener">references/testing-patterns.md</a></li>
+</ul>
+<h3>High-signal checklists</h3>
+<ul>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/code-review-checklist.md" target="_blank" rel="ugc nofollow noopener">references/code-review-checklist.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/anti-patterns.md" target="_blank" rel="ugc nofollow noopener">references/anti-patterns.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/naming-conventions.md" target="_blank" rel="ugc nofollow noopener">references/naming-conventions.md</a></li>
+</ul>
+<h3>Specialized patterns</h3>
+<ul>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/trigger-actions-framework.md" target="_blank" rel="ugc nofollow noopener">references/trigger-actions-framework.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/automation-density-guide.md" target="_blank" rel="ugc nofollow noopener">references/automation-density-guide.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/flow-integration.md" target="_blank" rel="ugc nofollow noopener">references/flow-integration.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/triangle-pattern.md" target="_blank" rel="ugc nofollow noopener">references/triangle-pattern.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/design-patterns.md" target="_blank" rel="ugc nofollow noopener">references/design-patterns.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/solid-principles.md" target="_blank" rel="ugc nofollow noopener">references/solid-principles.md</a></li>
+</ul>
+<h3>Troubleshooting / validation</h3>
+<ul>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/troubleshooting.md" target="_blank" rel="ugc nofollow noopener">references/troubleshooting.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/llm-anti-patterns.md" target="_blank" rel="ugc nofollow noopener">references/llm-anti-patterns.md</a></li>
+<li><a href="https://github.com/jaganpro/sf-skills/blob/HEAD/skills/sf-apex/references/testing-guide.md" target="_blank" rel="ugc nofollow noopener">references/testing-guide.md</a></li>
+</ul>
+<hr>
+<h2>Score Guide</h2>
+<table>
+<thead>
+<tr>
+<th>Score</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>120+</td>
+<td>strong production-ready Apex</td>
+</tr>
+<tr>
+<td>90–119</td>
+<td>good implementation, review before deploy</td>
+</tr>
+<tr>
+<td>67–89</td>
+<td>acceptable but needs improvement</td>
+</tr>
+<tr>
+<td>&lt; 67</td>
+<td>block deployment</td>
+</tr>
+</tbody>
+</table></div>

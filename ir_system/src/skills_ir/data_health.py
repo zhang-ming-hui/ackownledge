@@ -1,4 +1,12 @@
-'''这是一个数据质量监控工具，通过分析数据集中的各种指标，生成一份健康报告，帮助发现数据问题并指导后续优化。'''
+"""IR 数据健康检查。
+
+该模块从共享数据集里提取结构质量信号，用于发现：
+- 关键字段缺失
+- 数值字段脏数据
+- repo URL 规范化问题
+- skill_name 重复问题
+"""
+
 from __future__ import annotations
 
 import json
@@ -23,8 +31,9 @@ IMPORTANT_FIELDS = [
     "github_stars_num",
 ]
 
-# 对仓库URL进行分类（分桶）
+
 def _repo_url_bucket(url: str) -> str:
+    """把仓库链接按是否规范、是否缺失分桶统计。"""
     if not url:
         return "missing"
     parsed = urlparse(url)
@@ -37,6 +46,7 @@ def _repo_url_bucket(url: str) -> str:
 
 
 def build_data_health_report(config: IRConfig) -> Dict:
+    """生成一份数据集健康报告，但不落盘。"""
     with config.paths.data_file.open("r", encoding="utf-8") as file:
         records = json.load(file)
 
@@ -49,22 +59,17 @@ def build_data_health_report(config: IRConfig) -> Dict:
     duplicate_skill_names = Counter()
 
     for record in records:
-        # 检查每个重要字段是否为空
         for field in IMPORTANT_FIELDS:
             value = record.get(field)
-            # 三种"空"的情况
             if value in (None, "", []):
                 missing_field_counts[field] += 1
-        
-        # 统计各字段的分布情况
+
         category_counts[str(record.get("category") or "missing")] += 1
         owner_counts[str(record.get("owner") or "missing")] += 1
         repo_counts[str(record.get("repo") or "missing")] += 1
-        # 统计同名技能
         duplicate_skill_names[str(record.get("skill_name") or "missing")] += 1
         repo_url_buckets[_repo_url_bucket(str(record.get("repo_url") or ""))] += 1
 
-        # 检测"有原始值但没有解析后数值"的情况
         weekly_installs = str(record.get("weekly_installs") or "")
         github_stars = str(record.get("github_stars") or "")
         if weekly_installs and record.get("weekly_installs_num") in (None, ""):
@@ -72,13 +77,12 @@ def build_data_health_report(config: IRConfig) -> Dict:
         if github_stars and record.get("github_stars_num") in (None, ""):
             dirty_numeric_samples["github_stars"].append(github_stars)
 
-    # 找出重复超过1次的（最多20个样例）
     duplicate_name_examples = [
         {"skill_name": name, "count": count}
         for name, count in duplicate_skill_names.most_common()
         if count > 1
     ][:20]
- 
+
     report = {
         "generated_at": utc_now_iso(),
         "dataset_path": str(config.paths.data_file),
@@ -106,6 +110,7 @@ def build_data_health_report(config: IRConfig) -> Dict:
 
 
 def save_data_health_report(config: IRConfig) -> Dict:
+    """生成并保存数据健康报告。"""
     report = build_data_health_report(config)
     save_json_atomic(config.paths.data_health_report_file, report)
     return report

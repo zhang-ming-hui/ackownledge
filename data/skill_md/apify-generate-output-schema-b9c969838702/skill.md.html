@@ -1,0 +1,446 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Generate Actor output schema</h1>
+<p>You are generating output schema files for an Apify Actor. The output schema tells Apify Console how to display run results. You will analyze the Actor's source code, create <code>dataset_schema.json</code>, <code>output_schema.json</code>, and <code>key_value_store_schema.json</code> (if the Actor uses key-value store), and update <code>actor.json</code>.</p>
+<h2>Core principles</h2>
+<ul>
+<li><strong>Analyze code first</strong>: Read the Actor's source to understand what data it actually pushes to the dataset — never guess</li>
+<li><strong>Every field is nullable</strong>: APIs and websites are unpredictable — always set <code>"nullable": true</code></li>
+<li><strong>Anonymize examples</strong>: Never use real user IDs, usernames, or personal data in examples</li>
+<li><strong>Verify against code</strong>: If TypeScript types exist, cross-check the schema against both the type definition AND the code that produces the values</li>
+<li><strong>Reuse existing patterns</strong>: Before generating schemas, check if other Actors in the same repository already have output schemas — match their structure, naming conventions, description style, and formatting</li>
+<li><strong>Don't reinvent the wheel</strong>: Reuse existing type definitions, interfaces, and utilities from the codebase instead of creating duplicate definitions</li>
+</ul>
+<hr>
+<h2>Phase 1: Discover Actor structure</h2>
+<p><strong>Goal</strong>: Locate the Actor and understand its output</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Initial request: $ARGUMENTS</p>
+<p><strong>Actions</strong>:</p>
+<ol>
+<li>Create todo list with all phases</li>
+<li>Find the <code>.actor/</code> directory containing <code>actor.json</code></li>
+<li>Read <code>actor.json</code> to understand the Actor's configuration</li>
+<li>Check if <code>dataset_schema.json</code>, <code>output_schema.json</code>, and <code>key_value_store_schema.json</code> already exist</li>
+<li><strong>Search for existing schemas in the repository</strong>: Look for other <code>.actor/</code> directories or schema files (e.g., <code>**/dataset_schema.json</code>, <code>**/output_schema.json</code>, <code>**/key_value_store_schema.json</code>) to learn the repo's conventions — match their description style, field naming, example formatting, and overall structure</li>
+<li>Find all places where data is pushed to the dataset:
+<ul>
+<li><strong>JavaScript/TypeScript</strong>: Search for <code>Actor.pushData(</code>, <code>dataset.pushData(</code>, <code>Dataset.pushData(</code></li>
+<li><strong>Python</strong>: Search for <code>Actor.push_data(</code>, <code>dataset.push_data(</code>, <code>Dataset.push_data(</code></li>
+</ul>
+</li>
+<li>Find all places where data is stored in the key-value store:
+<ul>
+<li><strong>JavaScript/TypeScript</strong>: Search for <code>Actor.setValue(</code>, <code>keyValueStore.setValue(</code>, <code>KeyValueStore.setValue(</code></li>
+<li><strong>Python</strong>: Search for <code>Actor.set_value(</code>, <code>key_value_store.set_value(</code>, <code>KeyValueStore.set_value(</code></li>
+</ul>
+</li>
+<li>Find output type definitions — <strong>reuse them directly</strong> instead of recreating from scratch:
+<ul>
+<li><strong>TypeScript</strong>: Look for output type interfaces/types (e.g., in <code>src/types/</code>, <code>src/types/output.ts</code>). If an interface or type already defines the output shape, derive the schema fields from it — do not create a parallel definition</li>
+<li><strong>Python</strong>: Look for TypedDict, dataclass, or Pydantic model definitions. Use the existing field names, types, and docstrings as the source of truth</li>
+</ul>
+</li>
+<li>Check for existing shared schema utilities or helper functions in the codebase that handle schema generation or validation — reuse them rather than creating new logic</li>
+<li>If inline <code>storages.dataset</code> or <code>storages.keyValueStore</code> config exists in <code>actor.json</code>, note it for migration</li>
+</ol>
+<p>Present findings to user: list all discovered dataset output fields, key-value store keys, their types, and where they come from.</p>
+<hr>
+<h2>Phase 2: Generate <code>dataset_schema.json</code></h2>
+<p><strong>Goal</strong>: Create a complete dataset schema with field definitions and display views</p>
+<h3>File structure</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"actorSpecification"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"fields"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"$schema"</span><span class="token operator">:</span> <span class="token string">"http://json-schema.org/draft-07/schema#"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// ALL output fields here — every field the Actor can produce,</span>
+</span><span class="code-line">            <span class="token comment">// not just the ones shown in the overview view</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"required"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"additionalProperties"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"views"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"overview"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Overview"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Most important fields at a glance"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"transformation"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token property">"fields"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">                    <span class="token comment">// 8-12 most important field names</span>
+</span><span class="code-line">                <span class="token punctuation">]</span>
+</span><span class="code-line">            <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"display"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token property">"component"</span><span class="token operator">:</span> <span class="token string">"table"</span><span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token comment">// Display config for each overview field</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Consistency with existing schemas</h3>
+<p>If existing output schemas were found in the repository during Phase 1 (step 5), follow their conventions:</p>
+<ul>
+<li>Match the <strong>description writing style</strong> (sentence case vs. lowercase, period vs. no period, etc.)</li>
+<li>Match the <strong>field naming convention</strong> (camelCase vs. snake_case) — this must also match the actual keys produced by the Actor code</li>
+<li>Match the <strong>example value style</strong> (e.g., date formats, URL patterns, placeholder names)</li>
+<li>Match the <strong>view structure</strong> (number of fields in overview, display format choices)</li>
+<li>Match the <strong>JSON formatting</strong> (indentation, property ordering, spacing) — all schemas in the same repository must use identical formatting, including standalone Actors</li>
+</ul>
+<p>When the Actor code already has well-defined TypeScript interfaces or Python type classes, derive fields directly from those types rather than re-analyzing pushData/push_data calls from scratch. The type definition is the canonical source.</p>
+<h3>Hard rules (no exceptions)</h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>All fields in <code>properties</code></strong></td>
+<td>The <code>fields.properties</code> object must contain <strong>every</strong> field the Actor can output, not just the fields shown in the overview view. The views section selects a subset for display — the <code>properties</code> section must be the complete superset</td>
+</tr>
+<tr>
+<td><code>"nullable": true</code></td>
+<td>On <strong>every</strong> field — APIs are unpredictable</td>
+</tr>
+<tr>
+<td><code>"additionalProperties": true</code></td>
+<td>On the <strong>top-level <code>fields</code> object</strong> AND on <strong>every nested object</strong> within <code>properties</code>. This is the most commonly missed rule — it must appear at both levels</td>
+</tr>
+<tr>
+<td><code>"required": []</code></td>
+<td>Always empty array — on the <strong>top-level <code>fields</code> object</strong> AND on <strong>every nested object</strong> within <code>properties</code></td>
+</tr>
+<tr>
+<td>Anonymized examples</td>
+<td>No real user IDs, usernames, or content</td>
+</tr>
+<tr>
+<td><code>"type"</code> required with <code>"nullable"</code></td>
+<td>AJV rejects <code>nullable</code> without a <code>type</code> on the same field</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Warning — most common mistakes</strong>:</p>
+<ol>
+<li>Only including fields that appear in the overview view. The <code>fields.properties</code> must list ALL output fields, even if they are not in the <code>views</code> section.</li>
+<li>Only adding <code>"required": []</code> and <code>"additionalProperties": true</code> on nested object-type properties but forgetting them on the top-level <code>fields</code> object. Both levels need them.</li>
+</ol>
+</blockquote>
+<blockquote>
+<p><strong>Note</strong>: <code>nullable</code> is an Apify-specific extension to JSON Schema draft-07. It is intentional and correct.</p>
+</blockquote>
+<h3>Field type patterns</h3>
+<p><strong>String field:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"title"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Title of the scraped item"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token string">"Example Item Title"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Number field:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"viewCount"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"number"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Number of views"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token number">15000</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Boolean field:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"isVerified"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"boolean"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Whether the account is verified"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Array field:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"hashtags"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"array"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Hashtags associated with the item"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"items"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"#example"</span><span class="token punctuation">,</span> <span class="token string">"#demo"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Nested object field:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"authorInfo"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Information about the author"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"name"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span> <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"url"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span> <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"required"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"additionalProperties"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Example Author"</span><span class="token punctuation">,</span> <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://example.com/author"</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Enum field:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"contentType"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Type of content"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"enum"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"article"</span><span class="token punctuation">,</span> <span class="token string">"video"</span><span class="token punctuation">,</span> <span class="token string">"image"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token string">"article"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Union type (e.g., TypeScript <code>ObjectType | string</code>):</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"metadata"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"object"</span><span class="token punctuation">,</span> <span class="token string">"string"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Structured metadata object, or error string if unavailable"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"nullable"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"example"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"key"</span><span class="token operator">:</span> <span class="token string">"value"</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Anonymized example values</h3>
+<p>Use realistic but generic values. Follow platform ID format conventions:</p>
+<table>
+<thead>
+<tr>
+<th>Field type</th>
+<th>Example approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IDs</td>
+<td>Match platform format and length (e.g., 11 chars for YouTube video IDs)</td>
+</tr>
+<tr>
+<td>Usernames</td>
+<td><code>"exampleuser"</code>, <code>"sampleuser123"</code></td>
+</tr>
+<tr>
+<td>Display names</td>
+<td><code>"Example Channel"</code>, <code>"Sample Author"</code></td>
+</tr>
+<tr>
+<td>URLs</td>
+<td>Use platform's standard URL format with fake IDs</td>
+</tr>
+<tr>
+<td>Dates</td>
+<td><code>"2025-01-15T12:00:00.000Z"</code> (ISO 8601)</td>
+</tr>
+<tr>
+<td>Text content</td>
+<td>Generic descriptive text, e.g., <code>"This is an example description."</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Views section</h3>
+<ul>
+<li><code>transformation.fields</code>: List 8–12 most important field names (order = column order in UI)</li>
+<li><code>display.properties</code>: One entry per overview field with <code>label</code> and <code>format</code></li>
+<li>Available formats: <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"link"</code>, <code>"boolean"</code>, <code>"image"</code>, <code>"array"</code>, <code>"object"</code></li>
+</ul>
+<p>Pick fields that give users the most useful at-a-glance summary of the data.</p>
+<hr>
+<h2>Phase 3: Generate <code>key_value_store_schema.json</code> (if applicable)</h2>
+<p><strong>Goal</strong>: Define key-value store collections if the Actor stores data in the key-value store</p>
+<blockquote>
+<p><strong>Skip this phase</strong> if no <code>Actor.setValue()</code> / <code>Actor.set_value()</code> calls were found in Phase 1 (beyond the default <code>INPUT</code> key).</p>
+</blockquote>
+<h3>File structure</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"actorKeyValueStoreSchemaVersion"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"&lt;Descriptive title — what the key-value store contains&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"&lt;One sentence describing the stored data&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"collections"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"&lt;collectionName&gt;"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"&lt;Human-readable title&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"&lt;What this collection contains&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"keyPrefix"</span><span class="token operator">:</span> <span class="token string">"&lt;prefix-&gt;"</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>How to identify collections</h3>
+<p>Group the discovered <code>setValue</code> / <code>set_value</code> calls by key pattern:</p>
+<ol>
+<li><strong>Fixed keys</strong> (e.g., <code>"RESULTS"</code>, <code>"summary"</code>) — use <code>"key"</code> (exact match)</li>
+<li><strong>Dynamic keys with a prefix</strong> (e.g., <code>"screenshot-${id}"</code>, <code>f"image-{name}"</code>) — use <code>"keyPrefix"</code></li>
+</ol>
+<p>Each group becomes a collection.</p>
+<h3>Collection properties</h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>title</code></td>
+<td>Yes</td>
+<td>Shown in UI tabs</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>No</td>
+<td>Shown in UI tooltips</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>Conditional</td>
+<td>Exact key for single-key collections (use <code>key</code> OR <code>keyPrefix</code>, not both)</td>
+</tr>
+<tr>
+<td><code>keyPrefix</code></td>
+<td>Conditional</td>
+<td>Prefix for multi-key collections (use <code>key</code> OR <code>keyPrefix</code>, not both)</td>
+</tr>
+<tr>
+<td><code>contentTypes</code></td>
+<td>No</td>
+<td>Restrict allowed MIME types (e.g., <code>["image/jpeg"]</code>, <code>["application/json"]</code>)</td>
+</tr>
+<tr>
+<td><code>jsonSchema</code></td>
+<td>No</td>
+<td>JSON Schema draft-07 for validating <code>application/json</code> content</td>
+</tr>
+</tbody>
+</table>
+<h3>Examples</h3>
+<p><strong>Single file output (e.g., a report):</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"actorKeyValueStoreSchemaVersion"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Analysis Results"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Key-value store containing analysis output"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"collections"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"report"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Report"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Final analysis report"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"key"</span><span class="token operator">:</span> <span class="token string">"REPORT"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"contentTypes"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"application/json"</span><span class="token punctuation">]</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Multiple files with prefix (e.g., screenshots):</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"actorKeyValueStoreSchemaVersion"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Scraped Files"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Key-value store containing downloaded files and screenshots"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"collections"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"screenshots"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Screenshots"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Page screenshots captured during scraping"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"keyPrefix"</span><span class="token operator">:</span> <span class="token string">"screenshot-"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"contentTypes"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"image/png"</span><span class="token punctuation">,</span> <span class="token string">"image/jpeg"</span><span class="token punctuation">]</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"documents"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Documents"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Downloaded document files"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"keyPrefix"</span><span class="token operator">:</span> <span class="token string">"doc-"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"contentTypes"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"application/pdf"</span><span class="token punctuation">,</span> <span class="token string">"text/html"</span><span class="token punctuation">]</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Phase 4: Generate <code>output_schema.json</code></h2>
+<p><strong>Goal</strong>: Create the output schema that tells Apify Console where to find results</p>
+<p>For most Actors that push data to a dataset, this is a minimal file:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"actorOutputSchemaVersion"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"&lt;Descriptive title — what the Actor returns&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"&lt;One sentence describing the output data&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"dataset"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Results"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Dataset containing all scraped data"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token property">"template"</span><span class="token operator">:</span> <span class="token string">"{{links.apiDefaultDatasetUrl}}/items"</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<blockquote>
+<p><strong>Critical</strong>: Each property entry <strong>must</strong> include <code>"type": "string"</code> — this is an Apify-specific convention. The Apify meta-validator rejects properties without it (and rejects <code>"type": "object"</code> — only <code>"string"</code> is valid here).</p>
+</blockquote>
+<p>If <code>key_value_store_schema.json</code> was generated in Phase 3, add a second property:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"files"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Files"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Key-value store containing downloaded files"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"template"</span><span class="token operator">:</span> <span class="token string">"{{links.apiDefaultKeyValueStoreUrl}}/keys"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Available template variables</h3>
+<ul>
+<li><code>{{links.apiDefaultDatasetUrl}}</code> — API URL of default dataset</li>
+<li><code>{{links.apiDefaultKeyValueStoreUrl}}</code> — API URL of default key-value store</li>
+<li><code>{{links.publicRunUrl}}</code> — Public run URL</li>
+<li><code>{{links.consoleRunUrl}}</code> — Console run URL</li>
+<li><code>{{links.apiRunUrl}}</code> — API run URL</li>
+<li><code>{{links.containerRunUrl}}</code> — URL of webserver running inside the run</li>
+<li><code>{{run.defaultDatasetId}}</code> — ID of the default dataset</li>
+<li><code>{{run.defaultKeyValueStoreId}}</code> — ID of the default key-value store</li>
+</ul>
+<hr>
+<h2>Phase 5: Update <code>actor.json</code></h2>
+<p><strong>Goal</strong>: Wire the schema files into the Actor configuration</p>
+<p><strong>Actions</strong>:</p>
+<ol>
+<li>Read the current <code>actor.json</code></li>
+<li>Add or update the <code>storages.dataset</code> reference:
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"storages"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"dataset"</span><span class="token operator">:</span> <span class="token string">"./dataset_schema.json"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+</li>
+<li>If <code>key_value_store_schema.json</code> was generated, add the reference:
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"storages"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"dataset"</span><span class="token operator">:</span> <span class="token string">"./dataset_schema.json"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"keyValueStore"</span><span class="token operator">:</span> <span class="token string">"./key_value_store_schema.json"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+</li>
+<li>Add or update the <code>output</code> reference:
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token property">"output"</span><span class="token operator">:</span> <span class="token string">"./output_schema.json"</span>
+</span></code></pre>
+</li>
+<li>If <code>actor.json</code> had inline <code>storages.dataset</code> or <code>storages.keyValueStore</code> objects (not string paths), migrate their content into the respective schema files and replace the inline objects with file path strings</li>
+</ol>
+<hr>
+<h2>Phase 6: Review and validate</h2>
+<p><strong>Goal</strong>: Ensure correctness and completeness</p>
+<p><strong>Checklist</strong>:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Every</strong> output field from the source code is in <code>dataset_schema.json</code> <code>fields.properties</code> — not just the overview view fields but ALL fields the Actor can produce</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Every field has <code>"nullable": true</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> The <strong>top-level <code>fields</code> object</strong> has both <code>"additionalProperties": true</code> and <code>"required": []</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Every <strong>nested object</strong> within <code>properties</code> also has <code>"additionalProperties": true</code> and <code>"required": []</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Every field has a <code>"description"</code> and an <code>"example"</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All example values are anonymized</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>"type"</code> is present on every field that has <code>"nullable"</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Views list 8–12 most useful fields with correct display formats</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>output_schema.json</code> has <code>"type": "string"</code> on every property</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> If key-value store is used: <code>key_value_store_schema.json</code> has collections matching all <code>setValue</code>/<code>set_value</code> calls</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> If key-value store is used: each collection uses either <code>key</code> or <code>keyPrefix</code> (not both)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>actor.json</code> references all generated schema files</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Schema field names match the actual keys in the code (camelCase/snake_case consistency)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> If existing schemas were found in the repo, the new schema follows their conventions (description style, example format, view structure)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Schema fields are derived from existing type definitions (interfaces, TypedDicts, dataclasses) where available — no duplicated or divergent field definitions</li>
+</ul>
+<p>Present the generated schemas to the user for review before writing them.</p>
+<hr>
+<h2>Phase 7: Summary</h2>
+<p><strong>Goal</strong>: Document what was created</p>
+<p>Report:</p>
+<ul>
+<li>Files created or updated</li>
+<li>Number of fields in the dataset schema</li>
+<li>Number of collections in the key-value store schema (if generated)</li>
+<li>Fields selected for the overview view</li>
+<li>Any fields that need user clarification (ambiguous types, unclear nullability)</li>
+<li>Suggested next steps (test locally with <code>apify run</code>, verify output tab in Console)</li>
+</ul></div>

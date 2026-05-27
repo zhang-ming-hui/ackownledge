@@ -1,0 +1,399 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>App Clips</h1>
+<p>Lightweight, instantly-available versions of your iOS app for in-the-moment experiences or demos. Targets iOS 26+ / Swift 6.3 unless noted.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#app-clip-target-setup" target="_blank" rel="ugc nofollow noopener">App Clip Target Setup</a></li>
+<li><a href="#invocation-url-handling" target="_blank" rel="ugc nofollow noopener">Invocation URL Handling</a></li>
+<li><a href="#app-clip-experience-configuration" target="_blank" rel="ugc nofollow noopener">App Clip Experience Configuration</a></li>
+<li><a href="#size-limits" target="_blank" rel="ugc nofollow noopener">Size Limits</a></li>
+<li><a href="#invocation-methods" target="_blank" rel="ugc nofollow noopener">Invocation Methods</a></li>
+<li><a href="#data-migration-to-full-app" target="_blank" rel="ugc nofollow noopener">Data Migration to Full App</a></li>
+<li><a href="#skoverlay-for-full-app-promotion" target="_blank" rel="ugc nofollow noopener">SKOverlay for Full App Promotion</a></li>
+<li><a href="#location-confirmation" target="_blank" rel="ugc nofollow noopener">Location Confirmation</a></li>
+<li><a href="#lifecycle-and-ephemeral-nature" target="_blank" rel="ugc nofollow noopener">Lifecycle and Ephemeral Nature</a></li>
+<li><a href="#capabilities-and-limitations" target="_blank" rel="ugc nofollow noopener">Capabilities and Limitations</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>App Clip Target Setup</h2>
+<p>An App Clip is a <strong>separate target</strong> in the same Xcode project as your full app:</p>
+<ol>
+<li><strong>File → New → Target → App Clip</strong> — Xcode creates the target with the <code>com.apple.developer.on-demand-install-capable</code> entitlement and a <code>Parent Application Identifiers</code> entitlement linking back to the full app.</li>
+<li>The App Clip bundle ID <strong>must</strong> be a suffix of the full app's: <code>com.example.MyApp.Clip</code>.</li>
+<li>Xcode adds an <strong>Embed App Clip</strong> build phase to the full app target automatically.</li>
+</ol>
+<h3>Share code between targets</h3>
+<p>Use Swift packages or shared source files. Add files to <strong>both</strong> targets, or use the <code>APPCLIP</code> active compilation condition:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// In App Clip target Build Settings → Active Compilation Conditions: APPCLIP</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token directive property"><span class="token directive-name">#if</span> <span class="token operator">!</span>APPCLIP</span>
+</span><span class="code-line"><span class="token comment">// Full-app-only code (e.g., background tasks, App Intents)</span>
+</span><span class="code-line"><span class="token directive property"><span class="token directive-name">#else</span></span>
+</span><span class="code-line"><span class="token comment">// App Clip specific code</span>
+</span><span class="code-line"><span class="token directive property"><span class="token directive-name">#endif</span></span>
+</span></code></pre>
+<p>Prefer local Swift packages for shared modules — add the package as a dependency of both targets.</p>
+<h3>Shared asset catalogs</h3>
+<p>Create a shared asset catalog included in both targets to avoid duplicating images and colors.</p>
+<h2>Invocation URL Handling</h2>
+<p>App Clips receive an <code>NSUserActivity</code> of type <code>NSUserActivityTypeBrowsingWeb</code> on launch. Handle it with <code>onContinueUserActivity</code>:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token attribute atrule">@main</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">DonutShopClip</span><span class="token punctuation">:</span> <span class="token class-name">App</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">Scene</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">WindowGroup</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">ContentView</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">.</span><span class="token function">onContinueUserActivity</span><span class="token punctuation">(</span>
+</span><span class="code-line">                    <span class="token class-name">NSUserActivityTypeBrowsingWeb</span>
+</span><span class="code-line">                <span class="token punctuation">)</span> <span class="token punctuation">{</span> activity <span class="token keyword">in</span>
+</span><span class="code-line">                    <span class="token function">handleInvocation</span><span class="token punctuation">(</span>activity<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">func</span> <span class="token function-definition function">handleInvocation</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> activity<span class="token punctuation">:</span> <span class="token class-name">NSUserActivity</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> url <span class="token operator">=</span> activity<span class="token punctuation">.</span>webpageURL<span class="token punctuation">,</span>
+</span><span class="code-line">              <span class="token keyword">let</span> components <span class="token operator">=</span> <span class="token class-name">URLComponents</span><span class="token punctuation">(</span>url<span class="token punctuation">:</span> url<span class="token punctuation">,</span> resolvingAgainstBaseURL<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Extract path/query to determine context</span>
+</span><span class="code-line">        <span class="token keyword">let</span> locationID <span class="token operator">=</span> components<span class="token punctuation">.</span>queryItems<span class="token operator">?</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">first</span><span class="token punctuation">(</span><span class="token keyword">where</span><span class="token punctuation">:</span> <span class="token punctuation">{</span> <span class="token short-argument">$0</span><span class="token punctuation">.</span>name <span class="token operator">==</span> <span class="token string-literal"><span class="token string">"location"</span></span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token operator">?</span><span class="token punctuation">.</span>value
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Update UI for this location</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>For UIKit scene-based apps, implement <code>scene(_:willConnectTo:options:)</code> for cold launch and <code>scene(_:continue:)</code> for warm launch.</p>
+<p><strong>Key rule:</strong> The full app <strong>must</strong> handle all invocation URLs identically — when a user installs the full app, it replaces the App Clip and receives all future invocations.</p>
+<h2>App Clip Experience Configuration</h2>
+<p>Configure experiences in <strong>App Store Connect</strong> after uploading a build containing the App Clip.</p>
+<h3>Default App Clip experience (required)</h3>
+<ul>
+<li>Provide: header image, subtitle (≤56 chars), call-to-action verb</li>
+<li>App Store Connect generates a <strong>default App Clip link</strong>: <code>https://appclip.apple.com/id?=&lt;bundle_id&gt;&amp;key=value</code></li>
+<li>Supports: QR codes, NFC tags, Messages, Spotlight, other apps</li>
+</ul>
+<h3>Demo App Clip link</h3>
+<ul>
+<li>Auto-generated by App Store Connect for demo versions of your app</li>
+<li>Supports <strong>all invocations</strong> including physical (App Clip Codes, NFC, QR)</li>
+<li>Allows larger binary size (up to 100 MB uncompressed)</li>
+<li>Cannot contain URL parameters</li>
+</ul>
+<h3>Advanced App Clip experiences (optional)</h3>
+<ul>
+<li>Required for: Maps integration, location association, App Clip Codes, per-location card imagery</li>
+<li>Each experience has its own invocation URL, header image, and metadata</li>
+<li>URL <strong>prefix matching</strong> lets one registered URL cover many sub-paths</li>
+<li>Use the App Store Connect API to manage large numbers of experiences programmatically</li>
+</ul>
+<h3>Associated domains</h3>
+<p>For custom URLs (not the default Apple-generated link), add entries to the Associated Domains entitlement and host an AASA file:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">appclips:example.com
+</span></code></pre>
+<h2>Size Limits</h2>
+<p>App Clip binaries must stay within strict uncompressed size limits (measured via App Thinning Size Report):</p>
+<table>
+<thead>
+<tr>
+<th>iOS Version</th>
+<th>Maximum Uncompressed Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iOS 15 and earlier</td>
+<td>10 MB</td>
+</tr>
+<tr>
+<td>iOS 16</td>
+<td>15 MB</td>
+</tr>
+<tr>
+<td>iOS 17+ (digital invocations only)</td>
+<td>100 MB</td>
+</tr>
+<tr>
+<td>iOS 17+ (via demo link, all invocations)</td>
+<td>100 MB</td>
+</tr>
+</tbody>
+</table>
+<p>The 100 MB limit on iOS 17+ for non-demo links requires: digital-only invocations, no physical invocation support (no App Clip Codes / NFC / QR), and the App Clip must not support iOS 16 or earlier.</p>
+<p><strong>Measure size:</strong> Archive the app → Distribute → Export as Ad Hoc/Development with App Thinning → check <code>App Thinning Size Report.txt</code>.</p>
+<p>Use Background Assets to download additional content post-launch (e.g., game levels) if needed. App Clip downloads cannot use <code>isEssential</code>.</p>
+<h2>Invocation Methods</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Requirements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>App Clip Codes</strong></td>
+<td>Advanced experience or demo link; NFC-integrated or scan-only</td>
+</tr>
+<tr>
+<td><strong>NFC tags</strong></td>
+<td>Encode invocation URL in NDEF payload</td>
+</tr>
+<tr>
+<td><strong>QR codes</strong></td>
+<td>Encode invocation URL; works with default or advanced experience</td>
+</tr>
+<tr>
+<td><strong>Safari Smart Banners</strong></td>
+<td>Associate App Clip with website; add <code>&lt;meta&gt;</code> tag</td>
+</tr>
+<tr>
+<td><strong>Maps</strong></td>
+<td>Advanced experience with place association</td>
+</tr>
+<tr>
+<td><strong>Messages</strong></td>
+<td>Share invocation URL as text; limited preview with demo links</td>
+</tr>
+<tr>
+<td><strong>Siri Suggestions</strong></td>
+<td>Location-based; requires advanced experience for location suggestions</td>
+</tr>
+<tr>
+<td><strong>Other apps</strong></td>
+<td>iOS 17+; use Link Presentation or <code>UIApplication.open(_:)</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Safari Smart App Banner</h3>
+<p>Add this meta tag to your website to show the App Clip banner:</p>
+<pre class="language-html"><code class="language-html code-highlight"><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>apple-itunes-app<span class="token punctuation">"</span></span>
+</span></span><span class="code-line"><span class="token tag">      <span class="token attr-name">content</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>app-id=YOUR_APP_ID, app-clip-bundle-id=com.example.MyApp.Clip,
+</span></span></span><span class="code-line"><span class="token tag"><span class="token attr-value">               app-clip-display=card<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<h2>Data Migration to Full App</h2>
+<p>When a user installs the full app, it replaces the App Clip. Use a <strong>shared App Group container</strong> to migrate data:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// In both targets: add App Groups capability with the same group ID</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// App Clip — write data</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">saveOrderHistory</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> orders<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">Order</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> containerURL <span class="token operator">=</span> <span class="token class-name">FileManager</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span><span class="token function">containerURL</span><span class="token punctuation">(</span>
+</span><span class="code-line">        forSecurityApplicationGroupIdentifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"group.com.example.myapp.shared"</span></span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> data <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">JSONEncoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">encode</span><span class="token punctuation">(</span>orders<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> fileURL <span class="token operator">=</span> containerURL<span class="token punctuation">.</span><span class="token function">appendingPathComponent</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"orders.json"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">try</span> data<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>to<span class="token punctuation">:</span> fileURL<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Full app — read migrated data</span>
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">loadMigratedOrders</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token punctuation">[</span><span class="token class-name">Order</span><span class="token punctuation">]</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> containerURL <span class="token operator">=</span> <span class="token class-name">FileManager</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span><span class="token function">containerURL</span><span class="token punctuation">(</span>
+</span><span class="code-line">        forSecurityApplicationGroupIdentifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"group.com.example.myapp.shared"</span></span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> fileURL <span class="token operator">=</span> containerURL<span class="token punctuation">.</span><span class="token function">appendingPathComponent</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"orders.json"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token class-name">FileManager</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span><span class="token function">fileExists</span><span class="token punctuation">(</span>atPath<span class="token punctuation">:</span> fileURL<span class="token punctuation">.</span>path<span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">let</span> data <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">Data</span><span class="token punctuation">(</span>contentsOf<span class="token punctuation">:</span> fileURL<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token class-name">JSONDecoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">decode</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token class-name">Order</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">,</span> from<span class="token punctuation">:</span> data<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Shared UserDefaults</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Write (App Clip)</span>
+</span><span class="code-line"><span class="token keyword">let</span> shared <span class="token operator">=</span> <span class="token class-name">UserDefaults</span><span class="token punctuation">(</span>suiteName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"group.com.example.myapp.shared"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">shared<span class="token operator">?</span><span class="token punctuation">.</span><span class="token keyword">set</span><span class="token punctuation">(</span>userToken<span class="token punctuation">,</span> forKey<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"authToken"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Read (Full app)</span>
+</span><span class="code-line"><span class="token keyword">let</span> shared <span class="token operator">=</span> <span class="token class-name">UserDefaults</span><span class="token punctuation">(</span>suiteName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"group.com.example.myapp.shared"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> token <span class="token operator">=</span> shared<span class="token operator">?</span><span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span>forKey<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"authToken"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Keychain sharing</h3>
+<p>Starting iOS 15.4, App Clip keychain items are accessible to the corresponding full app via the <code>parent-application-identifiers</code> and <code>associated-appclip-app-identifiers</code> entitlements. Use distinct <code>kSecAttrLabel</code> values to distinguish App Clip vs. full app entries.</p>
+<h3>Sign in with Apple</h3>
+<p>Store the <code>ASAuthorizationAppleIDCredential.user</code> in the shared container so the full app can silently verify without re-prompting login.</p>
+<h2>SKOverlay for Full App Promotion</h2>
+<p>Display an overlay recommending the full app from within the App Clip:</p>
+<h3>SwiftUI</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">OrderCompleteView</span><span class="token punctuation">:</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token attribute atrule">@State</span> <span class="token keyword">private</span> <span class="token keyword">var</span> showOverlay <span class="token operator">=</span> <span class="token boolean">false</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">VStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Order placed!"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token class-name">Button</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Get the full app"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span> showOverlay <span class="token operator">=</span> <span class="token boolean">true</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">appStoreOverlay</span><span class="token punctuation">(</span>isPresented<span class="token punctuation">:</span> $showOverlay<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">SKOverlay</span><span class="token punctuation">.</span><span class="token class-name">AppClipConfiguration</span><span class="token punctuation">(</span>position<span class="token punctuation">:</span> <span class="token punctuation">.</span>bottom<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>UIKit</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">displayOverlay</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> scene <span class="token operator">=</span> view<span class="token punctuation">.</span>window<span class="token operator">?</span><span class="token punctuation">.</span>windowScene <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> config <span class="token operator">=</span> <span class="token class-name">SKOverlay</span><span class="token punctuation">.</span><span class="token class-name">AppClipConfiguration</span><span class="token punctuation">(</span>position<span class="token punctuation">:</span> <span class="token punctuation">.</span>bottom<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> overlay <span class="token operator">=</span> <span class="token class-name">SKOverlay</span><span class="token punctuation">(</span>configuration<span class="token punctuation">:</span> config<span class="token punctuation">)</span>
+</span><span class="code-line">    overlay<span class="token punctuation">.</span>delegate <span class="token operator">=</span> <span class="token keyword">self</span>
+</span><span class="code-line">    overlay<span class="token punctuation">.</span><span class="token function">present</span><span class="token punctuation">(</span><span class="token keyword">in</span><span class="token punctuation">:</span> scene<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><code>SKOverlay.AppClipConfiguration</code> automatically resolves to the parent app. Available iOS 14.0+.</p>
+<p><strong>Never</strong> block the user's task to force installation — show the overlay after task completion.</p>
+<h2>Location Confirmation</h2>
+<p>Use <code>APActivationPayload</code> to verify a user's physical location without requesting full location access:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">AppClip</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">CoreLocation</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">verifyLocation</span><span class="token punctuation">(</span>from activity<span class="token punctuation">:</span> <span class="token class-name">NSUserActivity</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> payload <span class="token operator">=</span> activity<span class="token punctuation">.</span>appClipActivationPayload<span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token keyword">let</span> url <span class="token operator">=</span> activity<span class="token punctuation">.</span>webpageURL
+</span><span class="code-line">    <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Build the expected region (up to 500m radius)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> center <span class="token operator">=</span> <span class="token class-name">CLLocationCoordinate2D</span><span class="token punctuation">(</span>latitude<span class="token punctuation">:</span> <span class="token number">37.334722</span><span class="token punctuation">,</span> longitude<span class="token punctuation">:</span> <span class="token operator">-</span><span class="token number">122.008889</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">let</span> region <span class="token operator">=</span> <span class="token class-name">CLCircularRegion</span><span class="token punctuation">(</span>center<span class="token punctuation">:</span> center<span class="token punctuation">,</span> radius<span class="token punctuation">:</span> <span class="token number">100</span><span class="token punctuation">,</span> identifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"store-42"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    payload<span class="token punctuation">.</span><span class="token function">confirmAcquired</span><span class="token punctuation">(</span><span class="token keyword">in</span><span class="token punctuation">:</span> region<span class="token punctuation">)</span> <span class="token punctuation">{</span> inRegion<span class="token punctuation">,</span> error <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">let</span> error <span class="token operator">=</span> error <span class="token keyword">as</span><span class="token operator">?</span> <span class="token class-name">APActivationPayloadError</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">switch</span> error<span class="token punctuation">.</span>code <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">case</span> <span class="token punctuation">.</span>doesNotMatch<span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token comment">// URL doesn't match registered App Clip URL</span>
+</span><span class="code-line">                <span class="token keyword">break</span><span class="token label important">
+</span></span><span class="code-line"><span class="token label important">            case</span> <span class="token punctuation">.</span>disallowed<span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token comment">// User denied location, or invocation wasn't NFC/visual code</span>
+</span><span class="code-line">                <span class="token keyword">break</span>
+</span><span class="code-line">            <span class="token attribute atrule">@unknown</span> <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token keyword">break</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token keyword">return</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">if</span> inRegion <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// Confirmed — user is at the expected location</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// User is not at expected location (e.g., NFC tag was moved)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Enable location confirmation in <code>Info.plist</code>:</p>
+<pre class="language-xml"><code class="language-xml code-highlight"><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>NSAppClip<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>NSAppClipRequestLocationConfirmation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>true</span><span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<p>This is <strong>lightweight</strong> — the system verifies location without granting your App Clip continuous access. The App Clip card shows a note that the clip can verify location. Available iOS 14.0+.</p>
+<h2>Lifecycle and Ephemeral Nature</h2>
+<ul>
+<li><strong>No Home Screen icon</strong> — App Clips appear in the App Library and recent apps</li>
+<li><strong>Automatic removal</strong> — the system deletes the App Clip and its data after a period of inactivity (typically ~30 days, system-determined)</li>
+<li><strong>No persistent state guarantee</strong> — treat App Clip storage as ephemeral; migrate important data to the shared container or a server</li>
+<li><strong>Relaunching</strong> — returning to a previously launched App Clip from the App Library uses the last invocation URL; returning from the App Switcher launches without an invocation URL (restore saved state)</li>
+<li><strong>Notifications</strong> — App Clips can request ephemeral notification permission (up to 8 hours) via <code>Info.plist</code>; set <code>NSAppClipRequestEphemeralUserNotification</code> to <code>true</code></li>
+<li><strong>Location access</strong> — <code>requestWhenInUseAuthorization()</code> only; resets daily at 4:00 AM</li>
+</ul>
+<h2>Capabilities and Limitations</h2>
+<h3>Available to App Clips</h3>
+<p>SwiftUI, UIKit, Core Location (when-in-use), Sign in with Apple, Apple Pay, CloudKit (public database read-only, iOS 16+), Background Assets, StoreKit (<code>SKOverlay</code>), Keychain, App Groups, Push Notifications (ephemeral), Live Activities (iOS 16.1+)</p>
+<h3>Not available / no-op at runtime</h3>
+<p>App Intents, Background Tasks, CallKit, Contacts, CoreMotion, EventKit, HealthKit, HomeKit, MediaPlayer, Messages, NearbyInteraction, PhotoKit, SensorKit, Speech, SKAdNetwork, App Tracking Transparency</p>
+<h3>Additional restrictions</h3>
+<ul>
+<li>No background URL sessions</li>
+<li>No background Bluetooth</li>
+<li>No multiple scenes on iPad</li>
+<li>No on-demand resources</li>
+<li>No custom URL schemes</li>
+<li>No in-app purchases (reserve for full app)</li>
+<li><code>UIDevice.name</code> and <code>identifierForVendor</code> return empty strings</li>
+</ul>
+<h2>Common Mistakes</h2>
+<h3>Exceeding App Clip size limit</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Include large frameworks or bundled assets</span>
+</span><span class="code-line"><span class="token comment">// Importing heavyweight frameworks like RealityKit or large ML models</span>
+</span><span class="code-line"><span class="token comment">// pushes the App Clip well over 10–15 MB.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Use Asset Catalog thinning, exclude unused architectures,</span>
+</span><span class="code-line"><span class="token comment">// strip debug symbols, and split shared code into lean Swift packages.</span>
+</span><span class="code-line"><span class="token comment">// Measure with App Thinning Size Report after every change.</span>
+</span></code></pre>
+<h3>Not testing invocation URLs locally</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Only test App Clip with a direct Xcode launch</span>
+</span><span class="code-line"><span class="token comment">// This skips invocation URL handling and misses bugs.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Use the _XCAppClipURL environment variable in the scheme,</span>
+</span><span class="code-line"><span class="token comment">// or register a Local Experience in Settings → Developer → Local Experiences</span>
+</span><span class="code-line"><span class="token comment">// to test with realistic invocation URLs and App Clip cards.</span>
+</span></code></pre>
+<h3>Not handling the full app replacing the App Clip</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Assume only the App Clip receives invocations</span>
+</span><span class="code-line"><span class="token comment">// When the user installs the full app, ALL invocations go to it.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Share invocation-handling code between both targets.</span>
+</span><span class="code-line"><span class="token comment">// The full app must handle every invocation URL the App Clip supports.</span>
+</span><span class="code-line"><span class="token directive property"><span class="token directive-name">#if</span> <span class="token operator">!</span>APPCLIP</span>
+</span><span class="code-line"><span class="token comment">// Full app can additionally show richer features for the same URL</span>
+</span><span class="code-line"><span class="token directive property"><span class="token directive-name">#endif</span></span>
+</span></code></pre>
+<h3>Storing critical data only in App Clip storage</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Store important data in the App Clip's sandboxed container</span>
+</span><span class="code-line"><span class="token keyword">let</span> fileURL <span class="token operator">=</span> documentsDirectory<span class="token punctuation">.</span><span class="token function">appendingPathComponent</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"userData.json"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment">// This data is DELETED when the system removes the App Clip.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Write to the shared App Group container or sync to a server</span>
+</span><span class="code-line"><span class="token keyword">guard</span> <span class="token keyword">let</span> shared <span class="token operator">=</span> <span class="token class-name">FileManager</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span><span class="token function">containerURL</span><span class="token punctuation">(</span>
+</span><span class="code-line">    forSecurityApplicationGroupIdentifier<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"group.com.example.shared"</span></span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">let</span> fileURL <span class="token operator">=</span> shared<span class="token punctuation">.</span><span class="token function">appendingPathComponent</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"userData.json"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Missing associated domains configuration</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Configure App Clip experiences in App Store Connect</span>
+</span><span class="code-line"><span class="token comment">// without setting up associated domains and the AASA file.</span>
+</span><span class="code-line"><span class="token comment">// Invocations from your website and advanced experiences will fail.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Add the Associated Domains entitlement with:</span>
+</span><span class="code-line"><span class="token comment">//   appclips:example.com</span>
+</span><span class="code-line"><span class="token comment">// AND host /.well-known/apple-app-site-association on your server:</span>
+</span><span class="code-line"><span class="token comment">// {</span>
+</span><span class="code-line"><span class="token comment">//   "appclips": {</span>
+</span><span class="code-line"><span class="token comment">//     "apps": ["TEAMID.com.example.MyApp.Clip"]</span>
+</span><span class="code-line"><span class="token comment">//   }</span>
+</span><span class="code-line"><span class="token comment">// }</span>
+</span></code></pre>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> App Clip target bundle ID is a suffix of the full app's bundle ID</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>Parent Application Identifiers</code> entitlement is set correctly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Shared code uses Swift packages or compilation conditions (<code>APPCLIP</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>onContinueUserActivity(NSUserActivityTypeBrowsingWeb)</code> handles invocation URLs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Full app handles all invocation URLs the App Clip supports</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> App Thinning Size Report confirms binary is within size limits for target iOS</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Associated Domains entitlement includes <code>appclips:yourdomain.com</code> (if using custom URLs)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> AASA file hosted at <code>/.well-known/apple-app-site-association</code> (if using custom URLs)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Default App Clip experience configured in App Store Connect</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Shared App Group container used for data the full app needs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>SKOverlay</code> / <code>appStoreOverlay</code> shown <strong>after</strong> task completion, never blocking</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>NSAppClipRequestLocationConfirmation</code> set in Info.plist if using location verification</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No reliance on background processing, restricted frameworks, or persistent local storage</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tested with Local Experiences (Settings → Developer) and <code>_XCAppClipURL</code> env var</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Handles launch without invocation URL (App Switcher / notification re-entry)</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li><a href="https://sosumi.ai/documentation/appclip/" target="_blank" rel="ugc nofollow noopener">App Clips framework</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/creating-an-app-clip-with-xcode/" target="_blank" rel="ugc nofollow noopener">Creating an App Clip with Xcode</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/configuring-the-launch-experience-of-your-app-clip/" target="_blank" rel="ugc nofollow noopener">Configuring App Clip experiences</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/responding-to-invocations/" target="_blank" rel="ugc nofollow noopener">Responding to invocations</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/choosing-the-right-functionality-for-your-app-clip/" target="_blank" rel="ugc nofollow noopener">Choosing the right functionality</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/confirming-a-person-s-physical-location/" target="_blank" rel="ugc nofollow noopener">Confirming a person's physical location</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/sharing-data-between-your-app-clip-and-your-full-app/" target="_blank" rel="ugc nofollow noopener">Sharing data between App Clip and full app</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/recommending-your-app-to-app-clip-users/" target="_blank" rel="ugc nofollow noopener">Recommending your app to App Clip users</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/apactivationpayload/" target="_blank" rel="ugc nofollow noopener">APActivationPayload</a></li>
+<li><a href="https://sosumi.ai/documentation/storekit/skoverlay/appclipconfiguration/" target="_blank" rel="ugc nofollow noopener">SKOverlay.AppClipConfiguration</a></li>
+<li><a href="https://sosumi.ai/documentation/foundation/nsuseractivitytypebrowsingweb/" target="_blank" rel="ugc nofollow noopener">NSUserActivityTypeBrowsingWeb</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/creating-app-clip-codes/" target="_blank" rel="ugc nofollow noopener">Creating App Clip Codes</a></li>
+<li><a href="https://sosumi.ai/documentation/appclip/distributing-your-app-clip/" target="_blank" rel="ugc nofollow noopener">Distributing your App Clip</a></li>
+<li><a href="https://sosumi.ai/design/human-interface-guidelines/app-clips/" target="_blank" rel="ugc nofollow noopener">App Clips HIG</a></li>
+</ul></div>

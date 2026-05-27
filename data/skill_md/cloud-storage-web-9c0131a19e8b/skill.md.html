@@ -1,0 +1,191 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h2>Standalone Install Note</h2>
+<p>If this environment only installed the current skill, start from the CloudBase main entry and use the published <code>cloudbase/references/...</code> paths for sibling skills.</p>
+<ul>
+<li>CloudBase main entry: <code>https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/SKILL.md</code></li>
+<li>Current skill raw source: <code>https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/references/cloud-storage-web/SKILL.md</code></li>
+</ul>
+<p>Keep local <code>references/...</code> paths for files that ship with the current skill directory. When this file points to a sibling skill such as <code>auth-tool</code> or <code>web-development</code>, use the standalone fallback URL shown next to that reference.</p>
+<h1>Cloud Storage Web SDK</h1>
+<h2>Activation Contract</h2>
+<h3>Use this first when</h3>
+<ul>
+<li>A browser or Web app must upload, download, or manage CloudBase storage objects through <code>@cloudbase/js-sdk</code>.</li>
+<li>The request mentions <code>uploadFile</code>, <code>getTempFileURL</code>, <code>deleteFile</code>, or <code>downloadFile</code> in frontend code.</li>
+</ul>
+<h3>Read before writing code if</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>The task is browser-side storage work but you still need to separate it from Mini Program storage, backend storage management, or static hosting deployment.</li>
+<li>The request may be blocked by security domains or frontend auth.</li>
+</ul>
+<h3>Then also read</h3>
+<ul>
+<li>Web login and identity -&gt; <code>../auth-web/SKILL.md</code> (standalone fallback: <code>https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/references/auth-web/SKILL.md</code>)</li>
+<li>General Web app setup -&gt; <code>../web-development/SKILL.md</code> (standalone fallback: <code>https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/references/web-development/SKILL.md</code>)</li>
+<li>Direct storage management through MCP tools -&gt; <code>../cloudbase-platform/SKILL.md</code> (standalone fallback: <code>https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/references/cloudbase-platform/SKILL.md</code>)</li>
+</ul>
+<h3>Do NOT use for</h3>
+<ul>
+<li>Mini Program file APIs.</li>
+<li>Backend or agent-side direct storage management through MCP.</li>
+<li>Static website hosting deployment via <code>manageHosting(action="upload")</code>.</li>
+<li>Database operations.</li>
+</ul>
+<h3>Common mistakes / gotchas</h3>
+<ul>
+<li>Uploading from browser code without configuring security domains.</li>
+<li>Using this skill for static hosting instead of storage objects.</li>
+<li>Mixing browser SDK upload flows with server-side file-management tasks.</li>
+<li>Assuming temporary download URLs are permanent links.</li>
+<li>On local Vite or dev-server tasks, forgetting to whitelist the exact current browser <code>host:port</code> before testing <code>app.uploadFile()</code>.</li>
+</ul>
+<h3>Minimal checklist</h3>
+<ul>
+<li>Confirm the caller is a browser/Web app.</li>
+<li>Initialize the Web SDK once.</li>
+<li>Check security-domain/CORS requirements.</li>
+<li>Pick the right storage method before coding.</li>
+</ul>
+<h3>Local dev recipe</h3>
+<p>When the app runs on a local browser origin and must upload files from the frontend:</p>
+<ol>
+<li>Use <code>envQuery</code> with <code>action="domains"</code> to inspect the current security-domain whitelist.</li>
+<li>Convert the browser origin into the CloudBase whitelist entry format:
+<ul>
+<li>Browser origin <code>http://127.0.0.1:4173</code> -&gt; whitelist entry <code>127.0.0.1:4173</code></li>
+<li>Browser origin <code>http://localhost:5173</code> -&gt; whitelist entry <code>localhost:5173</code></li>
+</ul>
+</li>
+<li>If the exact current host entry is missing, call <code>envDomainManagement</code> with <code>action="create"</code> and add that host entry before relying on <code>app.uploadFile()</code>.</li>
+<li>If the runtime port may change between runs, do not assume any fixed default port list is sufficient. Re-check the actual browser origin you are really using for testing or final validation, then add that exact <code>host:port</code>.</li>
+<li>Tell the user that security-domain changes may take several minutes to propagate.</li>
+<li>Only after that should you implement and test browser-side <code>app.uploadFile()</code> flows.</li>
+</ol>
+<p>If the task uses browser-side file upload, treat this as a prerequisite rather than an optional cleanup.</p>
+<h2>Overview</h2>
+<p>Use this skill for <strong>browser-side cloud storage operations</strong> through the CloudBase Web SDK.</p>
+<p>Typical tasks:</p>
+<ul>
+<li>upload files from a browser</li>
+<li>generate temporary download URLs</li>
+<li>delete files</li>
+<li>trigger browser downloads</li>
+</ul>
+<h2>SDK initialization</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword module">import</span> <span class="token imports">cloudbase</span> <span class="token keyword module">from</span> <span class="token string">"@cloudbase/js-sdk"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> app <span class="token operator">=</span> cloudbase<span class="token punctuation">.</span><span class="token method function property-access">init</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">env</span><span class="token operator">:</span> <span class="token string">"your-env-id"</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Initialization rules:</p>
+<ul>
+<li>Use synchronous initialization with a shared app instance.</li>
+<li>Do not re-initialize in every component.</li>
+<li>If the operation depends on user identity, handle auth before storage operations.</li>
+</ul>
+<h2>Method routing</h2>
+<ul>
+<li>Upload from browser -&gt; <code>app.uploadFile()</code></li>
+<li>Temporary preview/download URL -&gt; <code>app.getTempFileURL()</code></li>
+<li>Delete existing files -&gt; <code>app.deleteFile()</code></li>
+<li>Trigger browser download -&gt; <code>app.downloadFile()</code></li>
+</ul>
+<h2>Upload</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">uploadFile</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">cloudPath</span><span class="token operator">:</span> <span class="token string">"uploads/avatar.jpg"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">filePath</span><span class="token operator">:</span> selectedFile
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Upload rules</h3>
+<ul>
+<li><code>cloudPath</code> must include the filename.</li>
+<li>Use <code>/</code> to create folder structure.</li>
+<li>Validate file type and size before upload.</li>
+<li>Show upload progress for larger files when UX matters.</li>
+<li>On local dev origins, confirm the exact frontend origin already exists in environment security domains before assuming the upload path is usable.</li>
+<li>Match against the whitelist entry format returned by <code>envQuery(action="domains")</code>, which is typically <code>host:port</code> instead of a full <code>http://...</code> URL.</li>
+<li>After <code>app.uploadFile()</code> succeeds, do <strong>not</strong> fabricate a public-looking URL by concatenating <code>envId</code>, bucket domain, or <code>cloudPath</code>. Use the returned <code>fileID</code> with <code>app.getTempFileURL()</code> and store or display the SDK-resolved URL instead.</li>
+</ul>
+<h3>Progress example</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">uploadFile</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">cloudPath</span><span class="token operator">:</span> <span class="token string">"uploads/avatar.jpg"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">filePath</span><span class="token operator">:</span> selectedFile<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">onUploadProgress</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span> loaded<span class="token punctuation">,</span> total <span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> percent <span class="token operator">=</span> <span class="token known-class-name class-name">Math</span><span class="token punctuation">.</span><span class="token method function property-access">round</span><span class="token punctuation">(</span><span class="token punctuation">(</span>loaded <span class="token operator">*</span> <span class="token number">100</span><span class="token punctuation">)</span> <span class="token operator">/</span> total<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span>percent<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Temporary URLs</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">getTempFileURL</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">fileList</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token literal-property property">fileID</span><span class="token operator">:</span> <span class="token string">"cloud://env-id/uploads/avatar.jpg"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">maxAge</span><span class="token operator">:</span> <span class="token number">3600</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Use temp URLs when the browser needs to preview or download private files without exposing a permanent public link.</p>
+<p>Typical upload + preview flow:</p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">const</span> uploadResult <span class="token operator">=</span> <span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">uploadFile</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">cloudPath</span><span class="token operator">:</span> <span class="token string">"uploads/avatar.jpg"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">filePath</span><span class="token operator">:</span> selectedFile
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> tempUrlResult <span class="token operator">=</span> <span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">getTempFileURL</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">fileList</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> <span class="token literal-property property">fileID</span><span class="token operator">:</span> uploadResult<span class="token punctuation">.</span><span class="token property-access">fileID</span><span class="token punctuation">,</span> <span class="token literal-property property">maxAge</span><span class="token operator">:</span> <span class="token number">3600</span> <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> previewUrl <span class="token operator">=</span> tempUrlResult<span class="token punctuation">.</span><span class="token property-access">fileList</span><span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span>tempFileURL <span class="token operator">||</span> tempUrlResult<span class="token punctuation">.</span><span class="token property-access">fileList</span><span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span>download_url<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>previewUrl<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword control-flow">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">"Failed to resolve temporary file URL after upload"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Delete files</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">deleteFile</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">fileList</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"cloud://env-id/uploads/old-avatar.jpg"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Always inspect per-file results before assuming deletion succeeded.</p>
+<h2>Download files</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">downloadFile</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">fileID</span><span class="token operator">:</span> <span class="token string">"cloud://env-id/uploads/report.pdf"</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Use this for browser-initiated downloads. For programmatic rendering or preview, prefer <code>getTempFileURL()</code>.</p>
+<h2>Security-domain reminder</h2>
+<p>To avoid CORS problems, add your frontend domain in CloudBase security domains. In MCP-enabled workflows, prefer checking and updating this through tools before coding browser uploads.</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span> <span class="token property">"tool"</span><span class="token operator">:</span> <span class="token string">"envQuery"</span><span class="token punctuation">,</span> <span class="token property">"action"</span><span class="token operator">:</span> <span class="token string">"domains"</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p>Use the actual browser origin when deciding what to add. If the page is running on a custom domain or a local dev port, add that exact <code>host:port</code> value instead of guessing from a hard-coded list.</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"tool"</span><span class="token operator">:</span> <span class="token string">"envDomainManagement"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"action"</span><span class="token operator">:</span> <span class="token string">"create"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"domains"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"&lt;actual-browser-host&gt;:&lt;actual-browser-port&gt;"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Match the real browser origin to the whitelist entry format returned by <code>envQuery(action="domains")</code>. For local Vite and preview servers, the port can vary between runs, so avoid assuming any fixed default port is sufficient.</p>
+<p>Typical examples:</p>
+<ul>
+<li><code>&lt;your-local-host&gt;:&lt;actual-port&gt;</code></li>
+<li><code>&lt;your-custom-domain&gt;</code></li>
+</ul>
+<h2>Best practices</h2>
+<ol>
+<li>Use a clear folder structure such as <code>uploads/</code>, <code>avatars/</code>, <code>documents/</code>.</li>
+<li>Validate file size and type in the browser before upload.</li>
+<li>Use temporary URLs with reasonable expiration windows.</li>
+<li>Clean up obsolete files instead of leaving orphaned storage objects.</li>
+<li>Route privileged batch-management tasks to backend or MCP flows instead of browser direct access.</li>
+</ol>
+<h2>Error handling</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword control-flow">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword control-flow">await</span> app<span class="token punctuation">.</span><span class="token method function property-access">uploadFile</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">cloudPath</span><span class="token operator">:</span> <span class="token string">"uploads/file.jpg"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">filePath</span><span class="token operator">:</span> selectedFile
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span><span class="token property-access">fileID</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword control-flow">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">error</span><span class="token punctuation">(</span><span class="token string">"Storage operation failed:"</span><span class="token punctuation">,</span> error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

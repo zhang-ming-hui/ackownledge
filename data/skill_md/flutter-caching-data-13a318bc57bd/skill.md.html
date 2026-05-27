@@ -1,0 +1,149 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Implementing Flutter Caching and Offline-First Architectures</h1>
+<h2>Contents</h2>
+<ul>
+<li><a href="#selecting-a-caching-strategy" target="_blank" rel="ugc nofollow noopener">Selecting a Caching Strategy</a></li>
+<li><a href="#implementing-offline-first-data-synchronization" target="_blank" rel="ugc nofollow noopener">Implementing Offline-First Data Synchronization</a></li>
+<li><a href="#managing-file-system-and-sqlite-persistence" target="_blank" rel="ugc nofollow noopener">Managing File System and SQLite Persistence</a></li>
+<li><a href="#optimizing-ui-scroll-and-image-caching" target="_blank" rel="ugc nofollow noopener">Optimizing UI, Scroll, and Image Caching</a></li>
+<li><a href="#caching-the-flutterengine-android" target="_blank" rel="ugc nofollow noopener">Caching the FlutterEngine (Android)</a></li>
+<li><a href="#workflows" target="_blank" rel="ugc nofollow noopener">Workflows</a></li>
+</ul>
+<h2>Selecting a Caching Strategy</h2>
+<p>Apply the appropriate caching mechanism based on the data lifecycle and size requirements.</p>
+<ul>
+<li><strong>If storing small, non-critical UI states or preferences:</strong> Use <code>shared_preferences</code>.</li>
+<li><strong>If storing large, structured datasets:</strong> Use on-device databases (SQLite via <code>sqflite</code>, Drift, Hive CE, or Isar).</li>
+<li><strong>If storing binary data or large media:</strong> Use file system caching via <code>path_provider</code>.</li>
+<li><strong>If retaining user session state (navigation, scroll positions):</strong> Implement Flutter's built-in state restoration to sync the Element tree with the engine.</li>
+<li><strong>If optimizing Android initialization:</strong> Pre-warm and cache the <code>FlutterEngine</code>.</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Implementing Offline-First Data Synchronization</h2>
+<p>Design repositories as the single source of truth, combining local databases and remote API clients.</p>
+<h3>Read Operations (Stream Approach)</h3>
+<p>Yield local data immediately for fast UI rendering, then fetch remote data, update the local cache, and yield the fresh data.</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token class-name">Stream</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">UserProfile</span><span class="token punctuation">&gt;</span></span> <span class="token function">getUserProfile</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async*</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// 1. Yield local cache first</span>
+</span><span class="code-line">  <span class="token keyword">final</span> localProfile <span class="token operator">=</span> <span class="token keyword">await</span> _databaseService<span class="token punctuation">.</span><span class="token function">fetchUserProfile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>localProfile <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token keyword">yield</span> localProfile<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// 2. Fetch remote, update cache, yield fresh data</span>
+</span><span class="code-line">  <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">final</span> remoteProfile <span class="token operator">=</span> <span class="token keyword">await</span> _apiClientService<span class="token punctuation">.</span><span class="token function">getUserProfile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">await</span> _databaseService<span class="token punctuation">.</span><span class="token function">updateUserProfile</span><span class="token punctuation">(</span>remoteProfile<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">yield</span> remoteProfile<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Handle network failure; UI already has local data</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Write Operations</h3>
+<p>Determine the write strategy based on data criticality:</p>
+<ul>
+<li><strong>If strict server synchronization is required (Online-only):</strong> Attempt the API call first. Only update the local database if the API call succeeds.</li>
+<li><strong>If offline availability is prioritized (Offline-first):</strong> Write to the local database immediately. Attempt the API call. If the API call fails, flag the local record for background synchronization.</li>
+</ul>
+<h3>Background Synchronization</h3>
+<p>Add a <code>synchronized</code> boolean flag to your data models. Run a periodic background task (e.g., via <code>workmanager</code> or a <code>Timer</code>) to push unsynchronized local changes to the server.</p>
+<h2>Managing File System and SQLite Persistence</h2>
+<h3>File System Caching</h3>
+<p>Use <code>path_provider</code> to locate the correct directory.</p>
+<ul>
+<li>Use <code>getApplicationDocumentsDirectory()</code> for persistent data.</li>
+<li>Use <code>getTemporaryDirectory()</code> for cache data the OS can clear.</li>
+</ul>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token class-name">Future</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">File</span><span class="token punctuation">&gt;</span></span> <span class="token keyword">get</span> _localFile <span class="token keyword">async</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> directory <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getApplicationDocumentsDirectory</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token class-name">File</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'</span><span class="token interpolation"><span class="token punctuation">${</span><span class="token expression">directory<span class="token punctuation">.</span>path</span><span class="token punctuation">}</span></span><span class="token string">/cache.txt'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>SQLite Persistence</h3>
+<p>Use <code>sqflite</code> for relational data caching. Always use <code>whereArgs</code> to prevent SQL injection.</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token class-name">Future</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token keyword">void</span><span class="token punctuation">&gt;</span></span> <span class="token function">updateCachedRecord</span><span class="token punctuation">(</span><span class="token class-name">Record</span> record<span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> db <span class="token operator">=</span> <span class="token keyword">await</span> database<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string-literal"><span class="token string">'records'</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    record<span class="token punctuation">.</span><span class="token function">toMap</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    where<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'id = ?'</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    whereArgs<span class="token punctuation">:</span> <span class="token punctuation">[</span>record<span class="token punctuation">.</span>id<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token comment">// NEVER use string interpolation here</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Optimizing UI, Scroll, and Image Caching</h2>
+<h3>Image Caching</h3>
+<p>Image I/O and decompression are expensive.</p>
+<ul>
+<li>Use the <code>cached_network_image</code> package to handle file-system caching of remote images.</li>
+<li><strong>Custom ImageProviders:</strong> If implementing a custom <code>ImageProvider</code>, override <code>createStream()</code> and <code>resolveStreamForKey()</code> instead of the deprecated <code>resolve()</code> method.</li>
+<li><strong>Cache Sizing:</strong> The <code>ImageCache.maxByteSize</code> no longer automatically expands for large images. If loading images larger than the default cache size, manually increase <code>ImageCache.maxByteSize</code> or subclass <code>ImageCache</code> to implement custom eviction logic.</li>
+</ul>
+<h3>Scroll Caching</h3>
+<p>When configuring caching for scrollable widgets (<code>ListView</code>, <code>GridView</code>, <code>Viewport</code>), use the <code>scrollCacheExtent</code> property with a <code>ScrollCacheExtent</code> object. Do not use the deprecated <code>cacheExtent</code> and <code>cacheExtentStyle</code> properties.</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token comment">// Correct implementation</span>
+</span><span class="code-line"><span class="token class-name">ListView</span><span class="token punctuation">(</span>
+</span><span class="code-line">  scrollCacheExtent<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token class-name">ScrollCacheExtent</span><span class="token punctuation">.</span><span class="token function">pixels</span><span class="token punctuation">(</span><span class="token number">500.0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  children<span class="token punctuation">:</span> <span class="token comment">// ...</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token class-name">Viewport</span><span class="token punctuation">(</span>
+</span><span class="code-line">  scrollCacheExtent<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token class-name">ScrollCacheExtent</span><span class="token punctuation">.</span><span class="token function">viewport</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  slivers<span class="token punctuation">:</span> <span class="token comment">// ...</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Widget Caching</h3>
+<ul>
+<li>Avoid overriding <code>operator ==</code> on <code>Widget</code> objects. It causes O(N²) behavior during rebuilds.</li>
+<li><strong>Exception:</strong> You may override <code>operator ==</code> <em>only</em> on leaf widgets (no children) where comparing properties is significantly faster than rebuilding, and the properties rarely change.</li>
+<li>Prefer using <code>const</code> constructors to allow the framework to short-circuit rebuilds automatically.</li>
+</ul>
+<h2>Caching the FlutterEngine (Android)</h2>
+<p>To eliminate the non-trivial warm-up time of a <code>FlutterEngine</code> when adding Flutter to an existing Android app, pre-warm and cache the engine.</p>
+<ol>
+<li>Instantiate and pre-warm the engine in the <code>Application</code> class.</li>
+<li>Store it in the <code>FlutterEngineCache</code>.</li>
+<li>Retrieve it using <code>withCachedEngine</code> in the <code>FlutterActivity</code> or <code>FlutterFragment</code>.</li>
+</ol>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token comment">// 1. Pre-warm in Application class</span>
+</span><span class="code-line"><span class="token keyword">val</span> flutterEngine <span class="token operator">=</span> <span class="token function">FlutterEngine</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+</span><span class="code-line">flutterEngine<span class="token punctuation">.</span>navigationChannel<span class="token punctuation">.</span><span class="token function">setInitialRoute</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"/cached_route"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">flutterEngine<span class="token punctuation">.</span>dartExecutor<span class="token punctuation">.</span><span class="token function">executeDartEntrypoint</span><span class="token punctuation">(</span>DartEntrypoint<span class="token punctuation">.</span><span class="token function">createDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 2. Cache the engine</span>
+</span><span class="code-line">FlutterEngineCache<span class="token punctuation">.</span><span class="token function">getInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"my_engine_id"</span></span><span class="token punctuation">,</span> flutterEngine<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 3. Use in Activity/Fragment</span>
+</span><span class="code-line"><span class="token function">startActivity</span><span class="token punctuation">(</span>
+</span><span class="code-line">  FlutterActivity<span class="token punctuation">.</span><span class="token function">withCachedEngine</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"my_engine_id"</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<p><em>Note: You cannot set an initial route via the Activity/Fragment builder when using a cached engine. Set the initial route on the engine's navigation channel before executing the Dart entrypoint.</em></p>
+<h2>Workflows</h2>
+<h3>Workflow: Implementing an Offline-First Repository</h3>
+<p>Follow these steps to implement a robust offline-first data layer.</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Task Progress:</strong>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Define the data model with a <code>synchronized</code> boolean flag (default <code>false</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement the local <code>DatabaseService</code> (SQLite/Hive) with CRUD operations.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement the remote <code>ApiClientService</code> for network requests.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Create the <code>Repository</code> class combining both services.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement the read method returning a <code>Stream&lt;T&gt;</code> (yield local, fetch remote, update local, yield remote).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement the write method (write local, attempt remote, update <code>synchronized</code> flag).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement a background sync function to process records where <code>synchronized == false</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Run validator -&gt; review errors -&gt; fix (Test offline behavior by disabling network).</li>
+</ul>
+</li>
+</ul>
+<h3>Workflow: Pre-warming the Android FlutterEngine</h3>
+<p>Follow these steps to cache the FlutterEngine for seamless Android integration.</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Task Progress:</strong>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Locate the Android <code>Application</code> class (create one if it doesn't exist and register in <code>AndroidManifest.xml</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Instantiate a new <code>FlutterEngine</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> (Optional) Set the initial route via <code>navigationChannel.setInitialRoute()</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Execute the Dart entrypoint via <code>dartExecutor.executeDartEntrypoint()</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Store the engine in <code>FlutterEngineCache.getInstance().put()</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Update the target <code>FlutterActivity</code> or <code>FlutterFragment</code> to use <code>.withCachedEngine("id")</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Run validator -&gt; review errors -&gt; fix (Verify no blank screen appears during transition).</li>
+</ul>
+</li>
+</ul></div>

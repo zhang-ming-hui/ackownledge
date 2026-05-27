@@ -1,0 +1,57 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><p>Use the bundled scripts inside this skill directory.</p>
+<h2>Available scripts</h2>
+<ul>
+<li><code>scripts/upload.mjs</code> — Upload local files or directories to an Xdrop server and print the share link</li>
+<li><code>scripts/download.mjs</code> — Download an Xdrop share link, decrypt it locally, and save the files</li>
+</ul>
+<p>Environment requirements:</p>
+<ul>
+<li>Bun</li>
+<li>Local filesystem access</li>
+<li>Network access to the target Xdrop server</li>
+</ul>
+<h2>Upload</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">bun scripts/upload.mjs <span class="token parameter variable">--server</span> <span class="token operator">&lt;</span>xdrop-site-url<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>file-or-directory<span class="token operator">&gt;</span> <span class="token punctuation">[</span><span class="token punctuation">..</span>.<span class="token punctuation">]</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Prefer these flags when relevant:</p>
+<ul>
+<li><code>--quiet</code>: suppress progress output and keep stdout clean</li>
+<li><code>--json</code>: return <code>transferId</code>, <code>shareUrl</code>, and <code>expiresAt</code></li>
+<li><code>--expires-in &lt;seconds&gt;</code>: choose a supported expiry</li>
+<li><code>--api-url &lt;url&gt;</code>: override the default <code>&lt;server&gt;/api/v1</code></li>
+<li><code>--name &lt;value&gt;</code>: set the transfer display name</li>
+<li><code>--concurrency &lt;n&gt;</code>: limit parallel uploads per file</li>
+</ul>
+<p>Useful examples:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">bun scripts/upload.mjs <span class="token parameter variable">--server</span> http://localhost:8080 ./dist/report.pdf
+</span><span class="code-line">bun scripts/upload.mjs <span class="token parameter variable">--server</span> http://localhost:8080 <span class="token parameter variable">--quiet</span> ./archive.zip
+</span><span class="code-line">bun scripts/upload.mjs <span class="token parameter variable">--server</span> http://localhost:8080 --expires-in <span class="token number">600</span> <span class="token parameter variable">--json</span> ./notes.txt
+</span></code></pre>
+<p>If the user wants verification, upload a small temporary file and then confirm the public transfer API or browser can open the returned link.</p>
+<h2>Download</h2>
+<p>Require the full share link, including <code>#k=...</code>. Without the fragment key, the transfer cannot be decrypted.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">bun scripts/download.mjs <span class="token string">"&lt;share-url&gt;"</span>
+</span></code></pre>
+<p>Prefer these flags when relevant:</p>
+<ul>
+<li><code>--output &lt;dir&gt;</code>: choose the destination directory</li>
+<li><code>--quiet</code>: suppress progress output and keep stdout clean</li>
+<li><code>--json</code>: return <code>transferId</code>, <code>outputRoot</code>, and saved file paths</li>
+<li><code>--api-url &lt;url&gt;</code>: override the default <code>&lt;share-origin&gt;/api/v1</code></li>
+</ul>
+<p>Useful examples:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">bun scripts/download.mjs <span class="token string">"http://localhost:8080/t/abc123#k=..."</span>
+</span><span class="code-line">bun scripts/download.mjs <span class="token parameter variable">--output</span> ./downloads <span class="token string">"http://localhost:8080/t/abc123#k=..."</span>
+</span><span class="code-line">bun scripts/download.mjs <span class="token parameter variable">--quiet</span> <span class="token parameter variable">--json</span> <span class="token parameter variable">--output</span> ./downloads <span class="token string">"http://localhost:8080/t/abc123#k=..."</span>
+</span></code></pre>
+<p>By default the downloader writes to <code>./xdrop-&lt;transferId&gt;</code> and preserves the manifest's relative paths.</p>
+<h2>Gotchas</h2>
+<ul>
+<li>A download link without the <code>#k=...</code> fragment is not decryptable. Ask for the full original share URL.</li>
+<li>Use <code>--quiet</code> whenever another command or caller needs to capture stdout. Progress logs otherwise go to stderr, but the final result still matters.</li>
+</ul>
+<h2>Guardrails</h2>
+<ul>
+<li>Prefer <code>--quiet</code> when another command or script needs to capture stdout.</li>
+<li>Keep the full share link fragment intact for downloads.</li>
+<li>Do not bypass the scripts' built-in path sanitization or transfer cleanup behavior with manual ad hoc commands unless the user explicitly asks.</li>
+</ul></div>

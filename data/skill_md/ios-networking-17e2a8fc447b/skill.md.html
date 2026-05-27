@@ -1,0 +1,427 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>iOS Networking</h1>
+<p>Modern networking patterns for iOS 26+ using URLSession with async/await and
+structured concurrency. All examples target Swift 6.3. No third-party
+dependencies required -- URLSession covers the vast majority of networking
+needs.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#core-urlsession-asyncawait" target="_blank" rel="ugc nofollow noopener">Core URLSession async/await</a></li>
+<li><a href="#api-client-architecture" target="_blank" rel="ugc nofollow noopener">API Client Architecture</a></li>
+<li><a href="#error-handling" target="_blank" rel="ugc nofollow noopener">Error Handling</a></li>
+<li><a href="#pagination" target="_blank" rel="ugc nofollow noopener">Pagination</a></li>
+<li><a href="#network-reachability" target="_blank" rel="ugc nofollow noopener">Network Reachability</a></li>
+<li><a href="#configuring-urlsession" target="_blank" rel="ugc nofollow noopener">Configuring URLSession</a></li>
+<li><a href="#app-transport-security-ats" target="_blank" rel="ugc nofollow noopener">App Transport Security (ATS)</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Core URLSession async/await</h2>
+<p>URLSession gained native async/await overloads in iOS 15. These are the
+only networking APIs to use in new code. Never use completion-handler
+variants in new projects.</p>
+<h3>Data Requests</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Basic GET</span>
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>data<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">data</span><span class="token punctuation">(</span>from<span class="token punctuation">:</span> url<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// With a configured URLRequest</span>
+</span><span class="code-line"><span class="token keyword">var</span> request <span class="token operator">=</span> <span class="token class-name">URLRequest</span><span class="token punctuation">(</span>url<span class="token punctuation">:</span> url<span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>httpMethod <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"POST"</span></span>
+</span><span class="code-line">request<span class="token punctuation">.</span><span class="token function">setValue</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"application/json"</span></span><span class="token punctuation">,</span> forHTTPHeaderField<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Content-Type"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>httpBody <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">JSONEncoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">encode</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>timeoutInterval <span class="token operator">=</span> <span class="token number">30</span>
+</span><span class="code-line">request<span class="token punctuation">.</span>cachePolicy <span class="token operator">=</span> <span class="token punctuation">.</span>reloadIgnoringLocalCacheData
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>data<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">data</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> request<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Response Validation</h3>
+<p>Always validate the HTTP status code before decoding. URLSession does not
+throw for 4xx/5xx responses -- it only throws for transport-level failures.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">guard</span> <span class="token keyword">let</span> httpResponse <span class="token operator">=</span> response <span class="token keyword">as</span><span class="token operator">?</span> <span class="token class-name">HTTPURLResponse</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token class-name">NetworkError</span><span class="token punctuation">.</span>invalidResponse
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">guard</span> <span class="token punctuation">(</span><span class="token number">200</span><span class="token operator">..&lt;</span><span class="token number">300</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>httpResponse<span class="token punctuation">.</span>statusCode<span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token class-name">NetworkError</span><span class="token punctuation">.</span><span class="token function">httpError</span><span class="token punctuation">(</span>
+</span><span class="code-line">        statusCode<span class="token punctuation">:</span> httpResponse<span class="token punctuation">.</span>statusCode<span class="token punctuation">,</span>
+</span><span class="code-line">        data<span class="token punctuation">:</span> data
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>JSON Decoding with Codable</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetch</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token punctuation">:</span> <span class="token class-name">Decodable</span><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> type<span class="token punctuation">:</span> <span class="token class-name">T</span><span class="token punctuation">.</span><span class="token keyword">Type</span><span class="token punctuation">,</span> from url<span class="token punctuation">:</span> <span class="token constant">URL</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> <span class="token punctuation">(</span>data<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">data</span><span class="token punctuation">(</span>from<span class="token punctuation">:</span> url<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">guard</span> <span class="token keyword">let</span> httpResponse <span class="token operator">=</span> response <span class="token keyword">as</span><span class="token operator">?</span> <span class="token class-name">HTTPURLResponse</span><span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token punctuation">(</span><span class="token number">200</span><span class="token operator">..&lt;</span><span class="token number">300</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>httpResponse<span class="token punctuation">.</span>statusCode<span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">throw</span> <span class="token class-name">NetworkError</span><span class="token punctuation">.</span>invalidResponse
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> decoder <span class="token operator">=</span> <span class="token class-name">JSONDecoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    decoder<span class="token punctuation">.</span>dateDecodingStrategy <span class="token operator">=</span> <span class="token punctuation">.</span>iso8601
+</span><span class="code-line">    decoder<span class="token punctuation">.</span>keyDecodingStrategy <span class="token operator">=</span> <span class="token punctuation">.</span>convertFromSnakeCase
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">try</span> decoder<span class="token punctuation">.</span><span class="token function">decode</span><span class="token punctuation">(</span><span class="token class-name">T</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">,</span> from<span class="token punctuation">:</span> data<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Downloads and Uploads</h3>
+<p>Use <code>download(for:)</code> for large files -- it streams to disk instead of
+loading the entire payload into memory.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Download to a temporary file</span>
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>localURL<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">download</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> request<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Move from temp location before the method returns</span>
+</span><span class="code-line"><span class="token keyword">let</span> destination <span class="token operator">=</span> documentsDirectory<span class="token punctuation">.</span><span class="token function">appendingPathComponent</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"file.zip"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">try</span> <span class="token class-name">FileManager</span><span class="token punctuation">.</span><span class="token keyword">default</span><span class="token punctuation">.</span><span class="token function">moveItem</span><span class="token punctuation">(</span>at<span class="token punctuation">:</span> localURL<span class="token punctuation">,</span> to<span class="token punctuation">:</span> destination<span class="token punctuation">)</span>
+</span></code></pre>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Upload data</span>
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>data<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">upload</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> request<span class="token punctuation">,</span> from<span class="token punctuation">:</span> bodyData<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Upload from file</span>
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>data<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">upload</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> request<span class="token punctuation">,</span> fromFile<span class="token punctuation">:</span> fileURL<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Streaming with AsyncBytes</h3>
+<p>Use <code>bytes(for:)</code> for streaming responses, progress tracking, or
+line-delimited data (e.g., server-sent events).</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> <span class="token punctuation">(</span>bytes<span class="token punctuation">,</span> response<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">URLSession</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">bytes</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> request<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">try</span> <span class="token keyword">await</span> line <span class="token keyword">in</span> bytes<span class="token punctuation">.</span>lines <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Process each line as it arrives (e.g., SSE stream)</span>
+</span><span class="code-line">    <span class="token function">handleEvent</span><span class="token punctuation">(</span>line<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>API Client Architecture</h2>
+<h3>Protocol-Based Client</h3>
+<p>Define a protocol for testability. This lets you swap implementations in
+tests without mocking URLSession directly.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">protocol</span> <span class="token class-name">APIClientProtocol</span><span class="token punctuation">:</span> <span class="token class-name">Sendable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">fetch</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token punctuation">:</span> <span class="token class-name">Decodable</span> <span class="token operator">&amp;</span> <span class="token class-name">Sendable</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> type<span class="token punctuation">:</span> <span class="token class-name">T</span><span class="token punctuation">.</span><span class="token keyword">Type</span><span class="token punctuation">,</span>
+</span><span class="code-line">        endpoint<span class="token punctuation">:</span> <span class="token class-name">Endpoint</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">send</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token punctuation">:</span> <span class="token class-name">Decodable</span> <span class="token operator">&amp;</span> <span class="token class-name">Sendable</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token omit keyword">_</span> type<span class="token punctuation">:</span> <span class="token class-name">T</span><span class="token punctuation">.</span><span class="token keyword">Type</span><span class="token punctuation">,</span>
+</span><span class="code-line">        endpoint<span class="token punctuation">:</span> <span class="token class-name">Endpoint</span><span class="token punctuation">,</span>
+</span><span class="code-line">        body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">Encodable</span> <span class="token operator">&amp;</span> <span class="token class-name">Sendable</span>
+</span><span class="code-line">    <span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">Endpoint</span><span class="token punctuation">:</span> <span class="token class-name">Sendable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> path<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">    <span class="token keyword">var</span> method<span class="token punctuation">:</span> <span class="token class-name">String</span> <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"GET"</span></span>
+</span><span class="code-line">    <span class="token keyword">var</span> queryItems<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">URLQueryItem</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token keyword">var</span> headers<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">String</span><span class="token punctuation">:</span> <span class="token class-name">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">url</span><span class="token punctuation">(</span>relativeTo baseURL<span class="token punctuation">:</span> <span class="token constant">URL</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token constant">URL</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> components <span class="token operator">=</span> <span class="token class-name">URLComponents</span><span class="token punctuation">(</span>
+</span><span class="code-line">            url<span class="token punctuation">:</span> baseURL<span class="token punctuation">.</span><span class="token function">appendingPathComponent</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            resolvingAgainstBaseURL<span class="token punctuation">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">        <span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">preconditionFailure</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Invalid URL components for path: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">path</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">var</span> mutableComponents <span class="token operator">=</span> components
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token operator">!</span>queryItems<span class="token punctuation">.</span>isEmpty <span class="token punctuation">{</span>
+</span><span class="code-line">            mutableComponents<span class="token punctuation">.</span>queryItems <span class="token operator">=</span> queryItems
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">guard</span> <span class="token keyword">let</span> url <span class="token operator">=</span> mutableComponents<span class="token punctuation">.</span>url <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">preconditionFailure</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Failed to construct URL from components"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">return</span> url
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>The client accepts a <code>baseURL</code>, optional custom <code>URLSession</code>, <code>JSONDecoder</code>,
+and an array of <code>RequestMiddleware</code> interceptors. Each method builds a
+<code>URLRequest</code> from the endpoint, applies middleware, executes the request,
+validates the status code, and decodes the result. See
+<a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/urlsession-patterns.md" target="_blank" rel="ugc nofollow noopener">references/urlsession-patterns.md</a> for the complete <code>APIClient</code> implementation
+with convenience methods, request builder, and test setup.</p>
+<h3>Lightweight Closure-Based Client</h3>
+<p>For apps using the MV pattern, use closure-based clients for testability
+and SwiftUI preview support. See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/lightweight-clients.md" target="_blank" rel="ugc nofollow noopener">references/lightweight-clients.md</a> for
+the full pattern (struct of async closures, injected via init).</p>
+<h3>Request Middleware / Interceptors</h3>
+<p>Middleware transforms requests before they are sent. Use this for
+authentication, logging, analytics headers, and similar cross-cutting
+concerns.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">protocol</span> <span class="token class-name">RequestMiddleware</span><span class="token punctuation">:</span> <span class="token class-name">Sendable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">prepare</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> request<span class="token punctuation">:</span> <span class="token class-name">URLRequest</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">URLRequest</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">AuthMiddleware</span><span class="token punctuation">:</span> <span class="token class-name">RequestMiddleware</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> tokenProvider<span class="token punctuation">:</span> <span class="token attribute atrule">@Sendable</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">String</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">prepare</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> request<span class="token punctuation">:</span> <span class="token class-name">URLRequest</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">URLRequest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">var</span> request <span class="token operator">=</span> request
+</span><span class="code-line">        <span class="token keyword">let</span> token <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">tokenProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        request<span class="token punctuation">.</span><span class="token function">setValue</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Bearer </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">token</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">,</span> forHTTPHeaderField<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Authorization"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> request
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Token Refresh Flow</h3>
+<p>Handle 401 responses by refreshing the token and retrying once.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">fetchWithTokenRefresh</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token punctuation">:</span> <span class="token class-name">Decodable</span> <span class="token operator">&amp;</span> <span class="token class-name">Sendable</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token omit keyword">_</span> type<span class="token punctuation">:</span> <span class="token class-name">T</span><span class="token punctuation">.</span><span class="token keyword">Type</span><span class="token punctuation">,</span>
+</span><span class="code-line">    endpoint<span class="token punctuation">:</span> <span class="token class-name">Endpoint</span><span class="token punctuation">,</span>
+</span><span class="code-line">    tokenStore<span class="token punctuation">:</span> <span class="token class-name">TokenStore</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">do</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>type<span class="token punctuation">,</span> endpoint<span class="token punctuation">:</span> endpoint<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token class-name">NetworkError</span><span class="token punctuation">.</span><span class="token function">httpError</span><span class="token punctuation">(</span>statusCode<span class="token punctuation">:</span> <span class="token number">401</span><span class="token punctuation">,</span> <span class="token omit keyword">_</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">try</span> <span class="token keyword">await</span> tokenStore<span class="token punctuation">.</span><span class="token function">refreshToken</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>type<span class="token punctuation">,</span> endpoint<span class="token punctuation">:</span> endpoint<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Error Handling</h2>
+<h3>Structured Error Types</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">enum</span> <span class="token class-name">NetworkError</span><span class="token punctuation">:</span> <span class="token class-name">Error</span><span class="token punctuation">,</span> <span class="token class-name">Sendable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> invalidResponse
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token function">httpError</span><span class="token punctuation">(</span>statusCode<span class="token punctuation">:</span> <span class="token class-name">Int</span><span class="token punctuation">,</span> data<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token function">decodingFailed</span><span class="token punctuation">(</span><span class="token class-name">Error</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">case</span> noConnection
+</span><span class="code-line">    <span class="token keyword">case</span> timedOut
+</span><span class="code-line">    <span class="token keyword">case</span> cancelled
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">/// Map a URLError to a typed NetworkError</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">func</span> <span class="token function-definition function">from</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> urlError<span class="token punctuation">:</span> <span class="token class-name">URLError</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">NetworkError</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">switch</span> urlError<span class="token punctuation">.</span>code <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token punctuation">.</span>notConnectedToInternet<span class="token punctuation">,</span> <span class="token punctuation">.</span>networkConnectionLost<span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token punctuation">.</span>noConnection
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token punctuation">.</span>timedOut<span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token punctuation">.</span>timedOut
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token punctuation">.</span>cancelled<span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token punctuation">.</span>cancelled
+</span><span class="code-line">        <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token punctuation">.</span><span class="token function">httpError</span><span class="token punctuation">(</span>statusCode<span class="token punctuation">:</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">,</span> data<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Key URLError Cases</h3>
+<table>
+<thead>
+<tr>
+<th>URLError Code</th>
+<th>Meaning</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.notConnectedToInternet</code></td>
+<td>Device offline</td>
+<td>Show offline UI, queue for retry</td>
+</tr>
+<tr>
+<td><code>.networkConnectionLost</code></td>
+<td>Connection dropped mid-request</td>
+<td>Retry with backoff</td>
+</tr>
+<tr>
+<td><code>.timedOut</code></td>
+<td>Server did not respond in time</td>
+<td>Retry once, then show error</td>
+</tr>
+<tr>
+<td><code>.cancelled</code></td>
+<td>Task was cancelled</td>
+<td>No action needed; do not show error</td>
+</tr>
+<tr>
+<td><code>.cannotFindHost</code></td>
+<td>DNS failure</td>
+<td>Check URL, show error</td>
+</tr>
+<tr>
+<td><code>.secureConnectionFailed</code></td>
+<td>TLS handshake failed</td>
+<td>Check cert pinning, ATS config</td>
+</tr>
+<tr>
+<td><code>.userAuthenticationRequired</code></td>
+<td>401 from proxy</td>
+<td>Trigger auth flow</td>
+</tr>
+</tbody>
+</table>
+<h3>Decoding Server Error Bodies</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">APIErrorResponse</span><span class="token punctuation">:</span> <span class="token class-name">Decodable</span><span class="token punctuation">,</span> <span class="token class-name">Sendable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> code<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">    <span class="token keyword">let</span> message<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">decodeAPIError</span><span class="token punctuation">(</span>from data<span class="token punctuation">:</span> <span class="token class-name">Data</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">APIErrorResponse</span><span class="token operator">?</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span><span class="token operator">?</span> <span class="token class-name">JSONDecoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">decode</span><span class="token punctuation">(</span><span class="token class-name">APIErrorResponse</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">,</span> from<span class="token punctuation">:</span> data<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Usage in catch block</span>
+</span><span class="code-line"><span class="token keyword">catch</span> <span class="token class-name">NetworkError</span><span class="token punctuation">.</span><span class="token function">httpError</span><span class="token punctuation">(</span><span class="token keyword">let</span> statusCode<span class="token punctuation">,</span> <span class="token keyword">let</span> data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token keyword">let</span> apiError <span class="token operator">=</span> <span class="token function">decodeAPIError</span><span class="token punctuation">(</span>from<span class="token punctuation">:</span> data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">showError</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Server error: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">apiError<span class="token punctuation">.</span>message</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">showError</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"HTTP </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">statusCode</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Retry with Exponential Backoff</h3>
+<p>Use structured concurrency for retries. Respect task cancellation between
+attempts. Skip retries for cancellation and 4xx client errors (except 429).</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">withRetry</span><span class="token operator">&lt;</span><span class="token class-name">T</span><span class="token punctuation">:</span> <span class="token class-name">Sendable</span><span class="token operator">&gt;</span><span class="token punctuation">(</span>
+</span><span class="code-line">    maxAttempts<span class="token punctuation">:</span> <span class="token class-name">Int</span> <span class="token operator">=</span> <span class="token number">3</span><span class="token punctuation">,</span>
+</span><span class="code-line">    initialDelay<span class="token punctuation">:</span> <span class="token class-name">Duration</span> <span class="token operator">=</span> <span class="token punctuation">.</span><span class="token function">seconds</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    operation<span class="token punctuation">:</span> <span class="token attribute atrule">@Sendable</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token class-name">T</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> lastError<span class="token punctuation">:</span> <span class="token class-name">Error</span><span class="token operator">?</span>
+</span><span class="code-line">    <span class="token keyword">for</span> attempt <span class="token keyword">in</span> <span class="token number">0</span><span class="token operator">..&lt;</span>maxAttempts <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">do</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token function">operation</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            lastError <span class="token operator">=</span> error
+</span><span class="code-line">            <span class="token keyword">if</span> error <span class="token keyword">is</span> <span class="token class-name">CancellationError</span> <span class="token punctuation">{</span> <span class="token keyword">throw</span> error <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token keyword">case</span> <span class="token class-name">NetworkError</span><span class="token punctuation">.</span><span class="token function">httpError</span><span class="token punctuation">(</span><span class="token keyword">let</span> code<span class="token punctuation">,</span> <span class="token omit keyword">_</span><span class="token punctuation">)</span> <span class="token operator">=</span> error<span class="token punctuation">,</span>
+</span><span class="code-line">               <span class="token punctuation">(</span><span class="token number">400</span><span class="token operator">..&lt;</span><span class="token number">500</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>code<span class="token punctuation">)</span><span class="token punctuation">,</span> code <span class="token operator">!=</span> <span class="token number">429</span> <span class="token punctuation">{</span> <span class="token keyword">throw</span> error <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token keyword">if</span> attempt <span class="token operator">&lt;</span> maxAttempts <span class="token operator">-</span> <span class="token number">1</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">try</span> <span class="token keyword">await</span> <span class="token class-name">Task</span><span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> initialDelay <span class="token operator">*</span> <span class="token class-name">Int</span><span class="token punctuation">(</span><span class="token function">pow</span><span class="token punctuation">(</span><span class="token number">2.0</span><span class="token punctuation">,</span> <span class="token class-name">Double</span><span class="token punctuation">(</span>attempt<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> lastError<span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Pagination</h2>
+<p>Build cursor-based or offset-based pagination with <code>AsyncSequence</code>.
+Always check <code>Task.isCancelled</code> between pages. See
+<a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/urlsession-patterns.md" target="_blank" rel="ugc nofollow noopener">references/urlsession-patterns.md</a> for complete <code>CursorPaginator</code> and
+offset-based implementations.</p>
+<h2>Network Reachability</h2>
+<p>Use <code>NWPathMonitor</code> from the Network framework — not third-party
+Reachability libraries. Wrap in <code>AsyncStream</code> for structured concurrency.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">Network</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function-definition function">networkStatusStream</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">AsyncStream</span><span class="token operator">&lt;</span><span class="token class-name">NWPath</span><span class="token punctuation">.</span><span class="token class-name">Status</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">AsyncStream</span> <span class="token punctuation">{</span> continuation <span class="token keyword">in</span>
+</span><span class="code-line">        <span class="token keyword">let</span> monitor <span class="token operator">=</span> <span class="token class-name">NWPathMonitor</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        monitor<span class="token punctuation">.</span>pathUpdateHandler <span class="token operator">=</span> <span class="token punctuation">{</span> continuation<span class="token punctuation">.</span><span class="token function">yield</span><span class="token punctuation">(</span><span class="token short-argument">$0</span><span class="token punctuation">.</span>status<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        continuation<span class="token punctuation">.</span>onTermination <span class="token operator">=</span> <span class="token punctuation">{</span> <span class="token omit keyword">_</span> <span class="token keyword">in</span> monitor<span class="token punctuation">.</span><span class="token function">cancel</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        monitor<span class="token punctuation">.</span><span class="token function">start</span><span class="token punctuation">(</span>queue<span class="token punctuation">:</span> <span class="token class-name">DispatchQueue</span><span class="token punctuation">(</span>label<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"NetworkMonitor"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Check <code>path.isExpensive</code> (cellular) and <code>path.isConstrained</code> (Low Data
+Mode) to adapt behavior (reduce image quality, skip prefetching).</p>
+<h2>Configuring URLSession</h2>
+<p>Create a configured session for production code. <code>URLSession.shared</code> is
+acceptable only for simple, one-off requests.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> configuration <span class="token operator">=</span> <span class="token class-name">URLSessionConfiguration</span><span class="token punctuation">.</span><span class="token keyword">default</span>
+</span><span class="code-line">configuration<span class="token punctuation">.</span>timeoutIntervalForRequest <span class="token operator">=</span> <span class="token number">30</span>
+</span><span class="code-line">configuration<span class="token punctuation">.</span>timeoutIntervalForResource <span class="token operator">=</span> <span class="token number">300</span>
+</span><span class="code-line">configuration<span class="token punctuation">.</span>waitsForConnectivity <span class="token operator">=</span> <span class="token boolean">true</span>
+</span><span class="code-line">configuration<span class="token punctuation">.</span>requestCachePolicy <span class="token operator">=</span> <span class="token punctuation">.</span>returnCacheDataElseLoad
+</span><span class="code-line">configuration<span class="token punctuation">.</span>httpAdditionalHeaders <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string-literal"><span class="token string">"Accept"</span></span><span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"application/json"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string-literal"><span class="token string">"Accept-Language"</span></span><span class="token punctuation">:</span> <span class="token class-name">Locale</span><span class="token punctuation">.</span>preferredLanguages<span class="token punctuation">.</span>first <span class="token operator">??</span> <span class="token string-literal"><span class="token string">"en"</span></span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> session <span class="token operator">=</span> <span class="token class-name">URLSession</span><span class="token punctuation">(</span>configuration<span class="token punctuation">:</span> configuration<span class="token punctuation">)</span>
+</span></code></pre>
+<p><code>waitsForConnectivity = true</code> is valuable -- it makes the session wait for
+a network path instead of failing immediately when offline. Combine with
+<code>urlSession(_:taskIsWaitingForConnectivity:)</code> delegate callback for UI
+feedback.</p>
+<h2>App Transport Security (ATS)</h2>
+<p>ATS enforces HTTPS for all connections by default. Do not disable it.</p>
+<h3>Requirements</h3>
+<ul>
+<li>TLS 1.2 or later</li>
+<li>Forward secrecy cipher suites (ECDHE)</li>
+<li>SHA-256 or better certificates</li>
+<li>2048-bit or greater RSA keys (or 256-bit ECC)</li>
+</ul>
+<h3>Exception Domains (Last Resort)</h3>
+<pre class="language-xml"><code class="language-xml code-highlight"><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>NSAppTransportSecurity<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>NSExceptionDomains<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>legacy-api.example.com<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>NSExceptionAllowsInsecureHTTPLoads<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>true</span><span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line">            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>key</span><span class="token punctuation">&gt;</span></span>NSExceptionMinimumTLSVersion<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>key</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>string</span><span class="token punctuation">&gt;</span></span>TLSv1.2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>string</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dict</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<p><strong>Rules:</strong></p>
+<ul>
+<li>Never set <code>NSAllowsArbitraryLoads</code> to <code>true</code> in production. App Review will reject it without justification.</li>
+<li>Exception domains require justification in App Review notes.</li>
+<li>Use exception domains only for third-party servers you cannot upgrade to HTTPS.</li>
+<li><code>NSAllowsLocalNetworking</code> is acceptable for local device communication (Bonjour, IoT).</li>
+</ul>
+<h2>Common Mistakes</h2>
+<p><strong>DON'T:</strong> Use <code>URLSession.shared</code> with custom configuration needs.
+<strong>DO:</strong> Create a configured <code>URLSession</code> with appropriate timeouts, caching,
+and delegate for production code.</p>
+<p><strong>DON'T:</strong> Force-unwrap <code>URL(string:)</code> with dynamic input.
+<strong>DO:</strong> Use <code>URL(string:)</code> with proper error handling. Force-unwrap is
+acceptable only for compile-time-constant strings.</p>
+<p><strong>DON'T:</strong> Decode JSON on the main thread for large payloads.
+<strong>DO:</strong> Keep decoding on the calling context of the URLSession call, which
+is off-main by default. Only hop to <code>@MainActor</code> to update UI state.</p>
+<p><strong>DON'T:</strong> Ignore cancellation in long-running network tasks.
+<strong>DO:</strong> Check <code>Task.isCancelled</code> or call <code>try Task.checkCancellation()</code> in
+loops (pagination, streaming, retry). Use <code>.task</code> in SwiftUI for automatic
+cancellation.</p>
+<p><strong>DON'T:</strong> Use Alamofire or Moya when URLSession async/await handles the
+need.
+<strong>DO:</strong> Use URLSession directly. With async/await, the ergonomic gap that
+justified third-party libraries no longer exists. Reserve third-party
+libraries for genuinely missing features (e.g., image caching).</p>
+<p><strong>DON'T:</strong> Mock URLSession directly in tests.
+<strong>DO:</strong> Use <code>URLProtocol</code> subclass for transport-level mocking, or use
+protocol-based clients that accept a test double.</p>
+<p><strong>DON'T:</strong> Use <code>data(for:)</code> for large file downloads.
+<strong>DO:</strong> Use <code>download(for:)</code> which streams to disk and avoids memory spikes.</p>
+<p><strong>DON'T:</strong> Fire network requests from <code>body</code> or view initializers.
+<strong>DO:</strong> Use <code>.task</code> or <code>.task(id:)</code> to trigger network calls.</p>
+<p><strong>DON'T:</strong> Hardcode authentication tokens in requests.
+<strong>DO:</strong> Inject tokens via middleware so they are centralized and refreshable.</p>
+<p><strong>DON'T:</strong> Ignore HTTP status codes and decode blindly.
+<strong>DO:</strong> Validate status codes before decoding. A 200 with invalid JSON and
+a 500 with an error body require different handling.</p>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All network calls use async/await (not completion handlers)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Error handling covers URLError cases (.notConnectedToInternet, .timedOut, .cancelled)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Requests are cancellable (respect Task cancellation via <code>.task</code> modifier or stored Task references)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Authentication tokens injected via middleware, not hardcoded</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Response HTTP status codes validated before decoding</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Large downloads use <code>download(for:)</code> not <code>data(for:)</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Network calls happen off <code>@MainActor</code> (only UI updates on main)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> URLSession configured with appropriate timeouts and caching</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Retry logic excludes cancellation and 4xx client errors</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Pagination checks <code>Task.isCancelled</code> between pages</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Sensitive tokens stored in Keychain (not UserDefaults or plain files)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No force-unwrapped URLs from dynamic input</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Server error responses decoded and surfaced to users</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Ensure network response model types conform to Sendable; use @MainActor for UI-updating completion paths</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/urlsession-patterns.md" target="_blank" rel="ugc nofollow noopener">references/urlsession-patterns.md</a> for complete API client
+implementation, multipart uploads, download progress, URLProtocol
+mocking, retry/backoff, certificate pinning, request logging, and
+pagination implementations.</li>
+<li>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/background-websocket.md" target="_blank" rel="ugc nofollow noopener">references/background-websocket.md</a> for background URLSession
+configuration, background downloads/uploads, WebSocket patterns with
+structured concurrency, and reconnection strategies.</li>
+<li>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/lightweight-clients.md" target="_blank" rel="ugc nofollow noopener">references/lightweight-clients.md</a> for the lightweight closure-based
+client pattern (struct of async closures, injected via init for testability
+and preview support).</li>
+<li>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/network-framework.md" target="_blank" rel="ugc nofollow noopener">references/network-framework.md</a> for Network.framework (NWConnection,
+NWListener, NWBrowser, NWPathMonitor) and low-level TCP/UDP/WebSocket patterns.</li>
+<li>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/ios-networking/references/file-storage-patterns.md" target="_blank" rel="ugc nofollow noopener">references/file-storage-patterns.md</a> for file system directory
+selection, FileProtectionType, backup exclusion, and storage pressure handling.</li>
+</ul></div>

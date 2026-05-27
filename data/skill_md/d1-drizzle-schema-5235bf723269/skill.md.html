@@ -1,0 +1,171 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>D1 Drizzle Schema</h1>
+<p>Generate correct Drizzle ORM schemas for Cloudflare D1. D1 is SQLite-based but has important differences that cause subtle bugs if you use standard SQLite patterns. This skill produces schemas that work correctly with D1's constraints.</p>
+<h2>Critical D1 Differences</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Standard SQLite</th>
+<th>D1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Foreign keys</td>
+<td>OFF by default</td>
+<td><strong>Always ON</strong> (cannot disable)</td>
+</tr>
+<tr>
+<td>Boolean type</td>
+<td>No</td>
+<td>No — use <code>integer({ mode: 'boolean' })</code></td>
+</tr>
+<tr>
+<td>Datetime type</td>
+<td>No</td>
+<td>No — use <code>integer({ mode: 'timestamp' })</code></td>
+</tr>
+<tr>
+<td>Max bound params</td>
+<td>~999</td>
+<td><strong>100</strong> (affects bulk inserts)</td>
+</tr>
+<tr>
+<td>JSON support</td>
+<td>Extension</td>
+<td><strong>Always available</strong> (json_extract, -&gt;, -&gt;&gt;)</td>
+</tr>
+<tr>
+<td>Concurrency</td>
+<td>Multi-writer</td>
+<td><strong>Single-threaded</strong> (one query at a time)</td>
+</tr>
+</tbody>
+</table>
+<h2>Workflow</h2>
+<h3>Step 1: Describe the Data Model</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Gather requirements: what tables, what relationships, what needs indexing. If working from an existing description, infer the schema directly.</p>
+<h3>Step 2: Generate Drizzle Schema</h3>
+<p>Create schema files using D1-correct column patterns:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> sqliteTable<span class="token punctuation">,</span> text<span class="token punctuation">,</span> integer<span class="token punctuation">,</span> real<span class="token punctuation">,</span> index<span class="token punctuation">,</span> uniqueIndex <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'drizzle-orm/sqlite-core'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token function">sqliteTable</span><span class="token punctuation">(</span><span class="token string">'users'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// UUID primary key (preferred for D1)</span>
+</span><span class="code-line">  id<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token string">'id'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">primaryKey</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">$defaultFn</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> crypto<span class="token punctuation">.</span><span class="token function">randomUUID</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Text fields</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  email<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token string">'email'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Enum (stored as TEXT, validated at schema level)</span>
+</span><span class="code-line">  role<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token string">'role'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token keyword">enum</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'admin'</span><span class="token punctuation">,</span> <span class="token string">'editor'</span><span class="token punctuation">,</span> <span class="token string">'viewer'</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token string">'viewer'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Boolean (D1 has no BOOL — stored as INTEGER 0/1)</span>
+</span><span class="code-line">  emailVerified<span class="token operator">:</span> <span class="token function">integer</span><span class="token punctuation">(</span><span class="token string">'email_verified'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> mode<span class="token operator">:</span> <span class="token string">'boolean'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Timestamp (D1 has no DATETIME — stored as unix seconds)</span>
+</span><span class="code-line">  createdAt<span class="token operator">:</span> <span class="token function">integer</span><span class="token punctuation">(</span><span class="token string">'created_at'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> mode<span class="token operator">:</span> <span class="token string">'timestamp'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">$defaultFn</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  updatedAt<span class="token operator">:</span> <span class="token function">integer</span><span class="token punctuation">(</span><span class="token string">'updated_at'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> mode<span class="token operator">:</span> <span class="token string">'timestamp'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">notNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">$defaultFn</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Typed JSON (stored as TEXT, Drizzle auto-serialises)</span>
+</span><span class="code-line">  preferences<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token string">'preferences'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> mode<span class="token operator">:</span> <span class="token string">'json'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token generic-function"><span class="token function">$type</span><span class="token generic class-name"><span class="token operator">&lt;</span>UserPreferences<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Foreign key (always enforced in D1)</span>
+</span><span class="code-line">  organisationId<span class="token operator">:</span> <span class="token function">text</span><span class="token punctuation">(</span><span class="token string">'organisation_id'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">references</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> organisations<span class="token punctuation">.</span>id<span class="token punctuation">,</span> <span class="token punctuation">{</span> onDelete<span class="token operator">:</span> <span class="token string">'cascade'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>table<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  emailIdx<span class="token operator">:</span> <span class="token function">uniqueIndex</span><span class="token punctuation">(</span><span class="token string">'users_email_idx'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span>table<span class="token punctuation">.</span>email<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  orgIdx<span class="token operator">:</span> <span class="token function">index</span><span class="token punctuation">(</span><span class="token string">'users_org_idx'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">on</span><span class="token punctuation">(</span>table<span class="token punctuation">.</span>organisationId<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>See <a href="https://github.com/jezweb/claude-skills/blob/HEAD/plugins/cloudflare/skills/d1-drizzle-schema/references/column-patterns.md" target="_blank" rel="ugc nofollow noopener">references/column-patterns.md</a> for the full type reference.</p>
+<h3>Step 3: Add Relations</h3>
+<p>Drizzle relations are query builder helpers (separate from FK constraints):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> relations <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'drizzle-orm'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> usersRelations <span class="token operator">=</span> <span class="token function">relations</span><span class="token punctuation">(</span>users<span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> one<span class="token punctuation">,</span> many <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  organisation<span class="token operator">:</span> <span class="token function">one</span><span class="token punctuation">(</span>organisations<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    fields<span class="token operator">:</span> <span class="token punctuation">[</span>users<span class="token punctuation">.</span>organisationId<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    references<span class="token operator">:</span> <span class="token punctuation">[</span>organisations<span class="token punctuation">.</span>id<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  posts<span class="token operator">:</span> <span class="token function">many</span><span class="token punctuation">(</span>posts<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Step 4: Export Types</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">User</span> <span class="token operator">=</span> <span class="token keyword">typeof</span> users<span class="token punctuation">.</span>$inferSelect
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">NewUser</span> <span class="token operator">=</span> <span class="token keyword">typeof</span> users<span class="token punctuation">.</span>$inferInsert
+</span></code></pre>
+<h3>Step 5: Set Up Drizzle Config</h3>
+<p>Copy <a href="https://github.com/jezweb/claude-skills/blob/HEAD/plugins/cloudflare/skills/d1-drizzle-schema/assets/drizzle-config-template.ts" target="_blank" rel="ugc nofollow noopener">assets/drizzle-config-template.ts</a> to <code>drizzle.config.ts</code> and update the schema path.</p>
+<h3>Step 6: Add Migration Scripts</h3>
+<p>Add to <code>package.json</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"db:generate"</span><span class="token operator">:</span> <span class="token string">"drizzle-kit generate"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"db:migrate:local"</span><span class="token operator">:</span> <span class="token string">"wrangler d1 migrations apply DB --local"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"db:migrate:remote"</span><span class="token operator">:</span> <span class="token string">"wrangler d1 migrations apply DB --remote"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Always run on BOTH local AND remote before testing.</strong></p>
+<h3>Step 7: Generate DATABASE_SCHEMA.md</h3>
+<p>Document the schema for future sessions:</p>
+<ul>
+<li>Tables with columns, types, and constraints</li>
+<li>Relationships and foreign keys</li>
+<li>Indexes and their purpose</li>
+<li>Migration workflow</li>
+</ul>
+<h2>Bulk Insert Pattern</h2>
+<p>D1 limits bound parameters to 100. Calculate batch size:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> <span class="token constant">BATCH_SIZE</span> <span class="token operator">=</span> Math<span class="token punctuation">.</span><span class="token function">floor</span><span class="token punctuation">(</span><span class="token number">100</span> <span class="token operator">/</span> <span class="token constant">COLUMNS_PER_ROW</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> rows<span class="token punctuation">.</span>length<span class="token punctuation">;</span> i <span class="token operator">+=</span> <span class="token constant">BATCH_SIZE</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">insert</span><span class="token punctuation">(</span>table<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">values</span><span class="token punctuation">(</span>rows<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span>i<span class="token punctuation">,</span> i <span class="token operator">+</span> <span class="token constant">BATCH_SIZE</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>D1 Runtime Usage</h2>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> drizzle <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'drizzle-orm/d1'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> schema <span class="token keyword">from</span> <span class="token string">'./schema'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// In Worker fetch handler:</span>
+</span><span class="code-line"><span class="token keyword">const</span> db <span class="token operator">=</span> <span class="token function">drizzle</span><span class="token punctuation">(</span>env<span class="token punctuation">.</span><span class="token constant">DB</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> schema <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Query patterns</span>
+</span><span class="code-line"><span class="token keyword">const</span> all <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">select</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span>           <span class="token comment">// Array&lt;User&gt;</span>
+</span><span class="code-line"><span class="token keyword">const</span> one <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">select</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">where</span><span class="token punctuation">(</span><span class="token function">eq</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">.</span>id<span class="token punctuation">,</span> id<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment">// User | undefined</span>
+</span><span class="code-line"><span class="token keyword">const</span> count <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token function">select</span><span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> sql<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">count(*)</span><span class="token template-punctuation string">`</span></span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span>schema<span class="token punctuation">.</span>users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Reference Files</h2>
+<table>
+<thead>
+<tr>
+<th>When</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1 vs SQLite, JSON queries, limits</td>
+<td><a href="https://github.com/jezweb/claude-skills/blob/HEAD/plugins/cloudflare/skills/d1-drizzle-schema/references/d1-specifics.md" target="_blank" rel="ugc nofollow noopener">references/d1-specifics.md</a></td>
+</tr>
+<tr>
+<td>Column type patterns for Drizzle + D1</td>
+<td><a href="https://github.com/jezweb/claude-skills/blob/HEAD/plugins/cloudflare/skills/d1-drizzle-schema/references/column-patterns.md" target="_blank" rel="ugc nofollow noopener">references/column-patterns.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2>Assets</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/jezweb/claude-skills/blob/HEAD/plugins/cloudflare/skills/d1-drizzle-schema/assets/drizzle-config-template.ts" target="_blank" rel="ugc nofollow noopener">assets/drizzle-config-template.ts</a></td>
+<td>Starter drizzle.config.ts for D1</td>
+</tr>
+<tr>
+<td><a href="https://github.com/jezweb/claude-skills/blob/HEAD/plugins/cloudflare/skills/d1-drizzle-schema/assets/schema-template.ts" target="_blank" rel="ugc nofollow noopener">assets/schema-template.ts</a></td>
+<td>Example schema with all common D1 patterns</td>
+</tr>
+</tbody>
+</table></div>

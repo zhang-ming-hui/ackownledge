@@ -1,0 +1,106 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Fix Failing or Flaky Tests</h1>
+<p>Diagnose and fix a Playwright test that fails or passes intermittently using a systematic taxonomy.</p>
+<h2>Input</h2>
+<p><code>$ARGUMENTS</code> contains:</p>
+<ul>
+<li>A test file path: <code>e2e/login.spec.ts</code></li>
+<li>A test name: ""should redirect after login"`</li>
+<li>A description: <code>"the checkout test fails in CI but passes locally"</code></li>
+</ul>
+<h2>Steps</h2>
+<h3>1. Reproduce the Failure</h3>
+<p>Run the test to capture the error:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> <span class="token operator">&lt;</span>file<span class="token operator">&gt;</span> <span class="token parameter variable">--reporter</span><span class="token operator">=</span>list
+</span></code></pre>
+<p>If the test passes, it's likely flaky. Run burn-in:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> <span class="token operator">&lt;</span>file<span class="token operator">&gt;</span> --repeat-each<span class="token operator">=</span><span class="token number">10</span> <span class="token parameter variable">--reporter</span><span class="token operator">=</span>list
+</span></code></pre>
+<p>If it still passes, try with parallel workers:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> --fully-parallel <span class="token parameter variable">--workers</span><span class="token operator">=</span><span class="token number">4</span> --repeat-each<span class="token operator">=</span><span class="token number">5</span>
+</span></code></pre>
+<h3>2. Capture Trace</h3>
+<p>Run with full tracing:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> <span class="token operator">&lt;</span>file<span class="token operator">&gt;</span> <span class="token parameter variable">--trace</span><span class="token operator">=</span>on <span class="token parameter variable">--retries</span><span class="token operator">=</span><span class="token number">0</span>
+</span></code></pre>
+<p>Read the trace output. Use <code>/debug</code> to analyze trace files if available.</p>
+<h3>3. Categorize the Failure</h3>
+<p>Load <code>flaky-taxonomy.md</code> from this skill directory.</p>
+<p>Every failing test falls into one of four categories:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Symptom</th>
+<th>Diagnosis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Timing/Async</strong></td>
+<td>Fails intermittently everywhere</td>
+<td><code>--repeat-each=20</code> reproduces locally</td>
+</tr>
+<tr>
+<td><strong>Test Isolation</strong></td>
+<td>Fails in suite, passes alone</td>
+<td><code>--workers=1 --grep "test name"</code> passes</td>
+</tr>
+<tr>
+<td><strong>Environment</strong></td>
+<td>Fails in CI, passes locally</td>
+<td>Compare CI vs local screenshots/traces</td>
+</tr>
+<tr>
+<td><strong>Infrastructure</strong></td>
+<td>Random, no pattern</td>
+<td>Error references browser internals</td>
+</tr>
+</tbody>
+</table>
+<h3>4. Apply Targeted Fix</h3>
+<p><strong>Timing/Async:</strong></p>
+<ul>
+<li>Replace <code>waitForTimeout()</code> with web-first assertions</li>
+<li>Add <code>await</code> to missing Playwright calls</li>
+<li>Wait for specific network responses before asserting</li>
+<li>Use <code>toBeVisible()</code> before interacting with elements</li>
+</ul>
+<p><strong>Test Isolation:</strong></p>
+<ul>
+<li>Remove shared mutable state between tests</li>
+<li>Create test data per-test via API or fixtures</li>
+<li>Use unique identifiers (timestamps, random strings) for test data</li>
+<li>Check for database state leaks</li>
+</ul>
+<p><strong>Environment:</strong></p>
+<ul>
+<li>Match viewport sizes between local and CI</li>
+<li>Account for font rendering differences in screenshots</li>
+<li>Use <code>docker</code> locally to match CI environment</li>
+<li>Check for timezone-dependent assertions</li>
+</ul>
+<p><strong>Infrastructure:</strong></p>
+<ul>
+<li>Increase timeout for slow CI runners</li>
+<li>Add retries in CI config (<code>retries: 2</code>)</li>
+<li>Check for browser OOM (reduce parallel workers)</li>
+<li>Ensure browser dependencies are installed</li>
+</ul>
+<h3>5. Verify the Fix</h3>
+<p>Run the test 10 times to confirm stability:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> <span class="token operator">&lt;</span>file<span class="token operator">&gt;</span> --repeat-each<span class="token operator">=</span><span class="token number">10</span> <span class="token parameter variable">--reporter</span><span class="token operator">=</span>list
+</span></code></pre>
+<p>All 10 must pass. If any fail, go back to step 3.</p>
+<h3>6. Prevent Recurrence</h3>
+<p>Suggest:</p>
+<ul>
+<li>Add to CI with <code>retries: 2</code> if not already</li>
+<li>Enable <code>trace: 'on-first-retry'</code> in config</li>
+<li>Add the fix pattern to project's test conventions doc</li>
+</ul>
+<h2>Output</h2>
+<ul>
+<li>Root cause category and specific issue</li>
+<li>The fix applied (with diff)</li>
+<li>Verification result (10/10 passes)</li>
+<li>Prevention recommendation</li>
+</ul></div>

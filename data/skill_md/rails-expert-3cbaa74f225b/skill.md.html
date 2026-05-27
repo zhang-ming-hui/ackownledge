@@ -1,0 +1,157 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Rails Expert</h1>
+<h2>Core Workflow</h2>
+<ol>
+<li><strong>Analyze requirements</strong> — Identify models, routes, real-time needs, background jobs</li>
+<li><strong>Scaffold resources</strong> — <code>rails generate model User name:string email:string</code>, <code>rails generate controller Users</code></li>
+<li><strong>Run migrations</strong> — <code>rails db:migrate</code> and verify schema with <code>rails db:schema:dump</code>
+<ul>
+<li>If migration fails: inspect <code>db/schema.rb</code> for conflicts, rollback with <code>rails db:rollback</code>, fix and retry</li>
+</ul>
+</li>
+<li><strong>Implement</strong> — Write controllers, models, add Hotwire (see Reference Guide below)</li>
+<li><strong>Validate</strong> — <code>bundle exec rspec</code> must pass; <code>bundle exec rubocop</code> for style
+<ul>
+<li>If specs fail: check error output, fix failing examples, re-run with <code>--format documentation</code> for detail</li>
+<li>If N+1 queries surface during review: add <code>includes</code>/<code>eager_load</code> (see Common Patterns) and re-run specs</li>
+</ul>
+</li>
+<li><strong>Optimize</strong> — Audit for N+1 queries, add missing indexes, add caching</li>
+</ol>
+<h2>Reference Guide</h2>
+<p>Load detailed guidance based on context:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Reference</th>
+<th>Load When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hotwire/Turbo</td>
+<td><code>references/hotwire-turbo.md</code></td>
+<td>Turbo Frames, Streams, Stimulus controllers</td>
+</tr>
+<tr>
+<td>Active Record</td>
+<td><code>references/active-record.md</code></td>
+<td>Models, associations, queries, performance</td>
+</tr>
+<tr>
+<td>Background Jobs</td>
+<td><code>references/background-jobs.md</code></td>
+<td>Sidekiq, job design, queues, error handling</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td><code>references/rspec-testing.md</code></td>
+<td>Model/request/system specs, factories</td>
+</tr>
+<tr>
+<td>API Development</td>
+<td><code>references/api-development.md</code></td>
+<td>API-only mode, serialization, authentication</td>
+</tr>
+</tbody>
+</table>
+<h2>Common Patterns</h2>
+<h3>N+1 Prevention with includes/eager_load</h3>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token comment"># BAD — triggers N+1</span>
+</span><span class="code-line">posts <span class="token operator">=</span> Post<span class="token punctuation">.</span>all
+</span><span class="code-line">posts<span class="token punctuation">.</span><span class="token keyword">each</span> <span class="token punctuation">{</span> <span class="token operator">|</span>post<span class="token operator">|</span> puts post<span class="token punctuation">.</span>author<span class="token punctuation">.</span>name <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GOOD — eager load association</span>
+</span><span class="code-line">posts <span class="token operator">=</span> Post<span class="token punctuation">.</span>includes<span class="token punctuation">(</span><span class="token symbol">:author</span><span class="token punctuation">)</span><span class="token punctuation">.</span>all
+</span><span class="code-line">posts<span class="token punctuation">.</span><span class="token keyword">each</span> <span class="token punctuation">{</span> <span class="token operator">|</span>post<span class="token operator">|</span> puts post<span class="token punctuation">.</span>author<span class="token punctuation">.</span>name <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GOOD — eager_load forces a JOIN (useful when filtering on association)</span>
+</span><span class="code-line">posts <span class="token operator">=</span> Post<span class="token punctuation">.</span>eager_load<span class="token punctuation">(</span><span class="token symbol">:author</span><span class="token punctuation">)</span><span class="token punctuation">.</span>where<span class="token punctuation">(</span><span class="token symbol">authors</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token symbol">verified</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Turbo Frame Setup (partial page update)</h3>
+<pre class="language-erb"><code class="language-erb code-highlight"><span class="code-line"><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%</span><span class="token ruby language-ruby"><span class="token comment"># app/views/posts/index.html.erb </span></span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line"><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%=</span><span class="token ruby language-ruby"> turbo_frame_tag <span class="token string-literal"><span class="token string">"posts"</span></span> <span class="token keyword">do</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line">  <span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%=</span><span class="token ruby language-ruby"> render <span class="token variable">@posts</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line">  <span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%=</span><span class="token ruby language-ruby"> link_to <span class="token string-literal"><span class="token string">"Load More"</span></span><span class="token punctuation">,</span> posts_path<span class="token punctuation">(</span><span class="token symbol">page</span><span class="token operator">:</span> <span class="token variable">@next_page</span><span class="token punctuation">)</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line"><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%</span><span class="token ruby language-ruby"> <span class="token keyword">end</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%</span><span class="token ruby language-ruby"><span class="token comment"># app/views/posts/_post.html.erb </span></span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line"><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%=</span><span class="token ruby language-ruby"> turbo_frame_tag dom_id<span class="token punctuation">(</span>post<span class="token punctuation">)</span> <span class="token keyword">do</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h2</span><span class="token punctuation">&gt;</span></span><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%=</span><span class="token ruby language-ruby"> post<span class="token punctuation">.</span>title </span><span class="token delimiter punctuation">%&gt;</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h2</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%=</span><span class="token ruby language-ruby"> link_to <span class="token string-literal"><span class="token string">"Edit"</span></span><span class="token punctuation">,</span> edit_post_path<span class="token punctuation">(</span>post<span class="token punctuation">)</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span><span class="code-line"><span class="token erb language-erb"><span class="token delimiter punctuation">&lt;%</span><span class="token ruby language-ruby"> <span class="token keyword">end</span> </span><span class="token delimiter punctuation">%&gt;</span></span>
+</span></code></pre>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token comment"># app/controllers/posts_controller.rb</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token method-definition"><span class="token function">index</span></span>
+</span><span class="code-line">  <span class="token variable">@posts</span> <span class="token operator">=</span> Post<span class="token punctuation">.</span>includes<span class="token punctuation">(</span><span class="token symbol">:author</span><span class="token punctuation">)</span><span class="token punctuation">.</span>page<span class="token punctuation">(</span>params<span class="token punctuation">[</span><span class="token symbol">:page</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token variable">@next_page</span> <span class="token operator">=</span> <span class="token variable">@posts</span><span class="token punctuation">.</span>next_page
+</span><span class="code-line"><span class="token keyword">end</span>
+</span></code></pre>
+<h3>Sidekiq Worker Template</h3>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token comment"># app/jobs/send_welcome_email_job.rb</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">SendWelcomeEmailJob</span> <span class="token operator">&lt;</span> ApplicationJob
+</span><span class="code-line">  queue_as <span class="token symbol">:default</span>
+</span><span class="code-line">  sidekiq_options <span class="token keyword">retry</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token symbol">dead</span><span class="token operator">:</span> <span class="token boolean">false</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">perform</span></span><span class="token punctuation">(</span>user_id<span class="token punctuation">)</span>
+</span><span class="code-line">    user <span class="token operator">=</span> User<span class="token punctuation">.</span>find<span class="token punctuation">(</span>user_id<span class="token punctuation">)</span>
+</span><span class="code-line">    UserMailer<span class="token punctuation">.</span>welcome<span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">.</span>deliver_now
+</span><span class="code-line">  <span class="token keyword">rescue</span> ActiveRecord<span class="token double-colon punctuation">::</span>RecordNotFound <span class="token operator">=&gt;</span> e
+</span><span class="code-line">    Rails<span class="token punctuation">.</span>logger<span class="token punctuation">.</span>warn<span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"SendWelcomeEmailJob: user </span><span class="token interpolation"><span class="token delimiter punctuation">#{</span><span class="token content">user_id</span><span class="token delimiter punctuation">}</span></span><span class="token string"> not found — </span><span class="token interpolation"><span class="token delimiter punctuation">#{</span><span class="token content">e<span class="token punctuation">.</span>message</span><span class="token delimiter punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token comment"># Do not re-raise; record is gone, no point retrying</span>
+</span><span class="code-line">  <span class="token keyword">end</span>
+</span><span class="code-line"><span class="token keyword">end</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Enqueue from controller or model callback</span>
+</span><span class="code-line">SendWelcomeEmailJob<span class="token punctuation">.</span>perform_later<span class="token punctuation">(</span>user<span class="token punctuation">.</span>id<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Strong Parameters (controller template)</h3>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token comment"># app/controllers/posts_controller.rb</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">PostsController</span> <span class="token operator">&lt;</span> ApplicationController
+</span><span class="code-line">  before_action <span class="token symbol">:set_post</span><span class="token punctuation">,</span> <span class="token symbol">only</span><span class="token operator">:</span> <span class="token string-literal"><span class="token string">%i[show edit update destroy]</span></span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">create</span></span>
+</span><span class="code-line">    <span class="token variable">@post</span> <span class="token operator">=</span> <span class="token class-name">Post</span><span class="token punctuation">.</span><span class="token keyword">new</span><span class="token punctuation">(</span>post_params<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token variable">@post</span><span class="token punctuation">.</span>save
+</span><span class="code-line">      redirect_to <span class="token variable">@post</span><span class="token punctuation">,</span> <span class="token symbol">notice</span><span class="token operator">:</span> <span class="token string-literal"><span class="token string">"Post created."</span></span>
+</span><span class="code-line">    <span class="token keyword">else</span>
+</span><span class="code-line">      render <span class="token symbol">:new</span><span class="token punctuation">,</span> <span class="token symbol">status</span><span class="token operator">:</span> <span class="token symbol">:unprocessable_entity</span>
+</span><span class="code-line">    <span class="token keyword">end</span>
+</span><span class="code-line">  <span class="token keyword">end</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">private</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">set_post</span></span>
+</span><span class="code-line">    <span class="token variable">@post</span> <span class="token operator">=</span> Post<span class="token punctuation">.</span>find<span class="token punctuation">(</span>params<span class="token punctuation">[</span><span class="token symbol">:id</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">end</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">post_params</span></span>
+</span><span class="code-line">    params<span class="token punctuation">.</span><span class="token keyword">require</span><span class="token punctuation">(</span><span class="token symbol">:post</span><span class="token punctuation">)</span><span class="token punctuation">.</span>permit<span class="token punctuation">(</span><span class="token symbol">:title</span><span class="token punctuation">,</span> <span class="token symbol">:body</span><span class="token punctuation">,</span> <span class="token symbol">:published_at</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">end</span>
+</span><span class="code-line"><span class="token keyword">end</span>
+</span></code></pre>
+<h2>Constraints</h2>
+<h3>MUST DO</h3>
+<ul>
+<li>Prevent N+1 queries with <code>includes</code>/<code>eager_load</code> on every collection query involving associations</li>
+<li>Write comprehensive specs targeting &gt;95% coverage</li>
+<li>Use service objects for complex business logic; keep controllers thin</li>
+<li>Add database indexes for every column used in <code>WHERE</code>, <code>ORDER BY</code>, or <code>JOIN</code></li>
+<li>Offload slow operations to Sidekiq — never run them synchronously in a request cycle</li>
+</ul>
+<h3>MUST NOT DO</h3>
+<ul>
+<li>Skip migrations for schema changes</li>
+<li>Use raw SQL without sanitization (<code>sanitize_sql</code> or parameterized queries only)</li>
+<li>Expose internal IDs in URLs without consideration</li>
+</ul>
+<h2>Output Templates</h2>
+<p>When implementing Rails features, provide:</p>
+<ol>
+<li>Migration file (if schema changes needed)</li>
+<li>Model file with associations and validations</li>
+<li>Controller with RESTful actions and strong parameters</li>
+<li>View files or Hotwire setup</li>
+<li>Spec files for models and requests</li>
+<li>Brief explanation of architectural decisions</li>
+</ol>
+<p><a href="https://jeffallan.github.io/claude-skills/skills/backend/rails-expert/" target="_blank" rel="ugc nofollow noopener">Documentation</a></p></div>

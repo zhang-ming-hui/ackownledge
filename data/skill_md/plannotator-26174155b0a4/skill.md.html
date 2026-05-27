@@ -1,0 +1,582 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>plannotator — Interactive Plan &amp; Diff Review</h1>
+<blockquote>
+<p>Keyword: <code>plan</code> | Source: <a href="https://github.com/backnotprop/plannotator" target="_blank" rel="ugc nofollow noopener">https://github.com/backnotprop/plannotator</a></p>
+<p>Annotate and review AI coding agent plans visually, share with your team, send feedback with one click.
+Works with <strong>Claude Code</strong>, <strong>OpenCode</strong>, <strong>Gemini CLI</strong>, and <strong>Codex CLI</strong>.</p>
+</blockquote>
+<h2>When to use this skill</h2>
+<ul>
+<li>You want to review an AI agent's implementation plan BEFORE it starts coding</li>
+<li>You want to annotate a git diff after the agent makes changes</li>
+<li>You need a feedback loop: visually mark up what to change, then send structured feedback back</li>
+<li>You want to share plan reviews with teammates via a link</li>
+<li>You want to auto-save approved plans to Obsidian or Bear Notes</li>
+</ul>
+<hr>
+<h2>Scripts (Automated Patterns)</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>All patterns have a corresponding script in <code>scripts/</code>. Run them directly or let the agent call them.</p>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Pattern</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/install.sh</code></td>
+<td>CLI Install</td>
+<td>One-command install; <code>--all</code> sets up every AI tool</td>
+</tr>
+<tr>
+<td><code>scripts/setup-hook.sh</code></td>
+<td>Claude Code Hook</td>
+<td>Configure Claude Code ExitPlanMode hook</td>
+</tr>
+<tr>
+<td><code>scripts/setup-gemini-hook.sh</code></td>
+<td>Gemini CLI Hook</td>
+<td>Configure Gemini CLI ExitPlanMode hook + GEMINI.md</td>
+</tr>
+<tr>
+<td><code>scripts/setup-codex-hook.sh</code></td>
+<td>Codex CLI Setup</td>
+<td>Configure Codex CLI developer_instructions + prompt</td>
+</tr>
+<tr>
+<td><code>scripts/setup-opencode-plugin.sh</code></td>
+<td>OpenCode Plugin</td>
+<td>Register plugin + slash commands</td>
+</tr>
+<tr>
+<td><code>scripts/check-status.sh</code></td>
+<td>Status Check</td>
+<td>Verify all integrations and configuration</td>
+</tr>
+<tr>
+<td><code>scripts/configure-remote.sh</code></td>
+<td>Remote Mode</td>
+<td>SSH / devcontainer / WSL configuration</td>
+</tr>
+<tr>
+<td><code>scripts/review.sh</code></td>
+<td>Code Review</td>
+<td>Launch diff review UI</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Pattern 1: Install</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Install CLI only (macOS / Linux / WSL)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install CLI and get Claude Code plugin commands</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh --with-plugin
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install CLI + configure Gemini CLI</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh --with-gemini
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install CLI + configure Codex CLI</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh --with-codex
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install CLI + register OpenCode plugin</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh --with-opencode
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install CLI + all AI tool integrations at once</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh <span class="token parameter variable">--all</span>
+</span></code></pre>
+<p>What it does:</p>
+<ul>
+<li>Detects OS (macOS / Linux / WSL / Windows)</li>
+<li>Checks for Obsidian and shows install link if missing: <a href="https://obsidian.md/download" target="_blank" rel="ugc nofollow noopener">https://obsidian.md/download</a></li>
+<li>Installs via <code>https://plannotator.ai/install.sh</code></li>
+<li>Verifies install and PATH</li>
+<li>Optionally runs integration scripts for each AI tool</li>
+<li>On Windows: prints PowerShell / CMD commands to run manually</li>
+</ul>
+<hr>
+<h2>Pattern 2: Hook Setup (Plan Review trigger)</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Add hook to ~/.claude/settings.json</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-hook.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Preview what would change (no writes)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-hook.sh --dry-run
+</span></code></pre>
+<p>What it does:</p>
+<ul>
+<li>Checks plannotator CLI is installed</li>
+<li>Merges <code>ExitPlanMode</code> hook into <code>~/.claude/settings.json</code> safely (backs up first)</li>
+<li>Skips if hook already configured</li>
+<li><strong>Restart Claude Code after running this</strong></li>
+</ul>
+<h3>Alternative: Claude Code Plugin (no manual hook needed)</h3>
+<p>Run inside Claude Code:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">/plugin marketplace <span class="token function">add</span> backnotprop/plannotator
+</span><span class="code-line">/plugin <span class="token function">install</span> plannotator@plannotator
+</span><span class="code-line"><span class="token comment"># IMPORTANT: Restart Claude Code after plugin install</span>
+</span></code></pre>
+<hr>
+<h2>Pattern 3: Plan Review (Before Coding)</h2>
+<blockquote>
+<p>Triggered automatically via hook when Claude Code exits plan mode.</p>
+</blockquote>
+<p>When your agent finishes planning (Claude Code: <code>Shift+Tab×2</code> to enter plan mode), plannotator opens automatically:</p>
+<ol>
+<li><strong>View</strong> the agent's plan in the visual UI</li>
+<li><strong>Annotate</strong> with clear intent:
+<ul>
+<li><code>delete</code> — remove risky or unnecessary step</li>
+<li><code>insert</code> — add missing step</li>
+<li><code>replace</code> — revise incorrect approach</li>
+<li><code>comment</code> — clarify constraints or acceptance criteria</li>
+</ul>
+</li>
+<li><strong>Submit</strong> one outcome:
+<ul>
+<li><strong>Approve</strong> → agent proceeds with implementation</li>
+<li><strong>Request changes</strong> → your annotations are sent back as structured feedback for replanning</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>Pattern 4: Code Review (After Coding)</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Review all uncommitted changes</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/review.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Review a specific commit</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/review.sh HEAD~1
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Review branch diff</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/review.sh main<span class="token punctuation">..</span>.HEAD
+</span></code></pre>
+<p>What it does:</p>
+<ul>
+<li>Checks CLI and git repo state</li>
+<li>Shows diff summary before opening</li>
+<li>Launches <code>plannotator review</code> UI</li>
+<li>In the UI: select line numbers to annotate, switch unified/split views, attach images</li>
+</ul>
+<hr>
+<h2>Pattern 5: Remote / Devcontainer Mode</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Interactive setup (SSH, devcontainer, WSL)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/configure-remote.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># View current configuration</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/configure-remote.sh <span class="token parameter variable">--show</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Set port directly</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/configure-remote.sh <span class="token parameter variable">--port</span> <span class="token number">9999</span>
+</span></code></pre>
+<p>What it does:</p>
+<ul>
+<li>Detects shell profile (<code>.zshrc</code>, <code>.bashrc</code>, <code>.profile</code>)</li>
+<li>Writes <code>PLANNOTATOR_REMOTE=1</code> and <code>PLANNOTATOR_PORT</code> to shell profile</li>
+<li>Shows SSH and VS Code port-forwarding instructions</li>
+<li>Optionally sets custom browser or share URL</li>
+</ul>
+<p>Manual environment variables:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">PLANNOTATOR_REMOTE</span><span class="token operator">=</span><span class="token number">1</span>    <span class="token comment"># No auto browser open</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">PLANNOTATOR_PORT</span><span class="token operator">=</span><span class="token number">9999</span>   <span class="token comment"># Fixed port for forwarding</span>
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PLANNOTATOR_REMOTE</code></td>
+<td>Remote mode (no auto browser open)</td>
+</tr>
+<tr>
+<td><code>PLANNOTATOR_PORT</code></td>
+<td>Fixed local/forwarded port</td>
+</tr>
+<tr>
+<td><code>PLANNOTATOR_BROWSER</code></td>
+<td>Custom browser path/app</td>
+</tr>
+<tr>
+<td><code>PLANNOTATOR_SHARE_URL</code></td>
+<td>Custom share portal URL</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Pattern 6: Status Check</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">bash</span> scripts/check-status.sh
+</span></code></pre>
+<p>Checks all of:</p>
+<ul>
+<li>CLI installed and version</li>
+<li>Claude Code hook in <code>~/.claude/settings.json</code> (or plugin detected)</li>
+<li>Gemini CLI hook in <code>~/.gemini/settings.json</code></li>
+<li>Codex CLI <code>~/.codex/config.toml</code> developer_instructions</li>
+<li>OpenCode plugin in <code>opencode.json</code> + slash commands</li>
+<li>Obsidian installation</li>
+<li>Environment variables configured</li>
+<li>Git repo available for diff review</li>
+</ul>
+<hr>
+<h2>Pattern 7: Gemini CLI Integration</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Configure Gemini CLI (hook + GEMINI.md instructions)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-gemini-hook.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Preview what would change (no writes)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-gemini-hook.sh --dry-run
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Only update settings.json hook (skip GEMINI.md)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-gemini-hook.sh --hook-only
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Only update GEMINI.md (skip settings.json)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-gemini-hook.sh --md-only
+</span></code></pre>
+<p>What it does:</p>
+<ul>
+<li>Checks plannotator CLI is installed</li>
+<li>Merges <code>ExitPlanMode</code> hook into <code>~/.gemini/settings.json</code> (same format as Claude Code)</li>
+<li>Appends plannotator usage instructions to <code>~/.gemini/GEMINI.md</code></li>
+<li>Backs up existing files before modifying</li>
+</ul>
+<p>Usage in Gemini CLI after setup:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Enter planning mode (hook fires when you exit)</span>
+</span><span class="code-line">gemini --approval-mode plan
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Manual plan review (validated format)</span>
+</span><span class="code-line">python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json
+</span></span><span class="code-line"><span class="token string">plan = open('plan.md').read()
+</span></span><span class="code-line"><span class="token string">print(json.dumps({'tool_input': {'plan': plan, 'permission_mode': 'acceptEdits'}}))
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator">|</span> plannotator <span class="token operator">&gt;</span> /tmp/plannotator_feedback.txt <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Code review after implementation</span>
+</span><span class="code-line">plannotator review
+</span></code></pre>
+<blockquote>
+<p><strong>Note:</strong> Gemini CLI supports <code>gemini hooks migrate --from-claude</code> to auto-migrate existing Claude Code hooks.</p>
+</blockquote>
+<hr>
+<h2>Pattern 8: Codex CLI Integration</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Configure Codex CLI (developer_instructions + prompt file)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-codex-hook.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Preview what would change (no writes)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-codex-hook.sh --dry-run
+</span></code></pre>
+<p>What it does:</p>
+<ul>
+<li>Adds plannotator instruction to <code>developer_instructions</code> in <code>~/.codex/config.toml</code></li>
+<li>Creates <code>~/.codex/prompts/plannotator.md</code> (invoke with <code>/prompts:plannotator</code>)</li>
+<li>Backs up existing config before modifying</li>
+</ul>
+<p>Usage in Codex CLI after setup:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Use the plannotator agent prompt</span>
+</span><span class="code-line">/prompts:plannotator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Manual plan review (validated format)</span>
+</span><span class="code-line">python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json
+</span></span><span class="code-line"><span class="token string">plan = open('plan.md').read()
+</span></span><span class="code-line"><span class="token string">print(json.dumps({'tool_input': {'plan': plan, 'permission_mode': 'acceptEdits'}}))
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator">|</span> plannotator <span class="token operator">&gt;</span> /tmp/plannotator_feedback.txt <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Code review after implementation</span>
+</span><span class="code-line">plannotator review HEAD~1
+</span></code></pre>
+<blockquote>
+<p>Note: <code>plannotator plan -</code> with heredoc/echo can fail with <code>Failed to parse hook event from stdin</code>. Use the python3 JSON format above.</p>
+</blockquote>
+<hr>
+<h2>Pattern 10: Manual Save via Export → Notes Tab</h2>
+<p>Save the current plan to Obsidian or Bear Notes at any time — without approving or denying.</p>
+<h3>How to access</h3>
+<ol>
+<li>Click <strong>Export</strong> button in the plannotator UI toolbar</li>
+<li>Click the <strong>Notes</strong> tab (not Share or Annotations)</li>
+<li>You see:
+<ul>
+<li><strong>Obsidian</strong> row with configured vault path and <strong>Save</strong> button</li>
+<li><strong>Bear</strong> row with <strong>Save</strong> button</li>
+<li><strong>Save All</strong> button to save both at once</li>
+</ul>
+</li>
+<li>A green dot next to each row means that integration is configured</li>
+<li>Clicking <strong>Save</strong> shows <strong>Saved</strong> when complete</li>
+</ol>
+<h3>When to use</h3>
+<ul>
+<li>Save work-in-progress plans without committing to Approve/Deny</li>
+<li>Quick archive after reviewing without final decision</li>
+<li>Save annotated plans for team reference</li>
+</ul>
+<h3>Requirements</h3>
+<ul>
+<li>plannotator must be running in <strong>hook mode</strong> (normal Claude Code ExitPlanMode hook invocation = hook mode)</li>
+<li>Obsidian/Bear must be configured in Settings (⚙️) → Saving tab</li>
+<li>Settings are stored in <strong>cookies</strong> (not localStorage) and persist across restarts</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> The Notes tab uses <code>POST /api/save-notes</code> which writes directly to the vault filesystem (Obsidian) or calls <code>bear://x-callback-url/create</code> (Bear). This endpoint is only available in hook mode.</p>
+</blockquote>
+<hr>
+<h2>Recommended Workflow</h2>
+<h3>Quick Start (all AI tools)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Install CLI + configure all AI tool integrations at once</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh <span class="token parameter variable">--all</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Verify everything</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/check-status.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Restart your AI tools (Claude Code, Gemini CLI, OpenCode, Codex)</span>
+</span></code></pre>
+<h3>Claude Code (manual)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1. bash scripts/install.sh --with-plugin
+</span><span class="code-line">   └─ Installs CLI + shows plugin install commands
+</span><span class="code-line">
+</span><span class="code-line">2. bash scripts/setup-hook.sh          ← skip if using plugin
+</span><span class="code-line">   └─ Configures automatic plan review trigger
+</span><span class="code-line">
+</span><span class="code-line">3. bash scripts/check-status.sh
+</span><span class="code-line">   └─ Confirm everything is ready
+</span><span class="code-line">
+</span><span class="code-line">4. [Code with agent in plan mode → Shift+Tab×2]
+</span><span class="code-line">   └─ plannotator opens automatically
+</span><span class="code-line">
+</span><span class="code-line">5. bash scripts/review.sh              ← after agent finishes coding
+</span><span class="code-line">   └─ Opens visual diff review
+</span></code></pre>
+<h3>Gemini CLI (manual)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1. bash scripts/install.sh
+</span><span class="code-line">2. bash scripts/setup-gemini-hook.sh
+</span><span class="code-line">3. gemini --approval-mode plan          ← work in plan mode
+</span><span class="code-line">   └─ plannotator fires on exit
+</span></code></pre>
+<h3>Codex CLI (manual)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1. bash scripts/install.sh
+</span><span class="code-line">2. bash scripts/setup-codex-hook.sh
+</span><span class="code-line">3. /prompts:plannotator                 ← inside Codex session
+</span></code></pre>
+<hr>
+<h2>OpenCode Setup</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Automated (recommended)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-opencode-plugin.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or add manually to opencode.json:</span>
+</span></code></pre>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"$schema"</span><span class="token operator">:</span> <span class="token string">"https://opencode.ai/config.json"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plugin"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"@plannotator/opencode@latest"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>After setup, restart OpenCode. Available slash commands:</p>
+<ul>
+<li><code>/plannotator-review</code> — open code review UI for current git diff</li>
+<li><code>/plannotator-annotate &lt;file.md&gt;</code> — annotate a markdown file</li>
+</ul>
+<p>The <code>submit_plan</code> tool is automatically available to the agent for plan submission.</p>
+<hr>
+<h2>Pattern 9: Obsidian Integration Setup</h2>
+<p>Auto-save approved plans to your Obsidian vault with YAML frontmatter and tags.</p>
+<h3>Prerequisites</h3>
+<ol>
+<li><strong>Install Obsidian</strong>: <a href="https://obsidian.md/download" target="_blank" rel="ugc nofollow noopener">https://obsidian.md/download</a></li>
+<li><strong>Create a Vault</strong>: Open Obsidian → Create new vault → Choose location
+<ul>
+<li>Example: <code>~/Documents/Obsidian/MyVault</code></li>
+</ul>
+</li>
+<li><strong>Verify Vault Exists</strong>: Obsidian creates <code>obsidian.json</code> config after first vault creation</li>
+</ol>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check Obsidian installation (macOS)</span>
+</span><span class="code-line"><span class="token function">ls</span> /Applications/Obsidian.app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check Obsidian config exists (vault detection depends on this)</span>
+</span><span class="code-line"><span class="token comment"># macOS</span>
+</span><span class="code-line"><span class="token function">cat</span> ~/Library/Application<span class="token punctuation">\</span> Support/obsidian/obsidian.json
+</span><span class="code-line"><span class="token comment"># Linux</span>
+</span><span class="code-line"><span class="token function">cat</span> ~/.config/obsidian/obsidian.json
+</span><span class="code-line"><span class="token comment"># Windows</span>
+</span><span class="code-line"><span class="token function">cat</span> %APPDATA%/obsidian/obsidian.json
+</span></code></pre>
+<h3>Step-by-Step Setup</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Step 1: Verify Obsidian is installed and has at least one vault</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/check-status.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Step 2: Trigger a plan review (any method)</span>
+</span><span class="code-line"><span class="token comment"># Claude Code: Shift+Tab×2 → plan mode → exit plan mode</span>
+</span><span class="code-line"><span class="token comment"># Gemini CLI: gemini --approval-mode plan</span>
+</span><span class="code-line"><span class="token comment"># OpenCode: Agent creates a plan</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Step 3: In the plannotator UI:</span>
+</span><span class="code-line"><span class="token comment">#   1. Click ⚙️ (Settings gear icon)</span>
+</span><span class="code-line"><span class="token comment">#   2. Go to "Saving" tab</span>
+</span><span class="code-line"><span class="token comment">#   3. Toggle ON "Obsidian Integration"</span>
+</span><span class="code-line"><span class="token comment">#   4. Select your vault from dropdown (auto-detected)</span>
+</span><span class="code-line"><span class="token comment">#      - Or enter custom path if vault not detected</span>
+</span><span class="code-line"><span class="token comment">#   5. Set folder name (default: "plannotator")</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Step 4: Approve a plan to test the integration</span>
+</span><span class="code-line"><span class="token comment">#   - Click "Approve" in the plannotator UI</span>
+</span><span class="code-line"><span class="token comment">#   - Check your vault for the saved file</span>
+</span></code></pre>
+<h3>Obsidian Configuration Options</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vault</strong></td>
+<td>Path to Obsidian vault</td>
+<td>Auto-detected</td>
+</tr>
+<tr>
+<td><strong>Folder</strong></td>
+<td>Subfolder in vault for plans</td>
+<td><code>plannotator</code></td>
+</tr>
+<tr>
+<td><strong>Custom Path</strong></td>
+<td>Manual path if auto-detect fails</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<h3>Saved File Format</h3>
+<p>Files are saved with human-readable names and YAML frontmatter:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Filename: {Title} - {Month} {Day}, {Year} {Hour}-{Minute}{am/pm}.md
+</span><span class="code-line">Example:  User Authentication - Feb 22, 2026 10-45pm.md
+</span></code></pre>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token punctuation">---</span>
+</span><span class="code-line"><span class="token key atrule">created</span><span class="token punctuation">:</span> <span class="token datetime number">2026-02-22T22:45:30.000Z</span>
+</span><span class="code-line"><span class="token key atrule">source</span><span class="token punctuation">:</span> plannotator
+</span><span class="code-line"><span class="token key atrule">tags</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>plannotator<span class="token punctuation">,</span> project<span class="token punctuation">-</span>name<span class="token punctuation">,</span> typescript<span class="token punctuation">,</span> <span class="token punctuation">...</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token punctuation">[</span><span class="token punctuation">[</span>Plannotator Plans<span class="token punctuation">]</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Original plan content...</span>
+</span></code></pre>
+<p><strong>Tag extraction:</strong></p>
+<ul>
+<li><code>plannotator</code> — always included</li>
+<li>Project name — from git repo or directory</li>
+<li>Title words — first 3 meaningful words from H1 heading</li>
+<li>Languages — from code blocks (```typescript → typescript)</li>
+</ul>
+<h3>Folder Organization</h3>
+<p>Organize plans within the vault using subfolders:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">vault/plannotator/
+</span><span class="code-line">├── approved/          ← approved plans
+</span><span class="code-line">├── denied/            ← rejected plans
+</span><span class="code-line">└── 2026-02/           ← monthly archive
+</span></code></pre>
+<p>Create subfolders manually (Obsidian detects them automatically):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/path/to/vault/plannotator/approved
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/path/to/vault/plannotator/denied
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/path/to/vault/plannotator/2026-02
+</span></code></pre>
+<p>Or write directly to any subfolder:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cp</span> ~/.plannotator/plans/<span class="token operator">&lt;</span>name<span class="token operator">&gt;</span>-approved.md ~/path/to/vault/plannotator/approved/
+</span></code></pre>
+<h3>Bear Notes (Alternative)</h3>
+<p>If you prefer Bear Notes over Obsidian:</p>
+<ol>
+<li>Toggle ON "Bear Notes" in Settings → Saving tab</li>
+<li>Plans are saved via <code>bear://x-callback-url/create</code></li>
+<li>Tags are appended as hashtags</li>
+<li>Validate callback from terminal:</li>
+</ol>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">open</span> <span class="token string">"bear://x-callback-url/create?title=Plannotator%20Check&amp;text=Bear%20callback%20OK"</span>
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Obsidian</th>
+<th>Bear</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Storage</td>
+<td>File system</td>
+<td>x-callback-url</td>
+</tr>
+<tr>
+<td>Frontmatter</td>
+<td>YAML</td>
+<td>None (hashtags)</td>
+</tr>
+<tr>
+<td>Platforms</td>
+<td>macOS/Win/Linux</td>
+<td>macOS/iOS</td>
+</tr>
+</tbody>
+</table>
+<h3>Troubleshooting</h3>
+<p><strong>Vault not detected:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Check Obsidian config exists</span>
+</span><span class="code-line"><span class="token function">ls</span> ~/Library/Application<span class="token punctuation">\</span> Support/obsidian/obsidian.json  <span class="token comment"># macOS</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. If missing, open Obsidian and create a vault first</span>
+</span><span class="code-line"><span class="token function">open</span> /Applications/Obsidian.app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. After creating vault, restart plannotator</span>
+</span></code></pre>
+<p><strong>Plans not saving:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check write permissions on vault folder</span>
+</span><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> ~/path/to/vault/plannotator/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check browser console for errors (F12 → Console)</span>
+</span></code></pre>
+<p><strong>Export → Notes tab Save buttons require hook mode:</strong></p>
+<ul>
+<li>Export → Notes tab Save buttons require plannotator running in <strong>hook mode</strong> (stdin JSON input). In CLI <code>review</code>/<code>annotate</code> modes, the <code>/api/save-notes</code> endpoint is not active. Normal Claude Code hook invocation (ExitPlanMode hook) always runs in hook mode.</li>
+</ul>
+<p><strong>Settings not visible in automated/headless browsers:</strong></p>
+<ul>
+<li>Obsidian Integration settings must be configured in the <strong>system browser</strong> that plannotator auto-opens. Settings are stored in cookies (not localStorage). Automated/headless browser profiles (Playwright, Puppeteer) use isolated cookie jars and will not see these settings.</li>
+</ul>
+<p><strong>Bear export not working:</strong></p>
+<ul>
+<li>Confirm Bear app is installed and opened at least once</li>
+<li>Confirm <code>open "bear://x-callback-url/create?..."</code> works from terminal</li>
+<li>Use system browser session for plannotator settings; automated/headless sessions can block custom URI handlers</li>
+</ul>
+<p><strong>Settings not persisting:</strong></p>
+<ul>
+<li>Settings are stored in cookies (not localStorage)</li>
+<li>Ensure cookies are enabled for localhost</li>
+<li>Settings persist across different ports</li>
+</ul>
+<hr>
+<h2>Auto-save (Summary)</h2>
+<blockquote>
+<p>Obsidian integration is <strong>optional</strong> — plans can still be reviewed and approved without it.</p>
+</blockquote>
+<hr>
+<h2>Best Practices</h2>
+<ol>
+<li>Use plan review BEFORE the agent starts coding — catch wrong approaches early</li>
+<li>Keep each annotation tied to one concrete, actionable change</li>
+<li>Include acceptance criteria in "request changes" feedback</li>
+<li>For diff review, annotate exact line ranges tied to expected behavior changes</li>
+<li>Use image annotation for UI/UX feedback where text is insufficient</li>
+</ol>
+<hr>
+<h2>References</h2>
+<ul>
+<li><a href="https://github.com/backnotprop/plannotator" target="_blank" rel="ugc nofollow noopener">GitHub: backnotprop/plannotator</a></li>
+<li><a href="https://plannotator.ai" target="_blank" rel="ugc nofollow noopener">Official site: plannotator.ai</a></li>
+<li><a href="https://obsidian.md/download" target="_blank" rel="ugc nofollow noopener">Obsidian download</a></li>
+<li><a href="https://github.com/backnotprop/plannotator/blob/main/apps/hook/README.md" target="_blank" rel="ugc nofollow noopener">Hook README: apps/hook/README.md</a></li>
+<li><a href="https://github.com/backnotprop/plannotator/blob/main/apps/opencode-plugin/README.md" target="_blank" rel="ugc nofollow noopener">OpenCode plugin: apps/opencode-plugin/README.md</a></li>
+</ul></div>

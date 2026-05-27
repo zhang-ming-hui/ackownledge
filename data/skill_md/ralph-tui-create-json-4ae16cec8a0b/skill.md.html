@@ -1,0 +1,326 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Ralph TUI - Create JSON Tasks</h1>
+<p>Converts PRDs to prd.json format for ralph-tui autonomous execution.</p>
+<blockquote>
+<p><strong>Note:</strong> This skill is bundled with ralph-tui's JSON tracker plugin. Future tracker plugins (Linear, GitHub Issues, etc.) will bundle their own task creation skills.</p>
+</blockquote>
+<blockquote>
+<p><strong>⚠️ CRITICAL:</strong> The output MUST be a FLAT JSON object with "name" and "userStories" at the ROOT level. DO NOT wrap content in a "prd" object or use "tasks" array. See "Schema Anti-Patterns" section below.</p>
+</blockquote>
+<hr>
+<h2>The Job</h2>
+<p>Take a PRD (markdown file or text) and create a prd.json file:</p>
+<ol>
+<li><strong>Extract Quality Gates</strong> from the PRD's "Quality Gates" section</li>
+<li>Parse user stories from the PRD</li>
+<li>Append quality gates to each story's acceptance criteria</li>
+<li>Set up dependencies between stories</li>
+<li>Output ready for <code>ralph-tui run --prd &lt;path&gt;</code></li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><hr>
+<h2>Step 1: Extract Quality Gates</h2>
+<p>Look for the "Quality Gates" section in the PRD:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Quality Gates</span>
+</span><span class="code-line">
+</span><span class="code-line">These commands must pass for every user story:
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token code-snippet code keyword">`pnpm typecheck`</span> - Type checking
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token code-snippet code keyword">`pnpm lint`</span> - Linting
+</span><span class="code-line">
+</span><span class="code-line">For UI stories, also include:
+</span><span class="code-line"><span class="token list punctuation">-</span> Verify in browser using dev-browser skill
+</span></code></pre>
+<p>Extract:</p>
+<ul>
+<li><strong>Universal gates:</strong> Commands that apply to ALL stories (e.g., <code>pnpm typecheck</code>)</li>
+<li><strong>UI gates:</strong> Commands that apply only to UI stories (e.g., browser verification)</li>
+</ul>
+<p><strong>If no Quality Gates section exists:</strong> Ask the user what commands should pass, or use a sensible default like <code>npm run typecheck</code>.</p>
+<hr>
+<h2>Output Format</h2>
+<p>The JSON file MUST be a FLAT object at the root level:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"[Project name from PRD or directory]"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"branchName"</span><span class="token operator">:</span> <span class="token string">"ralph/[feature-name-kebab-case]"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"[Feature description from PRD]"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"userStories"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-001"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"[Story title]"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"As a [user], I want [feature] so that [benefit]"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"acceptanceCriteria"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">        <span class="token string">"Criterion 1 from PRD"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Criterion 2 from PRD"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm typecheck passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm lint passes"</span>
+</span><span class="code-line">      <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"priority"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"notes"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-002"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"[UI Story that depends on US-001]"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"..."</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"acceptanceCriteria"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">        <span class="token string">"..."</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm typecheck passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm lint passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Verify in browser using dev-browser skill"</span>
+</span><span class="code-line">      <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"priority"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"notes"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"US-001"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>CRITICAL: Schema Anti-Patterns (DO NOT USE)</h2>
+<p>The following patterns are INVALID and will cause validation errors:</p>
+<h3>❌ WRONG: Wrapper object</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"prd"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"..."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"userStories"</span><span class="token operator">:</span> <span class="token punctuation">[</span>...<span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>This wraps everything in a "prd" object. <strong>DO NOT DO THIS.</strong> The "name" and "userStories" fields must be at the ROOT level.</p>
+<h3>❌ WRONG: Using "tasks" instead of "userStories"</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"..."</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"tasks"</span><span class="token operator">:</span> <span class="token punctuation">[</span>...<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>The array is called <strong>"userStories"</strong>, not "tasks".</p>
+<h3>❌ WRONG: Complex nested structures</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"metadata"</span><span class="token operator">:</span> <span class="token punctuation">{</span>...<span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"overview"</span><span class="token operator">:</span> <span class="token punctuation">{</span>...<span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"migration_strategy"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"phases"</span><span class="token operator">:</span> <span class="token punctuation">[</span>...<span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Even if the PRD describes phases/milestones/sprints, you MUST flatten these into a single "userStories" array.</p>
+<h3>❌ WRONG: Using "status" instead of "passes"</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"userStories"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-001"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"status"</span><span class="token operator">:</span> <span class="token string">"open"</span>  <span class="token comment">// WRONG!</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Use <code>"passes": false</code> for incomplete stories, <code>"passes": true</code> for completed.</p>
+<h3>✅ CORRECT: Flat structure at root</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Android Kotlin Migration"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"branchName"</span><span class="token operator">:</span> <span class="token string">"ralph/kotlin-migration"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"userStories"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-001"</span><span class="token punctuation">,</span> <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Create Scraper interface"</span><span class="token punctuation">,</span> <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-002"</span><span class="token punctuation">,</span> <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Implement WeebCentralScraper"</span><span class="token punctuation">,</span> <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"US-001"</span><span class="token punctuation">]</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Story Size: The #1 Rule</h2>
+<p><strong>Each story must be completable in ONE ralph-tui iteration (~one agent context window).</strong></p>
+<p>Ralph-tui spawns a fresh agent instance per iteration with no memory of previous work. If a story is too big, the agent runs out of context before finishing.</p>
+<h3>Right-sized stories:</h3>
+<ul>
+<li>Add a database column + migration</li>
+<li>Add a UI component to an existing page</li>
+<li>Update a server action with new logic</li>
+<li>Add a filter dropdown to a list</li>
+</ul>
+<h3>Too big (split these):</h3>
+<ul>
+<li>"Build the entire dashboard" → Split into: schema, queries, UI components, filters</li>
+<li>"Add authentication" → Split into: schema, middleware, login UI, session handling</li>
+<li>"Refactor the API" → Split into one story per endpoint or pattern</li>
+</ul>
+<p><strong>Rule of thumb:</strong> If you can't describe the change in 2-3 sentences, it's too big.</p>
+<hr>
+<h2>Dependencies with <code>dependsOn</code></h2>
+<p>Use the <code>dependsOn</code> array to specify which stories must complete first:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-002"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Create API endpoints"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"US-001"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>  <span class="token comment">// Won't be selected until US-001 passes</span>
+</span><span class="code-line">  ...
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Ralph-tui will:</p>
+<ul>
+<li>Show US-002 as "blocked" until US-001 completes</li>
+<li>Never select US-002 for execution while US-001 is open</li>
+<li>Include "Prerequisites: US-001" in the prompt when working on US-002</li>
+</ul>
+<p><strong>Correct dependency order:</strong></p>
+<ol>
+<li>Schema/database changes (no dependencies)</li>
+<li>Backend logic (depends on schema)</li>
+<li>UI components (depends on backend)</li>
+<li>Integration/polish (depends on UI)</li>
+</ol>
+<hr>
+<h2>Acceptance Criteria: Quality Gates + Story-Specific</h2>
+<p>Each story's acceptance criteria should include:</p>
+<ol>
+<li><strong>Story-specific criteria</strong> from the PRD (what this story accomplishes)</li>
+<li><strong>Quality gates</strong> from the PRD's Quality Gates section (appended at the end)</li>
+</ol>
+<h3>Good criteria (verifiable):</h3>
+<ul>
+<li>"Add <code>status</code> column to tasks table with default 'open'"</li>
+<li>"Filter dropdown has options: All, Open, Closed"</li>
+<li>"Clicking delete shows confirmation dialog"</li>
+</ul>
+<h3>Bad criteria (vague):</h3>
+<ul>
+<li>❌ "Works correctly"</li>
+<li>❌ "User can do X easily"</li>
+<li>❌ "Good UX"</li>
+<li>❌ "Handles edge cases"</li>
+</ul>
+<hr>
+<h2>Conversion Rules</h2>
+<ol>
+<li><strong>Extract Quality Gates</strong> from PRD first</li>
+<li><strong>Each user story → one JSON entry</strong></li>
+<li><strong>IDs</strong>: Sequential (US-001, US-002, etc.)</li>
+<li><strong>Priority</strong>: Based on dependency order (1 = highest)</li>
+<li><strong>dependsOn</strong>: Array of story IDs this story requires</li>
+<li><strong>All stories</strong>: <code>passes: false</code> and empty <code>notes</code></li>
+<li><strong>branchName</strong>: Derive from feature name, kebab-case, prefixed with <code>ralph/</code></li>
+<li><strong>Acceptance criteria</strong>: Story criteria + quality gates appended</li>
+<li><strong>UI stories</strong>: Also append UI-specific gates (browser verification)</li>
+</ol>
+<hr>
+<h2>Output Location</h2>
+<p>Default: <code>./tasks/prd.json</code> (alongside the PRD markdown files)</p>
+<p>This keeps all PRD-related files together in the <code>tasks/</code> directory.</p>
+<p>Or specify a different path - ralph-tui will use it with:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ralph-tui run <span class="token parameter variable">--prd</span> ./path/to/prd.json
+</span></code></pre>
+<hr>
+<h2>Example</h2>
+<p><strong>Input PRD:</strong></p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> PRD: Task Priority System</span>
+</span><span class="code-line">
+</span><span class="code-line">Add priority levels to tasks.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Quality Gates</span>
+</span><span class="code-line">
+</span><span class="code-line">These commands must pass for every user story:
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token code-snippet code keyword">`pnpm typecheck`</span> - Type checking
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token code-snippet code keyword">`pnpm lint`</span> - Linting
+</span><span class="code-line">
+</span><span class="code-line">For UI stories, also include:
+</span><span class="code-line"><span class="token list punctuation">-</span> Verify in browser using dev-browser skill
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> User Stories</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> US-001: Add priority field to database</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Description:</span><span class="token punctuation">**</span></span> As a developer, I need to store task priority.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Acceptance Criteria:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Add priority column: 1-4 (default 2)
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Migration runs successfully
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> US-002: Display priority badge on task cards</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Description:</span><span class="token punctuation">**</span></span> As a user, I want to see task priority at a glance.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Acceptance Criteria:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Badge shows P1/P2/P3/P4 with colors
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Badge visible without hovering
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> US-003: Add priority filter dropdown</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Description:</span><span class="token punctuation">**</span></span> As a user, I want to filter tasks by priority.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Acceptance Criteria:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Filter dropdown: All, P1, P2, P3, P4
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Filter persists in URL
+</span></code></pre>
+<p><strong>Output prd.json:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Task Priority System"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"branchName"</span><span class="token operator">:</span> <span class="token string">"ralph/task-priority"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Add priority levels to tasks"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"userStories"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-001"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Add priority field to database"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"As a developer, I need to store task priority."</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"acceptanceCriteria"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">        <span class="token string">"Add priority column: 1-4 (default 2)"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Migration runs successfully"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm typecheck passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm lint passes"</span>
+</span><span class="code-line">      <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"priority"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"notes"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-002"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Display priority badge on task cards"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"As a user, I want to see task priority at a glance."</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"acceptanceCriteria"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">        <span class="token string">"Badge shows P1/P2/P3/P4 with colors"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Badge visible without hovering"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm typecheck passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm lint passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Verify in browser using dev-browser skill"</span>
+</span><span class="code-line">      <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"priority"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"notes"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"US-001"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"US-003"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Add priority filter dropdown"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"As a user, I want to filter tasks by priority."</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"acceptanceCriteria"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">        <span class="token string">"Filter dropdown: All, P1, P2, P3, P4"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Filter persists in URL"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm typecheck passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"pnpm lint passes"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"Verify in browser using dev-browser skill"</span>
+</span><span class="code-line">      <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"priority"</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"passes"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"notes"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"dependsOn"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"US-002"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Running with ralph-tui</h2>
+<p>After creating prd.json:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ralph-tui run <span class="token parameter variable">--prd</span> ./tasks/prd.json
+</span></code></pre>
+<p>Ralph-tui will:</p>
+<ol>
+<li>Load stories from prd.json</li>
+<li>Select the highest-priority story with <code>passes: false</code> and no blocking dependencies</li>
+<li>Generate a prompt with story details + acceptance criteria</li>
+<li>Run the agent to implement the story</li>
+<li>Mark <code>passes: true</code> on completion</li>
+<li>Repeat until all stories pass</li>
+</ol>
+<hr>
+<h2>Checklist Before Saving</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Extracted Quality Gates from PRD (or asked user if missing)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Each story completable in one iteration</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Stories ordered by dependency (schema → backend → UI)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>dependsOn</code> correctly set for each story</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Quality gates appended to every story's acceptance criteria</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> UI stories have browser verification (if specified in Quality Gates)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Acceptance criteria are verifiable (not vague)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No circular dependencies</li>
+</ul></div>

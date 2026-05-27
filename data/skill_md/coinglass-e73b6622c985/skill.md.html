@@ -1,0 +1,1006 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h2>Liquidation Heatmap（真正的价格区间清算压力）</h2>
+<p><code>cg_liquidation_analysis</code> 返回全0，不可用。正确做法是直接调 API：</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> tools<span class="token punctuation">.</span>_api <span class="token keyword">import</span> cg_request
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 全市场聚合热力图（推荐，无需指定交易所）</span>
+</span><span class="code-line"><span class="token comment"># range 支持: 12h, 24h, 3d, 7d, 30d, 90d, 180d, 1y</span>
+</span><span class="code-line">data <span class="token operator">=</span> cg_request<span class="token punctuation">(</span><span class="token string">"api/futures/liquidation/aggregated-heatmap/model1"</span><span class="token punctuation">,</span>
+</span><span class="code-line">                  params<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"symbol"</span><span class="token punctuation">:</span> <span class="token string">"BTC"</span><span class="token punctuation">,</span> <span class="token string">"range"</span><span class="token punctuation">:</span> <span class="token string">"24h"</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 返回结构：</span>
+</span><span class="code-line"><span class="token comment"># data["y_axis"]                   → 价格档位列表（从低到高）</span>
+</span><span class="code-line"><span class="token comment"># data["liquidation_leverage_data"] → [[y_idx, leverage, usd_value], ...]</span>
+</span><span class="code-line"><span class="token comment"># data["price_candlesticks"]        → OHLCV K线，最后一根收盘价 = 当前价</span>
+</span><span class="code-line"><span class="token comment"># data["update_time"]               → 更新时间戳</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h1>解析方法：</h1>
+<p>from collections import defaultdict
+y_axis = data["y_axis"]
+current_price = float(data["price_candlesticks"][-1][4])
+price_liq = defaultdict(float)
+for y_idx, leverage, usd_val in data["liquidation_leverage_data"]:
+if 0 &lt;= y_idx &lt; len(y_axis):
+price_liq[y_axis[y_idx]] += usd_val</p>
+<p>longs  = {p: v for p, v in price_liq.items() if p &lt; current_price}  # 多头清算（↓触发）
+shorts = {p: v for p, v in price_liq.items() if p &gt; current_price}  # 空头清算（↑触发）</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">注意：单交易所版本（`heatmap/model1` 带 exchange 参数）当前会报 400 错误，改用 aggregated 版本。
+</span><span class="code-line">
+</span><span class="code-line">## Script Usage
+</span><span class="code-line">
+</span><span class="code-line">Script-mode skill — read this file, then invoke from a `bash` block:
+</span><span class="code-line">
+</span><span class="code-line">```bash
+</span><span class="code-line">python3 - &lt;&lt;'EOF'
+</span><span class="code-line">import sys, json
+</span><span class="code-line">sys.path.insert(0, "/data/workspace/skills/coinglass")
+</span><span class="code-line">from exports import funding_rate, cg_open_interest, cg_liquidations
+</span><span class="code-line">
+</span><span class="code-line">print(funding_rate(symbol="BTC"))
+</span><span class="code-line">print(cg_open_interest(symbol="BTC"))
+</span><span class="code-line">EOF
+</span></code></pre>
+<p>Read <code>exports.py</code> for the full list of available functions and exact
+signatures. Common ones: <code>funding_rate</code>, <code>long_short_ratio</code>,
+<code>cg_open_interest</code>, <code>cg_liquidations</code>, <code>cg_liquidation_analysis</code>,
+<code>cg_global_account_ratio</code>, <code>cg_top_account_ratio</code>, <code>cg_top_position_ratio</code>,
+<code>cg_taker_exchanges</code>, <code>cg_net_position</code>, <code>cg_supported_coins</code>,
+<code>cg_supported_exchanges</code>, <code>cg_coins_market_data</code>, <code>cg_pair_market_data</code>,
+<code>cg_ohlc_history</code>, <code>cg_hyperliquid_whale_alerts</code>,
+<code>cg_hyperliquid_whale_positions</code>, <code>cg_taker_volume_history</code>,
+<code>cg_aggregated_taker_volume</code>, <code>cg_cumulative_volume_delta</code>,
+<code>cg_coin_netflow</code>, <code>cg_whale_transfers</code>, <code>cg_btc_etf_flows</code>,
+<code>cg_eth_etf_flows</code>, <code>cg_sol_etf_flows</code>.</p>
+<h1>Coinglass</h1>
+<p>Coinglass provides the most comprehensive crypto derivatives and institutional data available. 37 tools covering futures positioning, whale tracking, volume analysis, liquidations, and ETF flows.</p>
+<p><strong>API Plan</strong>: Professional ($699/month)
+<strong>Rate Limit</strong>: 6000 requests/minute
+<strong>API Version</strong>: V4 (with V2 backward compatibility)
+<strong>Total Tools</strong>: 37 across 8 categories</p>
+<h2>Function Reference (full signatures + return shapes)</h2>
+<p>All functions live in <code>exports.py</code>. Most return <code>Optional[List[Dict]]</code> or
+<code>Optional[Dict]</code>. None means the upstream call failed or returned empty —
+always check before indexing.</p>
+<h3>⚠️ Field naming convention (READ THIS FIRST)</h3>
+<p>CoinGlass v4 API uses <strong>camelCase</strong> for almost all data fields, with a few
+legacy snake_case exceptions in liquidation endpoints. Don't assume
+snake_case — <code>inspect</code> the dict before scripting.</p>
+<ul>
+<li>camelCase: <code>openInterest</code>, <code>volUsd</code>, <code>longRate</code>, <code>shortVolUsd</code>,
+<code>exchangeName</code>, <code>nextFundingTime</code>, <code>fundingIntervalHours</code>,
+<code>oichangePercent</code>, <code>h4OIChangePercent</code>, <code>avgFundingRateBySymbol</code>,
+<code>tokenAmount</code>, <code>liquidationUsd</code> (in some endpoints)</li>
+<li>snake_case (legacy, only in <code>cg_liquidations</code>): <code>liquidation_usd</code>,
+<code>longLiquidation_usd</code>, <code>shortLiquidation_usd</code></li>
+<li><code>rate</code> fields (funding) are STRINGS with "+" / "-" / "%" — parse with
+<code>float(r.rstrip('%').lstrip('+'))</code> to compare numerically</li>
+<li>timestamps are millisecond unix epoch (e.g. <code>1777881600000</code>)</li>
+</ul>
+<h3>Funding &amp; Open Interest</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>funding_rate(symbol, exchange=None)</code></td>
+<td>dict — keys: <code>symbol</code>, <code>exchange</code>, <code>rate</code> (str), <code>num_exchanges</code>, <code>exchanges_data</code> (list of {<code>exchangeName</code>, <code>rate</code>, <code>nextFundingTime</code>, <code>fundingIntervalHours</code>, <code>status</code>})</td>
+</tr>
+<tr>
+<td><code>cg_open_interest(symbol='BTC', interval='0')</code></td>
+<td>LIST of dicts (one per exchange) — keys: <code>symbol</code>, <code>openInterest</code>, <code>volUsd</code>, <code>oichangePercent</code>, <code>h4OIChangePercent</code>, <code>h24VolChangePercent</code>, <code>volChangePercent7d</code>, <code>avgFundingRateBySymbol</code>, <code>exchangeName</code>, <code>exchangeLogo</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Long/Short Ratios</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>long_short_ratio(symbol='BTC', interval='h4')</code></td>
+<td>LIST — top item is aggregated; <code>list</code> field inside has per-exchange breakdown. Keys: <code>longRate</code>, <code>shortRate</code>, <code>longVolUsd</code>, <code>shortVolUsd</code>, <code>totalVolUsd</code>, <code>list</code></td>
+</tr>
+<tr>
+<td><code>cg_global_account_ratio(symbol='BTC', exchange='Binance', interval='1h')</code></td>
+<td>list of historical bars</td>
+</tr>
+<tr>
+<td><code>cg_top_account_ratio(symbol='BTC', exchange='Binance', interval='1h')</code></td>
+<td>list — top trader account-count ratio</td>
+</tr>
+<tr>
+<td><code>cg_top_position_ratio(symbol='BTC', exchange='Binance', interval='1h')</code></td>
+<td>list — top trader position-size ratio</td>
+</tr>
+<tr>
+<td><code>cg_taker_exchanges(symbol='BTC', range_type='4h')</code></td>
+<td>list — taker buy/sell across exchanges</td>
+</tr>
+<tr>
+<td><code>cg_net_position(symbol='BTC', exchange='Binance', interval='1h')</code></td>
+<td>list — net long-short USD over time</td>
+</tr>
+</tbody>
+</table>
+<h3>Liquidations</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cg_liquidations(symbol='BTC', time_type='h24')</code></td>
+<td>LIST of dicts (one per exchange + an <code>'All'</code> row first). Keys: <code>exchange</code>, <code>liquidation_usd</code>, <code>longLiquidation_usd</code>, <code>shortLiquidation_usd</code> (NOTE: snake_case legacy fields)</td>
+</tr>
+<tr>
+<td><code>cg_liquidation_analysis(symbol='BTC', time_type='h24')</code></td>
+<td>dict — aggregated network-wide stats</td>
+</tr>
+<tr>
+<td><code>cg_coin_liquidation_history(symbol='BTC', interval='h4')</code></td>
+<td>list — historical liq bars</td>
+</tr>
+<tr>
+<td><code>cg_pair_liquidation_history(symbol='BTC', exchange='Binance', interval='h4')</code></td>
+<td>list — historical liq for one pair on one exchange</td>
+</tr>
+<tr>
+<td><code>cg_liquidation_coin_list(symbol=None)</code></td>
+<td>list of all coins with liq summary</td>
+</tr>
+<tr>
+<td><code>cg_liquidation_orders(symbol='BTC', exchange=None)</code></td>
+<td>list — recent individual liq orders</td>
+</tr>
+</tbody>
+</table>
+<h3>Futures Market Data</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cg_supported_coins()</code></td>
+<td>List[str] — symbols supported by CoinGlass</td>
+</tr>
+<tr>
+<td><code>cg_supported_exchanges()</code></td>
+<td>list of exchange info dicts</td>
+</tr>
+<tr>
+<td><code>cg_coins_market_data(symbol=None)</code></td>
+<td>list — current snapshot for all coins (or one if symbol given)</td>
+</tr>
+<tr>
+<td><code>cg_pair_market_data(symbol='BTC', exchange=None)</code></td>
+<td>list — pair-level snapshot</td>
+</tr>
+<tr>
+<td><code>cg_ohlc_history(symbol='BTC', interval='h4', exchange=None)</code></td>
+<td>list of OHLCV bars</td>
+</tr>
+</tbody>
+</table>
+<h3>Hyperliquid Whale Tracking</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cg_hyperliquid_whale_alerts()</code></td>
+<td>list — recent large-position alerts</td>
+</tr>
+<tr>
+<td><code>cg_hyperliquid_whale_positions()</code></td>
+<td>list — current open whale positions</td>
+</tr>
+<tr>
+<td><code>cg_hyperliquid_positions_by_coin(symbol='BTC')</code></td>
+<td>list — whales holding a specific coin</td>
+</tr>
+<tr>
+<td><code>cg_hyperliquid_position_distribution(symbol='BTC')</code></td>
+<td>dict — long/short position-size distribution</td>
+</tr>
+</tbody>
+</table>
+<h3>Volume / Flow</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cg_taker_volume_history(symbol='BTC', exchange='Binance', interval='1h', limit=1000, start_time=None, end_time=None)</code></td>
+<td>list — taker buy/sell volume bars</td>
+</tr>
+<tr>
+<td><code>cg_aggregated_taker_volume(symbol='BTC', interval='h4')</code></td>
+<td>list — aggregated across all exchanges</td>
+</tr>
+<tr>
+<td><code>cg_cumulative_volume_delta(symbol='BTC', exchange='Binance', interval='1h', limit=1000, start_time=None, end_time=None)</code></td>
+<td>list — CVD bars</td>
+</tr>
+<tr>
+<td><code>cg_coin_netflow(symbol=None)</code></td>
+<td>list — net inflow/outflow per coin</td>
+</tr>
+<tr>
+<td><code>cg_whale_transfers()</code></td>
+<td>dict — recent on-chain large transfers</td>
+</tr>
+</tbody>
+</table>
+<h3>ETF Flows</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cg_btc_etf_flows()</code></td>
+<td>list — daily flows per US BTC ETF</td>
+</tr>
+<tr>
+<td><code>cg_btc_etf_history(etf_ticker=None)</code></td>
+<td>list — historical AUM/flows</td>
+</tr>
+<tr>
+<td><code>cg_btc_etf_list()</code></td>
+<td>list of BTC ETF tickers + AUM</td>
+</tr>
+<tr>
+<td><code>cg_btc_etf_premium_discount()</code></td>
+<td>list — premium/discount % vs NAV</td>
+</tr>
+<tr>
+<td><code>cg_hk_btc_etf_flows()</code></td>
+<td>list — Hong Kong BTC ETF flows</td>
+</tr>
+<tr>
+<td><code>cg_eth_etf_flows()</code> / <code>cg_eth_etf_list()</code> / <code>cg_eth_etf_premium_discount()</code> / <code>cg_hk_eth_etf_flows()</code></td>
+<td>ETH ETF equivalents</td>
+</tr>
+<tr>
+<td><code>cg_sol_etf_flows()</code> / <code>cg_sol_etf_list()</code></td>
+<td>SOL ETF data</td>
+</tr>
+<tr>
+<td><code>cg_xrp_etf_flows()</code> / <code>cg_xrp_etf_list()</code></td>
+<td>XRP ETF data</td>
+</tr>
+</tbody>
+</table>
+<h3>Sample responses (most-used functions)</h3>
+<p><code>funding_rate(symbol="BTC")</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"symbol"</span><span class="token operator">:</span> <span class="token string">"BTC"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"exchange"</span><span class="token operator">:</span> <span class="token string">"average"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"rate"</span><span class="token operator">:</span> <span class="token string">"-0.0016%"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"num_exchanges"</span><span class="token operator">:</span> <span class="token number">21</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"exchanges_data"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token property">"exchangeName"</span><span class="token operator">:</span> <span class="token string">"Binance"</span><span class="token punctuation">,</span> <span class="token property">"rate"</span><span class="token operator">:</span> <span class="token string">"+0.0050%"</span><span class="token punctuation">,</span>
+</span><span class="code-line">     <span class="token property">"nextFundingTime"</span><span class="token operator">:</span> <span class="token number">1777881600000</span><span class="token punctuation">,</span> <span class="token property">"fundingIntervalHours"</span><span class="token operator">:</span> <span class="token number">8</span><span class="token punctuation">,</span> <span class="token property">"status"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><code>cg_liquidations(symbol="BTC", time_type="h24")</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token property">"exchange"</span><span class="token operator">:</span> <span class="token string">"All"</span><span class="token punctuation">,</span> <span class="token property">"liquidation_usd"</span><span class="token operator">:</span> <span class="token number">170497688.16</span><span class="token punctuation">,</span>
+</span><span class="code-line">   <span class="token property">"longLiquidation_usd"</span><span class="token operator">:</span> <span class="token number">8179073.80</span><span class="token punctuation">,</span> <span class="token property">"shortLiquidation_usd"</span><span class="token operator">:</span> <span class="token number">162318614.36</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token property">"exchange"</span><span class="token operator">:</span> <span class="token string">"Bybit"</span><span class="token punctuation">,</span> <span class="token property">"liquidation_usd"</span><span class="token operator">:</span> <span class="token number">40454694.98</span><span class="token punctuation">,</span> ...<span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span></code></pre>
+<p><code>cg_open_interest(symbol="BTC")</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token property">"symbol"</span><span class="token operator">:</span> <span class="token string">"BTC"</span><span class="token punctuation">,</span> <span class="token property">"openInterest"</span><span class="token operator">:</span> <span class="token number">61395303653.62</span><span class="token punctuation">,</span> <span class="token property">"volUsd"</span><span class="token operator">:</span> <span class="token number">56349328748.42</span><span class="token punctuation">,</span>
+</span><span class="code-line">   <span class="token property">"oichangePercent"</span><span class="token operator">:</span> <span class="token number">7.17</span><span class="token punctuation">,</span> <span class="token property">"h4OIChangePercent"</span><span class="token operator">:</span> <span class="token number">5.33</span><span class="token punctuation">,</span>
+</span><span class="code-line">   <span class="token property">"avgFundingRateBySymbol"</span><span class="token operator">:</span> <span class="token number">-0.001874</span><span class="token punctuation">,</span> <span class="token property">"exchangeName"</span><span class="token operator">:</span> <span class="token string">"Binance"</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span></code></pre>
+<p><code>long_short_ratio(symbol="BTC", interval="h4")</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"symbol"</span><span class="token operator">:</span> <span class="token string">"BTC"</span><span class="token punctuation">,</span> <span class="token property">"longRate"</span><span class="token operator">:</span> <span class="token number">53.65</span><span class="token punctuation">,</span> <span class="token property">"shortRate"</span><span class="token operator">:</span> <span class="token number">46.35</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"longVolUsd"</span><span class="token operator">:</span> <span class="token number">12558668895.91</span><span class="token punctuation">,</span> <span class="token property">"shortVolUsd"</span><span class="token operator">:</span> <span class="token number">10848776476.99</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"totalVolUsd"</span><span class="token operator">:</span> <span class="token number">23407445372.91</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"list"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span><span class="token property">"exchangeName"</span><span class="token operator">:</span> <span class="token string">"Binance"</span><span class="token punctuation">,</span> <span class="token property">"longRate"</span><span class="token operator">:</span> <span class="token number">55.75</span><span class="token punctuation">,</span> <span class="token property">"shortRate"</span><span class="token operator">:</span> <span class="token number">44.25</span><span class="token punctuation">,</span> ...<span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Tool Selection Guide</h2>
+<h3>Decision Tree</h3>
+<p><strong>Step 1: Is this about LIQUIDATIONS?</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Liquidation query?
+</span><span class="code-line">├─ YES → How many coins?
+</span><span class="code-line">│   ├─ ALL coins / ranking / 排行 / 汇总
+</span><span class="code-line">│   │   └─ → cg_liquidation_coin_list  ✅ (most liquidation queries land here)
+</span><span class="code-line">│   ├─ ONE coin, need history over time
+</span><span class="code-line">│   │   └─ → cg_coin_liquidation_history
+</span><span class="code-line">│   ├─ ONE coin, specific orders (price/side/USD)
+</span><span class="code-line">│   │   └─ → cg_liquidation_orders
+</span><span class="code-line">│   └─ ONE coin, just a quick total + sentiment label
+</span><span class="code-line">│       └─ → cg_liquidation_analysis  (rarely needed; only if explicitly "simple summary")
+</span></code></pre>
+<p><strong>Step 2: Is this about LONG/SHORT RATIO?</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Long/short query?
+</span><span class="code-line">├─ Historical time-series, trend over time, 多空比变化
+</span><span class="code-line">│   └─ → cg_global_account_ratio  (ALL accounts)
+</span><span class="code-line">│      or cg_top_account_ratio    (top traders only)
+</span><span class="code-line">│      or cg_top_position_ratio   (by position size)
+</span><span class="code-line">└─ Current snapshot only (no history needed)
+</span><span class="code-line">    └─ → long_short_ratio
+</span></code></pre>
+<p><strong>Step 3: Is this about OPEN INTEREST?</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">OI query?
+</span><span class="code-line">└─ → cg_open_interest  (always — do NOT use cg_coins_market_data for OI)
+</span></code></pre>
+<p><strong>Step 4: Is this a MARKET OVERVIEW / SENTIMENT query?</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Sentiment / 市场情绪 / pre-trade check?
+</span><span class="code-line">└─ Use: funding_rate + long_short_ratio + cg_open_interest
+</span><span class="code-line">   DO NOT use cg_coins_market_data as a substitute for any of the above
+</span></code></pre>
+<hr>
+<h3>Keyword → Tool Lookup</h3>
+<table>
+<thead>
+<tr>
+<th>Keyword / Pattern</th>
+<th>Correct Tool</th>
+<th>❌ Do NOT use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>爆仓排行 / 今日爆仓 / all coins liquidation</td>
+<td><code>cg_liquidation_coin_list</code></td>
+<td><code>cg_liquidations</code></td>
+</tr>
+<tr>
+<td>24h爆仓汇总 / liquidation summary</td>
+<td><code>cg_liquidation_coin_list</code></td>
+<td><code>cg_liquidation_analysis</code></td>
+</tr>
+<tr>
+<td>全网账户多空比 / account L/S ratio</td>
+<td><code>cg_global_account_ratio</code></td>
+<td><code>long_short_ratio</code></td>
+</tr>
+<tr>
+<td>头部交易者多空 / top trader ratio</td>
+<td><code>cg_top_account_ratio</code></td>
+<td><code>long_short_ratio</code></td>
+</tr>
+<tr>
+<td>未平仓合约 / open interest</td>
+<td><code>cg_open_interest</code></td>
+<td><code>cg_coins_market_data</code></td>
+</tr>
+<tr>
+<td>市场情绪多空分析</td>
+<td><code>funding_rate</code> + <code>long_short_ratio</code> + <code>cg_open_interest</code></td>
+<td><code>cg_coins_market_data</code></td>
+</tr>
+<tr>
+<td>BTC做多检查 / pre-trade checklist</td>
+<td><code>funding_rate</code> + <code>cg_global_account_ratio</code> + <code>cg_liquidation_coin_list</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3>Common Mistakes</h3>
+<p><strong>Mistake 1 (most common — 8x failure): Using <code>cg_liquidations</code> when you need <code>cg_liquidation_coin_list</code></strong></p>
+<ul>
+<li><code>cg_liquidations</code> → one coin, one timeframe, basic total only</li>
+<li><code>cg_liquidation_coin_list(exchange)</code> → ALL coins, multi-timeframe (1h/4h/12h/24h), per-exchange breakdown</li>
+<li><strong>Rule:</strong> If the question asks for a ranking, overview, or doesn't specify a single coin → use <code>cg_liquidation_coin_list</code></li>
+</ul>
+<p><strong>Mistake 2 (5x failure): Using <code>cg_liquidation_analysis</code> for liquidation rankings</strong></p>
+<ul>
+<li><code>cg_liquidation_analysis</code> adds a sentiment label to a single-coin total — it is NOT a ranking tool</li>
+<li><strong>Rule:</strong> "今日爆仓排行" / "各币种爆仓" → always <code>cg_liquidation_coin_list</code></li>
+</ul>
+<p><strong>Mistake 3 (3x failure): Using <code>long_short_ratio</code> for historical L/S analysis</strong></p>
+<ul>
+<li><code>long_short_ratio</code> is a current snapshot (no time-series)</li>
+<li><code>cg_global_account_ratio</code> returns history — use it when the user wants trends or comparison over time</li>
+<li><strong>Rule:</strong> If the question compares 全网 (global) vs 头部 (top traders) → call BOTH <code>cg_global_account_ratio</code> AND <code>cg_top_account_ratio</code></li>
+</ul>
+<p><strong>Mistake 4 (2x failure): Using <code>cg_coins_market_data</code> for open interest</strong></p>
+<ul>
+<li><code>cg_coins_market_data</code> is a bulk snapshot of many coins — not a replacement for dedicated OI or L/S tools</li>
+<li><strong>Rule:</strong> OI question → <code>cg_open_interest</code>. L/S question → <code>long_short_ratio</code> or <code>cg_global_account_ratio</code>. Never route either to <code>cg_coins_market_data</code>.</li>
+</ul>
+<h2>Rules</h2>
+<h3>Tool Call Guidance</h3>
+<p><strong>❌ FORBIDDEN TOOLS — NEVER USE:</strong></p>
+<ul>
+<li><code>bash</code> — Do NOT write scripts to process/format data. Use natural language.</li>
+<li><code>write_file</code> / <code>read_file</code> / <code>edit_file</code> — Do NOT save intermediate data. Answer directly.</li>
+<li><code>learning_log</code> — ONLY for genuine skill bugs or persistent API errors. NOT for empty responses.</li>
+<li><code>echo</code> — Do NOT use for debugging or output.</li>
+</ul>
+<p><strong>✅ CORRECT PATTERN:</strong></p>
+<ul>
+<li>Tool returns data → Summarize in natural language → Done</li>
+<li>Tool returns empty/null → Report "no data available" → Done</li>
+<li>Need calculation (%, change, ratio) → Do mental math in reply</li>
+</ul>
+<p><strong>Match tool count to question scope:</strong></p>
+<ul>
+<li>单一指标问题（"BTC 资金费率"、"ETH 多空比"）→ 1 个工具，直接返回</li>
+<li>多维度分析（"做多是否合适"、"衍生品体检"）→ 3-5 个工具，综合分析</li>
+<li>对比问题（"ETH vs SOL"）→ 每个币种调相同工具，并列对比</li>
+<li><strong>避免重复调用同一工具。</strong> 除非用户明确要求不同币种/交易所的对比。</li>
+</ul>
+<h3>Learning Log Usage (CRITICAL)</h3>
+<p><strong><code>learning_log</code> is FORBIDDEN for:</strong></p>
+<ul>
+<li>❌ Empty API responses — just report "no data available"</li>
+<li>❌ Tool returning None/null — handle gracefully</li>
+<li>❌ Uncertainty about tool selection — check decision tree first</li>
+<li>❌ Normal tool errors — retry once, then report failure</li>
+</ul>
+<p><strong><code>learning_log</code> is ONLY for:</strong></p>
+<ul>
+<li>✅ Genuine bugs in skill code (wrong data format returned)</li>
+<li>✅ Persistent API rate limit errors after 2+ retries</li>
+<li>✅ Missing tools that should exist per skill definition</li>
+</ul>
+<h3>ETF Tool Selection</h3>
+<table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Primary Tool</th>
+<th>Secondary Tool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BTC ETF 资金流入/流出</td>
+<td><code>cg_btc_etf_flows()</code></td>
+<td><code>cg_btc_etf_history()</code> for detailed history</td>
+</tr>
+<tr>
+<td>ETH ETF 资金流入/流出</td>
+<td><code>cg_eth_etf_flows()</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>SOL/XRP ETF flows</td>
+<td><code>cg_sol_etf_flows()</code> / <code>cg_xrp_etf_flows()</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>HK ETF flows</td>
+<td><code>cg_hk_btc_etf_flows()</code> / <code>cg_hk_eth_etf_flows()</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ETF 列表/代码</td>
+<td><code>cg_btc_etf_list()</code> / <code>cg_eth_etf_list()</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ETF 溢价/折价</td>
+<td><code>cg_btc_etf_premium_discount()</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ETF 对比问题 workflow:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># BTC vs ETH ETF 对比
+</span><span class="code-line">btc = cg_btc_etf_flows()
+</span><span class="code-line">eth = cg_eth_etf_flows()
+</span><span class="code-line"># Compare the latest day's net flows, summarize in 2-3 sentences
+</span></code></pre>
+<h2>Quick Routing (use this first)</h2>
+<table>
+<thead>
+<tr>
+<th>Query type</th>
+<th>Tool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>爆仓/liquidation summary (24h, by coin)</td>
+<td><code>cg_liquidation_coin_list</code></td>
+</tr>
+<tr>
+<td>Individual liquidation orders</td>
+<td><code>cg_liquidation_orders</code></td>
+</tr>
+<tr>
+<td>Liquidation history for a coin</td>
+<td><code>cg_coin_liquidation_history</code></td>
+</tr>
+<tr>
+<td>Funding rate</td>
+<td><code>funding_rate</code></td>
+</tr>
+<tr>
+<td>Long/short ratio (global)</td>
+<td><code>cg_global_account_ratio</code></td>
+</tr>
+<tr>
+<td>Open interest</td>
+<td><code>cg_open_interest</code></td>
+</tr>
+<tr>
+<td>Whale activity on Hyperliquid</td>
+<td><code>cg_hyperliquid_whale_alerts</code></td>
+</tr>
+<tr>
+<td>ETF flows (BTC)</td>
+<td><code>cg_btc_etf_flows</code></td>
+</tr>
+</tbody>
+</table>
+<h2>When to Use Coinglass</h2>
+<p>Use Coinglass for:</p>
+<ul>
+<li><strong>Derivatives positioning</strong> - What are leveraged traders doing?</li>
+<li><strong>Whale tracking</strong> - Track large positions on Hyperliquid DEX</li>
+<li><strong>Funding rates</strong> - Cost of holding perpetual futures</li>
+<li><strong>Open interest</strong> - Total notional value of open positions</li>
+<li><strong>Long/Short ratios</strong> - Sentiment among leveraged traders (global, top accounts, top positions)</li>
+<li><strong>Liquidations</strong> - Forced position closures with heatmaps and individual orders</li>
+<li><strong>Volume analysis</strong> - Taker volume, CVD, netflow patterns</li>
+<li><strong>ETF flows</strong> - Institutional adoption (Bitcoin, Ethereum, Solana, XRP, Hong Kong)</li>
+<li><strong>Whale transfers</strong> - Large on-chain movements (&gt;$10M)</li>
+<li><strong>Futures market data</strong> - Supported coins, exchanges, pairs, and OHLC price history</li>
+</ul>
+<h2>Tool Categories</h2>
+<h3>1. Basic Derivatives Analytics (7 tools)</h3>
+<p>Core derivatives data for market analysis:</p>
+<ul>
+<li><code>funding_rate(symbol, exchange?)</code> - Current funding rates</li>
+<li><code>long_short_ratio(symbol, exchange?, interval?)</code> - Basic L/S ratios</li>
+<li><code>cg_open_interest(symbol)</code> - Current OI across exchanges</li>
+<li><code>cg_liquidations(symbol, time?)</code> - Recent liquidations</li>
+<li><code>cg_liquidation_analysis(symbol)</code> - Liquidation heatmap analysis</li>
+<li><code>cg_supported_coins()</code> - All supported coins</li>
+<li><code>cg_supported_exchanges()</code> - All exchanges with pairs</li>
+</ul>
+<h3>2. Advanced Long/Short Ratios (6 tools)</h3>
+<p>Deep positioning analysis with multiple metrics:</p>
+<ul>
+<li><code>cg_global_account_ratio(symbol, interval?)</code> - Global account-based L/S ratio</li>
+<li><code>cg_top_account_ratio(symbol, exchange, interval?)</code> - Top trader accounts ratio</li>
+<li><code>cg_top_position_ratio(symbol, exchange, interval?)</code> - Top positions by size</li>
+<li><code>cg_taker_exchanges(symbol)</code> - Taker buy/sell by exchange</li>
+<li><code>cg_net_position(symbol, exchange)</code> - Net long/short positions</li>
+<li><code>cg_net_position_v2(symbol)</code> - Enhanced net position data</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Smart money tracking (top accounts vs retail)</li>
+<li>Exchange-specific sentiment</li>
+<li>Position size distribution analysis</li>
+</ul>
+<h3>3. Advanced Liquidations (4 tools)</h3>
+<p>Granular liquidation tracking for cascade prediction:</p>
+<ul>
+<li><code>cg_coin_liquidation_history(symbol, interval?, limit?, start_time?, end_time?)</code> - Aggregated across all exchanges</li>
+<li><code>cg_pair_liquidation_history(symbol, exchange, interval?, limit?, start_time?, end_time?)</code> - Exchange-specific pair</li>
+<li><code>cg_liquidation_coin_list(exchange)</code> - All coins on an exchange</li>
+<li><code>cg_liquidation_orders(symbol, exchange, min_liquidation_amount, start_time?, end_time?)</code> - Individual orders (past 7 days, max 200)</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Identifying liquidation clusters</li>
+<li>Tracking liquidation patterns over time</li>
+<li>Finding large liquidation events</li>
+</ul>
+<h3>4. Hyperliquid Whale Tracking (4 tools)</h3>
+<p>Track large traders on Hyperliquid DEX (~200 recent alerts):</p>
+<ul>
+<li><code>cg_hyperliquid_whale_alerts()</code> - Recent large position opens/closes (&gt;$1M)</li>
+<li><code>cg_hyperliquid_whale_positions()</code> - Current whale positions with PnL</li>
+<li><code>cg_hyperliquid_positions_by_coin()</code> - All positions grouped by coin</li>
+<li><code>cg_hyperliquid_position_distribution()</code> - Distribution by size with sentiment</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Following smart money on Hyperliquid</li>
+<li>Detecting large position changes</li>
+<li>Tracking whale PnL and sentiment</li>
+</ul>
+<h3>5. Futures Market Data (5 tools)</h3>
+<p>Market overview and price data:</p>
+<ul>
+<li><code>cg_coins_market_data()</code> - ALL coins data in one call (100+ coins)</li>
+<li><code>cg_pair_market_data(symbol, exchange)</code> - Specific pair metrics</li>
+<li><code>cg_ohlc_history(symbol, exchange, interval, limit?)</code> - OHLC candlesticks</li>
+<li><code>cg_taker_volume_history(symbol, exchange, interval, limit?, start_time?, end_time?)</code> - Pair-specific taker volume</li>
+<li><code>cg_aggregated_taker_volume(symbol, interval, limit?, start_time?, end_time?)</code> - Aggregated across exchanges</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Market screening (scan all coins at once)</li>
+<li>Price action analysis</li>
+<li>Volume pattern recognition</li>
+</ul>
+<h3>6. Volume &amp; Flow Analysis (4 tools)</h3>
+<p>Order flow and capital movement tracking:</p>
+<ul>
+<li><code>cg_cumulative_volume_delta(symbol, exchange, interval, limit?, start_time?, end_time?)</code> - CVD = Running total of (buy - sell)</li>
+<li><code>cg_coin_netflow()</code> - Capital flowing into/out of coins</li>
+<li><code>cg_whale_transfers()</code> - Large on-chain transfers (&gt;$10M, past 6 months)</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Order flow divergence detection</li>
+<li>Smart money tracking</li>
+<li>Institutional movement monitoring</li>
+</ul>
+<h3>7. Bitcoin ETF Data (5 tools)</h3>
+<p>Track institutional Bitcoin adoption:</p>
+<ul>
+<li><code>cg_btc_etf_flows()</code> - Daily net inflows/outflows</li>
+<li><code>cg_btc_etf_premium_discount()</code> - ETF price vs NAV</li>
+<li><code>cg_btc_etf_history()</code> - Comprehensive history (price, NAV, premium%, shares, assets)</li>
+<li><code>cg_btc_etf_list()</code> - List of Bitcoin ETFs</li>
+<li><code>cg_hk_btc_etf_flows()</code> - Hong Kong Bitcoin ETF flows</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Institutional demand tracking</li>
+<li>Premium/discount arbitrage</li>
+<li>Regional flow comparison (US vs Hong Kong)</li>
+</ul>
+<h3>8. Other ETF Data (8 tools)</h3>
+<p>Ethereum, Solana, XRP, and Hong Kong ETFs:</p>
+<ul>
+<li><code>cg_eth_etf_flows()</code> - Ethereum ETF flows</li>
+<li><code>cg_eth_etf_list()</code> - Ethereum ETF list</li>
+<li><code>cg_eth_etf_premium_discount()</code> - ETH ETF premium/discount</li>
+<li><code>cg_sol_etf_flows()</code> - Solana ETF flows</li>
+<li><code>cg_sol_etf_list()</code> - Solana ETF list</li>
+<li><code>cg_xrp_etf_flows()</code> - XRP ETF flows</li>
+<li><code>cg_xrp_etf_list()</code> - XRP ETF list</li>
+<li><code>cg_hk_eth_etf_flows()</code> - Hong Kong Ethereum ETF flows</li>
+</ul>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Multi-asset institutional tracking</li>
+<li>Comparative flow analysis</li>
+<li>Regional preference analysis</li>
+</ul>
+<h2>Common Workflows</h2>
+<h3>Quick Market Scan</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Get everything in 3 calls
+</span><span class="code-line">all_coins = cg_coins_market_data()  # 100+ coins with full metrics
+</span><span class="code-line">btc_liquidations = cg_liquidations("BTC")
+</span><span class="code-line">whale_alerts = cg_hyperliquid_whale_alerts()
+</span></code></pre>
+<h3>Deep Position Analysis</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># BTC positioning across metrics
+</span><span class="code-line">cg_global_account_ratio("BTC")  # Retail sentiment
+</span><span class="code-line">cg_top_account_ratio("BTC", "Binance")  # Smart money
+</span><span class="code-line">cg_net_position_v2("BTC")  # Net positioning
+</span><span class="code-line">cg_liquidation_heatmap("BTC", "Binance")  # Cascade levels
+</span></code></pre>
+<h3>ETF Flow Monitoring</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Institutional demand
+</span><span class="code-line">btc_flows = cg_btc_etf_flows()
+</span><span class="code-line">eth_flows = cg_eth_etf_flows()
+</span><span class="code-line">sol_flows = cg_sol_etf_flows()
+</span></code></pre>
+<h3>Whale Tracking</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Follow the whales
+</span><span class="code-line">hyperliquid_whales = cg_hyperliquid_whale_alerts()
+</span><span class="code-line">whale_positions = cg_hyperliquid_whale_positions()
+</span><span class="code-line">onchain_whales = cg_whale_transfers()  # &gt;$10M on-chain
+</span></code></pre>
+<h3>Volume Analysis</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Order flow
+</span><span class="code-line">cvd = cg_cumulative_volume_delta("BTC", "Binance", "1h", 100)
+</span><span class="code-line">netflow = cg_coin_netflow()  # All coins
+</span><span class="code-line">taker_vol = cg_aggregated_taker_volume("BTC", "1h", 100)
+</span></code></pre>
+<h2>Interpretation Guides</h2>
+<h3>Funding Rates</h3>
+<table>
+<thead>
+<tr>
+<th>Rate (8h)</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&gt; +0.05%</td>
+<td>Extreme greed — crowded long, squeeze risk</td>
+</tr>
+<tr>
+<td>+0.01% to +0.05%</td>
+<td>Bullish bias, normal</td>
+</tr>
+<tr>
+<td>-0.005% to +0.01%</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>-0.05% to -0.005%</td>
+<td>Bearish bias, normal</td>
+</tr>
+<tr>
+<td>&lt; -0.05%</td>
+<td>Extreme fear — crowded short, bounce risk</td>
+</tr>
+</tbody>
+</table>
+<p>Extreme funding often precedes reversals. The crowd is usually wrong at extremes.</p>
+<h3>Open Interest + Price Matrix</h3>
+<table>
+<thead>
+<tr>
+<th>OI</th>
+<th>Price</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Up</td>
+<td>Up</td>
+<td>New longs entering — bullish conviction</td>
+</tr>
+<tr>
+<td>Up</td>
+<td>Down</td>
+<td>New shorts entering — bearish conviction</td>
+</tr>
+<tr>
+<td>Down</td>
+<td>Up</td>
+<td>Short covering — weaker rally, less conviction</td>
+</tr>
+<tr>
+<td>Down</td>
+<td>Down</td>
+<td>Long liquidation — weaker selloff, capitulation</td>
+</tr>
+</tbody>
+</table>
+<h3>Long/Short Ratio</h3>
+<table>
+<thead>
+<tr>
+<th>Ratio</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&gt; 1.5</td>
+<td>Crowded long — contrarian bearish</td>
+</tr>
+<tr>
+<td>1.1–1.5</td>
+<td>Moderately bullish</td>
+</tr>
+<tr>
+<td>0.9–1.1</td>
+<td>Balanced</td>
+</tr>
+<tr>
+<td>0.7–0.9</td>
+<td>Moderately bearish</td>
+</tr>
+<tr>
+<td>&lt; 0.7</td>
+<td>Crowded short — contrarian bullish</td>
+</tr>
+</tbody>
+</table>
+<h3>CVD (Cumulative Volume Delta)</h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CVD rising, price rising</td>
+<td>Strong buy pressure, healthy uptrend</td>
+</tr>
+<tr>
+<td>CVD falling, price rising</td>
+<td>Weak rally, distribution</td>
+</tr>
+<tr>
+<td>CVD rising, price falling</td>
+<td>Accumulation, potential bottom</td>
+</tr>
+<tr>
+<td>CVD falling, price falling</td>
+<td>Strong sell pressure, healthy downtrend</td>
+</tr>
+</tbody>
+</table>
+<h3>ETF Flows</h3>
+<table>
+<thead>
+<tr>
+<th>Flow</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Large inflows</td>
+<td>Institutional buying, bullish</td>
+</tr>
+<tr>
+<td>Consistent inflows</td>
+<td>Sustained demand</td>
+</tr>
+<tr>
+<td>Large outflows</td>
+<td>Institutional selling, bearish</td>
+</tr>
+<tr>
+<td>Premium to NAV</td>
+<td>High demand, bullish sentiment</td>
+</tr>
+<tr>
+<td>Discount to NAV</td>
+<td>Weak demand, bearish sentiment</td>
+</tr>
+</tbody>
+</table>
+<h2>Analysis Patterns</h2>
+<p><strong>Multi-metric confirmation</strong>: Combine tools across categories for high-confidence signals:</p>
+<ul>
+<li>Funding + L/S ratio + liquidations = positioning extremes</li>
+<li>CVD + taker volume + whale alerts = smart money direction</li>
+<li>ETF flows + whale transfers + open interest = institutional conviction</li>
+</ul>
+<p><strong>Smart money vs retail</strong>: Compare metrics to identify divergence:</p>
+<ul>
+<li><code>cg_top_account_ratio</code> (smart money) vs <code>cg_global_account_ratio</code> (retail)</li>
+<li>Hyperliquid whale positions vs overall long/short ratios</li>
+</ul>
+<p><strong>Cascade prediction</strong>: Use liquidation tools to predict volatility:</p>
+<ul>
+<li><code>cg_coin_liquidation_history</code> shows liquidation patterns over time</li>
+<li><code>cg_liquidation_orders</code> reveals recent forced closures</li>
+<li>Large liquidation events = cascade risk zones</li>
+</ul>
+<p><strong>Flow divergence</strong>: Track capital movements:</p>
+<ul>
+<li><code>cg_coin_netflow</code> shows where money is flowing</li>
+<li><code>cg_whale_transfers</code> reveals large movements</li>
+<li>ETF flows show institutional demand</li>
+</ul>
+<h2>Performance Optimization</h2>
+<h3>Batch vs Individual Calls</h3>
+<p><strong>✅ OPTIMAL</strong>: Use batch endpoints</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># One call gets 100+ coins
+</span><span class="code-line">all_coins = cg_coins_market_data()
+</span><span class="code-line">
+</span><span class="code-line"># One call gets all whale alerts
+</span><span class="code-line">whales = cg_hyperliquid_whale_alerts()
+</span><span class="code-line">
+</span><span class="code-line"># One call gets all ETF flows
+</span><span class="code-line">btc_etf = cg_btc_etf_flows()
+</span></code></pre>
+<p><strong>❌ INEFFICIENT</strong>: Multiple individual calls</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Don't do this - wastes API quota
+</span><span class="code-line">btc = cg_pair_market_data("BTC", "Binance")
+</span><span class="code-line">eth = cg_pair_market_data("ETH", "Binance")
+</span><span class="code-line">sol = cg_pair_market_data("SOL", "Binance")
+</span></code></pre>
+<h3>Query Parameters</h3>
+<p>Most history endpoints support:</p>
+<ul>
+<li><code>interval</code>: Time granularity (1h, 4h, 12h, 24h, etc.)</li>
+<li><code>limit</code>: Number of records (default varies, max 1000)</li>
+<li><code>start_time</code>: Unix timestamp (milliseconds)</li>
+<li><code>end_time</code>: Unix timestamp (milliseconds)</li>
+</ul>
+<p>Example:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">cg_coin_liquidation_history(
+</span><span class="code-line">    symbol="BTC",
+</span><span class="code-line">    interval="1h",
+</span><span class="code-line">    limit=100,
+</span><span class="code-line">    start_time=1704067200000,  # 2024-01-01
+</span><span class="code-line">    end_time=1704153600000     # 2024-01-02
+</span><span class="code-line">)
+</span></code></pre>
+<h2>Supported Exchanges</h2>
+<p>Major exchanges with futures data:</p>
+<ul>
+<li><strong>Tier 1</strong>: Binance, OKX, Bybit, Gate, KuCoin, MEXC</li>
+<li><strong>Traditional</strong>: CME (Bitcoin and Ethereum futures), Coinbase</li>
+<li><strong>DEX</strong>: Hyperliquid, dYdX, ApeX</li>
+<li><strong>Others</strong>: Bitfinex, Kraken, HTX, BingX, Crypto.com, CoinEx, Bitget</li>
+</ul>
+<p>Use <code>cg_supported_exchanges()</code> for complete list with pair details.</p>
+<h2>Important Notes</h2>
+<ul>
+<li><strong>API Key</strong>: Requires COINGLASS_API_KEY environment variable</li>
+<li><strong>Symbols</strong>: Use standard symbols (BTC, ETH, SOL, etc.) - check with <code>cg_supported_coins()</code></li>
+<li><strong>Exchanges</strong>: Check <code>cg_supported_exchanges()</code> for full list with pairs</li>
+<li><strong>Update Frequency</strong>:
+<ul>
+<li>Market data: ≤ 1 minute</li>
+<li>Funding rates: Every 8 hours (or 1 hour for some exchanges)</li>
+<li>OHLC: Real-time to 1 minute depending on interval</li>
+<li>ETF data: Daily (after market close)</li>
+<li>Whale transfers: Real-time (within minutes)</li>
+</ul>
+</li>
+<li><strong>API Versions</strong>:
+<ul>
+<li>V4 endpoints use <code>CG-API-KEY</code> header (most tools)</li>
+<li>V2 endpoints use <code>coinglassSecret</code> header (some legacy tools)</li>
+<li>Both work with the same COINGLASS_API_KEY environment variable</li>
+</ul>
+</li>
+<li><strong>Rate Limits</strong>: Professional plan allows 6000 requests/minute</li>
+<li><strong>Historical Data Limits</strong>:
+<ul>
+<li>Liquidation orders: Past 7 days, max 200 records</li>
+<li>Whale transfers: Past 6 months, minimum $10M</li>
+<li>Hyperliquid alerts: ~200 most recent large positions</li>
+<li>Other endpoints: Typically months to years of history</li>
+</ul>
+</li>
+</ul>
+<h2>Data Quality Notes</h2>
+<ul>
+<li><strong>Hyperliquid</strong>: Data is exchange-specific, doesn't include other DEXs</li>
+<li><strong>Whale Transfers</strong>: Covers Bitcoin, Ethereum, Tron, Ripple, Dogecoin, Litecoin, Polygon, Algorand, Bitcoin Cash, Solana</li>
+<li><strong>ETF Data</strong>: US ETFs updated after market close (4 PM ET), Hong Kong ETFs updated after Hong Kong market close</li>
+<li><strong>Liquidation Orders</strong>: Limited to 200 most recent, use heatmap for broader view</li>
+<li><strong>CVD</strong>: Cumulative metric - resets are not automatic, track changes not absolute values</li>
+</ul>
+<h2>Version History</h2>
+<ul>
+<li><strong>v3.0.0</strong> (2025-03): Added 36 new tools
+<ul>
+<li>Advanced liquidations (5 tools)</li>
+<li>Hyperliquid whale tracking (5 tools)</li>
+<li>Volume &amp; flow analysis (5 tools)</li>
+<li>Whale transfers (1 tool)</li>
+<li>Bitcoin ETF (6 tools)</li>
+<li>Other ETFs (8 tools)</li>
+<li>Advanced L/S ratios (6 tools)</li>
+</ul>
+</li>
+<li><strong>v2.2.0</strong> (2024): V4 API migration with futures market data</li>
+<li><strong>v1.0.0</strong> (2024): Initial release with basic derivatives data</li>
+</ul></div>

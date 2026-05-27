@@ -1,0 +1,92 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>ccc - Semantic Code Search &amp; Indexing</h1>
+<p><code>ccc</code> is the CLI for CocoIndex Code, providing semantic search over the current codebase and index management.</p>
+<h2>Ownership</h2>
+<p>The agent owns the <code>ccc</code> lifecycle for the current project — initialization, indexing, and searching. Do not ask the user to perform these steps; handle them automatically.</p>
+<ul>
+<li><strong>Initialization</strong>: If <code>ccc search</code> or <code>ccc index</code> fails with an initialization error (e.g., "Not in an initialized project directory"), run <code>ccc init</code> from the project root directory, then <code>ccc index</code> to build the index, then retry the original command.</li>
+<li><strong>Index freshness</strong>: Keep the index up to date by running <code>ccc index</code> (or <code>ccc search --refresh</code>) when the index may be stale — e.g., at the start of a session, or after making significant code changes (new files, refactors, renamed modules). There is no need to re-index between consecutive searches if no code was changed in between.</li>
+<li><strong>Installation</strong>: If <code>ccc</code> itself is not found (command not found), refer to <a href="https://github.com/cocoindex-io/cocoindex-code/blob/HEAD/skills/ccc/references/management.md" target="_blank" rel="ugc nofollow noopener">management.md</a> for installation instructions and inform the user.</li>
+</ul>
+<h2>Searching the Codebase</h2>
+<p>To perform a semantic search:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc search <span class="token operator">&lt;</span>query terms<span class="token operator">&gt;</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>The query should describe the concept, functionality, or behavior to find, not exact code syntax. For example:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc search database connection pooling
+</span><span class="code-line">ccc search user authentication flow
+</span><span class="code-line">ccc search error handling retry logic
+</span></code></pre>
+<h3>Filtering Results</h3>
+<ul>
+<li>
+<p><strong>By language</strong> (<code>--lang</code>, repeatable): restrict results to specific languages.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc search <span class="token parameter variable">--lang</span> python <span class="token parameter variable">--lang</span> markdown database schema
+</span></code></pre>
+</li>
+<li>
+<p><strong>By path</strong> (<code>--path</code>): restrict results to a glob pattern relative to project root. If omitted, defaults to the current working directory (only results under that subdirectory are returned).</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc search <span class="token parameter variable">--path</span> <span class="token string">'src/api/*'</span> request validation
+</span></code></pre>
+</li>
+</ul>
+<h3>Pagination</h3>
+<p>Results default to the first page. To retrieve additional results:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc search <span class="token parameter variable">--offset</span> <span class="token number">5</span> <span class="token parameter variable">--limit</span> <span class="token number">5</span> database schema
+</span></code></pre>
+<p>If all returned results look relevant, use <code>--offset</code> to fetch the next page — there are likely more useful matches beyond the first page.</p>
+<h3>Working with Search Results</h3>
+<p>Search results include file paths and line ranges. To explore a result in more detail:</p>
+<ul>
+<li>Use the editor's built-in file reading capabilities (e.g., the <code>Read</code> tool) to load the matched file and read lines around the returned range for full context.</li>
+<li>When working in a terminal without a file-reading tool, use <code>sed -n '&lt;start&gt;,&lt;end&gt;p' &lt;file&gt;</code> to extract a specific line range.</li>
+</ul>
+<h3>Following Hints in Search Output</h3>
+<p>Search results are a mixed ranking of code chunks, per-file/dir summaries, and (when configured) curated concept guides — all scored against the same query. Two kinds of hit come with a follow-up command embedded in the output:</p>
+<ul>
+<li><code>[summary]</code> — a file or directory summary. Read with <code>ccc describe &lt;path&gt;</code>.</li>
+<li><code>[guide]</code> — a curated concept guide. Read with <code>ccc guide &lt;slug&gt;</code>.</li>
+</ul>
+<p>When a hit carries one of these tags, follow the hint: the synthesised text is usually a faster read than chasing through individual files. Conversely, do <strong>not</strong> run <code>ccc describe .</code> or <code>ccc guide</code> proactively as a triage step — let search rank what's relevant and act on what it returns.</p>
+<h2>Describing Files and Directories</h2>
+<p>Per-file and per-directory summaries (when configured for the project) condense each file's public API, contracts, and role into a short markdown block. They are typically faster to consult than reading the source.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc describe src/auth/session.py        <span class="token comment"># one file</span>
+</span><span class="code-line">ccc describe src/auth/                  <span class="token comment"># directory: summary + children tree</span>
+</span><span class="code-line">ccc describe <span class="token builtin class-name">.</span>                          <span class="token comment"># project root overview</span>
+</span></code></pre>
+<p>Use <code>describe</code> when you already know the path you want; let <code>ccc search</code> find paths for you when you don't.</p>
+<h2>Concept Guides</h2>
+<p>Some projects configure cross-cutting concept guides in <code>.cocoindex_code/guides.yml</code> — synthesised markdown documents for architectural topics that span many files (e.g. memoization, plugin-SDK boundary, channel routing). Each guide names canonical files, end-to-end flow, and contracts/invariants.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">ccc guide                               <span class="token comment"># list available guides + descriptions</span>
+</span><span class="code-line">ccc guide <span class="token operator">&lt;</span>slug<span class="token operator">&gt;</span>                        <span class="token comment"># print one guide</span>
+</span></code></pre>
+<p>Discovery is search-driven: a relevant guide will surface in <code>ccc search</code> results tagged <code>[guide]</code> with a <code>ccc guide &lt;slug&gt;</code> hint. Run <code>ccc guide</code> (no args) only when first orienting in an unfamiliar codebase or when the user explicitly asks for the guide list — not as a routine first step.</p>
+<h3>Authoring <code>guides.yml</code> Interactively</h3>
+<p>When the user wants to add or improve concept guides, collaborate on the slug list rather than dumping a finished YAML. Good guide candidates are <strong>named subsystems the codebase obviously has</strong> — cross-cutting lifecycles, registration/dispatch protocols, end-to-end data paths. Single-file or symbol-specific topics do not warrant a guide; per-file summaries already cover those.</p>
+<p>Recommended flow:</p>
+<ol>
+<li><strong>Survey the codebase.</strong> Use <code>ccc describe .</code> and a few likely subdirectory summaries to enumerate the project's subsystems and inter-edge boundaries.</li>
+<li><strong>Propose candidates.</strong> Suggest 5–10 slugs with one-line descriptions, framed to name the canonical starting file or directory for each topic. Show them to the user as a list.</li>
+<li><strong>Iterate.</strong> Ask which to keep, drop, rename, or merge. Surface non-obvious dependencies (<code>deps:</code>) so a higher-level guide can cite a lower-level one rather than restate it. Cycles are rejected at load time.</li>
+<li><strong>Write the YAML.</strong> Add the agreed entries to <code>.cocoindex_code/guides.yml</code> (creating the file if absent). Confirm <code>defaults.enabled: true</code> and that the project's summary feature is enabled — guides require summaries.</li>
+<li><strong>Generate.</strong> Run <code>ccc index</code> to drive the per-guide agent loop and produce <code>&lt;slug&gt;.md</code> files under <code>.cocoindex_code/guides/</code>. Re-run after editing descriptions to refresh.</li>
+</ol>
+<p>Schema:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">defaults</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>                     <span class="token comment"># disables all guides when false</span>
+</span><span class="code-line">  <span class="token key atrule">model</span><span class="token punctuation">:</span> openai/gpt<span class="token punctuation">-</span>5.4<span class="token punctuation">-</span>nano        <span class="token comment"># falls back to summary.model when omitted</span>
+</span><span class="code-line">  <span class="token key atrule">session_budget</span><span class="token punctuation">:</span> <span class="token number">200</span>
+</span><span class="code-line">  <span class="token key atrule">max_logical_depth</span><span class="token punctuation">:</span> <span class="token number">3</span>
+</span><span class="code-line">  <span class="token key atrule">max_turns_per_session</span><span class="token punctuation">:</span> <span class="token number">18</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">guides</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">slug</span><span class="token punctuation">:</span> memoization                          <span class="token comment"># [a-z0-9][a-z0-9-]*</span>
+</span><span class="code-line">    <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">      What this guide covers, framed for the reader.
+</span></span><span class="code-line"><span class="token scalar string">      Name the canonical starting files (e.g. "start with src/cache.py").</span>
+</span><span class="code-line">    <span class="token key atrule">deps</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>other<span class="token punctuation">-</span>slug<span class="token punctuation">]</span>                         <span class="token comment"># optional; must not cycle</span>
+</span><span class="code-line">    <span class="token key atrule">max_turns_per_session</span><span class="token punctuation">:</span> <span class="token number">28</span>                  <span class="token comment"># optional per-entry overrides</span>
+</span></code></pre>
+<p>A multi-line description is fine and often clearer than one terse sentence — the description seeds the guide-generation agent's question, so concrete file/directory anchors pay off.</p>
+<h2>Settings</h2>
+<p>To view or edit embedding model configuration, include/exclude patterns, or language overrides, see <a href="https://github.com/cocoindex-io/cocoindex-code/blob/HEAD/skills/ccc/references/settings.md" target="_blank" rel="ugc nofollow noopener">settings.md</a>.</p>
+<h2>Management &amp; Troubleshooting</h2>
+<p>For installation, initialization, daemon management, troubleshooting, and cleanup commands, see <a href="https://github.com/cocoindex-io/cocoindex-code/blob/HEAD/skills/ccc/references/management.md" target="_blank" rel="ugc nofollow noopener">management.md</a>.</p></div>

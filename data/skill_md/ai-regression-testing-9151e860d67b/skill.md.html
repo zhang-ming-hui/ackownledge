@@ -1,0 +1,349 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>AI Regression Testing</h1>
+<p>Testing patterns specifically designed for AI-assisted development, where the same model writes code and reviews it — creating systematic blind spots that only automated tests can catch.</p>
+<h2>When to Activate</h2>
+<ul>
+<li>AI agent (Claude Code, Cursor, Codex) has modified API routes or backend logic</li>
+<li>A bug was found and fixed — need to prevent re-introduction</li>
+<li>Project has a sandbox/mock mode that can be leveraged for DB-free testing</li>
+<li>Running <code>/bug-check</code> or similar review commands after code changes</li>
+<li>Multiple code paths exist (sandbox vs production, feature flags, etc.)</li>
+</ul>
+<h2>The Core Problem</h2>
+<p>When an AI writes code and then reviews its own work, it carries the same assumptions into both steps. This creates a predictable failure pattern:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">AI writes fix → AI reviews fix → AI says "looks correct" → Bug still exists
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Real-world example</strong> (observed in production):</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Fix 1: Added notification_settings to API response
+</span><span class="code-line">  → Forgot to add it to the SELECT query
+</span><span class="code-line">  → AI reviewed and missed it (same blind spot)
+</span><span class="code-line">
+</span><span class="code-line">Fix 2: Added it to SELECT query
+</span><span class="code-line">  → TypeScript build error (column not in generated types)
+</span><span class="code-line">  → AI reviewed Fix 1 but didn't catch the SELECT issue
+</span><span class="code-line">
+</span><span class="code-line">Fix 3: Changed to SELECT *
+</span><span class="code-line">  → Fixed production path, forgot sandbox path
+</span><span class="code-line">  → AI reviewed and missed it AGAIN (4th occurrence)
+</span><span class="code-line">
+</span><span class="code-line">Fix 4: Test caught it instantly on first run PASS:
+</span></code></pre>
+<p>The pattern: <strong>sandbox/production path inconsistency</strong> is the #1 AI-introduced regression.</p>
+<h2>Sandbox-Mode API Testing</h2>
+<p>Most projects with AI-friendly architecture have a sandbox/mock mode. This is the key to fast, DB-free API testing.</p>
+<h3>Setup (Vitest + Next.js App Router)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// vitest.config.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> defineConfig <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"vitest/config"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> path <span class="token keyword">from</span> <span class="token string">"path"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineConfig</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  test<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    environment<span class="token operator">:</span> <span class="token string">"node"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    globals<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    include<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"__tests__/**/*.test.ts"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    setupFiles<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"__tests__/setup.ts"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  resolve<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    alias<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-property property">"@"</span><span class="token operator">:</span> path<span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span>__dirname<span class="token punctuation">,</span> <span class="token string">"."</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// __tests__/setup.ts</span>
+</span><span class="code-line"><span class="token comment">// Force sandbox mode — no database needed</span>
+</span><span class="code-line">process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">SANDBOX_MODE</span> <span class="token operator">=</span> <span class="token string">"true"</span><span class="token punctuation">;</span>
+</span><span class="code-line">process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NEXT_PUBLIC_SUPABASE_URL</span> <span class="token operator">=</span> <span class="token string">""</span><span class="token punctuation">;</span>
+</span><span class="code-line">process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">NEXT_PUBLIC_SUPABASE_ANON_KEY</span> <span class="token operator">=</span> <span class="token string">""</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Test Helper for Next.js API Routes</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// __tests__/helpers.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> NextRequest <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"next/server"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">createTestRequest</span><span class="token punctuation">(</span>
+</span><span class="code-line">  url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span>
+</span><span class="code-line">  options<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    method<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">    body<span class="token operator">?</span><span class="token operator">:</span> Record<span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token builtin">unknown</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">    headers<span class="token operator">?</span><span class="token operator">:</span> Record<span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token builtin">string</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">    sandboxUserId<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token operator">:</span> NextRequest <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> method <span class="token operator">=</span> <span class="token string">"GET"</span><span class="token punctuation">,</span> body<span class="token punctuation">,</span> headers <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span> sandboxUserId <span class="token punctuation">}</span> <span class="token operator">=</span> options <span class="token operator">||</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> fullUrl <span class="token operator">=</span> url<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">"http"</span><span class="token punctuation">)</span> <span class="token operator">?</span> url <span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">http://localhost:3000</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>url<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> reqHeaders<span class="token operator">:</span> Record<span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token builtin">string</span><span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">{</span> <span class="token operator">...</span>headers <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>sandboxUserId<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    reqHeaders<span class="token punctuation">[</span><span class="token string">"x-sandbox-user-id"</span><span class="token punctuation">]</span> <span class="token operator">=</span> sandboxUserId<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> init<span class="token operator">:</span> <span class="token punctuation">{</span> method<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span> headers<span class="token operator">:</span> Record<span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token builtin">string</span><span class="token operator">&gt;</span><span class="token punctuation">;</span> body<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    method<span class="token punctuation">,</span>
+</span><span class="code-line">    headers<span class="token operator">:</span> reqHeaders<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>body<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    init<span class="token punctuation">.</span>body <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>body<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    reqHeaders<span class="token punctuation">[</span><span class="token string">"content-type"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">"application/json"</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">NextRequest</span><span class="token punctuation">(</span>fullUrl<span class="token punctuation">,</span> init<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">parseResponse</span><span class="token punctuation">(</span>response<span class="token operator">:</span> Response<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> json <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> status<span class="token operator">:</span> response<span class="token punctuation">.</span>status<span class="token punctuation">,</span> json <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Writing Regression Tests</h3>
+<p>The key principle: <strong>write tests for bugs that were found, not for code that works</strong>.</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// __tests__/api/user/profile.test.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> describe<span class="token punctuation">,</span> it<span class="token punctuation">,</span> expect <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"vitest"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createTestRequest<span class="token punctuation">,</span> parseResponse <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"../../helpers"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> <span class="token constant">GET</span><span class="token punctuation">,</span> <span class="token constant">PATCH</span> <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@/app/api/user/profile/route"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Define the contract — what fields MUST be in the response</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token constant">REQUIRED_FIELDS</span> <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token string">"id"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"email"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"full_name"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"phone"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"role"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"created_at"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"avatar_url"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"notification_settings"</span><span class="token punctuation">,</span>  <span class="token comment">// ← Added after bug found it missing</span>
+</span><span class="code-line"><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">"GET /api/user/profile"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">it</span><span class="token punctuation">(</span><span class="token string">"returns all required fields"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> req <span class="token operator">=</span> <span class="token function">createTestRequest</span><span class="token punctuation">(</span><span class="token string">"/api/user/profile"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token constant">GET</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> status<span class="token punctuation">,</span> json <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">parseResponse</span><span class="token punctuation">(</span>res<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>status<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> field <span class="token keyword">of</span> <span class="token constant">REQUIRED_FIELDS</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token function">expect</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toHaveProperty</span><span class="token punctuation">(</span>field<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Regression test — this exact bug was introduced by AI 4 times</span>
+</span><span class="code-line">  <span class="token function">it</span><span class="token punctuation">(</span><span class="token string">"notification_settings is not undefined (BUG-R1 regression)"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> req <span class="token operator">=</span> <span class="token function">createTestRequest</span><span class="token punctuation">(</span><span class="token string">"/api/user/profile"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token constant">GET</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> json <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">parseResponse</span><span class="token punctuation">(</span>res<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token string">"notification_settings"</span> <span class="token keyword">in</span> json<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> ns <span class="token operator">=</span> json<span class="token punctuation">.</span>data<span class="token punctuation">.</span>notification_settings<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>ns <span class="token operator">===</span> <span class="token keyword">null</span> <span class="token operator">||</span> <span class="token keyword">typeof</span> ns <span class="token operator">===</span> <span class="token string">"object"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Testing Sandbox/Production Parity</h3>
+<p>The most common AI regression: fixing production path but forgetting sandbox path (or vice versa).</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Test that sandbox responses match the expected contract</span>
+</span><span class="code-line"><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">"GET /api/user/messages (conversation list)"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">it</span><span class="token punctuation">(</span><span class="token string">"includes partner_name in sandbox mode"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> req <span class="token operator">=</span> <span class="token function">createTestRequest</span><span class="token punctuation">(</span><span class="token string">"/api/user/messages"</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      sandboxUserId<span class="token operator">:</span> <span class="token string">"user-001"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token constant">GET</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> json <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">parseResponse</span><span class="token punctuation">(</span>res<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// This caught a bug where partner_name was added</span>
+</span><span class="code-line">    <span class="token comment">// to production path but not sandbox path</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>json<span class="token punctuation">.</span>data<span class="token punctuation">.</span>length <span class="token operator">&gt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> conv <span class="token keyword">of</span> json<span class="token punctuation">.</span>data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">expect</span><span class="token punctuation">(</span><span class="token string">"partner_name"</span> <span class="token keyword">in</span> conv<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Integrating Tests into Bug-Check Workflow</h2>
+<h3>Custom Command Definition</h3>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token comment">&lt;!-- .claude/commands/bug-check.md --&gt;</span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Bug Check</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Step 1: Automated Tests (mandatory, cannot skip)</span>
+</span><span class="code-line">
+</span><span class="code-line">Run these commands FIRST before any code review:
+</span><span class="code-line">
+</span><span class="code-line"><span class="token code keyword">    npm run test       # Vitest test suite
+</span></span><span class="code-line"><span class="token code keyword">    npm run build      # TypeScript type check + build</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> If tests fail → report as highest priority bug
+</span><span class="code-line"><span class="token list punctuation">-</span> If build fails → report type errors as highest priority
+</span><span class="code-line"><span class="token list punctuation">-</span> Only proceed to Step 2 if both pass
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Step 2: Code Review (AI review)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">1.</span> Sandbox / production path consistency
+</span><span class="code-line"><span class="token list punctuation">2.</span> API response shape matches frontend expectations
+</span><span class="code-line"><span class="token list punctuation">3.</span> SELECT clause completeness
+</span><span class="code-line"><span class="token list punctuation">4.</span> Error handling with rollback
+</span><span class="code-line"><span class="token list punctuation">5.</span> Optimistic update race conditions
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Step 3: For each bug fixed, propose a regression test</span>
+</span></code></pre>
+<h3>The Workflow</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">User: "バグチェックして" (or "/bug-check")
+</span><span class="code-line">  │
+</span><span class="code-line">  ├─ Step 1: npm run test
+</span><span class="code-line">  │   ├─ FAIL → Bug found mechanically (no AI judgment needed)
+</span><span class="code-line">  │   └─ PASS → Continue
+</span><span class="code-line">  │
+</span><span class="code-line">  ├─ Step 2: npm run build
+</span><span class="code-line">  │   ├─ FAIL → Type error found mechanically
+</span><span class="code-line">  │   └─ PASS → Continue
+</span><span class="code-line">  │
+</span><span class="code-line">  ├─ Step 3: AI code review (with known blind spots in mind)
+</span><span class="code-line">  │   └─ Findings reported
+</span><span class="code-line">  │
+</span><span class="code-line">  └─ Step 4: For each fix, write a regression test
+</span><span class="code-line">      └─ Next bug-check catches if fix breaks
+</span></code></pre>
+<h2>Common AI Regression Patterns</h2>
+<h3>Pattern 1: Sandbox/Production Path Mismatch</h3>
+<p><strong>Frequency</strong>: Most common (observed in 3 out of 4 regressions)</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// FAIL: AI adds field to production path only</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isSandboxMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token punctuation">,</span> email<span class="token punctuation">,</span> name <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>  <span class="token comment">// Missing new field</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token comment">// Production path</span>
+</span><span class="code-line"><span class="token keyword">return</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token punctuation">,</span> email<span class="token punctuation">,</span> name<span class="token punctuation">,</span> notification_settings <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// PASS: Both paths must return the same shape</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isSandboxMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token punctuation">,</span> email<span class="token punctuation">,</span> name<span class="token punctuation">,</span> notification_settings<span class="token operator">:</span> <span class="token keyword">null</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">return</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token punctuation">,</span> email<span class="token punctuation">,</span> name<span class="token punctuation">,</span> notification_settings <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Test to catch it</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token function">it</span><span class="token punctuation">(</span><span class="token string">"sandbox and production return same fields"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// In test env, sandbox mode is forced ON</span>
+</span><span class="code-line">  <span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token constant">GET</span><span class="token punctuation">(</span><span class="token function">createTestRequest</span><span class="token punctuation">(</span><span class="token string">"/api/user/profile"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> json <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">parseResponse</span><span class="token punctuation">(</span>res<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> field <span class="token keyword">of</span> <span class="token constant">REQUIRED_FIELDS</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toHaveProperty</span><span class="token punctuation">(</span>field<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Pattern 2: SELECT Clause Omission</h3>
+<p><strong>Frequency</strong>: Common with Supabase/Prisma when adding new columns</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// FAIL: New column added to response but not to SELECT</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> data <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> supabase
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">select</span><span class="token punctuation">(</span><span class="token string">"id, email, name"</span><span class="token punctuation">)</span>  <span class="token comment">// notification_settings not here</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">single</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">return</span> <span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token operator">...</span>data<span class="token punctuation">,</span> notification_settings<span class="token operator">:</span> data<span class="token punctuation">.</span>notification_settings <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token comment">// → notification_settings is always undefined</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// PASS: Use SELECT * or explicitly include new columns</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> data <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> supabase
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">select</span><span class="token punctuation">(</span><span class="token string">"*"</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">.</span><span class="token function">single</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Pattern 3: Error State Leakage</h3>
+<p><strong>Frequency</strong>: Moderate — when adding error handling to existing components</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// FAIL: Error state set but old data not cleared</span>
+</span><span class="code-line"><span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">setError</span><span class="token punctuation">(</span><span class="token string">"Failed to load"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token comment">// reservations still shows data from previous tab!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// PASS: Clear related state on error</span>
+</span><span class="code-line"><span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">setReservations</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Clear stale data</span>
+</span><span class="code-line">  <span class="token function">setError</span><span class="token punctuation">(</span><span class="token string">"Failed to load"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern 4: Optimistic Update Without Proper Rollback</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// FAIL: No rollback on failure</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">handleRemove</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">setItems</span><span class="token punctuation">(</span>prev <span class="token operator">=&gt;</span> prev<span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span>i <span class="token operator">=&gt;</span> i<span class="token punctuation">.</span>id <span class="token operator">!==</span> id<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/items/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>id<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">{</span> method<span class="token operator">:</span> <span class="token string">"DELETE"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token comment">// If API fails, item is gone from UI but still in DB</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// PASS: Capture previous state and rollback on failure</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token function-variable function">handleRemove</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> prevItems <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token operator">...</span>items<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">setItems</span><span class="token punctuation">(</span>prev <span class="token operator">=&gt;</span> prev<span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span>i <span class="token operator">=&gt;</span> i<span class="token punctuation">.</span>id <span class="token operator">!==</span> id<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/items/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>id<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">{</span> method<span class="token operator">:</span> <span class="token string">"DELETE"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>res<span class="token punctuation">.</span>ok<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">"API error"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">setItems</span><span class="token punctuation">(</span>prevItems<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Rollback</span>
+</span><span class="code-line">    <span class="token function">alert</span><span class="token punctuation">(</span><span class="token string">"削除に失敗しました"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Strategy: Test Where Bugs Were Found</h2>
+<p>Don't aim for 100% coverage. Instead:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Bug found in /api/user/profile     → Write test for profile API
+</span><span class="code-line">Bug found in /api/user/messages    → Write test for messages API
+</span><span class="code-line">Bug found in /api/user/favorites   → Write test for favorites API
+</span><span class="code-line">No bug in /api/user/notifications  → Don't write test (yet)
+</span></code></pre>
+<p><strong>Why this works with AI development:</strong></p>
+<ol>
+<li>AI tends to make the <strong>same category of mistake</strong> repeatedly</li>
+<li>Bugs cluster in complex areas (auth, multi-path logic, state management)</li>
+<li>Once tested, that exact regression <strong>cannot happen again</strong></li>
+<li>Test count grows organically with bug fixes — no wasted effort</li>
+</ol>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>AI Regression Pattern</th>
+<th>Test Strategy</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sandbox/production mismatch</td>
+<td>Assert same response shape in sandbox mode</td>
+<td>High</td>
+</tr>
+<tr>
+<td>SELECT clause omission</td>
+<td>Assert all required fields in response</td>
+<td>High</td>
+</tr>
+<tr>
+<td>Error state leakage</td>
+<td>Assert state cleanup on error</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Missing rollback</td>
+<td>Assert state restored on API failure</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Type cast masking null</td>
+<td>Assert field is not undefined</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<h2>DO / DON'T</h2>
+<p><strong>DO:</strong></p>
+<ul>
+<li>Write tests immediately after finding a bug (before fixing it if possible)</li>
+<li>Test the API response shape, not the implementation</li>
+<li>Run tests as the first step of every bug-check</li>
+<li>Keep tests fast (&lt; 1 second total with sandbox mode)</li>
+<li>Name tests after the bug they prevent (e.g., "BUG-R1 regression")</li>
+</ul>
+<p><strong>DON'T:</strong></p>
+<ul>
+<li>Write tests for code that has never had a bug</li>
+<li>Trust AI self-review as a substitute for automated tests</li>
+<li>Skip sandbox path testing because "it's just mock data"</li>
+<li>Write integration tests when unit tests suffice</li>
+<li>Aim for coverage percentage — aim for regression prevention</li>
+</ul></div>

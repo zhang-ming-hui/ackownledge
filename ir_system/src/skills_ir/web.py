@@ -1,3 +1,5 @@
+"""IR 检索系统的 Flask 页面与 API。"""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +15,7 @@ from .state import load_json, save_json_atomic, utc_now_iso
 
 
 def _load_eval_matches(config: IRConfig, query: str, top_k: int) -> list[Dict[str, Any]]:
+    """加载与当前 query 完全匹配的 benchmark 样例。"""
     matches: list[Dict[str, Any]] = []
     eval_dir = config.paths.eval_dir
     if not eval_dir.exists():
@@ -37,20 +40,20 @@ def _load_eval_matches(config: IRConfig, query: str, top_k: int) -> list[Dict[st
 
 
 def _load_manual_judgments(config: IRConfig) -> Dict[str, Any]:
-    """加载人工评价结果。"""
+    """加载人工相关性标注结果。"""
     judgments_path = config.paths.state_dir / "manual_judgments.json"
     return load_json(judgments_path, default={"judgments": [], "summary": {}})
 
 
 def _save_manual_judgments(config: IRConfig, data: Dict[str, Any]) -> None:
-    """保存人工评价结果。"""
+    """保存人工相关性标注结果。"""
     config.ensure_runtime_dirs()
     judgments_path = config.paths.state_dir / "manual_judgments.json"
     save_json_atomic(judgments_path, data)
 
 
 def _compute_manual_metrics(judgments: list[Dict[str, Any]]) -> Dict[str, Any]:
-    """根据人工标注计算 P/R/F1。"""
+    """根据人工标注统计简化版精度指标。"""
     if not judgments:
         return {}
 
@@ -95,6 +98,7 @@ def _compute_manual_metrics(judgments: list[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def create_app(config_path: Path | None = None) -> Flask:
+    """创建 Web 应用并注册页面与 API 路由。"""
     config = load_config(config_path)
     app = Flask(__name__, template_folder="templates")
     engine = SkillsIRSystem(config)
@@ -178,7 +182,7 @@ def create_app(config_path: Path | None = None) -> Flask:
 
     @app.post("/api/judge")
     def api_judge():
-        """接收人工相关度评价。"""
+        """接收一条人工相关性判断。"""
         body = request.get_json(silent=True) or {}
         query = body.get("query", "").strip()
         skill_name = body.get("skill_name", "").strip()
@@ -191,7 +195,6 @@ def create_app(config_path: Path | None = None) -> Flask:
         manual_data = _load_manual_judgments(config)
         judgments = manual_data.get("judgments", [])
 
-        # 去重：同一 query + skill_name 只保留最新评价
         judgments = [
             j for j in judgments
             if not (j["query"] == query and j["skill_name"] == skill_name)
@@ -212,7 +215,7 @@ def create_app(config_path: Path | None = None) -> Flask:
 
     @app.get("/api/manual-metrics")
     def api_manual_metrics():
-        """返回人工评价统计。"""
+        """返回人工评估统计摘要。"""
         manual_data = _load_manual_judgments(config)
         return jsonify(_compute_manual_metrics(manual_data.get("judgments", [])))
 
@@ -234,5 +237,6 @@ def serve_web(
     port: int = 5000,
     debug: bool = False,
 ) -> None:
+    """启动 IR Web 服务。"""
     app = create_app(config_path)
     app.run(host=host, port=port, debug=debug)

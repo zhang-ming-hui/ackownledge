@@ -1,3 +1,5 @@
+"""IR 系统命令行入口。"""
+
 from __future__ import annotations
 
 import argparse
@@ -18,6 +20,7 @@ from .web import serve_web
 
 
 def _print_json(payload: object) -> None:
+    """按当前终端编码安全打印 JSON。"""
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     encoding = sys.stdout.encoding or "utf-8"
     safe_text = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
@@ -25,6 +28,7 @@ def _print_json(payload: object) -> None:
 
 
 def interactive_mode(engine: SkillsIRSystem, top_k: int) -> None:
+    """启动交互式查询模式。"""
     print("Skills IR interactive mode. Submit an empty line to exit.")
     while True:
         query = input("\nQuery: ").strip()
@@ -35,6 +39,7 @@ def interactive_mode(engine: SkillsIRSystem, top_k: int) -> None:
 
 
 def _build_subcommand_parser() -> argparse.ArgumentParser:
+    """构建当前推荐的子命令解析器。"""
     parser = argparse.ArgumentParser(description="Skills IR project CLI")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Config file path")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -91,6 +96,7 @@ def _build_subcommand_parser() -> argparse.ArgumentParser:
 
 
 def _build_legacy_parser() -> argparse.ArgumentParser:
+    """构建兼容旧调用方式的解析器。"""
     parser = argparse.ArgumentParser(description="Legacy IR CLI")
     parser.add_argument("query", nargs="?", default="", help="Natural language query")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Config file path")
@@ -102,6 +108,7 @@ def _build_legacy_parser() -> argparse.ArgumentParser:
 
 
 def _is_subcommand_mode(argv: list[str]) -> bool:
+    """判断参数是否采用子命令风格。"""
     if not argv:
         return False
 
@@ -134,6 +141,7 @@ def _is_subcommand_mode(argv: list[str]) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI 主入口。"""
     argv = list(sys.argv[1:] if argv is None else argv)
 
     if argv in (["-h"], ["--help"]):

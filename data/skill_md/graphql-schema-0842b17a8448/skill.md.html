@@ -1,0 +1,160 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>GraphQL Schema Design Guide</h1>
+<p>This guide covers best practices for designing GraphQL schemas that are intuitive, performant, and maintainable. Schema design is primarily a server-side concern that directly impacts API usability.</p>
+<h2>Schema Design Principles</h2>
+<h3>1. Design for Client Needs</h3>
+<ul>
+<li>Think about what queries clients will write</li>
+<li>Organize types around use cases, not database tables</li>
+<li>Expose capabilities, not implementation details</li>
+</ul>
+<h3>2. Be Explicit</h3>
+<ul>
+<li>Use clear, descriptive names</li>
+<li>Make nullability intentional</li>
+<li>Document with descriptions</li>
+</ul>
+<h3>3. Design for Evolution</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Plan for backwards compatibility</li>
+<li>Use deprecation before removal</li>
+<li>Avoid breaking changes</li>
+</ul>
+<h2>Quick Reference</h2>
+<h3>Type Definition Syntax</h3>
+<pre class="language-graphql"><code class="language-graphql code-highlight"><span class="code-line"><span class="token description string">"""<span class="token language-markdown">
+</span></span></span><span class="code-line"><span class="token description string"><span class="token language-markdown">A user in the system.
+</span></span></span><span class="code-line"><span class="token description string"><span class="token language-markdown"></span>"""</span>
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">User</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">id</span><span class="token punctuation">:</span> <span class="token scalar">ID</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">email</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">name</span><span class="token punctuation">:</span> <span class="token scalar">String</span>
+</span><span class="code-line">  <span class="token attr-name">posts</span><span class="token punctuation">(</span><span class="token attr-name">first</span><span class="token punctuation">:</span> <span class="token scalar">Int</span> <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">,</span> <span class="token attr-name">after</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token punctuation">)</span><span class="token punctuation">:</span> <span class="token class-name">PostConnection</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">createdAt</span><span class="token punctuation">:</span> <span class="token class-name">DateTime</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Nullability Rules</h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>String</td>
+<td>Nullable - may be null</td>
+</tr>
+<tr>
+<td>String!</td>
+<td>Non-null - always has value</td>
+</tr>
+<tr>
+<td>[String]</td>
+<td>Nullable list, nullable items</td>
+</tr>
+<tr>
+<td>[String!]</td>
+<td>Nullable list, non-null items</td>
+</tr>
+<tr>
+<td>[String]!</td>
+<td>Non-null list, nullable items</td>
+</tr>
+<tr>
+<td>[String!]!</td>
+<td>Non-null list, non-null items</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Best Practice:</strong> Use <strong>[Type!]!</strong> for lists - empty list over null, no null items.</p>
+<h3>Input vs Output Types</h3>
+<pre class="language-graphql"><code class="language-graphql code-highlight"><span class="code-line"><span class="token comment"># Output type - what clients receive</span>
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">User</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">id</span><span class="token punctuation">:</span> <span class="token scalar">ID</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">email</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">createdAt</span><span class="token punctuation">:</span> <span class="token class-name">DateTime</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Input type - what clients send</span>
+</span><span class="code-line"><span class="token keyword">input</span> <span class="token atom-input class-name">CreateUserInput</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">email</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">name</span><span class="token punctuation">:</span> <span class="token scalar">String</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Mutation using input type</span>
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">Mutation</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">createUser</span><span class="token punctuation">(</span><span class="token attr-name">input</span><span class="token punctuation">:</span> <span class="token atom-input class-name">CreateUserInput</span><span class="token operator">!</span><span class="token punctuation">)</span><span class="token punctuation">:</span> <span class="token class-name">User</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Interface Pattern</h3>
+<pre class="language-graphql"><code class="language-graphql code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">Node</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">id</span><span class="token punctuation">:</span> <span class="token scalar">ID</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">User</span> <span class="token keyword">implements</span> <span class="token class-name">Node</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">id</span><span class="token punctuation">:</span> <span class="token scalar">ID</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">email</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">Post</span> <span class="token keyword">implements</span> <span class="token class-name">Node</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">id</span><span class="token punctuation">:</span> <span class="token scalar">ID</span><span class="token operator">!</span>
+</span><span class="code-line">  <span class="token attr-name">title</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Union Pattern</h3>
+<pre class="language-graphql"><code class="language-graphql code-highlight"><span class="code-line"><span class="token keyword">union</span> <span class="token class-name">SearchResult</span> <span class="token operator">=</span> <span class="token property">User</span> <span class="token operator">|</span> <span class="token property">Post</span> <span class="token operator">|</span> <span class="token property">Comment</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">Query</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token attr-name">search</span><span class="token punctuation">(</span><span class="token attr-name">query</span><span class="token punctuation">:</span> <span class="token scalar">String</span><span class="token operator">!</span><span class="token punctuation">)</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">SearchResult</span><span class="token operator">!</span><span class="token punctuation">]</span><span class="token operator">!</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Reference Files</h2>
+<p>Detailed documentation for specific topics:</p>
+<ul>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/graphql-schema/references/types.md" target="_blank" rel="ugc nofollow noopener">Types</a> - Type design patterns, interfaces, unions, and custom scalars</li>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/graphql-schema/references/naming.md" target="_blank" rel="ugc nofollow noopener">Naming</a> - Naming conventions for types, fields, and arguments</li>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/graphql-schema/references/pagination.md" target="_blank" rel="ugc nofollow noopener">Pagination</a> - Connection pattern and cursor-based pagination</li>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/graphql-schema/references/errors.md" target="_blank" rel="ugc nofollow noopener">Errors</a> - Error modeling and result types</li>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/graphql-schema/references/security.md" target="_blank" rel="ugc nofollow noopener">Security</a> - Security best practices for schema design</li>
+</ul>
+<h2>Key Rules</h2>
+<h3>Type Design</h3>
+<ul>
+<li>Define types based on domain concepts, not data storage</li>
+<li>Use interfaces for shared fields across types</li>
+<li>Use unions for mutually exclusive types</li>
+<li>Keep types focused (single responsibility)</li>
+<li>Avoid deep nesting - flatten when possible</li>
+</ul>
+<h3>Field Design</h3>
+<ul>
+<li>Fields should be named from client's perspective</li>
+<li>Return the most specific type possible</li>
+<li>Make expensive fields explicit (consider arguments)</li>
+<li>Use arguments for filtering, sorting, pagination</li>
+</ul>
+<h3>Mutation Design</h3>
+<ul>
+<li>Use single input argument pattern: <code>mutation(input: InputType!)</code></li>
+<li>Return affected objects in mutation responses</li>
+<li>Model mutations around business operations, not CRUD</li>
+<li>Consider returning a union of success/error types</li>
+</ul>
+<h3>ID Strategy</h3>
+<ul>
+<li>Use globally unique IDs when possible</li>
+<li>Implement <code>Node</code> interface for refetchability</li>
+<li>Base64-encode compound IDs if needed</li>
+</ul>
+<h2>Ground Rules</h2>
+<ul>
+<li>ALWAYS add descriptions to types and fields</li>
+<li>ALWAYS use non-null (<strong>!</strong>) for fields that cannot be null</li>
+<li>ALWAYS use <strong>[Type!]!</strong> pattern for lists</li>
+<li>NEVER expose database internals in schema</li>
+<li>NEVER break backwards compatibility without deprecation</li>
+<li>PREFER dedicated input types over many arguments</li>
+<li>PREFER enums over arbitrary strings for fixed values</li>
+<li>USE <code>ID</code> type for identifiers, not <code>String</code> or <code>Int</code></li>
+<li>USE custom scalars for domain-specific values (DateTime, Email, URL)</li>
+</ul></div>

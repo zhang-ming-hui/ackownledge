@@ -1,0 +1,403 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Data Pipeline</h1>
+<p>Build data pipelines and ETL workflows for data integration, transformation, and analytics automation. Based on n8n's data workflow templates.</p>
+<h2>Overview</h2>
+<p>This skill covers:</p>
+<ul>
+<li>Data extraction from multiple sources</li>
+<li>Transformation and cleaning</li>
+<li>Loading to destinations</li>
+<li>Scheduling and monitoring</li>
+<li>Error handling and alerts</li>
+</ul>
+<hr>
+<h2>ETL Patterns</h2>
+<h3>Basic ETL Flow</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+</span><span class="code-line">│   EXTRACT   │───▶│  TRANSFORM  │───▶│    LOAD     │
+</span><span class="code-line">│             │    │             │    │             │
+</span><span class="code-line">│ • APIs      │    │ • Clean     │    │ • Database  │
+</span><span class="code-line">│ • Databases │    │ • Map       │    │ • Warehouse │
+</span><span class="code-line">│ • Files     │    │ • Aggregate │    │ • Files     │
+</span><span class="code-line">│ • Webhooks  │    │ • Enrich    │    │ • APIs      │
+</span><span class="code-line">└─────────────┘    └─────────────┘    └─────────────┘
+</span></code></pre>
+<h3>n8n ETL Workflow</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">workflow</span><span class="token punctuation">:</span> <span class="token string">"Daily Sales ETL"</span>
+</span><span class="code-line"><span class="token key atrule">schedule</span><span class="token punctuation">:</span> <span class="token string">"2am daily"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">nodes</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token comment"># EXTRACT</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Extract from Shopify"</span>
+</span><span class="code-line">    <span class="token key atrule">type</span><span class="token punctuation">:</span> shopify
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> get_orders
+</span><span class="code-line">    <span class="token key atrule">filter</span><span class="token punctuation">:</span> created_at <span class="token punctuation">&gt;</span>= yesterday
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Extract from Stripe"</span>
+</span><span class="code-line">    <span class="token key atrule">type</span><span class="token punctuation">:</span> stripe
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> get_payments
+</span><span class="code-line">    <span class="token key atrule">filter</span><span class="token punctuation">:</span> created <span class="token punctuation">&gt;</span>= yesterday
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token comment"># TRANSFORM</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Merge Data"</span>
+</span><span class="code-line">    <span class="token key atrule">type</span><span class="token punctuation">:</span> merge
+</span><span class="code-line">    <span class="token key atrule">mode</span><span class="token punctuation">:</span> combine_by_key
+</span><span class="code-line">    <span class="token key atrule">key</span><span class="token punctuation">:</span> order_id
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Transform"</span>
+</span><span class="code-line">    <span class="token key atrule">type</span><span class="token punctuation">:</span> code
+</span><span class="code-line">    <span class="token key atrule">code</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">      return items.map(item =&gt; ({
+</span></span><span class="code-line"><span class="token scalar string">        date: item.created_at.split('T')[0],
+</span></span><span class="code-line"><span class="token scalar string">        order_id: item.id,
+</span></span><span class="code-line"><span class="token scalar string">        customer_email: item.email,
+</span></span><span class="code-line"><span class="token scalar string">        total: parseFloat(item.total_price),
+</span></span><span class="code-line"><span class="token scalar string">        currency: item.currency,
+</span></span><span class="code-line"><span class="token scalar string">        items: item.line_items.length,
+</span></span><span class="code-line"><span class="token scalar string">        source: item.source_name,
+</span></span><span class="code-line"><span class="token scalar string">        payment_status: item.payment.status
+</span></span><span class="code-line"><span class="token scalar string">      }));</span>
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token comment"># LOAD</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Load to BigQuery"</span>
+</span><span class="code-line">    <span class="token key atrule">type</span><span class="token punctuation">:</span> google_bigquery
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> insert_rows
+</span><span class="code-line">    <span class="token key atrule">table</span><span class="token punctuation">:</span> sales_daily
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Update Google Sheets"</span>
+</span><span class="code-line">    <span class="token key atrule">type</span><span class="token punctuation">:</span> google_sheets
+</span><span class="code-line">    <span class="token key atrule">action</span><span class="token punctuation">:</span> append_rows
+</span><span class="code-line">    <span class="token key atrule">spreadsheet</span><span class="token punctuation">:</span> <span class="token string">"Daily Sales Report"</span>
+</span></code></pre>
+<hr>
+<h2>Data Sources</h2>
+<h3>Common Extractors</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">extractors</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">databases</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">postgresql</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">connection</span><span class="token punctuation">:</span> connection_string
+</span><span class="code-line">        <span class="token key atrule">query</span><span class="token punctuation">:</span> <span class="token string">"SELECT * FROM orders WHERE date &gt;= $1"</span>
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">mysql</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">connection</span><span class="token punctuation">:</span> connection_string
+</span><span class="code-line">        <span class="token key atrule">query</span><span class="token punctuation">:</span> custom_sql
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">mongodb</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">connection</span><span class="token punctuation">:</span> connection_string
+</span><span class="code-line">        <span class="token key atrule">collection</span><span class="token punctuation">:</span> orders
+</span><span class="code-line">        <span class="token key atrule">filter</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token key atrule">date</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token key atrule">$gte</span><span class="token punctuation">:</span> yesterday<span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">apis</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">rest_api</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">url</span><span class="token punctuation">:</span> <span class="token string">"https://api.example.com/data"</span>
+</span><span class="code-line">        <span class="token key atrule">method</span><span class="token punctuation">:</span> GET
+</span><span class="code-line">        <span class="token key atrule">headers</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token key atrule">Authorization</span><span class="token punctuation">:</span> <span class="token string">"Bearer {token}"</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">pagination</span><span class="token punctuation">:</span> handle_automatically
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">graphql</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">url</span><span class="token punctuation">:</span> <span class="token string">"https://api.example.com/graphql"</span>
+</span><span class="code-line">        <span class="token key atrule">query</span><span class="token punctuation">:</span> graphql_query
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">files</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">csv</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">source</span><span class="token punctuation">:</span> sftp/s3/google_drive
+</span><span class="code-line">        <span class="token key atrule">delimiter</span><span class="token punctuation">:</span> <span class="token string">","</span>
+</span><span class="code-line">        <span class="token key atrule">encoding</span><span class="token punctuation">:</span> utf<span class="token punctuation">-</span><span class="token number">8</span>
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">excel</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">source</span><span class="token punctuation">:</span> file_path
+</span><span class="code-line">        <span class="token key atrule">sheet</span><span class="token punctuation">:</span> <span class="token string">"Sheet1"</span>
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">json</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">source</span><span class="token punctuation">:</span> api/file
+</span><span class="code-line">        <span class="token key atrule">path</span><span class="token punctuation">:</span> <span class="token string">"data.items"</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">saas</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">salesforce</span><span class="token punctuation">:</span> get_objects
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">hubspot</span><span class="token punctuation">:</span> get_contacts/deals
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">stripe</span><span class="token punctuation">:</span> get_charges
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">shopify</span><span class="token punctuation">:</span> get_orders
+</span></code></pre>
+<hr>
+<h2>Transformations</h2>
+<h3>Common Transformations</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">transformations</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">cleaning</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">remove_nulls</span><span class="token punctuation">:</span> drop_or_fill
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">trim_whitespace</span><span class="token punctuation">:</span> all_string_fields
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">deduplicate</span><span class="token punctuation">:</span> by_key
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">validate</span><span class="token punctuation">:</span> against_schema
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">mapping</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">rename_fields</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token key atrule">old_name</span><span class="token punctuation">:</span> new_name<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">convert_types</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token key atrule">date_string</span><span class="token punctuation">:</span> date<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">map_values</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token key atrule">status_code</span><span class="token punctuation">:</span> status_name<span class="token punctuation">}</span>
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">aggregation</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">group_by</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>date<span class="token punctuation">,</span> category<span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">sum</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>revenue<span class="token punctuation">,</span> quantity<span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">count</span><span class="token punctuation">:</span> orders
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">average</span><span class="token punctuation">:</span> order_value
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">enrichment</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">lookup</span><span class="token punctuation">:</span> from_reference_table
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">geocode</span><span class="token punctuation">:</span> from_address
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">calculate</span><span class="token punctuation">:</span> derived_fields
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">filtering</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">where</span><span class="token punctuation">:</span> condition
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">limit</span><span class="token punctuation">:</span> n_rows
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">sample</span><span class="token punctuation">:</span> percentage
+</span></code></pre>
+<h3>Code Transform Examples</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Clean and normalize data</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">transform</span><span class="token punctuation">(</span><span class="token parameter">items</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> items<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Clean strings</span>
+</span><span class="code-line">    <span class="token literal-property property">name</span><span class="token operator">:</span> item<span class="token punctuation">.</span><span class="token property-access">name</span><span class="token operator">?.</span><span class="token method function property-access">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Parse dates</span>
+</span><span class="code-line">    <span class="token literal-property property">date</span><span class="token operator">:</span> <span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span>item<span class="token punctuation">.</span><span class="token property-access">created_at</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">toISOString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">split</span><span class="token punctuation">(</span><span class="token string">'T'</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Convert types</span>
+</span><span class="code-line">    <span class="token literal-property property">amount</span><span class="token operator">:</span> <span class="token function">parseFloat</span><span class="token punctuation">(</span>item<span class="token punctuation">.</span><span class="token property-access">amount</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Map values</span>
+</span><span class="code-line">    <span class="token literal-property property">status</span><span class="token operator">:</span> statusMap<span class="token punctuation">[</span>item<span class="token punctuation">.</span><span class="token property-access">status_code</span><span class="token punctuation">]</span> <span class="token operator">||</span> <span class="token string">'unknown'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Calculate fields</span>
+</span><span class="code-line">    <span class="token literal-property property">total</span><span class="token operator">:</span> item<span class="token punctuation">.</span><span class="token property-access">quantity</span> <span class="token operator">*</span> item<span class="token punctuation">.</span><span class="token property-access">unit_price</span><span class="token punctuation">,</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Filter nested</span>
+</span><span class="code-line">    <span class="token literal-property property">tags</span><span class="token operator">:</span> item<span class="token punctuation">.</span><span class="token property-access">tags</span><span class="token operator">?.</span><span class="token method function property-access">filter</span><span class="token punctuation">(</span><span class="token parameter">t</span> <span class="token arrow operator">=&gt;</span> t<span class="token punctuation">.</span><span class="token property-access">active</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span><span class="token parameter">t</span> <span class="token arrow operator">=&gt;</span> t<span class="token punctuation">.</span><span class="token property-access">name</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Default values</span>
+</span><span class="code-line">    <span class="token literal-property property">source</span><span class="token operator">:</span> item<span class="token punctuation">.</span><span class="token property-access">source</span> <span class="token operator">||</span> <span class="token string">'direct'</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Aggregate data</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">aggregate</span><span class="token punctuation">(</span><span class="token parameter">items</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> grouped <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  items<span class="token punctuation">.</span><span class="token method function property-access">forEach</span><span class="token punctuation">(</span><span class="token parameter">item</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> key <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>item<span class="token punctuation">.</span><span class="token property-access">date</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>item<span class="token punctuation">.</span><span class="token property-access">category</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>grouped<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      grouped<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token literal-property property">date</span><span class="token operator">:</span> item<span class="token punctuation">.</span><span class="token property-access">date</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token literal-property property">category</span><span class="token operator">:</span> item<span class="token punctuation">.</span><span class="token property-access">category</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token literal-property property">total_revenue</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token literal-property property">order_count</span><span class="token operator">:</span> <span class="token number">0</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    grouped<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token property-access">total_revenue</span> <span class="token operator">+=</span> item<span class="token punctuation">.</span><span class="token property-access">amount</span><span class="token punctuation">;</span>
+</span><span class="code-line">    grouped<span class="token punctuation">[</span>key<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token property-access">order_count</span> <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> <span class="token known-class-name class-name">Object</span><span class="token punctuation">.</span><span class="token method function property-access">values</span><span class="token punctuation">(</span>grouped<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Data Destinations</h2>
+<h3>Common Loaders</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">loaders</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">data_warehouses</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">bigquery</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">project</span><span class="token punctuation">:</span> project_id
+</span><span class="code-line">        <span class="token key atrule">dataset</span><span class="token punctuation">:</span> analytics
+</span><span class="code-line">        <span class="token key atrule">table</span><span class="token punctuation">:</span> sales
+</span><span class="code-line">        <span class="token key atrule">write_mode</span><span class="token punctuation">:</span> append/truncate
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">snowflake</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">account</span><span class="token punctuation">:</span> account_id
+</span><span class="code-line">        <span class="token key atrule">warehouse</span><span class="token punctuation">:</span> compute_wh
+</span><span class="code-line">        <span class="token key atrule">database</span><span class="token punctuation">:</span> analytics
+</span><span class="code-line">        <span class="token key atrule">schema</span><span class="token punctuation">:</span> public
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">redshift</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">cluster</span><span class="token punctuation">:</span> cluster_id
+</span><span class="code-line">        <span class="token key atrule">database</span><span class="token punctuation">:</span> analytics
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">databases</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">postgresql</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">upsert</span><span class="token punctuation">:</span> on_conflict_update
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">mysql</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">batch_insert</span><span class="token punctuation">:</span> 1000_rows
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">files</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">s3</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">bucket</span><span class="token punctuation">:</span> data<span class="token punctuation">-</span>lake
+</span><span class="code-line">        <span class="token key atrule">path</span><span class="token punctuation">:</span> /processed/<span class="token punctuation">{</span>date<span class="token punctuation">}</span>/
+</span><span class="code-line">        <span class="token key atrule">format</span><span class="token punctuation">:</span> parquet
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">google_cloud_storage</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">bucket</span><span class="token punctuation">:</span> data<span class="token punctuation">-</span>bucket
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">spreadsheets</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">google_sheets</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">mode</span><span class="token punctuation">:</span> append/overwrite
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">airtable</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">base</span><span class="token punctuation">:</span> base_id
+</span><span class="code-line">        <span class="token key atrule">table</span><span class="token punctuation">:</span> table_name
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">apis</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">webhook</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">url</span><span class="token punctuation">:</span> destination_url
+</span><span class="code-line">        <span class="token key atrule">batch_size</span><span class="token punctuation">:</span> <span class="token number">100</span>
+</span></code></pre>
+<hr>
+<h2>Scheduling &amp; Monitoring</h2>
+<h3>Pipeline Scheduling</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">scheduling</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">patterns</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">hourly</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">cron</span><span class="token punctuation">:</span> <span class="token string">"0 * * * *"</span>
+</span><span class="code-line">      <span class="token key atrule">use_for</span><span class="token punctuation">:</span> real_time_dashboards
+</span><span class="code-line">      
+</span><span class="code-line">    <span class="token key atrule">daily</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">cron</span><span class="token punctuation">:</span> <span class="token string">"0 2 * * *"</span>
+</span><span class="code-line">      <span class="token key atrule">use_for</span><span class="token punctuation">:</span> daily_reports
+</span><span class="code-line">      
+</span><span class="code-line">    <span class="token key atrule">weekly</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">cron</span><span class="token punctuation">:</span> <span class="token string">"0 3 * * 1"</span>
+</span><span class="code-line">      <span class="token key atrule">use_for</span><span class="token punctuation">:</span> weekly_summaries
+</span><span class="code-line">      
+</span><span class="code-line">    <span class="token key atrule">on_demand</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">trigger</span><span class="token punctuation">:</span> webhook/manual
+</span><span class="code-line">      <span class="token key atrule">use_for</span><span class="token punctuation">:</span> ad_hoc_analysis
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">dependencies</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">pipeline_a</span><span class="token punctuation">:</span> must_complete_before pipeline_b
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">wait_for</span><span class="token punctuation">:</span> all_extracts_complete
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">retries</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">max_attempts</span><span class="token punctuation">:</span> <span class="token number">3</span>
+</span><span class="code-line">    <span class="token key atrule">delay</span><span class="token punctuation">:</span> exponential_backoff
+</span><span class="code-line">    <span class="token key atrule">alert_on</span><span class="token punctuation">:</span> final_failure
+</span></code></pre>
+<h3>Monitoring &amp; Alerts</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">monitoring</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">metrics</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> rows_processed
+</span><span class="code-line">    <span class="token punctuation">-</span> execution_time
+</span><span class="code-line">    <span class="token punctuation">-</span> error_count
+</span><span class="code-line">    <span class="token punctuation">-</span> data_freshness
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">alerts</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">pipeline_failed</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">channels</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>slack<span class="token punctuation">,</span> pagerduty<span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token key atrule">template</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">        🚨 *Pipeline Failed*</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token key atrule">Pipeline</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>pipeline_name<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">Stage</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>failed_stage<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">Error</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>error_message<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token punctuation">[</span>View Logs<span class="token punctuation">]</span>(<span class="token punctuation">{</span>logs_url<span class="token punctuation">}</span>)
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token key atrule">data_quality</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">trigger</span><span class="token punctuation">:</span> anomaly_detected
+</span><span class="code-line">      <span class="token key atrule">conditions</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">row_count</span><span class="token punctuation">:</span> differs_by <span class="token punctuation">&gt;</span> 50%
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">null_rate</span><span class="token punctuation">:</span> exceeds_threshold
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">schema</span><span class="token punctuation">:</span> changed_unexpectedly
+</span><span class="code-line">        
+</span><span class="code-line">    <span class="token key atrule">stale_data</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">trigger</span><span class="token punctuation">:</span> last_update <span class="token punctuation">&gt;</span> threshold
+</span><span class="code-line">      <span class="token key atrule">threshold</span><span class="token punctuation">:</span> 2_hours
+</span></code></pre>
+<hr>
+<h2>Data Quality</h2>
+<h3>Quality Checks</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">data_quality</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">schema_validation</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">required_fields</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>id<span class="token punctuation">,</span> date<span class="token punctuation">,</span> amount<span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">field_types</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">id</span><span class="token punctuation">:</span> integer
+</span><span class="code-line">        <span class="token key atrule">date</span><span class="token punctuation">:</span> date
+</span><span class="code-line">        <span class="token key atrule">amount</span><span class="token punctuation">:</span> number
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">allowed_values</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">status</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>active<span class="token punctuation">,</span> pending<span class="token punctuation">,</span> closed<span class="token punctuation">]</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">statistical_checks</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">null_rate</span><span class="token punctuation">:</span> &lt; 5%
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">duplicate_rate</span><span class="token punctuation">:</span> &lt; 1%
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">value_range</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">amount</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">1000000</span><span class="token punctuation">]</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">business_rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> total_equals_sum_of_line_items
+</span><span class="code-line">    <span class="token punctuation">-</span> dates_are_not_in_future
+</span><span class="code-line">    <span class="token punctuation">-</span> email_format_valid
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">trend_analysis</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">row_count</span><span class="token punctuation">:</span> within_2_std_of_mean
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">total_value</span><span class="token punctuation">:</span> within_expected_range
+</span></code></pre>
+<hr>
+<h2>Output Example</h2>
+<p><strong>Request</strong>: "Create a daily sales data pipeline"</p>
+<p><strong>Output</strong>:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Daily Sales Data Pipeline</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Pipeline Overview</span>
+</span><span class="code-line">
+</span></code></pre>
+<p>Shopify + Stripe → Transform → BigQuery + Sheets</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">## Schedule
+</span><span class="code-line">- Runs: 2am daily
+</span><span class="code-line">- Timezone: UTC
+</span><span class="code-line">- Retry: 3 attempts
+</span><span class="code-line">
+</span><span class="code-line">## Extract
+</span><span class="code-line">
+</span><span class="code-line">### Shopify Orders
+</span><span class="code-line">```yaml
+</span><span class="code-line">source: shopify
+</span><span class="code-line">filter: created_at &gt;= yesterday
+</span><span class="code-line">fields: [id, email, total_price, line_items, created_at]
+</span></code></pre>
+<h3>Stripe Payments</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">source</span><span class="token punctuation">:</span> stripe
+</span><span class="code-line"><span class="token key atrule">filter</span><span class="token punctuation">:</span> created <span class="token punctuation">&gt;</span>= yesterday
+</span><span class="code-line"><span class="token key atrule">fields</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>id<span class="token punctuation">,</span> amount<span class="token punctuation">,</span> status<span class="token punctuation">,</span> metadata.order_id<span class="token punctuation">]</span>
+</span></code></pre>
+<h2>Transform</h2>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Join and clean data</span>
+</span><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">date</span><span class="token operator">:</span> order<span class="token punctuation">.</span><span class="token property-access">created_at</span><span class="token punctuation">.</span><span class="token method function property-access">split</span><span class="token punctuation">(</span><span class="token string">'T'</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">order_id</span><span class="token operator">:</span> order<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">customer</span><span class="token operator">:</span> order<span class="token punctuation">.</span><span class="token property-access">email</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">revenue</span><span class="token operator">:</span> <span class="token function">parseFloat</span><span class="token punctuation">(</span>order<span class="token punctuation">.</span><span class="token property-access">total_price</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">items</span><span class="token operator">:</span> order<span class="token punctuation">.</span><span class="token property-access">line_items</span><span class="token punctuation">.</span><span class="token property-access">length</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">payment_status</span><span class="token operator">:</span> payment<span class="token punctuation">.</span><span class="token property-access">status</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Load</h2>
+<h3>BigQuery</h3>
+<ul>
+<li>Table: <code>analytics.sales_daily</code></li>
+<li>Mode: Append</li>
+</ul>
+<h3>Google Sheets</h3>
+<ul>
+<li>Sheet: "Daily Sales Dashboard"</li>
+<li>Tab: "Raw Data"</li>
+</ul>
+<h2>Quality Checks</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Row count &gt; 0</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No null order_ids</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Revenue sum matches Stripe</li>
+</ul>
+<h2>Alerts</h2>
+<ul>
+<li>Slack: #data-alerts</li>
+<li>On failure: @data-team</li>
+</ul>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">---
+</span><span class="code-line">
+</span><span class="code-line">*Data Pipeline Skill - Part of Claude Office Skills*
+</span></code></pre></div>

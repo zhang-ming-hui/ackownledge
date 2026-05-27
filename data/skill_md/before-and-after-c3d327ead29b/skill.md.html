@@ -1,0 +1,144 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Before-After Screenshot Skill</h1>
+<blockquote>
+<p><strong>Package:</strong> <code>@vercel/before-and-after</code>
+Never use <code>before-and-after</code> (wrong package).</p>
+</blockquote>
+<h2>Agent Behavior Rules</h2>
+<p><strong>DO NOT:</strong></p>
+<ul>
+<li>Switch git branches, stash changes, start dev servers, or assume what "before" is</li>
+<li>Use <code>--full</code> unless user explicitly asks for full page / full scroll capture</li>
+</ul>
+<p><strong>DO:</strong></p>
+<ul>
+<li>Use <code>--markdown</code> when user wants PR integration or markdown output</li>
+<li>Use <code>--mobile</code> / <code>--tablet</code> if user mentions phone, mobile, tablet, responsive, etc.</li>
+<li>Assume current state is <strong>After</strong></li>
+<li>If user provides only one URL or says "PR screenshots" without URLs, <strong>ASK</strong>: "What URL should I use for the 'before' state? (production URL, preview deployment, or another local port)"</li>
+</ul>
+<h2>Execution Order (MUST follow)</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Pre-flight</strong> — <code>which before-and-after || npm install -g @vercel/before-and-after</code></li>
+<li><strong>Protection check</strong> — if <code>.vercel.app</code> URL: <code>curl -s -o /dev/null -w "%{http_code}" "&lt;url&gt;"</code> (401/403 = protected)</li>
+<li><strong>Capture</strong> — <code>before-and-after "&lt;before-url&gt;" "&lt;after-url&gt;"</code></li>
+<li><strong>Upload</strong> — <code>./scripts/upload-and-copy.sh &lt;before.png&gt; &lt;after.png&gt; --markdown</code></li>
+<li><strong>PR integration</strong> — optionally <code>gh pr edit</code> to append markdown</li>
+</ol>
+<p><strong>Never skip steps 1-2.</strong></p>
+<h2>Quick Reference</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Basic usage</span>
+</span><span class="code-line">before-and-after <span class="token operator">&lt;</span>before-url<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>after-url<span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With selector</span>
+</span><span class="code-line">before-and-after url1 url2 <span class="token string">".hero-section"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Different selectors for each</span>
+</span><span class="code-line">before-and-after url1 url2 <span class="token string">".old-card"</span> <span class="token string">".new-card"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Viewports</span>
+</span><span class="code-line">before-and-after url1 url2 <span class="token parameter variable">--mobile</span>    <span class="token comment"># 375x812</span>
+</span><span class="code-line">before-and-after url1 url2 <span class="token parameter variable">--tablet</span>    <span class="token comment"># 768x1024</span>
+</span><span class="code-line">before-and-after url1 url2 <span class="token parameter variable">--full</span>      <span class="token comment"># full scroll</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># From existing images</span>
+</span><span class="code-line">before-and-after before.png after.png <span class="token parameter variable">--markdown</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Via npx (use full package name!)</span>
+</span><span class="code-line">npx @vercel/before-and-after url1 url2
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-m, --mobile</code></td>
+<td>Mobile viewport (375x812)</td>
+</tr>
+<tr>
+<td><code>-t, --tablet</code></td>
+<td>Tablet viewport (768x1024)</td>
+</tr>
+<tr>
+<td><code>--size &lt;WxH&gt;</code></td>
+<td>Custom viewport</td>
+</tr>
+<tr>
+<td><code>-f, --full</code></td>
+<td>Full scrollable page</td>
+</tr>
+<tr>
+<td><code>-s, --selector</code></td>
+<td>CSS selector to capture</td>
+</tr>
+<tr>
+<td><code>-o, --output</code></td>
+<td>Output directory (default: ~/Downloads)</td>
+</tr>
+<tr>
+<td><code>--markdown</code></td>
+<td>Upload images &amp; output markdown table</td>
+</tr>
+<tr>
+<td><code>--upload-url &lt;url&gt;</code></td>
+<td>Custom upload endpoint (default: 0x0.st)</td>
+</tr>
+</tbody>
+</table>
+<h2>Image Upload</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Default (0x0.st - no signup needed)</span>
+</span><span class="code-line">./scripts/upload-and-copy.sh before.png after.png <span class="token parameter variable">--markdown</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GitHub Gist</span>
+</span><span class="code-line"><span class="token assign-left variable">IMAGE_ADAPTER</span><span class="token operator">=</span>gist ./scripts/upload-and-copy.sh before.png after.png <span class="token parameter variable">--markdown</span>
+</span></code></pre>
+<h2>Vercel Deployment Protection</h2>
+<p>If <code>.vercel.app</code> URL returns 401/403:</p>
+<ol>
+<li>Check Vercel CLI: <code>which vercel &amp;&amp; vercel whoami</code></li>
+<li>If available: <code>vercel inspect &lt;url&gt;</code> to get bypass token</li>
+<li>If not: Tell user to provide bypass token, take manual screenshots, or disable protection</li>
+</ol>
+<h2>PR Integration</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check for gh CLI</span>
+</span><span class="code-line"><span class="token function">which</span> gh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Get current PR</span>
+</span><span class="code-line">gh <span class="token function">pr</span> view <span class="token parameter variable">--json</span> number,body
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Append screenshots to PR body</span>
+</span><span class="code-line">gh <span class="token function">pr</span> edit <span class="token operator">&lt;</span>number<span class="token operator">&gt;</span> <span class="token parameter variable">--body</span> <span class="token string">"&lt;existing-body&gt;
+</span></span><span class="code-line"><span class="token string">
+</span></span><span class="code-line"><span class="token string">## Before and After
+</span></span><span class="code-line"><span class="token string">&lt;generated-markdown&gt;"</span>
+</span></code></pre>
+<p>If no <code>gh</code> CLI: output markdown and tell user to paste manually.</p>
+<h2>Error Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>command not found</code></td>
+<td><code>npm install -g @vercel/before-and-after</code></td>
+</tr>
+<tr>
+<td><code>could not determine executable</code></td>
+<td>Use <code>npx @vercel/before-and-after</code> (full name)</td>
+</tr>
+<tr>
+<td>401/403 on .vercel.app</td>
+<td>See Vercel protection section</td>
+</tr>
+<tr>
+<td>Element not found</td>
+<td>Verify selector exists on page</td>
+</tr>
+</tbody>
+</table></div>

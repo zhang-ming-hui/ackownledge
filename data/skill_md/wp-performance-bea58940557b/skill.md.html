@@ -1,0 +1,170 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>WP Performance (backend-only)</h1>
+<h2>When to use</h2>
+<p>Use this skill when:</p>
+<ul>
+<li>a WordPress site/page/endpoint is slow (frontend TTFB, admin, REST, WP-Cron)</li>
+<li>you need a profiling plan and tooling recommendations (WP-CLI profile/doctor, Query Monitor, Xdebug/XHProf, APMs)</li>
+<li>you’re optimizing DB queries, autoloaded options, object caching, cron tasks, or remote HTTP calls</li>
+</ul>
+<p>This skill assumes the agent cannot use a browser UI. Prefer WP-CLI, logs, and HTTP requests.</p>
+<h2>Inputs required</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Environment and safety: dev/staging/prod, any restrictions (no writes, no plugin installs).</li>
+<li>How to target the install:
+<ul>
+<li>WP root <code>--path=&lt;path&gt;</code></li>
+<li>(multisite/site targeting) <code>--url=&lt;url&gt;</code></li>
+</ul>
+</li>
+<li>The performance symptom and scope:
+<ul>
+<li>which URL/REST route/admin screen</li>
+<li>when it happens (always vs sporadic; logged-in vs logged-out)</li>
+</ul>
+</li>
+</ul>
+<h2>Procedure</h2>
+<h3>0) Guardrails: measure first, avoid risky ops</h3>
+<ol>
+<li>Confirm whether you may run write operations (plugin installs, config changes, cache flush).</li>
+<li>Pick a reproducible target (URL or REST route) and capture a baseline:
+<ul>
+<li>TTFB/time with <code>curl</code> if possible</li>
+<li>WP-CLI profiling if available</li>
+</ul>
+</li>
+</ol>
+<p>Read:</p>
+<ul>
+<li><code>references/measurement.md</code></li>
+</ul>
+<h3>1) Generate a backend-only performance report (deterministic)</h3>
+<p>Run:</p>
+<ul>
+<li><code>node skills/wp-performance/scripts/perf_inspect.mjs --path=&lt;path&gt; [--url=&lt;url&gt;]</code></li>
+</ul>
+<p>This detects:</p>
+<ul>
+<li>WP-CLI availability and core version</li>
+<li>whether <code>wp doctor</code> / <code>wp profile</code> are available</li>
+<li>autoloaded options size (if possible)</li>
+<li>object-cache drop-in presence</li>
+</ul>
+<h3>2) Fast wins: run diagnostics before deep profiling</h3>
+<p>If you have WP-CLI access, prefer:</p>
+<ul>
+<li><code>wp doctor check</code></li>
+</ul>
+<p>It catches common production foot-guns (autoload bloat, SAVEQUERIES/WP_DEBUG, plugin counts, updates).</p>
+<p>Read:</p>
+<ul>
+<li><code>references/wp-cli-doctor.md</code></li>
+</ul>
+<h3>3) Deep profiling (no browser required)</h3>
+<p>Preferred order:</p>
+<ol>
+<li><code>wp profile stage</code> to see where time goes (bootstrap/main_query/template).</li>
+<li><code>wp profile hook</code> (optionally with <code>--url=</code>) to find slow hooks/callbacks.</li>
+<li><code>wp profile eval</code> for targeted code paths.</li>
+</ol>
+<p>Read:</p>
+<ul>
+<li><code>references/wp-cli-profile.md</code></li>
+</ul>
+<h3>4) Query Monitor (backend-only usage)</h3>
+<p>Query Monitor is normally UI-driven, but it can be used headlessly via REST API response headers and <code>_envelope</code> responses:</p>
+<ul>
+<li>Authenticate (nonce or Application Password).</li>
+<li>Request REST responses and inspect headers (<code>x-qm-*</code>) and/or the <code>qm</code> property when using <code>?_envelope</code>.</li>
+</ul>
+<p>Read:</p>
+<ul>
+<li><code>references/query-monitor-headless.md</code></li>
+</ul>
+<h3>5) Fix by category (choose the dominant bottleneck)</h3>
+<p>Use the profile output to pick <em>one</em> primary bottleneck category:</p>
+<ul>
+<li><strong>DB queries</strong> → reduce query count, fix N+1 patterns, improve indexes, avoid expensive meta queries.
+<ul>
+<li><code>references/database.md</code></li>
+</ul>
+</li>
+<li><strong>Autoloaded options</strong> → identify the biggest autoloaded options and stop autoloading large blobs.
+<ul>
+<li><code>references/autoload-options.md</code></li>
+</ul>
+</li>
+<li><strong>Object cache misses</strong> → introduce caching or fix cache key/group usage; add persistent object cache where appropriate.
+<ul>
+<li><code>references/object-cache.md</code></li>
+</ul>
+</li>
+<li><strong>Remote HTTP calls</strong> → add timeouts, caching, batching; avoid calling remote APIs on every request.
+<ul>
+<li><code>references/http-api.md</code></li>
+</ul>
+</li>
+<li><strong>Cron</strong> → reduce due-now spikes, de-duplicate events, move heavy tasks out of request paths.
+<ul>
+<li><code>references/cron.md</code></li>
+</ul>
+</li>
+</ul>
+<h3>6) Verify (repeat the same measurement)</h3>
+<ul>
+<li>Re-run the same <code>wp profile</code> / <code>wp doctor</code> / REST request.</li>
+<li>Confirm the performance delta and that behavior is unchanged.</li>
+<li>If the fix is risky, ship behind a feature flag or staged rollout when possible.</li>
+</ul>
+<h2>WordPress 6.9 performance improvements</h2>
+<p>Be aware of these 6.9 changes when profiling:</p>
+<p><strong>On-demand CSS for classic themes:</strong></p>
+<ul>
+<li>Classic themes now get on-demand CSS loading (previously only block themes had this).</li>
+<li>Reduces CSS payload by 30-65% by only loading styles for blocks actually used on the page.</li>
+<li>If you're profiling a classic theme, this should already be helping.</li>
+</ul>
+<p><strong>Block themes with no render-blocking resources:</strong></p>
+<ul>
+<li>Block themes that don't define custom stylesheets (like Twenty Twenty-Three/Four) can now load with zero render-blocking CSS.</li>
+<li>Styles come from global styles (theme.json) and separate block styles, all inlined.</li>
+<li>This significantly improves LCP (Largest Contentful Paint).</li>
+</ul>
+<p><strong>Inline CSS limit increased:</strong></p>
+<ul>
+<li>The threshold for inlining small stylesheets has been raised, reducing render-blocking resources.</li>
+</ul>
+<p>Reference: <a href="https://make.wordpress.org/core/2025/11/18/wordpress-6-9-frontend-performance-field-guide/" target="_blank" rel="ugc nofollow noopener">https://make.wordpress.org/core/2025/11/18/wordpress-6-9-frontend-performance-field-guide/</a></p>
+<h2>Verification</h2>
+<ul>
+<li>Baseline vs after numbers are captured (same environment, same URL/route).</li>
+<li><code>wp doctor check</code> is clean (or improved) when applicable.</li>
+<li>No new PHP errors or warnings in logs.</li>
+<li>No cache flush is required for correctness (cache flush should be last resort).</li>
+</ul>
+<h2>Failure modes / debugging</h2>
+<ul>
+<li>“No change” after code changes:
+<ul>
+<li>you measured a different URL/site (<code>--url</code> mismatch), caches masked results, or opcode cache is stale</li>
+</ul>
+</li>
+<li>Profiling data is noisy:
+<ul>
+<li>eliminate background tasks, test with warmed caches, run multiple samples</li>
+</ul>
+</li>
+<li><code>SAVEQUERIES</code>/Query Monitor causes overhead:
+<ul>
+<li>don’t run in production unless explicitly approved</li>
+</ul>
+</li>
+</ul>
+<h2>Escalation</h2>
+<ul>
+<li>If this is production and you don’t have explicit approval, do not:
+<ul>
+<li>install plugins, enable <code>SAVEQUERIES</code>, run load tests, or flush caches during traffic</li>
+</ul>
+</li>
+<li>If you need system-level profiling (APM, PHP profiler extensions), coordinate with ops/hosting.</li>
+</ul></div>

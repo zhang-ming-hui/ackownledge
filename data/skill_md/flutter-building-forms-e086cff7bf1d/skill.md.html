@@ -1,0 +1,105 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Building Validated Forms</h1>
+<h2>Contents</h2>
+<ul>
+<li><a href="#form-architecture" target="_blank" rel="ugc nofollow noopener">Form Architecture</a></li>
+<li><a href="#field-validation" target="_blank" rel="ugc nofollow noopener">Field Validation</a></li>
+<li><a href="#workflow-implementing-a-validated-form" target="_blank" rel="ugc nofollow noopener">Workflow: Implementing a Validated Form</a></li>
+<li><a href="#examples" target="_blank" rel="ugc nofollow noopener">Examples</a></li>
+</ul>
+<h2>Form Architecture</h2>
+<p>Implement forms using a <code>Form</code> widget to group and validate multiple input fields together.</p>
+<ul>
+<li><strong>Use a StatefulWidget:</strong> Always host your <code>Form</code> inside a <code>StatefulWidget</code>.</li>
+<li><strong>Persist the GlobalKey:</strong> Instantiate a <code>GlobalKey&lt;FormState&gt;</code> exactly once as a final variable within the <code>State</code> class. Do not generate a new <code>GlobalKey</code> inside the <code>build</code> method; doing so is resource-expensive and destroys the form's state on every rebuild.</li>
+<li><strong>Bind the Key:</strong> Pass the <code>GlobalKey&lt;FormState&gt;</code> to the <code>key</code> property of the <code>Form</code> widget. This uniquely identifies the form and provides access to the <code>FormState</code> for validation and submission.</li>
+<li><strong>Alternative Access:</strong> If dealing with highly complex widget trees where passing the key is impractical, use <code>Form.of(context)</code> to access the <code>FormState</code> from a descendant widget.</li>
+</ul>
+<h2>Field Validation</h2>
+<p>Use <code>TextFormField</code> to render Material Design text inputs with built-in validation support. <code>TextFormField</code> is a convenience widget that automatically wraps a standard <code>TextField</code> inside a <code>FormField</code>.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li><strong>Implement the Validator:</strong> Provide a <code>validator()</code> callback function to each <code>TextFormField</code>.</li>
+<li><strong>Return Error Messages:</strong> If the user's input is invalid, return a <code>String</code> containing the specific error message. The <code>Form</code> will automatically rebuild to display this text below the field.</li>
+<li><strong>Return Null for Success:</strong> If the input passes validation, you must return <code>null</code>.</li>
+</ul>
+<h2>Workflow: Implementing a Validated Form</h2>
+<p>Follow this sequential workflow to implement and validate a form. Copy the checklist to track your progress.</p>
+<p><strong>Task Progress:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> 1. Create a <code>StatefulWidget</code> and its corresponding <code>State</code> class.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> 2. Instantiate <code>final _formKey = GlobalKey&lt;FormState&gt;();</code> in the <code>State</code> class.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> 3. Return a <code>Form</code> widget in the <code>build</code> method and assign <code>key: _formKey</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> 4. Add <code>TextFormField</code> widgets as descendants of the <code>Form</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> 5. Write a <code>validator</code> function for each <code>TextFormField</code> (return <code>String</code> on error, <code>null</code> on success).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> 6. Add a submit button (e.g., <code>ElevatedButton</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> 7. Implement the validation check in the button's <code>onPressed</code> callback using <code>_formKey.currentState!.validate()</code>.</li>
+</ul>
+<h3>Validation Decision Logic</h3>
+<p>When the user triggers the submit action, execute the following conditional logic:</p>
+<ol>
+<li>Call <code>_formKey.currentState!.validate()</code>.</li>
+<li><strong>If <code>true</code> (Valid):</strong> All validators returned <code>null</code>. Proceed with form submission (e.g., save data, make API call) and display a success indicator (e.g., a <code>SnackBar</code>).</li>
+<li><strong>If <code>false</code> (Invalid):</strong> One or more validators returned an error string. The <code>FormState</code> automatically rebuilds the UI to display the error messages.</li>
+<li><strong>Feedback Loop:</strong> Run validator -&gt; review errors -&gt; fix. The user must adjust their input and resubmit until <code>validate()</code> returns <code>true</code>.</li>
+</ol>
+<h2>Examples</h2>
+<h3>Complete Validated Form Implementation</h3>
+<p>Use the following pattern to implement a robust, validated form.</p>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:flutter/material.dart'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserRegistrationForm</span> <span class="token keyword">extends</span> <span class="token class-name">StatefulWidget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token class-name">UserRegistrationForm</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token keyword">super</span><span class="token punctuation">.</span>key<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token metadata function">@override</span>
+</span><span class="code-line">  <span class="token class-name">State</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">UserRegistrationForm</span><span class="token punctuation">&gt;</span></span> <span class="token function">createState</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&gt;</span> <span class="token function">_UserRegistrationFormState</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> _UserRegistrationFormState <span class="token keyword">extends</span> <span class="token class-name">State</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">UserRegistrationForm</span><span class="token punctuation">&gt;</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// 1. Persist the GlobalKey in the State class</span>
+</span><span class="code-line">  <span class="token keyword">final</span> _formKey <span class="token operator">=</span> <span class="token class-name">GlobalKey</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">FormState</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token metadata function">@override</span>
+</span><span class="code-line">  <span class="token class-name">Widget</span> <span class="token function">build</span><span class="token punctuation">(</span><span class="token class-name">BuildContext</span> context<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// 2. Bind the key to the Form</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token class-name">Form</span><span class="token punctuation">(</span>
+</span><span class="code-line">      key<span class="token punctuation">:</span> _formKey<span class="token punctuation">,</span>
+</span><span class="code-line">      child<span class="token punctuation">:</span> <span class="token class-name">Column</span><span class="token punctuation">(</span>
+</span><span class="code-line">        crossAxisAlignment<span class="token punctuation">:</span> <span class="token class-name">CrossAxisAlignment</span><span class="token punctuation">.</span>start<span class="token punctuation">,</span>
+</span><span class="code-line">        children<span class="token punctuation">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">          <span class="token comment">// 3. Add TextFormFields with validators</span>
+</span><span class="code-line">          <span class="token class-name">TextFormField</span><span class="token punctuation">(</span>
+</span><span class="code-line">            decoration<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token class-name">InputDecoration</span><span class="token punctuation">(</span>
+</span><span class="code-line">              labelText<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'Username'</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">              hintText<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'Enter your username'</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            validator<span class="token punctuation">:</span> <span class="token punctuation">(</span>value<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">              <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token operator">==</span> <span class="token keyword">null</span> <span class="token operator">||</span> value<span class="token punctuation">.</span>isEmpty<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">return</span> <span class="token string-literal"><span class="token string">'Please enter a username'</span></span><span class="token punctuation">;</span> <span class="token comment">// Error state</span>
+</span><span class="code-line">              <span class="token punctuation">}</span>
+</span><span class="code-line">              <span class="token keyword">if</span> <span class="token punctuation">(</span>value<span class="token punctuation">.</span>length <span class="token operator">&lt;</span> <span class="token number">4</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">return</span> <span class="token string-literal"><span class="token string">'Username must be at least 4 characters'</span></span><span class="token punctuation">;</span> <span class="token comment">// Error state</span>
+</span><span class="code-line">              <span class="token punctuation">}</span>
+</span><span class="code-line">              <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span> <span class="token comment">// Valid state</span>
+</span><span class="code-line">            <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token keyword">const</span> <span class="token class-name">SizedBox</span><span class="token punctuation">(</span>height<span class="token punctuation">:</span> <span class="token number">16</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token comment">// 4. Add the submit button</span>
+</span><span class="code-line">          <span class="token class-name">ElevatedButton</span><span class="token punctuation">(</span>
+</span><span class="code-line">            onPressed<span class="token punctuation">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">              <span class="token comment">// 5. Trigger validation logic</span>
+</span><span class="code-line">              <span class="token keyword">if</span> <span class="token punctuation">(</span>_formKey<span class="token punctuation">.</span>currentState<span class="token operator">!</span><span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token comment">// Form is valid: Process data</span>
+</span><span class="code-line">                <span class="token class-name">ScaffoldMessenger</span><span class="token punctuation">.</span><span class="token function">of</span><span class="token punctuation">(</span>context<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">showSnackBar</span><span class="token punctuation">(</span>
+</span><span class="code-line">                  <span class="token keyword">const</span> <span class="token class-name">SnackBar</span><span class="token punctuation">(</span>content<span class="token punctuation">:</span> <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'Processing Data'</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">                <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">              <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token comment">// Form is invalid: Errors are automatically displayed</span>
+</span><span class="code-line">                <span class="token function">debugPrint</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'Form validation failed.'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">              <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">            child<span class="token punctuation">:</span> <span class="token keyword">const</span> <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'Submit'</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

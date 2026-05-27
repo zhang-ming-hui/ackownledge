@@ -1,0 +1,387 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Medusa Backend Development</h1>
+<p>Comprehensive backend development guide for Medusa applications. Contains patterns across 6 categories covering architecture, type safety, business logic placement, and common pitfalls.</p>
+<h2>When to Apply</h2>
+<p><strong>Load this skill for ANY backend development task, including:</strong></p>
+<ul>
+<li>Creating or modifying custom modules and data models</li>
+<li>Implementing workflows for mutations</li>
+<li>Building API routes (store or admin)</li>
+<li>Defining module links between entities</li>
+<li>Writing business logic or validation</li>
+<li>Querying data across modules</li>
+<li>Implementing authentication/authorization</li>
+</ul>
+<p><strong>Also load these skills when:</strong></p>
+<ul>
+<li><strong>building-admin-dashboard-customizations:</strong> Building admin UI (widgets, pages, forms)</li>
+<li><strong>building-storefronts:</strong> Calling backend API routes from storefronts (SDK integration)</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>CRITICAL: Load Reference Files When Needed</h2>
+<p><strong>The quick reference below is NOT sufficient for implementation.</strong> You MUST load relevant reference files before writing code for that component.</p>
+<p><strong>Load these references based on what you're implementing:</strong></p>
+<ul>
+<li><strong>Creating a module?</strong> → MUST load <code>reference/custom-modules.md</code> first</li>
+<li><strong>Creating workflows?</strong> → MUST load <code>reference/workflows.md</code> first</li>
+<li><strong>Creating API routes?</strong> → MUST load <code>reference/api-routes.md</code> first</li>
+<li><strong>Creating module links?</strong> → MUST load <code>reference/module-links.md</code> first</li>
+<li><strong>Querying data?</strong> → MUST load <code>reference/querying-data.md</code> first</li>
+<li><strong>Adding authentication?</strong> → MUST load <code>reference/authentication.md</code> first</li>
+</ul>
+<p><strong>Minimum requirement:</strong> Load at least 1-2 reference files relevant to your specific task before implementing.</p>
+<h2>Critical Architecture Pattern</h2>
+<p><strong>ALWAYS follow this flow - never bypass layers:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Module (data models + CRUD operations)
+</span><span class="code-line">  ↓ used by
+</span><span class="code-line">Workflow (business logic + mutations with rollback)
+</span><span class="code-line">  ↓ executed by
+</span><span class="code-line">API Route (HTTP interface, validation middleware)
+</span><span class="code-line">  ↓ called by
+</span><span class="code-line">Frontend (admin dashboard/storefront via SDK)
+</span></code></pre>
+<p><strong>Key conventions:</strong></p>
+<ul>
+<li>Only GET, POST, DELETE methods (never PUT/PATCH)</li>
+<li>Workflows are required for ALL mutations</li>
+<li>Business logic belongs in workflow steps, NOT routes</li>
+<li>Query with <code>query.graph()</code> for cross-module data retrieval</li>
+<li>Query with <code>query.index()</code> (Index Module) for filtering across separate modules with links</li>
+<li>Module links maintain isolation between modules</li>
+</ul>
+<h2>Rule Categories by Priority</h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Category</th>
+<th>Impact</th>
+<th>Prefix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Architecture Violations</td>
+<td>CRITICAL</td>
+<td><code>arch-</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Type Safety</td>
+<td>CRITICAL</td>
+<td><code>type-</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Business Logic Placement</td>
+<td>HIGH</td>
+<td><code>logic-</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Import &amp; Code Organization</td>
+<td>HIGH</td>
+<td><code>import-</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Data Access Patterns</td>
+<td>MEDIUM (includes CRITICAL price rule)</td>
+<td><code>data-</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td>File Organization</td>
+<td>MEDIUM</td>
+<td><code>file-</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Quick Reference</h2>
+<h3>1. Architecture Violations (CRITICAL)</h3>
+<ul>
+<li><code>arch-workflow-required</code> - Use workflows for ALL mutations, never call module services from routes</li>
+<li><code>arch-layer-bypass</code> - Never bypass layers (route → service without workflow)</li>
+<li><code>arch-http-methods</code> - Use only GET, POST, DELETE (never PUT/PATCH)</li>
+<li><code>arch-module-isolation</code> - Use module links, not direct cross-module service calls</li>
+<li><code>arch-query-config-fields</code> - Don't set explicit <code>fields</code> when using <code>req.queryConfig</code></li>
+</ul>
+<h3>2. Type Safety (CRITICAL)</h3>
+<ul>
+<li><code>type-request-schema</code> - Pass Zod inferred type to <code>MedusaRequest&lt;T&gt;</code> when using <code>req.validatedBody</code></li>
+<li><code>type-authenticated-request</code> - Use <code>AuthenticatedMedusaRequest</code> for protected routes (not <code>MedusaRequest</code>)</li>
+<li><code>type-export-schema</code> - Export both Zod schema AND inferred type from middlewares</li>
+<li><code>type-linkable-auto</code> - Never add <code>.linkable()</code> to data models (automatically added)</li>
+<li><code>type-module-name-camelcase</code> - Module names MUST be camelCase, never use dashes (causes runtime errors)</li>
+</ul>
+<h3>3. Business Logic Placement (HIGH)</h3>
+<ul>
+<li><code>logic-workflow-validation</code> - Put business validation in workflow steps, not API routes</li>
+<li><code>logic-ownership-checks</code> - Validate ownership/permissions in workflows, not routes</li>
+<li><code>logic-module-service</code> - Keep modules simple (CRUD only), put logic in workflows</li>
+</ul>
+<h3>4. Import &amp; Code Organization (HIGH)</h3>
+<ul>
+<li><code>import-top-level</code> - Import workflows/modules at file top, never use <code>await import()</code> in route body</li>
+<li><code>import-static-only</code> - Use static imports for all dependencies</li>
+<li><code>import-no-dynamic-routes</code> - Dynamic imports add overhead and break type checking</li>
+</ul>
+<h3>5. Data Access Patterns (MEDIUM)</h3>
+<ul>
+<li><code>data-price-format</code> - <strong>CRITICAL</strong>: Prices are stored as-is in Medusa (49.99 stored as 49.99, NOT in cents). Never multiply by 100 when saving or divide by 100 when displaying</li>
+<li><code>data-query-method</code> - Use <code>query.graph()</code> for retrieving data; use <code>query.index()</code> (Index Module) for filtering across linked modules</li>
+<li><code>data-query-graph</code> - Use <code>query.graph()</code> for cross-module queries with dot notation (without cross-module filtering)</li>
+<li><code>data-query-index</code> - Use <code>query.index()</code> when filtering by properties of linked data models in separate modules</li>
+<li><code>data-list-and-count</code> - Use <code>listAndCount</code> for single-module paginated queries</li>
+<li><code>data-linked-filtering</code> - <code>query.graph()</code> can't filter by linked module fields - use <code>query.index()</code> or query from that entity directly</li>
+<li><code>data-no-js-filter</code> - Don't use JavaScript <code>.filter()</code> on linked data - use database filters (<code>query.index()</code> or query the entity)</li>
+<li><code>data-same-module-ok</code> - Can filter by same-module relations with <code>query.graph()</code> (e.g., product.variants)</li>
+<li><code>data-auth-middleware</code> - Trust <code>authenticate</code> middleware, don't manually check <code>req.auth_context</code></li>
+</ul>
+<h3>6. File Organization (MEDIUM)</h3>
+<ul>
+<li><code>file-workflow-steps</code> - Recommended: Create steps in <code>src/workflows/steps/[name].ts</code></li>
+<li><code>file-workflow-composition</code> - Composition functions in <code>src/workflows/[name].ts</code></li>
+<li><code>file-middleware-exports</code> - Export schemas and types from middleware files</li>
+<li><code>file-links-directory</code> - Define module links in <code>src/links/[name].ts</code></li>
+</ul>
+<h2>Workflow Composition Rules</h2>
+<p><strong>The workflow function has critical constraints:</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// ✅ CORRECT</span>
+</span><span class="code-line"><span class="token keyword">const</span> myWorkflow <span class="token operator">=</span> <span class="token function">createWorkflow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token string">"name"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">function</span> <span class="token punctuation">(</span>input<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">// Regular function, not async, not arrow</span>
+</span><span class="code-line">    <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token function">myStep</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span> <span class="token comment">// No await</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">WorkflowResponse</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ WRONG</span>
+</span><span class="code-line"><span class="token keyword">const</span> myWorkflow <span class="token operator">=</span> <span class="token function">createWorkflow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token string">"name"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span>input<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token comment">// ❌ No async, no arrow functions</span>
+</span><span class="code-line">    <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">myStep</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span> <span class="token comment">// ❌ No await</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>input<span class="token punctuation">.</span>condition<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment">/* ... */</span> <span class="token punctuation">}</span> <span class="token comment">// ❌ No conditionals</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">WorkflowResponse</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Constraints:</strong></p>
+<ul>
+<li>No async/await (runs at load time)</li>
+<li>No arrow functions (use <code>function</code>)</li>
+<li>No conditionals/ternaries (use <code>when()</code>)</li>
+<li>No variable manipulation (use <code>transform()</code>)</li>
+<li>No date creation (use <code>transform()</code>)</li>
+<li>Multiple step calls need <code>.config({ name: "unique-name" })</code> to avoid conflicts</li>
+</ul>
+<h2>Common Mistakes Checklist</h2>
+<p>Before implementing, verify you're NOT doing these:</p>
+<p><strong>Architecture:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Calling module services directly from API routes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Using PUT or PATCH methods</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Bypassing workflows for mutations</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Setting <code>fields</code> explicitly with <code>req.queryConfig</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Skipping migrations after creating module links</li>
+</ul>
+<p><strong>Type Safety:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Forgetting <code>MedusaRequest&lt;SchemaType&gt;</code> type argument</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Using <code>MedusaRequest</code> instead of <code>AuthenticatedMedusaRequest</code> for protected routes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Not exporting Zod inferred type from middlewares</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Adding <code>.linkable()</code> to data models</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Using dashes in module names (must be camelCase)</li>
+</ul>
+<p><strong>Business Logic:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Validating business rules in API routes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Checking ownership in routes instead of workflows</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Manually checking <code>req.auth_context?.actor_id</code> when middleware already applied</li>
+</ul>
+<p><strong>Imports:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Using <code>await import()</code> in route handler bodies</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dynamic imports for workflows or modules</li>
+</ul>
+<p><strong>Data Access:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>CRITICAL</strong>: Multiplying prices by 100 when saving or dividing by 100 when displaying (prices are stored as-is: $49.99 = 49.99)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Filtering by linked module fields with <code>query.graph()</code> (use <code>query.index()</code> or query from other side instead)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Using JavaScript <code>.filter()</code> on linked data (use <code>query.index()</code> or query the linked entity directly)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Not using <code>query.graph()</code> for cross-module data retrieval</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Using <code>query.graph()</code> when you need to filter across separate modules (use <code>query.index()</code> instead)</li>
+</ul>
+<h2>Validating Implementation</h2>
+<p><strong>CRITICAL: Always run the build command after completing implementation to catch type errors and runtime issues.</strong></p>
+<h3>When to Validate</h3>
+<ul>
+<li>After implementing any new feature</li>
+<li>After making changes to modules, workflows, or API routes</li>
+<li>Before marking tasks as complete</li>
+<li>Proactively, without waiting for the user to ask</li>
+</ul>
+<h3>How to Run Build</h3>
+<p>Detect the package manager and run the appropriate command:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> run build      <span class="token comment"># or pnpm build / yarn build</span>
+</span></code></pre>
+<h3>Handling Build Errors</h3>
+<p>If the build fails:</p>
+<ol>
+<li>Read the error messages carefully</li>
+<li>Fix type errors, import issues, and syntax errors</li>
+<li>Run the build again to verify the fix</li>
+<li>Do NOT mark implementation as complete until build succeeds</li>
+</ol>
+<p><strong>Common build errors:</strong></p>
+<ul>
+<li>Missing imports or exports</li>
+<li>Type mismatches (e.g., missing <code>MedusaRequest&lt;T&gt;</code> type argument)</li>
+<li>Incorrect workflow composition (async functions, conditionals)</li>
+</ul>
+<h2>Next Steps - Testing Your Implementation</h2>
+<p><strong>After successfully implementing a feature, always provide these next steps to the user:</strong></p>
+<h3>1. Start the Development Server</h3>
+<p>If the server isn't already running, start it:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> run dev      <span class="token comment"># or pnpm dev / yarn dev</span>
+</span></code></pre>
+<h3>2. Access the Admin Dashboard</h3>
+<p>Open your browser and navigate to:</p>
+<ul>
+<li><strong>Admin Dashboard:</strong> <a href="http://localhost:9000/app" target="_blank" rel="ugc nofollow noopener">http://localhost:9000/app</a></li>
+</ul>
+<p>Log in with your admin credentials to test any admin-related features.</p>
+<h3>3. Test API Routes</h3>
+<p>If you implemented custom API routes, list them for the user to test:</p>
+<p><strong>Admin Routes (require authentication):</strong></p>
+<ul>
+<li><code>POST http://localhost:9000/admin/[your-route]</code> - Description of what it does</li>
+<li><code>GET http://localhost:9000/admin/[your-route]</code> - Description of what it does</li>
+</ul>
+<p><strong>Store Routes (public or customer-authenticated):</strong></p>
+<ul>
+<li><code>POST http://localhost:9000/store/[your-route]</code> - Description of what it does</li>
+<li><code>GET http://localhost:9000/store/[your-route]</code> - Description of what it does</li>
+</ul>
+<p><strong>Testing with cURL example:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Admin route (requires authentication)</span>
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> POST http://localhost:9000/admin/reviews/123/approve <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"Content-Type: application/json"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"Authorization: Bearer YOUR_TOKEN"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--cookie</span> <span class="token string">"connect.sid=YOUR_SESSION_COOKIE"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Store route</span>
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> POST http://localhost:9000/store/reviews <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"Content-Type: application/json"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-d</span> <span class="token string">'{"product_id": "prod_123", "rating": 5, "comment": "Great product!"}'</span>
+</span></code></pre>
+<h3>4. Additional Testing Steps</h3>
+<p>Depending on what was implemented, mention:</p>
+<ul>
+<li><strong>Workflows:</strong> Test mutation operations and verify rollback on errors</li>
+<li><strong>Subscribers:</strong> Trigger events and check logs for subscriber execution</li>
+<li><strong>Scheduled jobs:</strong> Wait for job execution or check logs for cron output</li>
+</ul>
+<h3>Format for Presenting Next Steps</h3>
+<p>Always present next steps in a clear, actionable format after implementation:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Implementation Complete</span>
+</span><span class="code-line">
+</span><span class="code-line">The [feature name] has been successfully implemented. Here's how to test it:
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Start the Development Server</span>
+</span><span class="code-line">[server start command based on package manager]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Access the Admin Dashboard</span>
+</span><span class="code-line">Open http://localhost:9000/app in your browser
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Test the API Routes</span>
+</span><span class="code-line">I've added the following routes:
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Admin Routes:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line"><span class="token list punctuation">-</span> POST /admin/[route] - [description]
+</span><span class="code-line"><span class="token list punctuation">-</span> GET /admin/[route] - [description]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Store Routes:</span><span class="token punctuation">**</span></span>
+</span><span class="code-line"><span class="token list punctuation">-</span> POST /store/[route] - [description]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> What to Test</span>
+</span><span class="code-line"><span class="token list punctuation">1.</span> [Specific test case 1]
+</span><span class="code-line"><span class="token list punctuation">2.</span> [Specific test case 2]
+</span><span class="code-line"><span class="token list punctuation">3.</span> [Specific test case 3]
+</span></code></pre>
+<h2>How to Use</h2>
+<p><strong>For detailed patterns and examples, load reference files:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">reference/custom-modules.md    - Creating modules with data models
+</span><span class="code-line">reference/workflows.md          - Workflow creation and step patterns
+</span><span class="code-line">reference/api-routes.md         - API route structure and validation
+</span><span class="code-line">reference/module-links.md       - Linking entities across modules
+</span><span class="code-line">reference/querying-data.md      - Query patterns and filtering rules
+</span><span class="code-line">reference/authentication.md     - Protecting routes and accessing users
+</span><span class="code-line">reference/error-handling.md     - MedusaError types and patterns
+</span><span class="code-line">reference/scheduled-jobs.md     - Cron jobs and periodic tasks
+</span><span class="code-line">reference/subscribers-and-events.md - Event handling
+</span><span class="code-line">reference/troubleshooting.md    - Common errors and solutions
+</span></code></pre>
+<p>Each reference file contains:</p>
+<ul>
+<li>Step-by-step implementation checklists</li>
+<li>Correct vs incorrect code examples</li>
+<li>TypeScript patterns and type safety</li>
+<li>Common pitfalls and solutions</li>
+</ul>
+<h2>When to Use This Skill vs MedusaDocs MCP Server</h2>
+<p><strong>⚠️ CRITICAL: This skill should be consulted FIRST for planning and implementation.</strong></p>
+<p><strong>Use this skill for (PRIMARY SOURCE):</strong></p>
+<ul>
+<li><strong>Planning</strong> - Understanding how to structure Medusa backend features</li>
+<li><strong>Architecture</strong> - Module → Workflow → API Route patterns</li>
+<li><strong>Best practices</strong> - Correct vs incorrect code patterns</li>
+<li><strong>Critical rules</strong> - What NOT to do (common mistakes and anti-patterns)</li>
+<li><strong>Implementation patterns</strong> - Step-by-step guides with checklists</li>
+</ul>
+<p><strong>Use MedusaDocs MCP server for (SECONDARY SOURCE):</strong></p>
+<ul>
+<li>Specific method signatures after you know which method to use</li>
+<li>Built-in module configuration options</li>
+<li>Official type definitions</li>
+<li>Framework-level configuration details</li>
+</ul>
+<p><strong>Why skills come first:</strong></p>
+<ul>
+<li>Skills contain opinionated guidance and anti-patterns MCP doesn't have</li>
+<li>Skills show architectural patterns needed for planning</li>
+<li>MCP is reference material; skills are prescriptive guidance</li>
+</ul>
+<h2>Integration with Frontend Applications</h2>
+<p><strong>⚠️ CRITICAL: Frontend applications MUST use the Medusa JS SDK for ALL API requests</strong></p>
+<p>When building features that span backend and frontend:</p>
+<p><strong>For Admin Dashboard:</strong></p>
+<ol>
+<li><strong>Backend (this skill):</strong> Module → Workflow → API Route</li>
+<li><strong>Frontend:</strong> Load <code>building-admin-dashboard-customizations</code> skill</li>
+<li><strong>Connection:</strong>
+<ul>
+<li>Built-in endpoints: Use existing SDK methods (<code>sdk.admin.product.list()</code>)</li>
+<li>Custom API routes: Use <code>sdk.client.fetch("/admin/my-route")</code></li>
+<li><strong>NEVER use regular fetch()</strong> - missing auth headers will cause errors</li>
+</ul>
+</li>
+</ol>
+<p><strong>For Storefronts:</strong></p>
+<ol>
+<li><strong>Backend (this skill):</strong> Module → Workflow → API Route</li>
+<li><strong>Frontend:</strong> Load <code>building-storefronts</code> skill</li>
+<li><strong>Connection:</strong>
+<ul>
+<li>Built-in endpoints: Use existing SDK methods (<code>sdk.store.product.list()</code>)</li>
+<li>Custom API routes: Use <code>sdk.client.fetch("/store/my-route")</code></li>
+<li><strong>NEVER use regular fetch()</strong> - missing publishable API key will cause errors</li>
+</ul>
+</li>
+</ol>
+<p><strong>Why the SDK is required:</strong></p>
+<ul>
+<li>Store routes need <code>x-publishable-api-key</code> header</li>
+<li>Admin routes need <code>Authorization</code> and session headers</li>
+<li>SDK handles all required headers automatically</li>
+<li>Regular fetch() without headers → authentication/authorization errors</li>
+</ul>
+<p>See respective frontend skills for complete integration patterns.</p></div>

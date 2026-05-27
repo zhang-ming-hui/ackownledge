@@ -1,0 +1,340 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Azure Resource Health &amp; Issue Diagnosis</h1>
+<p>This workflow analyzes a specific Azure resource to assess its health status, diagnose potential issues using logs and telemetry data, and develop a comprehensive remediation plan for any problems discovered.</p>
+<h2>Prerequisites</h2>
+<ul>
+<li>Azure MCP server configured and authenticated</li>
+<li>Target Azure resource identified (name and optionally resource group/subscription)</li>
+<li>Resource must be deployed and running to generate logs/telemetry</li>
+<li>Prefer Azure MCP tools (<code>azmcp-*</code>) over direct Azure CLI when available</li>
+</ul>
+<h2>Workflow Steps</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Step 1: Get Azure Best Practices</h3>
+<p><strong>Action</strong>: Retrieve diagnostic and troubleshooting best practices
+<strong>Tools</strong>: Azure MCP best practices tool
+<strong>Process</strong>:</p>
+<ol>
+<li><strong>Load Best Practices</strong>:
+<ul>
+<li>Execute Azure best practices tool to get diagnostic guidelines</li>
+<li>Focus on health monitoring, log analysis, and issue resolution patterns</li>
+<li>Use these practices to inform diagnostic approach and remediation recommendations</li>
+</ul>
+</li>
+</ol>
+<h3>Step 2: Resource Discovery &amp; Identification</h3>
+<p><strong>Action</strong>: Locate and identify the target Azure resource
+<strong>Tools</strong>: Azure MCP tools + Azure CLI fallback
+<strong>Process</strong>:</p>
+<ol>
+<li>
+<p><strong>Resource Lookup</strong>:</p>
+<ul>
+<li>If only resource name provided: Search across subscriptions using <code>azmcp-subscription-list</code></li>
+<li>Use <code>az resource list --name &lt;resource-name&gt;</code> to find matching resources</li>
+<li>If multiple matches found, prompt user to specify subscription/resource group</li>
+<li>Gather detailed resource information:
+<ul>
+<li>Resource type and current status</li>
+<li>Location, tags, and configuration</li>
+<li>Associated services and dependencies</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Resource Type Detection</strong>:</p>
+<ul>
+<li>Identify resource type to determine appropriate diagnostic approach:
+<ul>
+<li><strong>Web Apps/Function Apps</strong>: Application logs, performance metrics, dependency tracking</li>
+<li><strong>Virtual Machines</strong>: System logs, performance counters, boot diagnostics</li>
+<li><strong>Cosmos DB</strong>: Request metrics, throttling, partition statistics</li>
+<li><strong>Storage Accounts</strong>: Access logs, performance metrics, availability</li>
+<li><strong>SQL Database</strong>: Query performance, connection logs, resource utilization</li>
+<li><strong>Application Insights</strong>: Application telemetry, exceptions, dependencies</li>
+<li><strong>Key Vault</strong>: Access logs, certificate status, secret usage</li>
+<li><strong>Service Bus</strong>: Message metrics, dead letter queues, throughput</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<h3>Step 3: Health Status Assessment</h3>
+<p><strong>Action</strong>: Evaluate current resource health and availability
+<strong>Tools</strong>: Azure MCP monitoring tools + Azure CLI
+<strong>Process</strong>:</p>
+<ol>
+<li>
+<p><strong>Basic Health Check</strong>:</p>
+<ul>
+<li>Check resource provisioning state and operational status</li>
+<li>Verify service availability and responsiveness</li>
+<li>Review recent deployment or configuration changes</li>
+<li>Assess current resource utilization (CPU, memory, storage, etc.)</li>
+</ul>
+</li>
+<li>
+<p><strong>Service-Specific Health Indicators</strong>:</p>
+<ul>
+<li><strong>Web Apps</strong>: HTTP response codes, response times, uptime</li>
+<li><strong>Databases</strong>: Connection success rate, query performance, deadlocks</li>
+<li><strong>Storage</strong>: Availability percentage, request success rate, latency</li>
+<li><strong>VMs</strong>: Boot diagnostics, guest OS metrics, network connectivity</li>
+<li><strong>Functions</strong>: Execution success rate, duration, error frequency</li>
+</ul>
+</li>
+</ol>
+<h3>Step 4: Log &amp; Telemetry Analysis</h3>
+<p><strong>Action</strong>: Analyze logs and telemetry to identify issues and patterns
+<strong>Tools</strong>: Azure MCP monitoring tools for Log Analytics queries
+<strong>Process</strong>:</p>
+<ol>
+<li>
+<p><strong>Find Monitoring Sources</strong>:</p>
+<ul>
+<li>Use <code>azmcp-monitor-workspace-list</code> to identify Log Analytics workspaces</li>
+<li>Locate Application Insights instances associated with the resource</li>
+<li>Identify relevant log tables using <code>azmcp-monitor-table-list</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Execute Diagnostic Queries</strong>:
+Use <code>azmcp-monitor-log-query</code> with targeted KQL queries based on resource type:</p>
+<p><strong>General Error Analysis</strong>:</p>
+<pre><code class="language-kql code-highlight"><span class="code-line">// Recent errors and exceptions
+</span><span class="code-line">union isfuzzy=true 
+</span><span class="code-line">    AzureDiagnostics,
+</span><span class="code-line">    AppServiceHTTPLogs,
+</span><span class="code-line">    AppServiceAppLogs,
+</span><span class="code-line">    AzureActivity
+</span><span class="code-line">| where TimeGenerated &gt; ago(24h)
+</span><span class="code-line">| where Level == "Error" or ResultType != "Success"
+</span><span class="code-line">| summarize ErrorCount=count() by Resource, ResultType, bin(TimeGenerated, 1h)
+</span><span class="code-line">| order by TimeGenerated desc
+</span></code></pre>
+<p><strong>Performance Analysis</strong>:</p>
+<pre><code class="language-kql code-highlight"><span class="code-line">// Performance degradation patterns
+</span><span class="code-line">Perf
+</span><span class="code-line">| where TimeGenerated &gt; ago(7d)
+</span><span class="code-line">| where ObjectName == "Processor" and CounterName == "% Processor Time"
+</span><span class="code-line">| summarize avg(CounterValue) by Computer, bin(TimeGenerated, 1h)
+</span><span class="code-line">| where avg_CounterValue &gt; 80
+</span></code></pre>
+<p><strong>Application-Specific Queries</strong>:</p>
+<pre><code class="language-kql code-highlight"><span class="code-line">// Application Insights - Failed requests
+</span><span class="code-line">requests
+</span><span class="code-line">| where timestamp &gt; ago(24h)
+</span><span class="code-line">| where success == false
+</span><span class="code-line">| summarize FailureCount=count() by resultCode, bin(timestamp, 1h)
+</span><span class="code-line">| order by timestamp desc
+</span><span class="code-line">
+</span><span class="code-line">// Database - Connection failures
+</span><span class="code-line">AzureDiagnostics
+</span><span class="code-line">| where ResourceProvider == "MICROSOFT.SQL"
+</span><span class="code-line">| where Category == "SQLSecurityAuditEvents"
+</span><span class="code-line">| where action_name_s == "CONNECTION_FAILED"
+</span><span class="code-line">| summarize ConnectionFailures=count() by bin(TimeGenerated, 1h)
+</span></code></pre>
+</li>
+<li>
+<p><strong>Pattern Recognition</strong>:</p>
+<ul>
+<li>Identify recurring error patterns or anomalies</li>
+<li>Correlate errors with deployment times or configuration changes</li>
+<li>Analyze performance trends and degradation patterns</li>
+<li>Look for dependency failures or external service issues</li>
+</ul>
+</li>
+</ol>
+<h3>Step 5: Issue Classification &amp; Root Cause Analysis</h3>
+<p><strong>Action</strong>: Categorize identified issues and determine root causes
+<strong>Process</strong>:</p>
+<ol>
+<li>
+<p><strong>Issue Classification</strong>:</p>
+<ul>
+<li><strong>Critical</strong>: Service unavailable, data loss, security breaches</li>
+<li><strong>High</strong>: Performance degradation, intermittent failures, high error rates</li>
+<li><strong>Medium</strong>: Warnings, suboptimal configuration, minor performance issues</li>
+<li><strong>Low</strong>: Informational alerts, optimization opportunities</li>
+</ul>
+</li>
+<li>
+<p><strong>Root Cause Analysis</strong>:</p>
+<ul>
+<li><strong>Configuration Issues</strong>: Incorrect settings, missing dependencies</li>
+<li><strong>Resource Constraints</strong>: CPU/memory/disk limitations, throttling</li>
+<li><strong>Network Issues</strong>: Connectivity problems, DNS resolution, firewall rules</li>
+<li><strong>Application Issues</strong>: Code bugs, memory leaks, inefficient queries</li>
+<li><strong>External Dependencies</strong>: Third-party service failures, API limits</li>
+<li><strong>Security Issues</strong>: Authentication failures, certificate expiration</li>
+</ul>
+</li>
+<li>
+<p><strong>Impact Assessment</strong>:</p>
+<ul>
+<li>Determine business impact and affected users/systems</li>
+<li>Evaluate data integrity and security implications</li>
+<li>Assess recovery time objectives and priorities</li>
+</ul>
+</li>
+</ol>
+<h3>Step 6: Generate Remediation Plan</h3>
+<p><strong>Action</strong>: Create a comprehensive plan to address identified issues
+<strong>Process</strong>:</p>
+<ol>
+<li>
+<p><strong>Immediate Actions</strong> (Critical issues):</p>
+<ul>
+<li>Emergency fixes to restore service availability</li>
+<li>Temporary workarounds to mitigate impact</li>
+<li>Escalation procedures for complex issues</li>
+</ul>
+</li>
+<li>
+<p><strong>Short-term Fixes</strong> (High/Medium issues):</p>
+<ul>
+<li>Configuration adjustments and resource scaling</li>
+<li>Application updates and patches</li>
+<li>Monitoring and alerting improvements</li>
+</ul>
+</li>
+<li>
+<p><strong>Long-term Improvements</strong> (All issues):</p>
+<ul>
+<li>Architectural changes for better resilience</li>
+<li>Preventive measures and monitoring enhancements</li>
+<li>Documentation and process improvements</li>
+</ul>
+</li>
+<li>
+<p><strong>Implementation Steps</strong>:</p>
+<ul>
+<li>Prioritized action items with specific Azure CLI commands</li>
+<li>Testing and validation procedures</li>
+<li>Rollback plans for each change</li>
+<li>Monitoring to verify issue resolution</li>
+</ul>
+</li>
+</ol>
+<h3>Step 7: User Confirmation &amp; Report Generation</h3>
+<p><strong>Action</strong>: Present findings and get approval for remediation actions
+<strong>Process</strong>:</p>
+<ol>
+<li>
+<p><strong>Display Health Assessment Summary</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">🏥 Azure Resource Health Assessment
+</span><span class="code-line">
+</span><span class="code-line">📊 Resource Overview:
+</span><span class="code-line">• Resource: [Name] ([Type])
+</span><span class="code-line">• Status: [Healthy/Warning/Critical]
+</span><span class="code-line">• Location: [Region]
+</span><span class="code-line">• Last Analyzed: [Timestamp]
+</span><span class="code-line">
+</span><span class="code-line">🚨 Issues Identified:
+</span><span class="code-line">• Critical: X issues requiring immediate attention
+</span><span class="code-line">• High: Y issues affecting performance/reliability  
+</span><span class="code-line">• Medium: Z issues for optimization
+</span><span class="code-line">• Low: N informational items
+</span><span class="code-line">
+</span><span class="code-line">🔍 Top Issues:
+</span><span class="code-line">1. [Issue Type]: [Description] - Impact: [High/Medium/Low]
+</span><span class="code-line">2. [Issue Type]: [Description] - Impact: [High/Medium/Low]
+</span><span class="code-line">3. [Issue Type]: [Description] - Impact: [High/Medium/Low]
+</span><span class="code-line">
+</span><span class="code-line">🛠️ Remediation Plan:
+</span><span class="code-line">• Immediate Actions: X items
+</span><span class="code-line">• Short-term Fixes: Y items  
+</span><span class="code-line">• Long-term Improvements: Z items
+</span><span class="code-line">• Estimated Resolution Time: [Timeline]
+</span><span class="code-line">
+</span><span class="code-line">❓ Proceed with detailed remediation plan? (y/n)
+</span></code></pre>
+</li>
+<li>
+<p><strong>Generate Detailed Report</strong>:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Azure Resource Health Report: [Resource Name]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Generated</span><span class="token punctuation">**</span></span>: [Timestamp]  
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Resource</span><span class="token punctuation">**</span></span>: [Full Resource ID]  
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Overall Health</span><span class="token punctuation">**</span></span>: [Status with color indicator]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> 🔍 Executive Summary</span>
+</span><span class="code-line">[Brief overview of health status and key findings]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> 📊 Health Metrics</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Availability</span><span class="token punctuation">**</span></span>: X% over last 24h
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Performance</span><span class="token punctuation">**</span></span>: [Average response time/throughput]
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Error Rate</span><span class="token punctuation">**</span></span>: X% over last 24h
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Resource Utilization</span><span class="token punctuation">**</span></span>: [CPU/Memory/Storage percentages]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> 🚨 Issues Identified</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Critical Issues</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">[Issue 1]</span><span class="token punctuation">**</span></span>: [Description]
+</span><span class="code-line">  <span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Root Cause</span><span class="token punctuation">**</span></span>: [Analysis]
+</span><span class="code-line">  <span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Impact</span><span class="token punctuation">**</span></span>: [Business impact]
+</span><span class="code-line">  <span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Immediate Action</span><span class="token punctuation">**</span></span>: [Required steps]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> High Priority Issues  </span>
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">[Issue 2]</span><span class="token punctuation">**</span></span>: [Description]
+</span><span class="code-line">  <span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Root Cause</span><span class="token punctuation">**</span></span>: [Analysis]
+</span><span class="code-line">  <span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Impact</span><span class="token punctuation">**</span></span>: [Performance/reliability impact]
+</span><span class="code-line">  <span class="token list punctuation">-</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Recommended Fix</span><span class="token punctuation">**</span></span>: [Solution steps]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> 🛠️ Remediation Plan</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Phase 1: Immediate Actions (0-2 hours)</span>
+</span><span class="code-line">```bash
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Critical fixes to restore service</span>
+</span><span class="code-line">[Azure CLI commands with explanations]
+</span></code></pre>
+<h3>Phase 2: Short-term Fixes (2-24 hours)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Performance and reliability improvements</span>
+</span><span class="code-line"><span class="token punctuation">[</span>Azure CLI commands with explanations<span class="token punctuation">]</span>
+</span></code></pre>
+<h3>Phase 3: Long-term Improvements (1-4 weeks)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Architectural and preventive measures</span>
+</span><span class="code-line"><span class="token punctuation">[</span>Azure CLI commands and configuration changes<span class="token punctuation">]</span>
+</span></code></pre>
+<h2>📈 Monitoring Recommendations</h2>
+<ul>
+<li><strong>Alerts to Configure</strong>: [List of recommended alerts]</li>
+<li><strong>Dashboards to Create</strong>: [Monitoring dashboard suggestions]</li>
+<li><strong>Regular Health Checks</strong>: [Recommended frequency and scope]</li>
+</ul>
+<h2>✅ Validation Steps</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Verify issue resolution through logs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Confirm performance improvements</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Test application functionality</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Update monitoring and alerting</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Document lessons learned</li>
+</ul>
+<h2>📝 Prevention Measures</h2>
+<ul>
+<li>[Recommendations to prevent similar issues]</li>
+<li>[Process improvements]</li>
+<li>[Monitoring enhancements]</li>
+</ul>
+<pre class="language-text"><code class="language-text code-highlight"></code></pre>
+</li>
+</ol>
+<h2>Error Handling</h2>
+<ul>
+<li><strong>Resource Not Found</strong>: Provide guidance on resource name/location specification</li>
+<li><strong>Authentication Issues</strong>: Guide user through Azure authentication setup</li>
+<li><strong>Insufficient Permissions</strong>: List required RBAC roles for resource access</li>
+<li><strong>No Logs Available</strong>: Suggest enabling diagnostic settings and waiting for data</li>
+<li><strong>Query Timeouts</strong>: Break down analysis into smaller time windows</li>
+<li><strong>Service-Specific Issues</strong>: Provide generic health assessment with limitations noted</li>
+</ul>
+<h2>Success Criteria</h2>
+<ul>
+<li>✅ Resource health status accurately assessed</li>
+<li>✅ All significant issues identified and categorized</li>
+<li>✅ Root cause analysis completed for major problems</li>
+<li>✅ Actionable remediation plan with specific steps provided</li>
+<li>✅ Monitoring and prevention recommendations included</li>
+<li>✅ Clear prioritization of issues by business impact</li>
+<li>✅ Implementation steps include validation and rollback procedures</li>
+</ul></div>

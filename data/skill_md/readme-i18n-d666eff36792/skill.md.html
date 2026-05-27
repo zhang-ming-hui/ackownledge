@@ -1,0 +1,145 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><p>Localize a repository <code>README.md</code> without breaking the repo mechanics around it.</p>
+<p>The default job is translate + wire-up:</p>
+<ul>
+<li>read the source-of-truth README</li>
+<li>create localized sibling files such as <code>README.zh.md</code></li>
+<li>preserve GitHub-flavored Markdown structure and repo-specific tokens</li>
+<li>add or update a shared language selector near the top of every variant</li>
+</ul>
+<p>This skill is for multilingual README workflows, not general website/app i18n.</p>
+<h2>Inputs</h2>
+<p>Expect these inputs when available:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>source README path, default <code>README.md</code></li>
+<li>source language, default inferred or English</li>
+<li>one or more target languages</li>
+<li>optional glossary or do-not-translate list</li>
+<li>optional filename override if the repo already uses a different multilingual naming pattern</li>
+</ul>
+<p>If target languages are not named, inspect existing translated files, selectors, filenames, issues, or prior repo conventions. If that still leaves the target languages unclear, ask once. Do not invent target languages.</p>
+<h2>Defaults And Decision Rules</h2>
+<ul>
+<li>Treat the root <code>README.md</code> as the source-of-truth unless the user explicitly says otherwise.</li>
+<li>If the source language is ambiguous, ask once. Otherwise assume English.</li>
+<li>Keep section order aligned with the source README. Only make a small heading wording adjustment when needed to produce a valid localized anchor.</li>
+<li>Output localized siblings with <code>README.&lt;bcp47-tag&gt;.md</code> naming unless the repo already has a different established pattern that should be preserved.</li>
+<li>Update an existing language selector in place. Do not duplicate it.</li>
+<li>Translate only human-language content.</li>
+<li>Preserve project names, package names, commands, CLI flags, option names, environment variables, URLs, file paths, inline code, code fences, HTML attributes, and badge/image URLs.</li>
+<li>Badge alt text or visible labels may be translated only when the change does not require changing the badge URL, query params, or image source.</li>
+<li>If a glossary or do-not-translate list is provided, apply it consistently across every target language.</li>
+</ul>
+<h2>Workflow</h2>
+<h3>1. Establish the source README and languages</h3>
+<ul>
+<li>Confirm the source README path. Default to <code>README.md</code>.</li>
+<li>Identify the source language from the file contents and repo context.</li>
+<li>Determine target languages from the request or existing repo pattern.</li>
+<li>Note any glossary terms, product names, or phrases that must stay untranslated.</li>
+</ul>
+<h3>2. Audit the Markdown structure before translating</h3>
+<p>Read the source README once as structure, not prose. Open <a href="https://github.com/xixu-me/skills/blob/HEAD/skills/readme-i18n/./references/preservation-checklist.md" target="_blank" rel="ugc nofollow noopener"><code>references/preservation-checklist.md</code></a> and inventory the elements most likely to break:</p>
+<ul>
+<li>headings and heading levels</li>
+<li>badge rows, shields URLs, and image links</li>
+<li>tables and alignment rows</li>
+<li>raw HTML blocks and inline HTML</li>
+<li>GitHub alerts or admonitions such as <code>&gt; [!NOTE]</code></li>
+<li>code fences, inline code, commands, and config snippets</li>
+<li>intra-document anchors such as <code>(#installation)</code></li>
+<li>relative links to files, docs, screenshots, or other README variants</li>
+</ul>
+<p>If the README already has localized siblings, inspect them too before choosing filenames or selector style.</p>
+<h3>3. Translate only the prose layer</h3>
+<p>Translate:</p>
+<ul>
+<li>paragraph text</li>
+<li>list item prose</li>
+<li>table cell prose</li>
+<li>visible text inside HTML blocks</li>
+<li>image alt text when safe</li>
+<li>selector labels and other human-facing labels</li>
+</ul>
+<p>Do not translate:</p>
+<ul>
+<li>fenced code blocks</li>
+<li>inline code spans</li>
+<li>shell commands</li>
+<li>flags such as <code>--help</code></li>
+<li>env vars such as <code>OPENAI_API_KEY</code></li>
+<li>URLs</li>
+<li>file paths</li>
+<li>repo/package/project identifiers</li>
+<li>badge and image URLs</li>
+</ul>
+<p>When in doubt, preserve the literal token and translate the surrounding sentence instead.</p>
+<h3>4. Preserve structure while writing the localized README</h3>
+<ul>
+<li>Keep the same heading hierarchy and section order as the source.</li>
+<li>Keep the same number of code fences unless the user explicitly asks to rewrite examples.</li>
+<li>Preserve table shape, list nesting, HTML wrappers, and Markdown comments.</li>
+<li>Preserve relative links unless a link intentionally needs to point at a localized sibling README.</li>
+</ul>
+<h3>5. Rewrite localized anchors and anchor-dependent links</h3>
+<p>When a translated heading changes, GitHub will generate a different heading ID. After translating headings:</p>
+<ul>
+<li>rewrite every same-file <code>(#...)</code> link so it matches the localized heading slug in that file</li>
+<li>preserve custom explicit anchors such as <code>&lt;a id="..."&gt;</code> unless the file already uses localized explicit IDs</li>
+<li>verify that every intra-document anchor target resolves to an existing heading or explicit anchor</li>
+</ul>
+<p>Prefer a small heading wording adjustment over a broken anchor. The section order should still match the source README.</p>
+<h3>6. Write sibling files using the repo's naming pattern</h3>
+<p>Default to sibling filenames like:</p>
+<ul>
+<li><code>README.zh.md</code></li>
+<li><code>README.es.md</code></li>
+<li><code>README.fr.md</code></li>
+</ul>
+<p>If the repo already uses a different multilingual naming pattern, keep using it consistently rather than forcing the default pattern.</p>
+<h3>7. Insert or update the language selector</h3>
+<p>Open <a href="https://github.com/xixu-me/skills/blob/HEAD/skills/readme-i18n/./references/language-selector-reference.md" target="_blank" rel="ugc nofollow noopener"><code>references/language-selector-reference.md</code></a> before editing selectors.</p>
+<p>Placement:</p>
+<ul>
+<li>keep the selector near the top of the file</li>
+<li>if the README starts with a title, badges, hero image, or short intro block, place the selector immediately after that opening cluster</li>
+</ul>
+<p>Behavior:</p>
+<ul>
+<li>update an existing selector block in place if one already exists</li>
+<li>if you add a new selector, use the canonical marker comments from the reference file so later runs can update it deterministically</li>
+<li>emphasize the current language and link the other variants</li>
+<li>keep selector order and labels consistent across every README variant</li>
+</ul>
+<h3>8. Final verification</h3>
+<p>Before finishing, verify:</p>
+<ul>
+<li>localized filenames follow the chosen pattern</li>
+<li>every README variant contains exactly one selector block</li>
+<li>code fence counts are preserved</li>
+<li>badge/image URLs and relative file links still point to the original targets unless intentionally localized</li>
+<li>every <code>(#...)</code> link resolves inside its own file</li>
+<li>the localized README still feels structurally identical to the source</li>
+</ul>
+<h2>Output</h2>
+<p>Produce:</p>
+<ul>
+<li>one localized sibling README per target language</li>
+<li>an updated selector block in every README variant</li>
+<li>a brief note to the user covering created or updated files, any assumptions, and any terms intentionally left untranslated</li>
+</ul>
+<h2>Maintenance Note</h2>
+<p>Keep <code>README.md</code> as the canonical source unless the user says otherwise. When the source README changes later, update each localized sibling by diffing the changed prose, then re-check selectors, filenames, and anchor links instead of reformatting the whole file from scratch.</p>
+<h2>Example Prompts</h2>
+<p><strong>Example 1</strong></p>
+<p><code>Translate this README into Chinese and add a language switcher. Keep badge URLs, code fences, and all commands exactly as they are.</code></p>
+<p><strong>Example 2</strong></p>
+<p><code>Make the repo multilingual. Add Spanish and Chinese README variants, keep the internal anchor links working, and wire the selector into every file.</code></p>
+<p><strong>Example 3</strong></p>
+<p><code>We already have README.zh.md. Add README.es.md and update the existing selector in place instead of adding a second one.</code></p>
+<h2>Common Mistakes</h2>
+<ul>
+<li>Translating fenced code blocks or inline code instead of only the prose around them</li>
+<li>Duplicating the language selector instead of updating the existing block</li>
+<li>Translating a heading but forgetting to rewrite same-file <code>(#...)</code> links</li>
+<li>Changing badge URLs or image sources while trying to translate visible labels</li>
+<li>Reordering sections in the localized README even though the source README is the authority</li>
+</ul></div>

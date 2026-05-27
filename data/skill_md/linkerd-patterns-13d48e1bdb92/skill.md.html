@@ -1,0 +1,283 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Linkerd Patterns</h1>
+<p>Production patterns for Linkerd service mesh - the lightweight, security-first service mesh for Kubernetes.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Setting up a lightweight service mesh</li>
+<li>Implementing automatic mTLS</li>
+<li>Configuring traffic splits for canary deployments</li>
+<li>Setting up service profiles for per-route metrics</li>
+<li>Implementing retries and timeouts</li>
+<li>Multi-cluster service mesh</li>
+</ul>
+<h2>Core Concepts</h2>
+<h3>1. Linkerd Architecture</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────────────────────────────────────┐
+</span><span class="code-line">│                Control Plane                 │
+</span><span class="code-line">│  ┌─────────┐ ┌──────────┐ ┌──────────────┐ │
+</span><span class="code-line">│  │ destiny │ │ identity │ │ proxy-inject │ │
+</span><span class="code-line">│  └─────────┘ └──────────┘ └──────────────┘ │
+</span><span class="code-line">└─────────────────────────────────────────────┘
+</span><span class="code-line">                      │
+</span><span class="code-line">┌─────────────────────────────────────────────┐
+</span><span class="code-line">│                 Data Plane                   │
+</span><span class="code-line">│  ┌─────┐    ┌─────┐    ┌─────┐             │
+</span><span class="code-line">│  │proxy│────│proxy│────│proxy│             │
+</span><span class="code-line">│  └─────┘    └─────┘    └─────┘             │
+</span><span class="code-line">│     │           │           │               │
+</span><span class="code-line">│  ┌──┴──┐    ┌──┴──┐    ┌──┴──┐            │
+</span><span class="code-line">│  │ app │    │ app │    │ app │            │
+</span><span class="code-line">│  └─────┘    └─────┘    └─────┘            │
+</span><span class="code-line">└─────────────────────────────────────────────┘
+</span></code></pre>
+<h3>2. Key Resources</h3>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ServiceProfile</strong></td>
+<td>Per-route metrics, retries, timeouts</td>
+</tr>
+<tr>
+<td><strong>TrafficSplit</strong></td>
+<td>Canary deployments, A/B testing</td>
+</tr>
+<tr>
+<td><strong>Server</strong></td>
+<td>Define server-side policies</td>
+</tr>
+<tr>
+<td><strong>ServerAuthorization</strong></td>
+<td>Access control policies</td>
+</tr>
+</tbody>
+</table>
+<h2>Templates</h2>
+<h3>Template 1: Mesh Installation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Install CLI</span>
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">--proto</span> <span class="token string">'=https'</span> <span class="token parameter variable">--tlsv1.2</span> <span class="token parameter variable">-sSfL</span> https://run.linkerd.io/install <span class="token operator">|</span> <span class="token function">sh</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Validate cluster</span>
+</span><span class="code-line">linkerd check <span class="token parameter variable">--pre</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install CRDs</span>
+</span><span class="code-line">linkerd <span class="token function">install</span> <span class="token parameter variable">--crds</span> <span class="token operator">|</span> kubectl apply <span class="token parameter variable">-f</span> -
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install control plane</span>
+</span><span class="code-line">linkerd <span class="token function">install</span> <span class="token operator">|</span> kubectl apply <span class="token parameter variable">-f</span> -
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Verify installation</span>
+</span><span class="code-line">linkerd check
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install viz extension (optional)</span>
+</span><span class="code-line">linkerd viz <span class="token function">install</span> <span class="token operator">|</span> kubectl apply <span class="token parameter variable">-f</span> -
+</span></code></pre>
+<h3>Template 2: Inject Namespace</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># Automatic injection for namespace</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Namespace
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">linkerd.io/inject</span><span class="token punctuation">:</span> enabled
+</span><span class="code-line"><span class="token punctuation">---</span>
+</span><span class="code-line"><span class="token comment"># Or inject specific deployment</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> apps/v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Deployment
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">linkerd.io/inject</span><span class="token punctuation">:</span> enabled
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">template</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">linkerd.io/inject</span><span class="token punctuation">:</span> enabled
+</span></code></pre>
+<h3>Template 3: Service Profile with Retries</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> linkerd.io/v1alpha2
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> ServiceProfile
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service.my<span class="token punctuation">-</span>namespace.svc.cluster.local
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">routes</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> GET /api/users
+</span><span class="code-line">      <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">method</span><span class="token punctuation">:</span> GET
+</span><span class="code-line">        <span class="token key atrule">pathRegex</span><span class="token punctuation">:</span> /api/users
+</span><span class="code-line">      <span class="token key atrule">responseClasses</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token key atrule">status</span><span class="token punctuation">:</span>
+</span><span class="code-line">              <span class="token key atrule">min</span><span class="token punctuation">:</span> <span class="token number">500</span>
+</span><span class="code-line">              <span class="token key atrule">max</span><span class="token punctuation">:</span> <span class="token number">599</span>
+</span><span class="code-line">          <span class="token key atrule">isFailure</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">      <span class="token key atrule">isRetryable</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> POST /api/users
+</span><span class="code-line">      <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">method</span><span class="token punctuation">:</span> POST
+</span><span class="code-line">        <span class="token key atrule">pathRegex</span><span class="token punctuation">:</span> /api/users
+</span><span class="code-line">      <span class="token comment"># POST not retryable by default</span>
+</span><span class="code-line">      <span class="token key atrule">isRetryable</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> GET /api/users/<span class="token punctuation">{</span>id<span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">method</span><span class="token punctuation">:</span> GET
+</span><span class="code-line">        <span class="token key atrule">pathRegex</span><span class="token punctuation">:</span> /api/users/<span class="token punctuation">[</span>^/<span class="token punctuation">]</span>+
+</span><span class="code-line">      <span class="token key atrule">timeout</span><span class="token punctuation">:</span> 5s
+</span><span class="code-line">      <span class="token key atrule">isRetryable</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">retryBudget</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">retryRatio</span><span class="token punctuation">:</span> <span class="token number">0.2</span>
+</span><span class="code-line">    <span class="token key atrule">minRetriesPerSecond</span><span class="token punctuation">:</span> <span class="token number">10</span>
+</span><span class="code-line">    <span class="token key atrule">ttl</span><span class="token punctuation">:</span> 10s
+</span></code></pre>
+<h3>Template 4: Traffic Split (Canary)</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> split.smi<span class="token punctuation">-</span>spec.io/v1alpha1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> TrafficSplit
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>canary
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">service</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service
+</span><span class="code-line">  <span class="token key atrule">backends</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">service</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>stable
+</span><span class="code-line">      <span class="token key atrule">weight</span><span class="token punctuation">:</span> 900m <span class="token comment"># 90%</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">service</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>canary
+</span><span class="code-line">      <span class="token key atrule">weight</span><span class="token punctuation">:</span> 100m <span class="token comment"># 10%</span>
+</span></code></pre>
+<h3>Template 5: Server Authorization Policy</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># Define the server</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> policy.linkerd.io/v1beta1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Server
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>http
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">podSelector</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">matchLabels</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">app</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service
+</span><span class="code-line">  <span class="token key atrule">port</span><span class="token punctuation">:</span> http
+</span><span class="code-line">  <span class="token key atrule">proxyProtocol</span><span class="token punctuation">:</span> HTTP/1
+</span><span class="code-line"><span class="token punctuation">---</span>
+</span><span class="code-line"><span class="token comment"># Allow traffic from specific clients</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> policy.linkerd.io/v1beta1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> ServerAuthorization
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> allow<span class="token punctuation">-</span>frontend
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">server</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>http
+</span><span class="code-line">  <span class="token key atrule">client</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">meshTLS</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">serviceAccounts</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> frontend
+</span><span class="code-line">          <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token punctuation">---</span>
+</span><span class="code-line"><span class="token comment"># Allow unauthenticated traffic (e.g., from ingress)</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> policy.linkerd.io/v1beta1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> ServerAuthorization
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> allow<span class="token punctuation">-</span>ingress
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">server</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>http
+</span><span class="code-line">  <span class="token key atrule">client</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">unauthenticated</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">    <span class="token key atrule">networks</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">cidr</span><span class="token punctuation">:</span> 10.0.0.0/8
+</span></code></pre>
+<h3>Template 6: HTTPRoute for Advanced Routing</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> policy.linkerd.io/v1beta2
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> HTTPRoute
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>route
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>namespace
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">parentRefs</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service
+</span><span class="code-line">      <span class="token key atrule">kind</span><span class="token punctuation">:</span> Service
+</span><span class="code-line">      <span class="token key atrule">group</span><span class="token punctuation">:</span> core
+</span><span class="code-line">      <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">8080</span>
+</span><span class="code-line">  <span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">matches</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">path</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token key atrule">type</span><span class="token punctuation">:</span> PathPrefix
+</span><span class="code-line">            <span class="token key atrule">value</span><span class="token punctuation">:</span> /api/v2
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">headers</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> x<span class="token punctuation">-</span>api<span class="token punctuation">-</span>version
+</span><span class="code-line">              <span class="token key atrule">value</span><span class="token punctuation">:</span> v2
+</span><span class="code-line">      <span class="token key atrule">backendRefs</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>v2
+</span><span class="code-line">          <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">8080</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">matches</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">path</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token key atrule">type</span><span class="token punctuation">:</span> PathPrefix
+</span><span class="code-line">            <span class="token key atrule">value</span><span class="token punctuation">:</span> /api
+</span><span class="code-line">      <span class="token key atrule">backendRefs</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>service<span class="token punctuation">-</span>v1
+</span><span class="code-line">          <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">8080</span>
+</span></code></pre>
+<h3>Template 7: Multi-cluster Setup</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># On each cluster, install with cluster credentials</span>
+</span><span class="code-line">linkerd multicluster <span class="token function">install</span> <span class="token operator">|</span> kubectl apply <span class="token parameter variable">-f</span> -
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Link clusters</span>
+</span><span class="code-line">linkerd multicluster <span class="token function">link</span> --cluster-name west <span class="token punctuation">\</span>
+</span><span class="code-line">  --api-server-address https://west.example.com:6443 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token operator">|</span> kubectl apply <span class="token parameter variable">-f</span> -
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Export a service to other clusters</span>
+</span><span class="code-line">kubectl label svc/my-service mirror.linkerd.io/exported<span class="token operator">=</span>true
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Verify cross-cluster connectivity</span>
+</span><span class="code-line">linkerd multicluster check
+</span><span class="code-line">linkerd multicluster gateways
+</span></code></pre>
+<h2>Monitoring Commands</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Live traffic view</span>
+</span><span class="code-line">linkerd viz <span class="token function">top</span> deploy/my-app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Per-route metrics</span>
+</span><span class="code-line">linkerd viz routes deploy/my-app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check proxy status</span>
+</span><span class="code-line">linkerd viz <span class="token function">stat</span> deploy <span class="token parameter variable">-n</span> my-namespace
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># View service dependencies</span>
+</span><span class="code-line">linkerd viz edges deploy <span class="token parameter variable">-n</span> my-namespace
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Dashboard</span>
+</span><span class="code-line">linkerd viz dashboard
+</span></code></pre>
+<h2>Debugging</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check injection status</span>
+</span><span class="code-line">linkerd check <span class="token parameter variable">--proxy</span> <span class="token parameter variable">-n</span> my-namespace
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># View proxy logs</span>
+</span><span class="code-line">kubectl logs deploy/my-app <span class="token parameter variable">-c</span> linkerd-proxy
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Debug identity/TLS</span>
+</span><span class="code-line">linkerd identity <span class="token parameter variable">-n</span> my-namespace
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Tap traffic (live)</span>
+</span><span class="code-line">linkerd viz tap deploy/my-app <span class="token parameter variable">--to</span> deploy/my-backend
+</span></code></pre>
+<h2>Best Practices</h2>
+<h3>Do's</h3>
+<ul>
+<li><strong>Enable mTLS everywhere</strong> - It's automatic with Linkerd</li>
+<li><strong>Use ServiceProfiles</strong> - Get per-route metrics and retries</li>
+<li><strong>Set retry budgets</strong> - Prevent retry storms</li>
+<li><strong>Monitor golden metrics</strong> - Success rate, latency, throughput</li>
+</ul>
+<h3>Don'ts</h3>
+<ul>
+<li><strong>Don't skip check</strong> - Always run <code>linkerd check</code> after changes</li>
+<li><strong>Don't over-configure</strong> - Linkerd defaults are sensible</li>
+<li><strong>Don't ignore ServiceProfiles</strong> - They unlock advanced features</li>
+<li><strong>Don't forget timeouts</strong> - Set appropriate values per route</li>
+</ul></div>

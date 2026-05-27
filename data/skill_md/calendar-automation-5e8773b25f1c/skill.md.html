@@ -1,0 +1,389 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Calendar Automation</h1>
+<p>Automate Google Calendar and Outlook workflows for meeting management, time blocking, daily digests, and cross-platform synchronization. Based on n8n workflow templates.</p>
+<h2>Overview</h2>
+<p>This skill covers:</p>
+<ul>
+<li>Meeting scheduling automation</li>
+<li>Time blocking strategies</li>
+<li>Daily calendar digests to Slack</li>
+<li>Meeting prep reminders</li>
+<li>Calendar analytics</li>
+</ul>
+<hr>
+<h2>Core Workflows</h2>
+<h3>1. Daily Calendar Digest to Slack</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">workflow</span><span class="token punctuation">:</span> <span class="token string">"Morning Calendar Briefing"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">schedule</span><span class="token punctuation">:</span> <span class="token string">"6:00 AM daily"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">1. get_today_events</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">calendar</span><span class="token punctuation">:</span> primary
+</span><span class="code-line">      <span class="token key atrule">time_min</span><span class="token punctuation">:</span> today_start
+</span><span class="code-line">      <span class="token key atrule">time_max</span><span class="token punctuation">:</span> today_end
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">2. categorize_events</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">categories</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">meetings</span><span class="token punctuation">:</span> has_attendees == true
+</span><span class="code-line">        <span class="token key atrule">focus_time</span><span class="token punctuation">:</span> title contains "Focus" OR "Deep Work"
+</span><span class="code-line">        <span class="token key atrule">one_on_ones</span><span class="token punctuation">:</span> title contains "1<span class="token punctuation">:</span>1" OR "1<span class="token punctuation">-</span>on<span class="token punctuation">-</span>1"
+</span><span class="code-line">        <span class="token key atrule">interviews</span><span class="token punctuation">:</span> title contains "Interview"
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">3. calculate_stats</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">total_meetings</span><span class="token punctuation">:</span> count(meetings)
+</span><span class="code-line">      <span class="token key atrule">total_hours</span><span class="token punctuation">:</span> sum(duration)
+</span><span class="code-line">      <span class="token key atrule">free_time</span><span class="token punctuation">:</span> 8 <span class="token punctuation">-</span> total_hours
+</span><span class="code-line">      <span class="token key atrule">back_to_back</span><span class="token punctuation">:</span> count(gap &lt; 15min)
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">4. format_message</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">template</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">        ☀️ *Good morning! Here's your day:*</span>
+</span><span class="code-line">        
+</span><span class="code-line">        📅 *<span class="token punctuation">{</span>date<span class="token punctuation">}</span>*
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token important">*Schedule</span> Overview<span class="token punctuation">:</span>*
+</span><span class="code-line">        • <span class="token punctuation">{</span>total_meetings<span class="token punctuation">}</span> meetings (<span class="token punctuation">{</span>total_hours<span class="token punctuation">}</span>h)
+</span><span class="code-line">        • <span class="token punctuation">{</span>free_time<span class="token punctuation">}</span>h of free time
+</span><span class="code-line">        • <span class="token punctuation">{</span>back_to_back<span class="token punctuation">}</span> back<span class="token punctuation">-</span>to<span class="token punctuation">-</span>back slots ⚠️
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token important">*Today's</span> Events<span class="token punctuation">:</span>*
+</span><span class="code-line">        <span class="token punctuation">{</span>event_list<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        💡 <span class="token important">*Tip:*</span> <span class="token punctuation">{</span>daily_tip<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">5. send_to_slack</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">channel</span><span class="token punctuation">:</span> "<span class="token comment">#daily-schedule" or DM</span>
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">6. log_to_sheets</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">spreadsheet</span><span class="token punctuation">:</span> <span class="token string">"Calendar Analytics"</span>
+</span><span class="code-line">      <span class="token key atrule">data</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>date<span class="token punctuation">,</span> meetings<span class="token punctuation">,</span> hours<span class="token punctuation">,</span> categories<span class="token punctuation">]</span>
+</span></code></pre>
+<p><strong>Event List Format</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">• 9:00 AM - Team Standup (15m) 📞 Zoom
+</span><span class="code-line">• 10:00 AM - 1:1 with Sarah (30m) 👥
+</span><span class="code-line">• 11:00 AM - Focus Time (2h) 🧠
+</span><span class="code-line">• 2:00 PM - Client Call (1h) 🤝 Google Meet
+</span><span class="code-line">• 4:00 PM - Interview - PM Role (45m) 🎯
+</span></code></pre>
+<hr>
+<h3>2. Meeting Prep Automation</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">workflow</span><span class="token punctuation">:</span> <span class="token string">"Meeting Preparation"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">trigger</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> calendar_event
+</span><span class="code-line">  <span class="token key atrule">time</span><span class="token punctuation">:</span> 1_hour_before_meeting
+</span><span class="code-line">  <span class="token key atrule">filter</span><span class="token punctuation">:</span> has_attendees AND duration <span class="token punctuation">&gt;</span>= 30min
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">1. get_meeting_details</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">extract</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>title<span class="token punctuation">,</span> attendees<span class="token punctuation">,</span> description<span class="token punctuation">,</span> meeting_link<span class="token punctuation">]</span>
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">2. research_attendees</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">for_each</span><span class="token punctuation">:</span> attendee
+</span><span class="code-line">      <span class="token key atrule">actions</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">linkedin_lookup</span><span class="token punctuation">:</span> get_title_company
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">crm_lookup</span><span class="token punctuation">:</span> get_past_interactions
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">email_search</span><span class="token punctuation">:</span> recent_threads
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">3. generate_prep_doc</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">template</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">        # Meeting Prep: {title}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token important">**Time:**</span> <span class="token punctuation">{</span>start_time<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token important">**Duration:**</span> <span class="token punctuation">{</span>duration<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token important">**Link:**</span> <span class="token punctuation">{</span>meeting_link<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token comment">## Attendees</span>
+</span><span class="code-line">        <span class="token punctuation">{</span>attendee_profiles<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token comment">## Context</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">Last interaction</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>last_meeting_date<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">Open items</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>open_tasks<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">Recent emails</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>email_summary<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token comment">## Suggested Agenda</span>
+</span><span class="code-line">        <span class="token punctuation">{</span>ai_suggested_agenda<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token comment">## Talking Points</span>
+</span><span class="code-line">        <span class="token punctuation">{</span>ai_talking_points<span class="token punctuation">}</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">4. send_reminder</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">slack_dm</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">message</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          ⏰ Meeting in 1 hour: *{title}*</span>
+</span><span class="code-line">          
+</span><span class="code-line">          📋 <span class="token punctuation">[</span>Prep Doc<span class="token punctuation">]</span>(<span class="token punctuation">{</span>prep_doc_link<span class="token punctuation">}</span>)
+</span><span class="code-line">          🔗 <span class="token punctuation">[</span>Join Meeting<span class="token punctuation">]</span>(<span class="token punctuation">{</span>meeting_link<span class="token punctuation">}</span>)
+</span><span class="code-line">          
+</span><span class="code-line">          <span class="token key atrule">Quick context</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>one_line_summary<span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h3>3. Smart Time Blocking</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">workflow</span><span class="token punctuation">:</span> <span class="token string">"Auto Time Blocking"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">schedule</span><span class="token punctuation">:</span> <span class="token string">"Sunday 8pm"</span> <span class="token comment"># Plan for next week</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">1. analyze_calendar</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">range</span><span class="token punctuation">:</span> next_7_days
+</span><span class="code-line">      <span class="token key atrule">identify</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> existing_meetings
+</span><span class="code-line">        <span class="token punctuation">-</span> recurring_meetings
+</span><span class="code-line">        <span class="token punctuation">-</span> available_slots
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">2. get_priorities</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">source</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>todoist<span class="token punctuation">,</span> asana<span class="token punctuation">,</span> notion<span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token key atrule">filter</span><span class="token punctuation">:</span> due_this_week AND high_priority
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">3. allocate_focus_time</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">morning_block</span><span class="token punctuation">:</span> 9<span class="token punctuation">-</span>11am (deep work)
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">afternoon_block</span><span class="token punctuation">:</span> 2<span class="token punctuation">-</span>4pm (collaborative)
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">minimum_gap</span><span class="token punctuation">:</span> 15min between meetings
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">max_meetings_per_day</span><span class="token punctuation">:</span> <span class="token number">5</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">4. create_blocks</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">types</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">deep_work</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">duration</span><span class="token punctuation">:</span> 2h
+</span><span class="code-line">          <span class="token key atrule">frequency</span><span class="token punctuation">:</span> daily
+</span><span class="code-line">          <span class="token key atrule">preferred_time</span><span class="token punctuation">:</span> 9<span class="token punctuation">-</span>11am
+</span><span class="code-line">          <span class="token key atrule">color</span><span class="token punctuation">:</span> blue
+</span><span class="code-line">          
+</span><span class="code-line">        <span class="token key atrule">admin_time</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">duration</span><span class="token punctuation">:</span> 1h
+</span><span class="code-line">          <span class="token key atrule">frequency</span><span class="token punctuation">:</span> daily
+</span><span class="code-line">          <span class="token key atrule">preferred_time</span><span class="token punctuation">:</span> 4<span class="token punctuation">-</span>5pm
+</span><span class="code-line">          <span class="token key atrule">color</span><span class="token punctuation">:</span> gray
+</span><span class="code-line">          
+</span><span class="code-line">        <span class="token key atrule">buffer</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">duration</span><span class="token punctuation">:</span> 15min
+</span><span class="code-line">          <span class="token key atrule">after</span><span class="token punctuation">:</span> external_meetings
+</span><span class="code-line">          <span class="token key atrule">color</span><span class="token punctuation">:</span> yellow
+</span><span class="code-line">          
+</span><span class="code-line">  <span class="token key atrule">5. notify</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">slack</span><span class="token punctuation">:</span> <span class="token string">"✅ Weekly time blocks created. {x} hours of focus time protected."</span>
+</span></code></pre>
+<hr>
+<h3>4. Calendly → Calendar + CRM</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">workflow</span><span class="token punctuation">:</span> <span class="token string">"Calendly Booking Handler"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">trigger</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> calendly
+</span><span class="code-line">  <span class="token key atrule">event</span><span class="token punctuation">:</span> booking_created
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">1. get_booking_details</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">extract</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>invitee<span class="token punctuation">,</span> event_type<span class="token punctuation">,</span> scheduled_time<span class="token punctuation">,</span> answers<span class="token punctuation">]</span>
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">2. enrich_contact</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">clearbit</span><span class="token punctuation">:</span> lookup_by_email
+</span><span class="code-line">      <span class="token key atrule">linkedin</span><span class="token punctuation">:</span> get_profile
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">3. create_calendar_event</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">google_calendar</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">title</span><span class="token punctuation">:</span> <span class="token string">"{event_type} with {invitee_name}"</span>
+</span><span class="code-line">        <span class="token key atrule">time</span><span class="token punctuation">:</span> scheduled_time
+</span><span class="code-line">        <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          **Booked via Calendly**</span>
+</span><span class="code-line">          
+</span><span class="code-line">          <span class="token key atrule">Name</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>invitee_name<span class="token punctuation">}</span>
+</span><span class="code-line">          <span class="token key atrule">Email</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>invitee_email<span class="token punctuation">}</span>
+</span><span class="code-line">          <span class="token key atrule">Company</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>company<span class="token punctuation">}</span>
+</span><span class="code-line">          
+</span><span class="code-line">          <span class="token important">**Pre-meeting</span> questions<span class="token punctuation">:</span><span class="token important">**</span>
+</span><span class="code-line">          <span class="token punctuation">{</span>calendly_answers<span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token key atrule">attendees</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>invitee_email<span class="token punctuation">,</span> owner_email<span class="token punctuation">]</span>
+</span><span class="code-line">        <span class="token key atrule">reminders</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>1_day<span class="token punctuation">,</span> 1_hour<span class="token punctuation">,</span> 15_min<span class="token punctuation">]</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">4. update_crm</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">hubspot</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">create_or_update_contact</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">email</span><span class="token punctuation">:</span> invitee_email
+</span><span class="code-line">          <span class="token key atrule">properties</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token key atrule">last_meeting_booked</span><span class="token punctuation">:</span> scheduled_time
+</span><span class="code-line">            <span class="token key atrule">meeting_type</span><span class="token punctuation">:</span> event_type
+</span><span class="code-line">        <span class="token key atrule">create_engagement</span><span class="token punctuation">:</span>
+</span><span class="code-line">          <span class="token key atrule">type</span><span class="token punctuation">:</span> MEETING
+</span><span class="code-line">          <span class="token key atrule">timestamp</span><span class="token punctuation">:</span> scheduled_time
+</span><span class="code-line">          
+</span><span class="code-line">  <span class="token key atrule">5. send_confirmation</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">email</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">to</span><span class="token punctuation">:</span> invitee_email
+</span><span class="code-line">        <span class="token key atrule">template</span><span class="token punctuation">:</span> meeting_confirmation
+</span><span class="code-line">        <span class="token key atrule">include</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>calendar_invite<span class="token punctuation">,</span> prep_questions<span class="token punctuation">]</span>
+</span><span class="code-line">        
+</span><span class="code-line">  <span class="token key atrule">6. notify_slack</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">channel</span><span class="token punctuation">:</span> <span class="token string">"#meetings"</span>
+</span><span class="code-line">      <span class="token key atrule">message</span><span class="token punctuation">:</span> <span class="token string">"📅 New booking: {event_type} with {invitee_name} on {date}"</span>
+</span></code></pre>
+<hr>
+<h3>5. Calendar Analytics</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">analytics_workflow</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Weekly Calendar Report"</span>
+</span><span class="code-line">  <span class="token key atrule">schedule</span><span class="token punctuation">:</span> <span class="token string">"Friday 5pm"</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token key atrule">metrics</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">time_distribution</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> meetings_total_hours
+</span><span class="code-line">      <span class="token punctuation">-</span> focus_time_hours
+</span><span class="code-line">      <span class="token punctuation">-</span> admin_time_hours
+</span><span class="code-line">      <span class="token punctuation">-</span> 1on1_time_hours
+</span><span class="code-line">      
+</span><span class="code-line">    <span class="token key atrule">meeting_quality</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> avg_meeting_length
+</span><span class="code-line">      <span class="token punctuation">-</span> back_to_back_count
+</span><span class="code-line">      <span class="token punctuation">-</span> meetings_with_agenda
+</span><span class="code-line">      <span class="token punctuation">-</span> external_vs_internal
+</span><span class="code-line">      
+</span><span class="code-line">    <span class="token key atrule">productivity</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> longest_focus_block
+</span><span class="code-line">      <span class="token punctuation">-</span> fragmentation_score
+</span><span class="code-line">      <span class="token punctuation">-</span> after_hours_meetings
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token key atrule">output</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">format</span><span class="token punctuation">:</span> markdown
+</span><span class="code-line">    <span class="token key atrule">destinations</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>slack<span class="token punctuation">,</span> google_sheets<span class="token punctuation">]</span>
+</span><span class="code-line">    
+</span><span class="code-line">  <span class="token key atrule">report_template</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">    # 📊 Weekly Calendar Analytics</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">## Time Distribution</span>
+</span><span class="code-line">    <span class="token punctuation">|</span> Category <span class="token punctuation">|</span> Hours <span class="token punctuation">|</span> % of Week <span class="token punctuation">|</span>
+</span><span class="code-line">    <span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">---</span><span class="token punctuation">---</span><span class="token punctuation">-</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">---</span><span class="token punctuation">-</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">---</span><span class="token punctuation">---</span><span class="token punctuation">-</span><span class="token punctuation">-</span><span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">    | Meetings | {meetings_hours} | {meetings_pct}% |
+</span></span><span class="code-line"><span class="token scalar string">    | Focus Time | {focus_hours} | {focus_pct}% |
+</span></span><span class="code-line"><span class="token scalar string">    | Admin | {admin_hours} | {admin_pct}% |
+</span></span><span class="code-line"><span class="token scalar string">    | Available | {available_hours} | {available_pct}% |</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">## Meeting Insights</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">Total meetings</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>total_meetings<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">Average length</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>avg_length<span class="token punctuation">}</span> min
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">Back-to-back</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>b2b_count<span class="token punctuation">}</span> (<span class="token punctuation">{</span>b2b_pct<span class="token punctuation">}</span>%)
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">With agenda</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>agenda_pct<span class="token punctuation">}</span>%
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">## Productivity Score</span>
+</span><span class="code-line">    🎯 <span class="token important">**</span><span class="token punctuation">{</span>productivity_score<span class="token punctuation">}</span>/100<span class="token important">**</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">Longest focus block</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>longest_focus<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">Meeting fragmentation</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>fragmentation<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">After-hours</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>after_hours_count<span class="token punctuation">}</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">## Recommendations</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>ai_recommendations<span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Time Blocking Templates</h2>
+<h3>Maker Schedule (Individual Contributor)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────────────────────────────┐
+</span><span class="code-line">│ 9:00 - 11:00  │ Deep Work Block 1  │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 11:00 - 11:30 │ Email/Slack        │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 11:30 - 12:30 │ Meetings Window    │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 12:30 - 1:30  │ Lunch              │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 1:30 - 3:30   │ Deep Work Block 2  │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 3:30 - 4:00   │ Buffer/Admin       │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 4:00 - 5:00   │ Meetings Window    │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 5:00 - 5:30   │ Daily Wrap-up      │
+</span><span class="code-line">└─────────────────────────────────────┘
+</span></code></pre>
+<h3>Manager Schedule</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────────────────────────────┐
+</span><span class="code-line">│ 8:00 - 8:30   │ Daily Planning     │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 8:30 - 9:00   │ Team Standup       │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 9:00 - 12:00  │ 1:1s / Meetings    │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 12:00 - 1:00  │ Lunch              │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 1:00 - 2:00   │ Focus Time         │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 2:00 - 5:00   │ Meetings           │
+</span><span class="code-line">├─────────────────────────────────────┤
+</span><span class="code-line">│ 5:00 - 5:30   │ Email/Wrap-up      │
+</span><span class="code-line">└─────────────────────────────────────┘
+</span></code></pre>
+<hr>
+<h2>Output Example</h2>
+<p><strong>Request</strong>: "Set up daily calendar digest for my Slack"</p>
+<p><strong>Output</strong>:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Daily Calendar Digest Setup</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Workflow Configuration</span>
+</span><span class="code-line">
+</span><span class="code-line">```yaml
+</span><span class="code-line">name: "Morning Calendar Briefing"
+</span><span class="code-line">schedule: "6:00 AM weekdays"
+</span><span class="code-line">timezone: "Asia/Shanghai"
+</span><span class="code-line">
+</span><span class="code-line">trigger:
+</span><span class="code-line">  type: cron
+</span><span class="code-line">  expression: "0 6 <span class="token italic"><span class="token punctuation">*</span><span class="token content"> </span><span class="token punctuation">*</span></span> 1-5"
+</span><span class="code-line">
+</span><span class="code-line">actions:
+</span><span class="code-line">  <span class="token list punctuation">1.</span> fetch_events:
+</span><span class="code-line">      calendar: primary
+</span><span class="code-line">      date: today
+</span><span class="code-line">      
+</span><span class="code-line">  <span class="token list punctuation">2.</span> send_slack:
+</span><span class="code-line">      channel: "@you" # or #your-channel
+</span></code></pre>
+<h2>Sample Output</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">☀️ Good morning! Here's your Thursday:
+</span><span class="code-line">
+</span><span class="code-line">📅 January 30, 2026
+</span><span class="code-line">
+</span><span class="code-line">━━━━━━━━━━━━━━━━━━━━━━
+</span><span class="code-line">
+</span><span class="code-line">📊 Overview:
+</span><span class="code-line">• 5 meetings (4.5h)
+</span><span class="code-line">• 3.5h free time
+</span><span class="code-line">• 1 back-to-back warning ⚠️
+</span><span class="code-line">
+</span><span class="code-line">━━━━━━━━━━━━━━━━━━━━━━
+</span><span class="code-line">
+</span><span class="code-line">🗓️ Schedule:
+</span><span class="code-line">
+</span><span class="code-line">9:00 AM │ Team Standup (15m)
+</span><span class="code-line">        │ 📞 Google Meet
+</span><span class="code-line">        │
+</span><span class="code-line">10:00 AM │ 1:1 with Sarah (30m)
+</span><span class="code-line">         │ 👥 Conference Room B
+</span><span class="code-line">         │
+</span><span class="code-line">11:00 AM │ 🧠 Focus Time (2h)
+</span><span class="code-line">         │ 
+</span><span class="code-line">1:00 PM │ Lunch
+</span><span class="code-line">        │
+</span><span class="code-line">2:00 PM │ Client Call - Acme (1h)
+</span><span class="code-line">        │ 🤝 Zoom (link attached)
+</span><span class="code-line">        │
+</span><span class="code-line">3:30 PM │ Product Review (1h)
+</span><span class="code-line">        │ 📋 Agenda attached
+</span><span class="code-line">        │
+</span><span class="code-line">5:00 PM │ ✅ Day ends
+</span><span class="code-line">
+</span><span class="code-line">━━━━━━━━━━━━━━━━━━━━━━
+</span><span class="code-line">
+</span><span class="code-line">💡 Tip: You have 2h of focus time - tackle your highest priority task!
+</span></code></pre>
+<h2>n8n Setup Instructions</h2>
+<ol>
+<li>Create new workflow</li>
+<li>Add Schedule Trigger node (6am weekdays)</li>
+<li>Add Google Calendar node (Get Events)</li>
+<li>Add Code node (format message)</li>
+<li>Add Slack node (send message)</li>
+<li>Activate workflow</li>
+</ol>
+<p>Would you like me to generate the full n8n workflow JSON?</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">---
+</span><span class="code-line">
+</span><span class="code-line">*Calendar Automation Skill - Part of Claude Office Skills*
+</span></code></pre></div>

@@ -1,0 +1,374 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Burp Project Parser</h1>
+<p>Search and extract data from Burp Suite project files using the burpsuite-project-file-parser extension.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Searching response headers or bodies with regex patterns</li>
+<li>Extracting security audit findings from Burp projects</li>
+<li>Dumping proxy history or site map data</li>
+<li>Analyzing HTTP traffic captured in a Burp project file</li>
+</ul>
+<h2>Prerequisites</h2>
+<p>This skill <strong>delegates parsing to Burp Suite Professional</strong> - it does not parse .burp files directly.</p>
+<p><strong>Required:</strong></p>
+<ol>
+<li><strong>Burp Suite Professional</strong> - Must be installed (<a href="https://portswigger.net/burp/pro" target="_blank" rel="ugc nofollow noopener">portswigger.net</a>)</li>
+<li><strong>burpsuite-project-file-parser extension</strong> - Provides CLI functionality</li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Install the extension:</strong></p>
+<ol>
+<li>Download from <a href="https://github.com/BuffaloWill/burpsuite-project-file-parser" target="_blank" rel="ugc nofollow noopener">github.com/BuffaloWill/burpsuite-project-file-parser</a></li>
+<li>In Burp Suite: Extender → Extensions → Add</li>
+<li>Select the downloaded JAR file</li>
+</ol>
+<h2>Quick Reference</h2>
+<p>Use the wrapper script:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh /path/to/project.burp <span class="token punctuation">[</span>FLAGS<span class="token punctuation">]</span>
+</span></code></pre>
+<p>The script uses environment variables for platform compatibility:</p>
+<ul>
+<li><code>BURP_JAVA</code>: Path to Java executable</li>
+<li><code>BURP_JAR</code>: Path to burpsuite_pro.jar</li>
+</ul>
+<p>See <a href="#platform-configuration" target="_blank" rel="ugc nofollow noopener">Platform Configuration</a> for setup instructions.</p>
+<h2>Sub-Component Filters (USE THESE)</h2>
+<p><strong>ALWAYS use sub-component filters instead of full dumps.</strong> Full <code>proxyHistory</code> or <code>siteMap</code> can return gigabytes of data. Sub-component filters return only what you need.</p>
+<h3>Available Filters</h3>
+<table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Returns</th>
+<th>Typical Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proxyHistory.request.headers</code></td>
+<td>Request line + headers only</td>
+<td>Small (&lt; 1KB/record)</td>
+</tr>
+<tr>
+<td><code>proxyHistory.request.body</code></td>
+<td>Request body only</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td><code>proxyHistory.response.headers</code></td>
+<td>Status + headers only</td>
+<td>Small (&lt; 1KB/record)</td>
+</tr>
+<tr>
+<td><code>proxyHistory.response.body</code></td>
+<td>Response body only</td>
+<td><strong>LARGE - avoid</strong></td>
+</tr>
+<tr>
+<td><code>siteMap.request.headers</code></td>
+<td>Same as above for site map</td>
+<td>Small</td>
+</tr>
+<tr>
+<td><code>siteMap.request.body</code></td>
+<td></td>
+<td>Variable</td>
+</tr>
+<tr>
+<td><code>siteMap.response.headers</code></td>
+<td></td>
+<td>Small</td>
+</tr>
+<tr>
+<td><code>siteMap.response.body</code></td>
+<td></td>
+<td><strong>LARGE - avoid</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>Default Approach</h3>
+<p><strong>Start with headers, not bodies:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># GOOD - headers only, safe to retrieve</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory.request.headers <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-c</span> <span class="token number">50000</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory.response.headers <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-c</span> <span class="token number">50000</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># BAD - full records include bodies, can be gigabytes</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory  <span class="token comment"># NEVER DO THIS</span>
+</span></code></pre>
+<p><strong>Only fetch bodies for specific URLs after reviewing headers, and ALWAYS truncate:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. First, find interesting URLs from headers</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory.response.headers <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  jq <span class="token parameter variable">-r</span> <span class="token string">'select(.headers | test("text/html")) | .url'</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">20</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Then search bodies with targeted regex - MUST truncate body to 1000 chars</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseBody='.*specific-pattern.*'"</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">10</span> <span class="token operator">|</span> jq <span class="token parameter variable">-c</span> <span class="token string">'.body = (.body[:1000] + "...[TRUNCATED]")'</span>
+</span></code></pre>
+<p><strong>HARD RULE: Body content &gt; 1000 chars must NEVER enter context.</strong> If the user needs full body content, they must view it in Burp Suite's UI.</p>
+<h2>Regex Search Operations</h2>
+<h3>Search Response Headers</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">responseHeader</span><span class="token operator">=</span><span class="token string">'.*regex.*'</span>
+</span></code></pre>
+<p>Searches all response headers. Output: <code>{"url":"...", "header":"..."}</code></p>
+<p>Example - find server signatures:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">responseHeader</span><span class="token operator">=</span><span class="token string">'.*(nginx|Apache|Servlet).*'</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-c</span> <span class="token number">50000</span>
+</span></code></pre>
+<h3>Search Response Bodies</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">responseBody</span><span class="token operator">=</span><span class="token string">'.*regex.*'</span>
+</span></code></pre>
+<p><strong>MANDATORY: Always truncate body content to 1000 chars max.</strong> Response bodies can be megabytes each.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># REQUIRED format - always truncate .body field</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseBody='.*&lt;form.*action.*'"</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">10</span> <span class="token operator">|</span> jq <span class="token parameter variable">-c</span> <span class="token string">'.body = (.body[:1000] + "...[TRUNCATED]")'</span>
+</span></code></pre>
+<p><strong>Never retrieve full body content.</strong> If you need to see more of a specific response, ask the user to open it in Burp Suite's UI.</p>
+<h2>Other Operations</h2>
+<h3>Extract Audit Items</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">auditItems
+</span></code></pre>
+<p>Returns all security findings. Output includes: name, severity, confidence, host, port, protocol, url.</p>
+<p><strong>Note:</strong> Audit items are small (no bodies) - safe to retrieve with <code>head -n 100</code>.</p>
+<h3>Dump Proxy History (AVOID)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">proxyHistory
+</span></code></pre>
+<p><strong>NEVER use this directly.</strong> Use sub-component filters instead:</p>
+<ul>
+<li><code>proxyHistory.request.headers</code></li>
+<li><code>proxyHistory.response.headers</code></li>
+</ul>
+<h3>Dump Site Map (AVOID)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">siteMap
+</span></code></pre>
+<p><strong>NEVER use this directly.</strong> Use sub-component filters instead.</p>
+<h2>Output Limits (REQUIRED)</h2>
+<p><strong>CRITICAL: Always check result size BEFORE retrieving data.</strong> A broad search can return thousands of records, each potentially megabytes. This will overflow the context window.</p>
+<h3>Step 1: Always Check Size First</h3>
+<p>Before any search, check BOTH record count AND byte size:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check record count AND total bytes - never skip this step</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory <span class="token operator">|</span> <span class="token function">wc</span> <span class="token parameter variable">-cl</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseHeader='.*Server.*'"</span> <span class="token operator">|</span> <span class="token function">wc</span> <span class="token parameter variable">-cl</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp auditItems <span class="token operator">|</span> <span class="token function">wc</span> <span class="token parameter variable">-cl</span>
+</span></code></pre>
+<p>The <code>wc -cl</code> output shows: <code>&lt;bytes&gt; &lt;lines&gt;</code> (e.g., <code>524288 42</code> means 512KB across 42 records).</p>
+<p><strong>Interpret the results - BOTH must pass:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Safe</th>
+<th>Narrow search</th>
+<th>Too broad</th>
+<th>STOP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Lines</strong></td>
+<td>&lt; 50</td>
+<td>50-200</td>
+<td>200+</td>
+<td>1000+</td>
+</tr>
+<tr>
+<td><strong>Bytes</strong></td>
+<td>&lt; 50KB</td>
+<td>50-200KB</td>
+<td>200KB+</td>
+<td>1MB+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A single 10MB response on one line will show high byte count but only 1 line - the byte check catches this.</strong></p>
+<h3>Step 2: Refine Broad Searches</h3>
+<p>If count/size is too high:</p>
+<ol>
+<li>
+<p><strong>Use sub-component filters</strong> (see table above):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Instead of: proxyHistory (gigabytes)</span>
+</span><span class="code-line"><span class="token comment"># Use: proxyHistory.request.headers (kilobytes)</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Narrow regex patterns:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Too broad (matches everything):</span>
+</span><span class="code-line"><span class="token assign-left variable">responseHeader</span><span class="token operator">=</span><span class="token string">'.*'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Better - target specific headers:</span>
+</span><span class="code-line"><span class="token assign-left variable">responseHeader</span><span class="token operator">=</span><span class="token string">'.*X-Frame-Options.*'</span>
+</span><span class="code-line"><span class="token assign-left variable">responseHeader</span><span class="token operator">=</span><span class="token string">'.*Content-Security-Policy.*'</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Filter with jq before retrieving:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Get only specific content types</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory.response.headers <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  jq <span class="token parameter variable">-c</span> <span class="token string">'select(.url | test("/api/"))'</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">50</span>
+</span></code></pre>
+</li>
+</ol>
+<h3>Step 3: Always Truncate Output</h3>
+<p>Even after narrowing, always pipe through truncation:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># ALWAYS use head -c to limit total bytes (max 50KB)</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory.request.headers <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-c</span> <span class="token number">50000</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># For body searches, truncate each JSON object's body field:</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseBody='pattern'"</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">20</span> <span class="token operator">|</span> jq <span class="token parameter variable">-c</span> <span class="token string">'.body = (.body | if length &gt; 1000 then .[:1000] + "...[TRUNCATED]" else . end)'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Limit both record count AND byte size:</span>
+</span><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp auditItems <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">50</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-c</span> <span class="token number">50000</span>
+</span></code></pre>
+<p><strong>Hard limits to enforce:</strong></p>
+<ul>
+<li><code>head -c 50000</code> (50KB max) on ALL output</li>
+<li><strong>Truncate <code>.body</code> fields to 1000 chars - MANDATORY, no exceptions</strong>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">jq <span class="token parameter variable">-c</span> <span class="token string">'.body = (.body[:1000] + "...[TRUNCATED]")'</span>
+</span></code></pre>
+</li>
+</ul>
+<p><strong>Never run these without counting first AND truncating:</strong></p>
+<ul>
+<li><code>proxyHistory</code> / <code>siteMap</code> (full dumps - always use sub-component filters)</li>
+<li><code>responseBody='...'</code> searches (bodies can be megabytes each)</li>
+<li>Any broad regex like <code>.*</code> or <code>.+</code></li>
+</ul>
+<h2>Investigation Workflow</h2>
+<ol>
+<li>
+<p><strong>Identify scope</strong> - What are you looking for? (specific vuln type, endpoint, header pattern)</p>
+</li>
+<li>
+<p><strong>Search audit items first</strong> - Start with Burp's findings:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp auditItems <span class="token operator">|</span> jq <span class="token string">'select(.severity == "High")'</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Check confidence scores</strong> - Filter for actionable findings:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">..</span>. <span class="token operator">|</span> jq <span class="token string">'select(.confidence == "Certain" or .confidence == "Firm")'</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Extract affected URLs</strong> - Get the attack surface:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">..</span>. <span class="token operator">|</span> jq <span class="token parameter variable">-r</span> <span class="token string">'.url'</span> <span class="token operator">|</span> <span class="token function">sort</span> <span class="token parameter variable">-u</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Search raw traffic for context</strong> - Examine actual requests/responses:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseBody='pattern'"</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>Validate manually</strong> - Burp findings are indicators, not proof. Verify each one.</p>
+</li>
+</ol>
+<h2>Understanding Results</h2>
+<h3>Severity vs Confidence</h3>
+<p>Burp reports both <strong>severity</strong> (High/Medium/Low) and <strong>confidence</strong> (Certain/Firm/Tentative). Use both when triaging:</p>
+<table>
+<thead>
+<tr>
+<th>Combination</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High + Certain</td>
+<td>Likely real vulnerability, prioritize investigation</td>
+</tr>
+<tr>
+<td>High + Tentative</td>
+<td>Often a false positive, verify before reporting</td>
+</tr>
+<tr>
+<td>Medium + Firm</td>
+<td>Worth investigating, may need manual validation</td>
+</tr>
+</tbody>
+</table>
+<p>A "High severity, Tentative confidence" finding is frequently a false positive. Don't report findings based on severity alone.</p>
+<h3>When Proxy History is Incomplete</h3>
+<p>Proxy history only contains what Burp captured. It may be missing traffic due to:</p>
+<ul>
+<li><strong>Scope filters</strong> excluding domains</li>
+<li><strong>Intercept settings</strong> dropping requests</li>
+<li><strong>Browser traffic</strong> not routed through Burp proxy</li>
+</ul>
+<p>If you don't find expected traffic, check Burp's scope and proxy settings in the original project.</p>
+<h3>HTTP Body Encoding</h3>
+<p>Response bodies may be gzip compressed, chunked, or use non-UTF8 encoding. Regex patterns that work on plaintext may silently fail on encoded responses. If searches return fewer results than expected:</p>
+<ul>
+<li>Check if responses are compressed</li>
+<li>Try broader patterns or search headers first</li>
+<li>Use Burp's UI to inspect raw vs rendered response</li>
+</ul>
+<h2>Rationalizations to Reject</h2>
+<p>Common shortcuts that lead to missed vulnerabilities or false reports:</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Why It's Wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"This regex looks good"</td>
+<td>Verify on sample data first—encoding and escaping cause silent failures</td>
+</tr>
+<tr>
+<td>"High severity = must fix"</td>
+<td>Check confidence score too; Burp has false positives</td>
+</tr>
+<tr>
+<td>"All audit items are relevant"</td>
+<td>Filter by actual threat model; not every finding matters for every app</td>
+</tr>
+<tr>
+<td>"Proxy history is complete"</td>
+<td>May be filtered by Burp scope/intercept settings; you see only what Burp captured</td>
+</tr>
+<tr>
+<td>"Burp found it, so it's a vuln"</td>
+<td>Burp findings require manual verification—they indicate potential issues, not proof</td>
+</tr>
+</tbody>
+</table>
+<h2>Output Format</h2>
+<p>All output is JSON, one object per line. Pipe to <code>jq</code> for formatting:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp auditItems <span class="token operator">|</span> jq <span class="token builtin class-name">.</span>
+</span></code></pre>
+<p>Filter with grep:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp auditItems <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-i</span> <span class="token string">"sql injection"</span>
+</span></code></pre>
+<h2>Examples</h2>
+<p>Search for CORS headers (with byte limit):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseHeader='.*Access-Control.*'"</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-c</span> <span class="token number">50000</span>
+</span></code></pre>
+<p>Get all high-severity findings (audit items are small, but still limit):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp auditItems <span class="token operator">|</span> jq <span class="token parameter variable">-c</span> <span class="token string">'select(.severity == "High")'</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">100</span>
+</span></code></pre>
+<p>Extract just request URLs from proxy history:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp proxyHistory.request.headers <span class="token operator">|</span> jq <span class="token parameter variable">-r</span> <span class="token string">'.request.url'</span> <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">200</span>
+</span></code></pre>
+<p>Search response bodies (MUST truncate body to 1000 chars):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token punctuation">{</span>baseDir<span class="token punctuation">}</span>/scripts/burp-search.sh project.burp <span class="token string">"responseBody='.*password.*'"</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token function">head</span> <span class="token parameter variable">-n</span> <span class="token number">10</span> <span class="token operator">|</span> jq <span class="token parameter variable">-c</span> <span class="token string">'.body = (.body[:1000] + "...[TRUNCATED]")'</span>
+</span></code></pre>
+<h2>Platform Configuration</h2>
+<p>The wrapper script requires two environment variables to locate Burp Suite's bundled Java and JAR file.</p>
+<h3>macOS</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">BURP_JAVA</span><span class="token operator">=</span><span class="token string">"/Applications/Burp Suite Professional.app/Contents/Resources/jre.bundle/Contents/Home/bin/java"</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">BURP_JAR</span><span class="token operator">=</span><span class="token string">"/Applications/Burp Suite Professional.app/Contents/Resources/app/burpsuite_pro.jar"</span>
+</span></code></pre>
+<h3>Windows</h3>
+<pre class="language-powershell"><code class="language-powershell code-highlight"><span class="code-line"><span class="token variable">$env</span>:BURP_JAVA = <span class="token string">"C:\Program Files\BurpSuiteProfessional\jre\bin\java.exe"</span>
+</span><span class="code-line"><span class="token variable">$env</span>:BURP_JAR = <span class="token string">"C:\Program Files\BurpSuiteProfessional\burpsuite_pro.jar"</span>
+</span></code></pre>
+<h3>Linux</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">BURP_JAVA</span><span class="token operator">=</span><span class="token string">"/opt/BurpSuiteProfessional/jre/bin/java"</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">BURP_JAR</span><span class="token operator">=</span><span class="token string">"/opt/BurpSuiteProfessional/burpsuite_pro.jar"</span>
+</span></code></pre>
+<p>Add these exports to your shell profile (<code>.bashrc</code>, <code>.zshrc</code>, etc.) for persistence.</p>
+<h3>Manual Invocation</h3>
+<p>If not using the wrapper script, invoke directly:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token string">"<span class="token variable">$BURP_JAVA</span>"</span> <span class="token parameter variable">-jar</span> <span class="token parameter variable">-Djava.awt.headless</span><span class="token operator">=</span>true <span class="token string">"<span class="token variable">$BURP_JAR</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  --project-file<span class="token operator">=</span>/path/to/project.burp <span class="token punctuation">[</span>FLAGS<span class="token punctuation">]</span>
+</span></code></pre></div>

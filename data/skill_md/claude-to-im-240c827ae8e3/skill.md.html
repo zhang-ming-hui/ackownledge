@@ -1,0 +1,193 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Claude-to-IM Bridge Skill</h1>
+<p>You are managing the Claude-to-IM bridge.
+User data is stored at <code>~/.claude-to-im/</code>.</p>
+<p>The skill directory (SKILL_DIR) is at <code>~/.claude/skills/claude-to-im</code>.
+In Codex installs it may instead be <code>~/.codex/skills/Claude-to-IM-skill</code>.
+If neither path exists, fall back to Glob with pattern <code>**/skills/**/claude-to-im/SKILL.md</code> or <code>**/skills/**/Claude-to-IM-skill/SKILL.md</code> and derive the root from the result.</p>
+<h2>Command parsing</h2>
+<p>Parse the user's intent from <code>$ARGUMENTS</code> into one of these subcommands:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>User says (examples)</th>
+<th>Subcommand</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>setup</code>, <code>configure</code>, <code>配置</code>, <code>我想在飞书上用 Claude</code>, <code>帮我连接 Telegram</code>, <code>帮我接微信</code></td>
+<td>setup</td>
+</tr>
+<tr>
+<td><code>start</code>, <code>start bridge</code>, <code>启动</code>, <code>启动桥接</code></td>
+<td>start</td>
+</tr>
+<tr>
+<td><code>stop</code>, <code>stop bridge</code>, <code>停止</code>, <code>停止桥接</code></td>
+<td>stop</td>
+</tr>
+<tr>
+<td><code>status</code>, <code>bridge status</code>, <code>状态</code>, <code>运行状态</code>, <code>怎么看桥接的运行状态</code></td>
+<td>status</td>
+</tr>
+<tr>
+<td><code>logs</code>, <code>logs 200</code>, <code>查看日志</code>, <code>查看日志 200</code></td>
+<td>logs</td>
+</tr>
+<tr>
+<td><code>reconfigure</code>, <code>修改配置</code>, <code>帮我改一下 token</code>, <code>换个 bot</code></td>
+<td>reconfigure</td>
+</tr>
+<tr>
+<td><code>doctor</code>, <code>diagnose</code>, <code>诊断</code>, <code>挂了</code>, <code>没反应了</code>, <code>bot 没反应</code>, <code>出问题了</code></td>
+<td>doctor</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Disambiguation: <code>status</code> vs <code>doctor</code></strong> — Use <code>status</code> when the user just wants to check if the bridge is running (informational). Use <code>doctor</code> when the user reports a problem or suspects something is broken (diagnostic). When in doubt and the user describes a symptom (e.g., "没反应了", "挂了"), prefer <code>doctor</code>.</p>
+<p>Extract optional numeric argument for <code>logs</code> (default 50).</p>
+<p>Before asking users for any platform credentials, read <code>SKILL_DIR/references/setup-guides.md</code> internally so you know where to find each credential. Do NOT dump the full guide to the user upfront — only mention the specific next step they need to do (e.g., "Go to <a href="https://open.feishu.cn" target="_blank" rel="ugc nofollow noopener">https://open.feishu.cn</a> → your app → Credentials to find the App ID"). If the user says they don't know how, then show the relevant section of the guide.</p>
+<h2>Runtime detection</h2>
+<p>Before executing any subcommand, detect which environment you are running in:</p>
+<ol>
+<li><strong>Claude Code</strong> — <code>AskUserQuestion</code> tool is available. Use it for interactive setup wizards.</li>
+<li><strong>Codex / other</strong> — <code>AskUserQuestion</code> is NOT available. Fall back to non-interactive guidance: explain the steps, show <code>SKILL_DIR/config.env.example</code>, and ask the user to create <code>~/.claude-to-im/config.env</code> manually.</li>
+</ol>
+<p>You can test this by checking if AskUserQuestion is in your available tools list.</p>
+<h2>Config check (applies to <code>start</code>, <code>stop</code>, <code>status</code>, <code>logs</code>, <code>reconfigure</code>, <code>doctor</code>)</h2>
+<p>Before running any subcommand other than <code>setup</code>, check if <code>~/.claude-to-im/config.env</code> exists:</p>
+<ul>
+<li><strong>If it does NOT exist:</strong>
+<ul>
+<li>In Claude Code: tell the user "No configuration found" and automatically start the <code>setup</code> wizard using AskUserQuestion.</li>
+<li>In Codex: tell the user "No configuration found. Please create <code>~/.claude-to-im/config.env</code> based on the example:" then show the contents of <code>SKILL_DIR/config.env.example</code> and stop. Don't attempt to start the daemon — without config.env the process will crash on startup and leave behind a stale PID file that blocks future starts.</li>
+</ul>
+</li>
+<li><strong>If it exists:</strong> proceed with the requested subcommand.</li>
+</ul>
+<h2>Subcommands</h2>
+<h3><code>setup</code></h3>
+<p>Run an interactive setup wizard. This subcommand requires <code>AskUserQuestion</code>. If it is not available (Codex environment), instead show the contents of <code>SKILL_DIR/config.env.example</code> with field-by-field explanations and instruct the user to create the config file manually.</p>
+<p>When AskUserQuestion IS available, collect input <strong>one field at a time</strong>. After each answer, confirm the value back to the user (masking secrets to last 4 chars only) before moving to the next question.</p>
+<p><strong>Step 1 — Choose channels</strong></p>
+<p>Ask which channels to enable (telegram, discord, feishu, qq, weixin). Accept comma-separated input. Briefly describe each:</p>
+<ul>
+<li><strong>telegram</strong> — Best for personal use. Streaming preview, inline permission buttons.</li>
+<li><strong>discord</strong> — Good for team use. Server/channel/user-level access control.</li>
+<li><strong>feishu</strong> (Lark) — For Feishu/Lark teams. Streaming cards, tool progress, inline permission buttons.</li>
+<li><strong>qq</strong> — QQ C2C private chat only. No inline permission buttons, no streaming preview. Permissions use text <code>/perm ...</code> commands.</li>
+<li><strong>weixin</strong> — WeChat QR login. Single linked account only; a new login replaces the previous one. No inline permission buttons, no streaming preview. Permissions use text <code>/perm ...</code> commands or quick <code>1/2/3</code> replies. Voice messages only use WeChat's own speech-to-text text; raw voice audio is not transcribed by the bridge.</li>
+</ul>
+<p><strong>Step 2 — Collect tokens per channel</strong></p>
+<p>For each enabled channel, collect one credential at a time. Tell the user where to find each value in one sentence. Only show the full guide section (from <code>SKILL_DIR/references/setup-guides.md</code>) if the user asks for help or says they don't know how:</p>
+<ul>
+<li><strong>Telegram</strong>: Bot Token → confirm (masked) → Chat ID (see guide for how to get it) → confirm → Allowed User IDs (optional). <strong>Important:</strong> At least one of Chat ID or Allowed User IDs must be set, otherwise the bot will reject all messages.</li>
+<li><strong>Discord</strong>: Bot Token → confirm (masked) → Allowed User IDs → Allowed Channel IDs (optional) → Allowed Guild IDs (optional). <strong>Important:</strong> At least one of Allowed User IDs or Allowed Channel IDs must be set, otherwise the bot will reject all messages (default-deny).</li>
+<li><strong>Feishu</strong>: App ID → confirm → App Secret → confirm (masked) → Domain (optional) → Allowed User IDs (optional). After collecting credentials, explain the two-phase setup the user must complete:
+<ul>
+<li><strong>Phase 1</strong> (before starting bridge): (A) batch-add permissions, (B) enable bot capability, (C) publish first version + admin approve. This makes permissions and bot effective.</li>
+<li><strong>Phase 2</strong> (requires running bridge): (D) run <code>/claude-to-im start</code>, (E) configure events (<code>im.message.receive_v1</code>) and callback (<code>card.action.trigger</code>) with long connection mode, (F) publish second version + admin approve.</li>
+<li><strong>Why two phases:</strong> Feishu validates WebSocket connection when saving event subscription — if the bridge isn't running, saving will fail. The bridge needs published permissions to connect.</li>
+<li>Keep this to a short checklist — show the full guide only if asked.</li>
+</ul>
+</li>
+<li><strong>QQ</strong>: Collect two required fields, then optional ones:
+<ol>
+<li>QQ App ID (required) → confirm</li>
+<li>QQ App Secret (required) → confirm (masked)</li>
+</ol>
+<ul>
+<li>Tell the user: these two values can be found at <a href="https://q.qq.com/qqbot/openclaw" target="_blank" rel="ugc nofollow noopener">https://q.qq.com/qqbot/openclaw</a></li>
+</ul>
+<ol start="3">
+<li>Allowed User OpenIDs (optional, press Enter to skip) — note: this is <code>user_openid</code>, NOT QQ number. If the user doesn't have openid yet, they can leave it empty.</li>
+<li>Image Enabled (optional, default true, press Enter to skip) — if the underlying provider doesn't support image input, set to false</li>
+<li>Max Image Size MB (optional, default 20, press Enter to skip)</li>
+</ol>
+<ul>
+<li>Remind user: QQ first version only supports C2C private chat sandbox access. No group/channel support, no inline buttons, no streaming preview.</li>
+</ul>
+</li>
+<li><strong>Weixin</strong>: Do not ask for a static token. Instead:
+<ol>
+<li>Tell the user this channel uses QR login, not manual credential entry.</li>
+<li>Run <code>cd SKILL_DIR &amp;&amp; npm run weixin:login</code></li>
+<li>The helper writes <code>~/.claude-to-im/runtime/weixin-login.html</code> and tries to open it automatically in the local browser.</li>
+<li>If auto-open fails, tell the user to open that HTML file manually and scan the QR code with WeChat.</li>
+<li>Wait for the helper to report success, then confirm that the linked account was saved locally.</li>
+</ol>
+<ul>
+<li>Explain briefly: the linked Weixin account is stored in <code>~/.claude-to-im/data/weixin-accounts.json</code>. Running the helper again replaces the previously linked account.</li>
+<li>Explain briefly: <code>CTI_WEIXIN_MEDIA_ENABLED</code> only controls inbound image/file/video downloads. For voice messages, the bridge only accepts the text returned by WeChat's built-in speech-to-text. If WeChat does not provide a transcript, the bridge replies with an error instead of downloading/transcribing raw audio.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Step 3 — General settings</strong></p>
+<p>Ask for runtime, default working directory, model, and mode:</p>
+<ul>
+<li><strong>Runtime</strong>: <code>claude</code> (default), <code>codex</code>, <code>auto</code>
+<ul>
+<li><code>claude</code> — uses Claude Code CLI + Claude Agent SDK (requires <code>claude</code> CLI installed)</li>
+<li><code>codex</code> — uses OpenAI Codex SDK (requires <code>codex</code> CLI; auth via <code>codex auth login</code> or <code>OPENAI_API_KEY</code>)</li>
+<li><code>auto</code> — tries Claude first, falls back to Codex if Claude CLI not found</li>
+</ul>
+</li>
+<li><strong>Working Directory</strong>: default <code>$CWD</code></li>
+<li><strong>Model</strong> (optional): Leave blank to inherit the runtime's own default model. If the user wants to override, ask them to enter a model name. Do NOT hardcode or suggest specific model names — the available models change over time.</li>
+<li><strong>Mode</strong>: <code>code</code> (default), <code>plan</code>, <code>ask</code></li>
+</ul>
+<p><strong>Step 4 — Write config and validate</strong></p>
+<ol>
+<li>Show a final summary table with all settings (secrets masked to last 4 chars)</li>
+<li>Ask user to confirm before writing</li>
+<li>Use Bash to create directory structure: <code>mkdir -p ~/.claude-to-im/{data,logs,runtime,data/messages}</code></li>
+<li>Use Write to create <code>~/.claude-to-im/config.env</code> with all settings in KEY=VALUE format</li>
+<li>Use Bash to set permissions: <code>chmod 600 ~/.claude-to-im/config.env</code></li>
+<li>Validate tokens — read <code>SKILL_DIR/references/token-validation.md</code> for the exact commands and expected responses for each platform. This catches typos and wrong credentials before the user tries to start the daemon. For Weixin, a successful QR login already counts as validation.</li>
+<li>Report results with a summary table. If any validation fails, explain what might be wrong and how to fix it.</li>
+<li>On success, tell the user: "Setup complete! Run <code>/claude-to-im start</code> to start the bridge."</li>
+</ol>
+<h3><code>start</code></h3>
+<p><strong>Pre-check:</strong> Verify <code>~/.claude-to-im/config.env</code> exists (see "Config check" above). Without it, the daemon will crash immediately and leave a stale PID file.</p>
+<p>Run: <code>bash "SKILL_DIR/scripts/daemon.sh" start</code></p>
+<p>Show the output to the user. If it fails, tell the user:</p>
+<ul>
+<li>Run <code>doctor</code> to diagnose: <code>/claude-to-im doctor</code></li>
+<li>Check recent logs: <code>/claude-to-im logs</code></li>
+</ul>
+<h3><code>stop</code></h3>
+<p>Run: <code>bash "SKILL_DIR/scripts/daemon.sh" stop</code></p>
+<h3><code>status</code></h3>
+<p>Run: <code>bash "SKILL_DIR/scripts/daemon.sh" status</code></p>
+<h3><code>logs</code></h3>
+<p>Extract optional line count N from arguments (default 50).
+Run: <code>bash "SKILL_DIR/scripts/daemon.sh" logs N</code></p>
+<h3><code>reconfigure</code></h3>
+<ol>
+<li>Read current config from <code>~/.claude-to-im/config.env</code></li>
+<li>Show current settings in a clear table format, with all secrets masked (only last 4 chars visible)</li>
+<li>Use AskUserQuestion to ask what the user wants to change</li>
+<li>When collecting new values, tell the user where to find the value; only show the full guide from <code>SKILL_DIR/references/setup-guides.md</code> if they ask for help</li>
+<li>Update the config file atomically (write to tmp, rename)</li>
+<li>Re-validate any changed tokens</li>
+<li>Remind user: "Run <code>/claude-to-im stop</code> then <code>/claude-to-im start</code> to apply the changes."</li>
+</ol>
+<p>If the user wants to switch Weixin accounts during <code>reconfigure</code>, run <code>cd SKILL_DIR &amp;&amp; npm run weixin:login</code> again. Each successful scan replaces the previously linked local account.</p>
+<h3><code>doctor</code></h3>
+<p>Run: <code>bash "SKILL_DIR/scripts/doctor.sh"</code></p>
+<p>Show results and suggest fixes for any failures. Common fixes:</p>
+<ul>
+<li>SDK cli.js missing → <code>cd SKILL_DIR &amp;&amp; npm install</code></li>
+<li>dist/daemon.mjs stale → <code>cd SKILL_DIR &amp;&amp; npm run build</code></li>
+<li>Config missing → run <code>setup</code></li>
+<li>Weixin account missing / expired → <code>cd SKILL_DIR &amp;&amp; npm run weixin:login</code></li>
+<li>Weixin voice message reports missing speech-to-text → enable WeChat's own voice transcription and resend; the bridge does not transcribe raw voice audio itself</li>
+</ul>
+<p>For more complex issues (messages not received, permission timeouts, high memory, stale PID files), read <code>SKILL_DIR/references/troubleshooting.md</code> for detailed diagnosis steps.</p>
+<p><strong>Feishu upgrade note:</strong> If the user upgraded from an older version of this skill and Feishu is returning permission errors (e.g. streaming cards not working, typing indicators failing, permission buttons unresponsive), the root cause is almost certainly missing permissions or callbacks in the Feishu backend. Refer the user to the "Upgrading from a previous version" section in <code>SKILL_DIR/references/setup-guides.md</code> — they need to add new scopes (<code>cardkit:card:write</code>, <code>cardkit:card:read</code>, <code>im:message:update</code>, <code>im:message.reactions:read</code>, <code>im:message.reactions:write_only</code>), add the <code>card.action.trigger</code> callback, and re-publish the app. The upgrade requires two publish cycles because adding the callback needs an active WebSocket connection (bridge must be running).</p>
+<h2>Notes</h2>
+<ul>
+<li>Always mask secrets in output (show only last 4 characters) — users often share terminal output in bug reports, so exposed tokens would be a security incident.</li>
+<li>Always check for config.env before starting the daemon — without it the process crashes on startup and leaves a stale PID file that blocks future starts (requiring manual cleanup).</li>
+<li>The daemon runs as a background Node.js process managed by platform supervisor (launchd on macOS, setsid on Linux, WinSW/NSSM on Windows).</li>
+<li>Config persists at <code>~/.claude-to-im/config.env</code> — survives across sessions.</li>
+</ul></div>

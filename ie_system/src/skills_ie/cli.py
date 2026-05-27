@@ -1,3 +1,5 @@
+"""IE 系统命令行入口。"""
+
 from __future__ import annotations
 
 import argparse
@@ -21,6 +23,7 @@ from .web import serve_web
 
 
 def _print_json(payload: object) -> None:
+    """按当前终端编码安全打印 JSON。"""
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     encoding = sys.stdout.encoding or "utf-8"
     safe_text = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
@@ -28,6 +31,7 @@ def _print_json(payload: object) -> None:
 
 
 def _summarize_events(events):
+    """从事件列表中汇总覆盖率与证据统计。"""
     info_point_distribution = Counter()
     field_coverage = Counter()
     field_evidence_docs = Counter()
@@ -122,6 +126,7 @@ def _summarize_events(events):
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """构建 IE CLI 的参数解析器。"""
     parser = argparse.ArgumentParser(description="Skills IE CLI")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Config file path")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -159,12 +164,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _build_system(config, variant: str = "enhanced") -> SkillsIESystem:
+    """按指定变体构建并预加载抽取系统。"""
     ie = SkillsIESystem(config, variant=variant)
     ie.load_data()
     return ie
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI 主入口。"""
     argv = list(sys.argv[1:] if argv is None else argv)
     args = _build_parser().parse_args(argv)
     config = load_config(Path(args.config))

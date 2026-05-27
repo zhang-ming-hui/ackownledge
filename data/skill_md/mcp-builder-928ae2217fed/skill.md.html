@@ -1,0 +1,408 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>MCP Builder</h1>
+<p>Build a working MCP server from a description of the tools you need. Produces a deployable Python server using FastMCP.</p>
+<h2>Workflow</h2>
+<h3>Step 1: Define What to Expose</h3>
+<p>Ask what the server needs to provide:</p>
+<ul>
+<li><strong>Tools</strong> -- Functions Claude can call (API wrappers, calculations, file operations)</li>
+<li><strong>Resources</strong> -- Data Claude can read (database records, config, documents)</li>
+<li><strong>Prompts</strong> -- Reusable prompt templates with parameters</li>
+</ul>
+<p>A brief like "MCP server for querying our customer database" is enough.</p>
+<h3>Step 2: Scaffold the Server</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> fastmcp
+</span></code></pre>
+<p>Create the server file. The server instance MUST be at module level:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> fastmcp <span class="token keyword">import</span> FastMCP
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># MUST be at module level for FastMCP Cloud</span>
+</span><span class="code-line">mcp <span class="token operator">=</span> FastMCP<span class="token punctuation">(</span><span class="token string">"My Server"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">search_customers</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Search customers by name or email."""</span>
+</span><span class="code-line">    <span class="token comment"># Implementation here</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Found customers matching: </span><span class="token interpolation"><span class="token punctuation">{</span>query<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>resource</span><span class="token punctuation">(</span><span class="token string">"customers://{customer_id}"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">get_customer</span><span class="token punctuation">(</span>customer_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Get customer details by ID."""</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Customer </span><span class="token interpolation"><span class="token punctuation">{</span>customer_id<span class="token punctuation">}</span></span><span class="token string"> details"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+</span><span class="code-line">    mcp<span class="token punctuation">.</span>run<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Step 3: Add Companion CLI Scripts (Optional)</h3>
+<p>For Claude Code terminal use, add scripts alongside the MCP server:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my-mcp-server/
+</span><span class="code-line">├── src/index.ts          # MCP server (for Claude.ai)
+</span><span class="code-line">├── scripts/
+</span><span class="code-line">│   ├── search.ts         # CLI version of search tool
+</span><span class="code-line">│   └── _shared.ts        # Shared auth/config
+</span><span class="code-line">├── SCRIPTS.md            # Documents available scripts
+</span><span class="code-line">└── package.json
+</span></code></pre>
+<p>CLI scripts provide file I/O, batch processing, and richer output that MCP can't.
+See <code>assets/SCRIPTS-TEMPLATE.md</code> and <code>assets/script-template.ts</code> for TypeScript templates.</p>
+<h3>Step 4: Test Locally</h3>
+<p><strong>Quick test -- run directly:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python server.py
+</span></code></pre>
+<p><strong>Dev mode with inspector UI (recommended):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">fastmcp dev server.py
+</span><span class="code-line"><span class="token comment"># Opens inspector at http://localhost:5173</span>
+</span><span class="code-line"><span class="token comment"># Hot reload, detailed logging, tool/resource inspection</span>
+</span></code></pre>
+<p><strong>HTTP mode for remote clients:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python server.py <span class="token parameter variable">--transport</span> http <span class="token parameter variable">--port</span> <span class="token number">8000</span>
+</span></code></pre>
+<p><strong>Automated test script using FastMCP Client:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> asyncio
+</span><span class="code-line"><span class="token keyword">from</span> fastmcp <span class="token keyword">import</span> Client
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">test_server</span><span class="token punctuation">(</span>server_path<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">async</span> <span class="token keyword">with</span> Client<span class="token punctuation">(</span>server_path<span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token comment"># List everything</span>
+</span><span class="code-line">        tools <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>list_tools<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        resources <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>list_resources<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        prompts <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>list_prompts<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Tools: </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token punctuation">[</span>t<span class="token punctuation">.</span>name <span class="token keyword">for</span> t <span class="token keyword">in</span> tools<span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Resources: </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token punctuation">[</span>r<span class="token punctuation">.</span>uri <span class="token keyword">for</span> r <span class="token keyword">in</span> resources<span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Prompts: </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token punctuation">[</span>p<span class="token punctuation">.</span>name <span class="token keyword">for</span> p <span class="token keyword">in</span> prompts<span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment"># Call first tool</span>
+</span><span class="code-line">        <span class="token keyword">if</span> tools<span class="token punctuation">:</span>
+</span><span class="code-line">            result <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>call_tool<span class="token punctuation">(</span>tools<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>name<span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Tool result: </span><span class="token interpolation"><span class="token punctuation">{</span>result<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment"># Read first resource</span>
+</span><span class="code-line">        <span class="token keyword">if</span> resources<span class="token punctuation">:</span>
+</span><span class="code-line">            data <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>read_resource<span class="token punctuation">(</span>resources<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>uri<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Resource data: </span><span class="token interpolation"><span class="token punctuation">{</span>data<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>test_server<span class="token punctuation">(</span><span class="token string">"server.py"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Step 5: Pre-Deploy Checklist</h3>
+<p>Run these checks before deploying. All required checks must pass.</p>
+<p><strong>Required (will cause deploy failure):</strong></p>
+<ol>
+<li>Server file exists</li>
+<li>Python syntax valid: <code>python3 -m py_compile server.py</code></li>
+<li>Module-level server object (not inside a function):
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">"^mcp = FastMCP\|^server = FastMCP\|^app = FastMCP"</span> server.py
+</span></code></pre>
+</li>
+<li><code>requirements.txt</code> exists with PyPI packages only (no <code>git+</code>, <code>-e</code>, <code>.whl</code>, <code>.tar.gz</code>)</li>
+<li>No hardcoded secrets (check for <code>api_key = "..."</code> patterns excluding <code>os.getenv</code>/<code>os.environ</code>)</li>
+</ol>
+<p><strong>Advisory (warnings):</strong></p>
+<ol start="6">
+<li><code>fastmcp</code> listed in requirements.txt</li>
+<li><code>.gitignore</code> includes <code>.env</code></li>
+<li>No circular imports</li>
+<li>Git repository initialised with remote</li>
+<li>Server can load: <code>timeout 5 fastmcp inspect server.py</code></li>
+</ol>
+<h3>Step 6: Deploy</h3>
+<p><strong>FastMCP Cloud (simplest):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> <span class="token function">add</span> <span class="token builtin class-name">.</span> <span class="token operator">&amp;&amp;</span> <span class="token function">git</span> commit <span class="token parameter variable">-m</span> <span class="token string">"Ready for deployment"</span>
+</span><span class="code-line"><span class="token function">git</span> push <span class="token parameter variable">-u</span> origin main
+</span><span class="code-line"><span class="token comment"># Visit https://fastmcp.cloud, connect repo, add env vars, deploy</span>
+</span><span class="code-line"><span class="token comment"># URL: https://your-project.fastmcp.app/mcp</span>
+</span></code></pre>
+<p>Cloud requirements:</p>
+<ul>
+<li>Module-level server object named <code>mcp</code>, <code>server</code>, or <code>app</code></li>
+<li>PyPI dependencies only in <code>requirements.txt</code></li>
+<li>Public GitHub repository</li>
+<li>Environment variables for secrets (no hardcoded values)</li>
+<li>Auto-deploys on push to main, PR preview deployments</li>
+</ul>
+<p><strong>Docker (self-hosted):</strong></p>
+<pre class="language-dockerfile"><code class="language-dockerfile code-highlight"><span class="code-line"><span class="token instruction"><span class="token keyword">FROM</span> python:3.12-slim</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">WORKDIR</span> /app</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">COPY</span> requirements.txt .</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">RUN</span> pip install -r requirements.txt</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">COPY</span> . .</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">EXPOSE</span> 8000</span>
+</span><span class="code-line"><span class="token instruction"><span class="token keyword">CMD</span> [<span class="token string">"python"</span>, <span class="token string">"server.py"</span>, <span class="token string">"--transport"</span>, <span class="token string">"http"</span>, <span class="token string">"--port"</span>, <span class="token string">"8000"</span>]</span>
+</span></code></pre>
+<p><strong>Cloudflare Workers (edge):</strong>
+See the cloudflare-worker-builder skill for Workers-based MCP servers.</p>
+<hr>
+<h2>Critical Patterns</h2>
+<h3>Module-Level Server Instance</h3>
+<p>FastMCP Cloud requires the server instance at module level:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># CORRECT</span>
+</span><span class="code-line">mcp <span class="token operator">=</span> FastMCP<span class="token punctuation">(</span><span class="token string">"My Server"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">my_tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># WRONG -- Cloud can't find the server</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">create_server</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    mcp <span class="token operator">=</span> FastMCP<span class="token punctuation">(</span><span class="token string">"My Server"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> mcp
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># FIX for factory pattern -- export at module level</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">create_server</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> FastMCP<span class="token punctuation">:</span>
+</span><span class="code-line">    mcp <span class="token operator">=</span> FastMCP<span class="token punctuation">(</span><span class="token string">"server"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> mcp
+</span><span class="code-line">mcp <span class="token operator">=</span> create_server<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Type Annotations Required</h3>
+<p>FastMCP uses type annotations to generate tool schemas:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">search</span><span class="token punctuation">(</span>
+</span><span class="code-line">    query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>           <span class="token comment"># Required parameter</span>
+</span><span class="code-line">    limit<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">,</span>      <span class="token comment"># Optional with default</span>
+</span><span class="code-line">    tags<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>  <span class="token comment"># Complex types supported</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Docstring becomes the tool description."""</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+</span></code></pre>
+<h3>Error Handling</h3>
+<p>Return errors as strings, don't raise exceptions:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">get_data</span><span class="token punctuation">(</span><span class="token builtin">id</span><span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">        result <span class="token operator">=</span> <span class="token keyword">await</span> fetch_data<span class="token punctuation">(</span><span class="token builtin">id</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>result<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">except</span> NotFoundError<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Error: No data found for ID </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token builtin">id</span><span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span></code></pre>
+<h3>Cloud-Ready Server Pattern</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line"><span class="token keyword">from</span> fastmcp <span class="token keyword">import</span> FastMCP
+</span><span class="code-line">
+</span><span class="code-line">mcp <span class="token operator">=</span> FastMCP<span class="token punctuation">(</span><span class="token string">"production-server"</span><span class="token punctuation">)</span>
+</span><span class="code-line">API_KEY <span class="token operator">=</span> os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"API_KEY"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">production_tool</span><span class="token punctuation">(</span>data<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token keyword">not</span> API_KEY<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"API_KEY not configured"</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"status"</span><span class="token punctuation">:</span> <span class="token string">"success"</span><span class="token punctuation">,</span> <span class="token string">"data"</span><span class="token punctuation">:</span> data<span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+</span><span class="code-line">    mcp<span class="token punctuation">.</span>run<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Common Errors and Fixes</h2>
+<p>These are the errors you will hit. Fix them before deploying.</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RuntimeError: No server object found at module level</code></td>
+<td>Server inside a function</td>
+<td>Export <code>mcp = FastMCP(...)</code> at module level</td>
+</tr>
+<tr>
+<td><code>RuntimeError: no running event loop</code></td>
+<td>Missing async/await</td>
+<td>Use <code>async def</code> for async operations</td>
+</tr>
+<tr>
+<td><code>TypeError: missing required argument 'context'</code></td>
+<td>Context not type-hinted</td>
+<td>Add <code>context: Context</code> with type hint</td>
+</tr>
+<tr>
+<td><code>ValueError: Invalid resource URI</code></td>
+<td>Missing URI scheme</td>
+<td>Use <code>data://</code>, <code>file://</code>, <code>info://</code>, <code>api://</code></td>
+</tr>
+<tr>
+<td>Resource template parameter mismatch</td>
+<td>Name mismatch</td>
+<td><code>user://{user_id}</code> needs <code>def get_user(user_id: str)</code></td>
+</tr>
+<tr>
+<td>Pydantic validation error</td>
+<td>Wrong type hints</td>
+<td>Ensure hints match actual data types</td>
+</tr>
+<tr>
+<td>Transport mismatch</td>
+<td>Client/server protocol differ</td>
+<td>Match both to stdio or both to http</td>
+</tr>
+<tr>
+<td>Import errors with editable package</td>
+<td>Package not installed</td>
+<td><code>pip install -e .</code> or add to PYTHONPATH</td>
+</tr>
+<tr>
+<td><code>DeprecationWarning: mcp.settings</code></td>
+<td>Old API</td>
+<td>Use <code>os.getenv()</code> instead</td>
+</tr>
+<tr>
+<td>Port already in use</td>
+<td>Stale process</td>
+<td><code>lsof -ti:8000 | xargs kill -9</code></td>
+</tr>
+<tr>
+<td>Schema generation failure</td>
+<td>Non-JSON types</td>
+<td>Use JSON-compatible types (no NumPy arrays)</td>
+</tr>
+<tr>
+<td>JSON serialization error</td>
+<td>datetime/bytes in response</td>
+<td>Convert to <code>.isoformat()</code> or string</td>
+</tr>
+<tr>
+<td>Circular import</td>
+<td>Factory in <code>__init__.py</code></td>
+<td>Use direct imports, avoid factory pattern</td>
+</tr>
+<tr>
+<td>Python 3.12+ datetime warning</td>
+<td><code>datetime.utcnow()</code> deprecated</td>
+<td>Use <code>datetime.now(timezone.utc)</code></td>
+</tr>
+<tr>
+<td>Import-time execution</td>
+<td>Async resource at module level</td>
+<td>Use lazy init pattern</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Production Patterns</h2>
+<h3>Self-Contained Server</h3>
+<p>Keep all utilities in one file to avoid circular imports:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> fastmcp <span class="token keyword">import</span> FastMCP
+</span><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line">
+</span><span class="code-line">mcp <span class="token operator">=</span> FastMCP<span class="token punctuation">(</span><span class="token string">"my-server"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Config</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">Config</span><span class="token punctuation">:</span>
+</span><span class="code-line">    API_KEY <span class="token operator">=</span> os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"API_KEY"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
+</span><span class="code-line">    BASE_URL <span class="token operator">=</span> os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"BASE_URL"</span><span class="token punctuation">,</span> <span class="token string">"https://api.example.com"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Helpers</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">format_success</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span> <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"status"</span><span class="token punctuation">:</span> <span class="token string">"success"</span><span class="token punctuation">,</span> <span class="token string">"data"</span><span class="token punctuation">:</span> data<span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">format_error</span><span class="token punctuation">(</span>msg<span class="token punctuation">)</span><span class="token punctuation">:</span> <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"status"</span><span class="token punctuation">:</span> <span class="token string">"error"</span><span class="token punctuation">,</span> <span class="token string">"message"</span><span class="token punctuation">:</span> msg<span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">my_tool</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token keyword">not</span> Config<span class="token punctuation">.</span>API_KEY<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> format_error<span class="token punctuation">(</span><span class="token string">"API_KEY not configured"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> format_success<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">"query"</span><span class="token punctuation">:</span> query<span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Lazy Initialisation</h3>
+<p>Don't create async resources at module level. Initialise on first use:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">_db <span class="token operator">=</span> <span class="token boolean">None</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">get_db</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">global</span> _db
+</span><span class="code-line">    <span class="token keyword">if</span> _db <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        _db <span class="token operator">=</span> <span class="token keyword">await</span> create_connection<span class="token punctuation">(</span>Config<span class="token punctuation">.</span>DB_URL<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> _db
+</span></code></pre>
+<h3>Health Check Resource</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>resource</span><span class="token punctuation">(</span><span class="token string">"health://status"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">health_check</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string">"status"</span><span class="token punctuation">:</span> <span class="token string">"healthy"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"version"</span><span class="token punctuation">:</span> <span class="token string">"1.0.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"checks"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token string">"api"</span><span class="token punctuation">:</span> <span class="token string">"connected"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string">"database"</span><span class="token punctuation">:</span> <span class="token string">"connected"</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Connection Pooling</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> httpx
+</span><span class="code-line">
+</span><span class="code-line">_client <span class="token operator">=</span> <span class="token boolean">None</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">get_client</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">global</span> _client
+</span><span class="code-line">    <span class="token keyword">if</span> _client <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+</span><span class="code-line">        _client <span class="token operator">=</span> httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>
+</span><span class="code-line">            base_url<span class="token operator">=</span>Config<span class="token punctuation">.</span>BASE_URL<span class="token punctuation">,</span>
+</span><span class="code-line">            headers<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"Authorization"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"Bearer </span><span class="token interpolation"><span class="token punctuation">{</span>Config<span class="token punctuation">.</span>API_KEY<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">            limits<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Limits<span class="token punctuation">(</span>max_connections<span class="token operator">=</span><span class="token number">20</span><span class="token punctuation">,</span> max_keepalive_connections<span class="token operator">=</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            timeout<span class="token operator">=</span><span class="token number">30.0</span>
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> _client
+</span></code></pre>
+<h3>Retry with Backoff</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">retry_with_backoff</span><span class="token punctuation">(</span>func<span class="token punctuation">,</span> max_retries<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">,</span> initial_delay<span class="token operator">=</span><span class="token number">1.0</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">for</span> attempt <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span>max_retries<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> <span class="token keyword">await</span> func<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">if</span> attempt <span class="token operator">==</span> max_retries <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">:</span>
+</span><span class="code-line">                <span class="token keyword">raise</span>
+</span><span class="code-line">            delay <span class="token operator">=</span> initial_delay <span class="token operator">*</span> <span class="token punctuation">(</span><span class="token number">2</span> <span class="token operator">**</span> attempt<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span>delay<span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Context Features (Advanced)</h2>
+<h3>Context Injection</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> fastmcp <span class="token keyword">import</span> Context
+</span><span class="code-line">
+</span><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">tool_with_context</span><span class="token punctuation">(</span>param<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> context<span class="token punctuation">:</span> Context<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token comment"># Context parameter MUST have type hint</span>
+</span><span class="code-line">    <span class="token keyword">pass</span>
+</span></code></pre>
+<h3>Progress Tracking</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">long_task</span><span class="token punctuation">(</span>items<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> context<span class="token punctuation">:</span> Context<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">for</span> i<span class="token punctuation">,</span> item <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>items<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">await</span> context<span class="token punctuation">.</span>report_progress<span class="token punctuation">(</span>i <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>items<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string-interpolation"><span class="token string">f"Processing </span><span class="token interpolation"><span class="token punctuation">{</span>item<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">await</span> process<span class="token punctuation">(</span>item<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string">"Done"</span>
+</span></code></pre>
+<h3>Sampling (LLM from within tools)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token decorator annotation punctuation">@mcp<span class="token punctuation">.</span>tool</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">summarise</span><span class="token punctuation">(</span>text<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> context<span class="token punctuation">:</span> Context<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    result <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>request_sampling<span class="token punctuation">(</span>
+</span><span class="code-line">        messages<span class="token operator">=</span><span class="token punctuation">[</span><span class="token punctuation">{</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"Summarise: </span><span class="token interpolation"><span class="token punctuation">{</span>text<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">        max_tokens<span class="token operator">=</span><span class="token number">200</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> result
+</span></code></pre>
+<hr>
+<h2>CLI Quick Reference</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">fastmcp dev server.py              <span class="token comment"># Dev mode with inspector UI</span>
+</span><span class="code-line">fastmcp run server.py              <span class="token comment"># Run (stdio)</span>
+</span><span class="code-line">fastmcp run server.py <span class="token parameter variable">--transport</span> http <span class="token parameter variable">--port</span> <span class="token number">8000</span>  <span class="token comment"># Run (HTTP)</span>
+</span><span class="code-line">fastmcp inspect server.py          <span class="token comment"># Inspect without running</span>
+</span><span class="code-line">fastmcp <span class="token function">install</span> server.py          <span class="token comment"># Install to Claude Desktop</span>
+</span><span class="code-line">fastmcp deploy server.py <span class="token parameter variable">--name</span> my-server  <span class="token comment"># Deploy to Cloud</span>
+</span></code></pre>
+<p>Environment variables: <code>FASTMCP_LOG_LEVEL</code> (DEBUG/INFO/WARNING/ERROR), <code>FASTMCP_ENV</code> (development/staging/production).</p>
+<hr>
+<h2>Integration Patterns (Optional)</h2>
+<p>For specific integration approaches, see <code>references/integration-patterns.md</code>:</p>
+<ul>
+<li><strong>Manual API</strong> -- <code>httpx.AsyncClient</code> with reusable client</li>
+<li><strong>OpenAPI auto-generation</strong> -- <code>FastMCP.from_openapi(spec, client, route_maps=[...])</code></li>
+<li><strong>FastAPI conversion</strong> -- <code>FastMCP.from_fastapi(app)</code></li>
+</ul>
+<hr>
+<h2>Asset Files</h2>
+<ul>
+<li><code>assets/basic-server.py</code> -- Minimal FastMCP server template</li>
+<li><code>assets/self-contained-server.py</code> -- Server with storage and middleware</li>
+<li><code>assets/tools-examples.py</code> -- Tool patterns and type annotations</li>
+<li><code>assets/resources-examples.py</code> -- Resource URI patterns</li>
+<li><code>assets/prompts-examples.py</code> -- Prompt template patterns</li>
+<li><code>assets/client-example.py</code> -- MCP client usage</li>
+<li><code>assets/SCRIPTS-TEMPLATE.md</code> -- CLI companion docs template</li>
+<li><code>assets/script-template.ts</code> -- TypeScript CLI script template</li>
+</ul></div>

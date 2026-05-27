@@ -1,0 +1,737 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Writing Fuzzing Harnesses</h1>
+<p>A fuzzing harness is the entrypoint function that receives random data from the fuzzer and routes it to your system under test (SUT). The quality of your harness directly determines which code paths get exercised and whether critical bugs are found. A poorly written harness can miss entire subsystems or produce non-reproducible crashes.</p>
+<h2>Overview</h2>
+<p>The harness is the bridge between the fuzzer's random byte generation and your application's API. It must parse raw bytes into meaningful inputs, call target functions, and handle edge cases gracefully. The most important part of any fuzzing setup is the harness—if written poorly, critical parts of your application may not be covered.</p>
+<h3>Key Concepts</h3>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Harness</strong></td>
+<td>Function that receives fuzzer input and calls target code under test</td>
+</tr>
+<tr>
+<td><strong>SUT</strong></td>
+<td>System Under Test—the code being fuzzed</td>
+</tr>
+<tr>
+<td><strong>Entry point</strong></td>
+<td>Function signature required by the fuzzer (e.g., <code>LLVMFuzzerTestOneInput</code>)</td>
+</tr>
+<tr>
+<td><strong>FuzzedDataProvider</strong></td>
+<td>Helper class for structured extraction of typed data from raw bytes</td>
+</tr>
+<tr>
+<td><strong>Determinism</strong></td>
+<td>Property that ensures same input always produces same behavior</td>
+</tr>
+<tr>
+<td><strong>Interleaved fuzzing</strong></td>
+<td>Single harness that exercises multiple operations based on input</td>
+</tr>
+</tbody>
+</table></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>When to Apply</h2>
+<p><strong>Apply this technique when:</strong></p>
+<ul>
+<li>Creating a new fuzz target for the first time</li>
+<li>Fuzz campaign has low code coverage or isn't finding bugs</li>
+<li>Crashes found during fuzzing are not reproducible</li>
+<li>Target API requires complex or structured inputs</li>
+<li>Multiple related functions should be tested together</li>
+</ul>
+<p><strong>Skip this technique when:</strong></p>
+<ul>
+<li>Using existing well-tested harnesses from your project</li>
+<li>Tool provides automatic harness generation that meets your needs</li>
+<li>Target already has comprehensive fuzzing infrastructure</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Minimal C++ harness</td>
+<td><code>extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)</code></td>
+</tr>
+<tr>
+<td>Minimal Rust harness</td>
+<td>`fuzz_target!(</td>
+</tr>
+<tr>
+<td>Size validation</td>
+<td><code>if (size &lt; MIN_SIZE) return 0;</code></td>
+</tr>
+<tr>
+<td>Cast to integers</td>
+<td><code>uint32_t val = *(uint32_t*)(data);</code></td>
+</tr>
+<tr>
+<td>Use FuzzedDataProvider</td>
+<td><code>FuzzedDataProvider fuzzed_data(data, size);</code></td>
+</tr>
+<tr>
+<td>Extract typed data (C++)</td>
+<td><code>auto val = fuzzed_data.ConsumeIntegral&lt;uint32_t&gt;();</code></td>
+</tr>
+<tr>
+<td>Extract string (C++)</td>
+<td><code>auto str = fuzzed_data.ConsumeBytesWithTerminator&lt;char&gt;(32, 0xFF);</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Step-by-Step</h2>
+<h3>Step 1: Identify Entry Points</h3>
+<p>Find functions in your codebase that:</p>
+<ul>
+<li>Accept external input (parsers, validators, protocol handlers)</li>
+<li>Parse complex data formats (JSON, XML, binary protocols)</li>
+<li>Perform security-critical operations (authentication, cryptography)</li>
+<li>Have high cyclomatic complexity or many branches</li>
+</ul>
+<p>Good targets are typically:</p>
+<ul>
+<li>Protocol parsers</li>
+<li>File format parsers</li>
+<li>Serialization/deserialization functions</li>
+<li>Input validation routines</li>
+</ul>
+<h3>Step 2: Write Minimal Harness</h3>
+<p>Start with the simplest possible harness that calls your target function:</p>
+<p><strong>C/C++:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">target_function</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Rust:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token attribute attr-name">#![no_main]</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libfuzzer_sys<span class="token punctuation">::</span></span>fuzz_target<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token macro property">fuzz_target!</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>data<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token punctuation">[</span><span class="token keyword">u8</span><span class="token punctuation">]</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">target_function</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Step 3: Add Input Validation</h3>
+<p>Reject inputs that are too small or too large to be meaningful:</p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Ensure minimum size for meaningful input</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>size <span class="token operator">&lt;</span> MIN_INPUT_SIZE <span class="token operator">||</span> size <span class="token operator">&gt;</span> MAX_INPUT_SIZE<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token function">target_function</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Rationale:</strong> The fuzzer generates random inputs of all sizes. Your harness must handle empty, tiny, huge, or malformed inputs without causing unexpected issues in the harness itself (crashes in the SUT are fine—that's what we're looking for).</p>
+<h3>Step 4: Structure the Input</h3>
+<p>For APIs that require typed data (integers, strings, etc.), use casting or helpers like <code>FuzzedDataProvider</code>:</p>
+<p><strong>Simple casting:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>size <span class="token operator">!=</span> <span class="token number">2</span> <span class="token operator">*</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">uint32_t</span> numerator <span class="token operator">=</span> <span class="token operator">*</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">uint32_t</span> denominator <span class="token operator">=</span> <span class="token operator">*</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>data <span class="token operator">+</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">divide</span><span class="token punctuation">(</span>numerator<span class="token punctuation">,</span> denominator<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Using FuzzedDataProvider:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"FuzzedDataProvider.h"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    FuzzedDataProvider <span class="token function">fuzzed_data</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    size_t allocation_size <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeIntegral</span><span class="token generic class-name"><span class="token operator">&lt;</span>size_t<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    std<span class="token double-colon punctuation">::</span>vector<span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span> str1 <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeBytesWithTerminator</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token number">32</span><span class="token punctuation">,</span> <span class="token number">0xFF</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    std<span class="token double-colon punctuation">::</span>vector<span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span> str2 <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeBytesWithTerminator</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token number">32</span><span class="token punctuation">,</span> <span class="token number">0xFF</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">concat</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>str1<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> str1<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token operator">&amp;</span>str2<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> str2<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> allocation_size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Step 5: Test and Iterate</h3>
+<p>Run the fuzzer and monitor:</p>
+<ul>
+<li>Code coverage (are all interesting paths reached?)</li>
+<li>Executions per second (is it fast enough?)</li>
+<li>Crash reproducibility (can you reproduce crashes with saved inputs?)</li>
+</ul>
+<p>Iterate on the harness to improve these metrics.</p>
+<h2>Common Patterns</h2>
+<h3>Pattern: Beyond Byte Arrays—Casting to Integers</h3>
+<p><strong>Use Case:</strong> When target expects primitive types like integers or floats</p>
+<p><strong>Implementation:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Ensure exactly 2 4-byte numbers</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>size <span class="token operator">!=</span> <span class="token number">2</span> <span class="token operator">*</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Split input into two integers</span>
+</span><span class="code-line">    <span class="token keyword">uint32_t</span> numerator <span class="token operator">=</span> <span class="token operator">*</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">uint32_t</span> denominator <span class="token operator">=</span> <span class="token operator">*</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>data <span class="token operator">+</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token keyword">uint32_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">divide</span><span class="token punctuation">(</span>numerator<span class="token punctuation">,</span> denominator<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Rust equivalent:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token macro property">fuzz_target!</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>data<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token punctuation">[</span><span class="token keyword">u8</span><span class="token punctuation">]</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> data<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">!=</span> <span class="token number">2</span> <span class="token operator">*</span> <span class="token namespace">std<span class="token punctuation">::</span>mem<span class="token punctuation">::</span></span><span class="token function">size_of</span><span class="token punctuation">::</span><span class="token operator">&lt;</span><span class="token keyword">i32</span><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">let</span> numerator <span class="token operator">=</span> <span class="token keyword">i32</span><span class="token punctuation">::</span><span class="token function">from_ne_bytes</span><span class="token punctuation">(</span><span class="token punctuation">[</span>data<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> data<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> data<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">,</span> data<span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">let</span> denominator <span class="token operator">=</span> <span class="token keyword">i32</span><span class="token punctuation">::</span><span class="token function">from_ne_bytes</span><span class="token punctuation">(</span><span class="token punctuation">[</span>data<span class="token punctuation">[</span><span class="token number">4</span><span class="token punctuation">]</span><span class="token punctuation">,</span> data<span class="token punctuation">[</span><span class="token number">5</span><span class="token punctuation">]</span><span class="token punctuation">,</span> data<span class="token punctuation">[</span><span class="token number">6</span><span class="token punctuation">]</span><span class="token punctuation">,</span> data<span class="token punctuation">[</span><span class="token number">7</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">divide</span><span class="token punctuation">(</span>numerator<span class="token punctuation">,</span> denominator<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Why it works:</strong> Any 8-byte input is valid. The fuzzer learns that inputs must be exactly 8 bytes, and every bit flip produces a new, potentially interesting input.</p>
+<h3>Pattern: FuzzedDataProvider for Complex Inputs</h3>
+<p><strong>Use Case:</strong> When target requires multiple strings, integers, or variable-length data</p>
+<p><strong>Implementation:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"FuzzedDataProvider.h"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    FuzzedDataProvider <span class="token function">fuzzed_data</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Extract different types of data</span>
+</span><span class="code-line">    size_t allocation_size <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeIntegral</span><span class="token generic class-name"><span class="token operator">&lt;</span>size_t<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Consume variable-length strings with terminator</span>
+</span><span class="code-line">    std<span class="token double-colon punctuation">::</span>vector<span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span> str1 <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeBytesWithTerminator</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token number">32</span><span class="token punctuation">,</span> <span class="token number">0xFF</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    std<span class="token double-colon punctuation">::</span>vector<span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span> str2 <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeBytesWithTerminator</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token keyword">char</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token number">32</span><span class="token punctuation">,</span> <span class="token number">0xFF</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">char</span><span class="token operator">*</span> result <span class="token operator">=</span> <span class="token function">concat</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>str1<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> str1<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token operator">&amp;</span>str2<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> str2<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> allocation_size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>result <span class="token operator">!=</span> <span class="token constant">NULL</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">free</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Why it helps:</strong> <code>FuzzedDataProvider</code> handles the complexity of extracting structured data from a byte stream. It's particularly useful for APIs that need multiple parameters of different types.</p>
+<h3>Pattern: Interleaved Fuzzing</h3>
+<p><strong>Use Case:</strong> When multiple related operations should be tested in a single harness</p>
+<p><strong>Implementation:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>size <span class="token operator">&lt;</span> <span class="token number">1</span> <span class="token operator">+</span> <span class="token number">2</span> <span class="token operator">*</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token keyword">int32_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// First byte selects operation</span>
+</span><span class="code-line">    <span class="token keyword">uint8_t</span> mode <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Next bytes are operands</span>
+</span><span class="code-line">    <span class="token keyword">int32_t</span> numbers<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">memcpy</span><span class="token punctuation">(</span>numbers<span class="token punctuation">,</span> data <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span> <span class="token operator">*</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span><span class="token keyword">int32_t</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">int32_t</span> result <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">switch</span> <span class="token punctuation">(</span>mode <span class="token operator">%</span> <span class="token number">4</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token number">0</span><span class="token operator">:</span>
+</span><span class="code-line">            result <span class="token operator">=</span> <span class="token function">add</span><span class="token punctuation">(</span>numbers<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> numbers<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token number">1</span><span class="token operator">:</span>
+</span><span class="code-line">            result <span class="token operator">=</span> <span class="token function">subtract</span><span class="token punctuation">(</span>numbers<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> numbers<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token number">2</span><span class="token operator">:</span>
+</span><span class="code-line">            result <span class="token operator">=</span> <span class="token function">multiply</span><span class="token punctuation">(</span>numbers<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> numbers<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">case</span> <span class="token number">3</span><span class="token operator">:</span>
+</span><span class="code-line">            result <span class="token operator">=</span> <span class="token function">divide</span><span class="token punctuation">(</span>numbers<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> numbers<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Prevent compiler from optimizing away the calls</span>
+</span><span class="code-line">    <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"%d"</span><span class="token punctuation">,</span> result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Advantages:</strong></p>
+<ul>
+<li>Faster to write one harness than multiple individual harnesses</li>
+<li>Single shared corpus means interesting inputs for one operation may be interesting for others</li>
+<li>Can discover bugs in interactions between operations</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Operations share similar input types</li>
+<li>Operations are logically related (e.g., arithmetic operations, CRUD operations)</li>
+<li>Single corpus makes sense across all operations</li>
+</ul>
+<h3>Pattern: Structure-Aware Fuzzing with Arbitrary (Rust)</h3>
+<p><strong>Use Case:</strong> When fuzzing Rust code that uses custom structs</p>
+<p><strong>Implementation:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">arbitrary<span class="token punctuation">::</span></span><span class="token class-name">Arbitrary</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token attribute attr-name">#[derive(Debug, Arbitrary)]</span>
+</span><span class="code-line"><span class="token keyword">pub</span> <span class="token keyword">struct</span> <span class="token type-definition class-name">Name</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    data<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">impl</span> <span class="token class-name">Name</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">pub</span> <span class="token keyword">fn</span> <span class="token function-definition function">check_buf</span><span class="token punctuation">(</span><span class="token operator">&amp;</span><span class="token keyword">self</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> data <span class="token operator">=</span> <span class="token keyword">self</span><span class="token punctuation">.</span>data<span class="token punctuation">.</span><span class="token function">as_bytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">if</span> data<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&gt;</span> <span class="token number">0</span> <span class="token operator">&amp;&amp;</span> data<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token char">b'a'</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">if</span> data<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&gt;</span> <span class="token number">1</span> <span class="token operator">&amp;&amp;</span> data<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token char">b'b'</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">if</span> data<span class="token punctuation">.</span><span class="token function">len</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">&gt;</span> <span class="token number">2</span> <span class="token operator">&amp;&amp;</span> data<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token char">b'c'</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token namespace">process<span class="token punctuation">::</span></span><span class="token function">abort</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Harness with arbitrary:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token attribute attr-name">#![no_main]</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libfuzzer_sys<span class="token punctuation">::</span></span>fuzz_target<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token macro property">fuzz_target!</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>data<span class="token punctuation">:</span> <span class="token namespace">your_project<span class="token punctuation">::</span></span><span class="token class-name">Name</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    data<span class="token punctuation">.</span><span class="token function">check_buf</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Add to Cargo.toml:</strong></p>
+<pre class="language-toml"><code class="language-toml code-highlight"><span class="code-line"><span class="token punctuation">[</span><span class="token table class-name">dependencies</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key property">arbitrary</span> <span class="token punctuation">=</span> <span class="token punctuation">{</span> <span class="token key property">version</span> <span class="token punctuation">=</span> <span class="token string">"1"</span><span class="token punctuation">,</span> <span class="token key property">features</span> <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token string">"derive"</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Why it helps:</strong> The <code>arbitrary</code> crate automatically handles deserialization of raw bytes into your Rust structs, reducing boilerplate and ensuring valid struct construction.</p>
+<p><strong>Limitation:</strong> The arbitrary crate doesn't offer reverse serialization, so you can't manually construct byte arrays that map to specific structs. This works best when starting from an empty corpus (fine for libFuzzer, problematic for AFL++).</p>
+<h2>Advanced Usage</h2>
+<h3>Tips and Tricks</h3>
+<table>
+<thead>
+<tr>
+<th>Tip</th>
+<th>Why It Helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Start with parsers</strong></td>
+<td>High bug density, clear entry points, easy to harness</td>
+</tr>
+<tr>
+<td><strong>Mock I/O operations</strong></td>
+<td>Prevents hangs from blocking I/O, enables determinism</td>
+</tr>
+<tr>
+<td><strong>Use FuzzedDataProvider</strong></td>
+<td>Simplifies extraction of structured data from raw bytes</td>
+</tr>
+<tr>
+<td><strong>Reset global state</strong></td>
+<td>Ensures each iteration is independent and reproducible</td>
+</tr>
+<tr>
+<td><strong>Free resources in harness</strong></td>
+<td>Prevents memory exhaustion during long campaigns</td>
+</tr>
+<tr>
+<td><strong>Avoid logging in harness</strong></td>
+<td>Logging is slow—fuzzing needs 100s-1000s exec/sec</td>
+</tr>
+<tr>
+<td><strong>Test harness manually first</strong></td>
+<td>Run harness with known inputs before starting campaign</td>
+</tr>
+<tr>
+<td><strong>Check coverage early</strong></td>
+<td>Ensure harness reaches expected code paths</td>
+</tr>
+</tbody>
+</table>
+<h3>Structure-Aware Fuzzing with Protocol Buffers</h3>
+<p>For highly structured input formats, consider using Protocol Buffers as an intermediate format with custom mutators:</p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token comment">// Define your input format in .proto file</span>
+</span><span class="code-line"><span class="token comment">// Use libprotobuf-mutator to generate valid mutations</span>
+</span><span class="code-line"><span class="token comment">// This ensures fuzzer mutates message contents, not the protobuf encoding itself</span>
+</span></code></pre>
+<p>This approach is more setup but prevents the fuzzer from wasting time on unparseable inputs. See <a href="https://github.com/google/fuzzing/blob/master/docs/structure-aware-fuzzing.md" target="_blank" rel="ugc nofollow noopener">structure-aware fuzzing documentation</a> for details.</p>
+<h3>Handling Non-Determinism</h3>
+<p><strong>Problem:</strong> Random values or timing dependencies cause non-reproducible crashes.</p>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li>Replace <code>rand()</code> with deterministic PRNG seeded from fuzzer input:
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">uint32_t</span> seed <span class="token operator">=</span> fuzzed_data<span class="token punctuation">.</span><span class="token generic-function"><span class="token function">ConsumeIntegral</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token keyword">uint32_t</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">srand</span><span class="token punctuation">(</span>seed<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+</li>
+<li>Mock system calls that return time, PIDs, or random data</li>
+<li>Avoid reading from <code>/dev/random</code> or <code>/dev/urandom</code></li>
+</ul>
+<h3>Resetting Global State</h3>
+<p>If your SUT uses global state (singletons, static variables), reset it between iterations:</p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Reset global state before each iteration</span>
+</span><span class="code-line">    <span class="token function">global_reset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">target_function</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Clean up resources</span>
+</span><span class="code-line">    <span class="token function">global_cleanup</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Rationale:</strong> Global state can cause crashes after N iterations rather than on a specific input, making bugs non-reproducible.</p>
+<h2>Practical Harness Rules</h2>
+<p>Follow these rules to ensure effective fuzzing harnesses:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Handle all input sizes</strong></td>
+<td>Fuzzer generates empty, tiny, huge inputs—harness must handle gracefully</td>
+</tr>
+<tr>
+<td><strong>Never call <code>exit()</code></strong></td>
+<td>Calling <code>exit()</code> stops the fuzzer process. Use <code>abort()</code> in SUT if needed</td>
+</tr>
+<tr>
+<td><strong>Join all threads</strong></td>
+<td>Each iteration must run to completion before next iteration starts</td>
+</tr>
+<tr>
+<td><strong>Be fast</strong></td>
+<td>Aim for 100s-1000s executions/sec. Avoid logging, high complexity, excess memory</td>
+</tr>
+<tr>
+<td><strong>Maintain determinism</strong></td>
+<td>Same input must always produce same behavior for reproducibility</td>
+</tr>
+<tr>
+<td><strong>Avoid global state</strong></td>
+<td>Global state reduces reproducibility—reset between iterations if unavoidable</td>
+</tr>
+<tr>
+<td><strong>Use narrow targets</strong></td>
+<td>Don't fuzz PNG and TCP in same harness—different formats need separate targets</td>
+</tr>
+<tr>
+<td><strong>Free resources</strong></td>
+<td>Prevent memory leaks that cause resource exhaustion during long campaigns</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note:</strong> These guidelines apply not just to harness code, but to the entire SUT. If the SUT violates these rules, consider patching it (see the fuzzing obstacles technique).</p>
+<h2>Anti-Patterns</h2>
+<table>
+<thead>
+<tr>
+<th>Anti-Pattern</th>
+<th>Problem</th>
+<th>Correct Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Global state without reset</strong></td>
+<td>Non-deterministic crashes</td>
+<td>Reset all globals at start of harness</td>
+</tr>
+<tr>
+<td><strong>Blocking I/O or network calls</strong></td>
+<td>Hangs fuzzer, wastes time</td>
+<td>Mock I/O, use in-memory buffers</td>
+</tr>
+<tr>
+<td><strong>Memory leaks in harness</strong></td>
+<td>Resource exhaustion kills campaign</td>
+<td>Free all allocations before returning</td>
+</tr>
+<tr>
+<td><strong>Calling <code>exit()</code> in SUT</strong></td>
+<td>Stops entire fuzzing process</td>
+<td>Use <code>abort()</code> or return error codes</td>
+</tr>
+<tr>
+<td><strong>Heavy logging in harness</strong></td>
+<td>Reduces exec/sec by orders of magnitude</td>
+<td>Disable logging during fuzzing</td>
+</tr>
+<tr>
+<td><strong>Too many operations per iteration</strong></td>
+<td>Slows down fuzzer</td>
+<td>Keep iterations fast and focused</td>
+</tr>
+<tr>
+<td><strong>Mixing unrelated input formats</strong></td>
+<td>Corpus entries not useful across formats</td>
+<td>Separate harnesses for different formats</td>
+</tr>
+<tr>
+<td><strong>Not validating input size</strong></td>
+<td>Harness crashes on edge cases</td>
+<td>Check <code>size</code> before accessing <code>data</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Tool-Specific Guidance</h2>
+<h3>libFuzzer</h3>
+<p><strong>Harness signature:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token keyword">extern</span> <span class="token string">"C"</span> <span class="token keyword">int</span> <span class="token function">LLVMFuzzerTestOneInput</span><span class="token punctuation">(</span><span class="token keyword">const</span> <span class="token keyword">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">,</span> size_t size<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Your code here</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>  <span class="token comment">// Non-zero return is reserved for future use</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Compilation:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">clang++ <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer,address <span class="token parameter variable">-g</span> harness.cc <span class="token parameter variable">-o</span> fuzz_target
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Use <code>FuzzedDataProvider.h</code> for structured input extraction</li>
+<li>Compile with <code>-fsanitize=fuzzer</code> to link the fuzzing runtime</li>
+<li>Add sanitizers (<code>-fsanitize=address,undefined</code>) to detect more bugs</li>
+<li>Use <code>-g</code> for better stack traces when crashes occur</li>
+<li>libFuzzer can start with empty corpus—no seed inputs required</li>
+</ul>
+<p><strong>Running:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./fuzz_target corpus_dir/
+</span></code></pre>
+<p><strong>Resources:</strong></p>
+<ul>
+<li><a href="https://github.com/llvm/llvm-project/blob/main/compiler-rt/include/fuzzer/FuzzedDataProvider.h" target="_blank" rel="ugc nofollow noopener">FuzzedDataProvider header</a></li>
+<li><a href="https://llvm.org/docs/LibFuzzer.html" target="_blank" rel="ugc nofollow noopener">libFuzzer documentation</a></li>
+</ul>
+<h3>AFL++</h3>
+<p>AFL++ supports multiple harness styles. For best performance, use persistent mode:</p>
+<p><strong>Persistent mode harness:</strong></p>
+<pre class="language-cpp"><code class="language-cpp code-highlight"><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;unistd.h&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token keyword">int</span> argc<span class="token punctuation">,</span> <span class="token keyword">char</span> <span class="token operator">*</span><span class="token operator">*</span>argv<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">ifdef</span> <span class="token expression">__AFL_HAVE_MANUAL_CONTROL</span></span>
+</span><span class="code-line">        <span class="token function">__AFL_INIT</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">endif</span></span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">unsigned</span> <span class="token keyword">char</span> buf<span class="token punctuation">[</span>MAX_SIZE<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token function">__AFL_LOOP</span><span class="token punctuation">(</span><span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Read input from stdin</span>
+</span><span class="code-line">        ssize_t len <span class="token operator">=</span> <span class="token function">read</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> buf<span class="token punctuation">,</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span>buf<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span>len <span class="token operator">&lt;=</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token keyword">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token comment">// Call target function</span>
+</span><span class="code-line">        <span class="token function">target_function</span><span class="token punctuation">(</span>buf<span class="token punctuation">,</span> len<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Compilation:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">afl-clang-fast++ <span class="token parameter variable">-g</span> harness.cc <span class="token parameter variable">-o</span> fuzz_target
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Use persistent mode (<code>__AFL_LOOP</code>) for 10-100x speedup</li>
+<li>Consider deferred initialization (<code>__AFL_INIT()</code>) to skip setup overhead</li>
+<li>AFL++ requires at least one seed input in the corpus directory</li>
+<li>Use <code>AFL_USE_ASAN=1</code> or <code>AFL_USE_UBSAN=1</code> for sanitizer builds</li>
+</ul>
+<p><strong>Running:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">afl-fuzz <span class="token parameter variable">-i</span> seeds/ <span class="token parameter variable">-o</span> findings/ -- ./fuzz_target
+</span></code></pre>
+<h3>cargo-fuzz (Rust)</h3>
+<p><strong>Harness signature:</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token attribute attr-name">#![no_main]</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libfuzzer_sys<span class="token punctuation">::</span></span>fuzz_target<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token macro property">fuzz_target!</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>data<span class="token punctuation">:</span> <span class="token operator">&amp;</span><span class="token punctuation">[</span><span class="token keyword">u8</span><span class="token punctuation">]</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Your code here</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>With structured input (arbitrary crate):</strong></p>
+<pre class="language-rust"><code class="language-rust code-highlight"><span class="code-line"><span class="token attribute attr-name">#![no_main]</span>
+</span><span class="code-line"><span class="token keyword">use</span> <span class="token namespace">libfuzzer_sys<span class="token punctuation">::</span></span>fuzz_target<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token macro property">fuzz_target!</span><span class="token punctuation">(</span><span class="token closure-params"><span class="token closure-punctuation punctuation">|</span>data<span class="token punctuation">:</span> <span class="token class-name">YourStruct</span><span class="token closure-punctuation punctuation">|</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    data<span class="token punctuation">.</span><span class="token function">check</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Creating harness:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cargo</span> fuzz init
+</span><span class="code-line"><span class="token function">cargo</span> fuzz <span class="token function">add</span> my_target
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Use <code>arbitrary</code> crate for automatic struct deserialization</li>
+<li>cargo-fuzz wraps libFuzzer, so all libFuzzer features work</li>
+<li>Compile with sanitizers automatically via cargo-fuzz</li>
+<li>Harnesses go in <code>fuzz/fuzz_targets/</code> directory</li>
+</ul>
+<p><strong>Running:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cargo</span> +nightly fuzz run my_target
+</span></code></pre>
+<p><strong>Resources:</strong></p>
+<ul>
+<li><a href="https://rust-fuzz.github.io/book/cargo-fuzz.html" target="_blank" rel="ugc nofollow noopener">cargo-fuzz documentation</a></li>
+<li><a href="https://github.com/rust-fuzz/arbitrary" target="_blank" rel="ugc nofollow noopener">arbitrary crate</a></li>
+</ul>
+<h3>go-fuzz</h3>
+<p><strong>Harness signature:</strong></p>
+<pre class="language-go"><code class="language-go code-highlight"><span class="code-line"><span class="token comment">// +build gofuzz</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">package</span> mypackage
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">func</span> <span class="token function">Fuzz</span><span class="token punctuation">(</span>data <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token builtin">byte</span><span class="token punctuation">)</span> <span class="token builtin">int</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Call target function</span>
+</span><span class="code-line">    <span class="token function">target</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Return codes:</span>
+</span><span class="code-line">    <span class="token comment">// -1 if input is invalid</span>
+</span><span class="code-line">    <span class="token comment">//  0 if input is valid but not interesting</span>
+</span><span class="code-line">    <span class="token comment">//  1 if input is interesting (e.g., added new coverage)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token number">0</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Building:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">go-fuzz-build
+</span></code></pre>
+<p><strong>Integration tips:</strong></p>
+<ul>
+<li>Return 1 for inputs that add coverage (optional—fuzzer can detect automatically)</li>
+<li>Return -1 for invalid inputs to deprioritize similar mutations</li>
+<li>go-fuzz handles persistence automatically</li>
+</ul>
+<p><strong>Running:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">go-fuzz <span class="token parameter variable">-bin</span><span class="token operator">=</span>./mypackage-fuzz.zip <span class="token parameter variable">-workdir</span><span class="token operator">=</span>fuzz
+</span></code></pre>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low executions/sec</strong></td>
+<td>Harness is too slow (logging, I/O, complexity)</td>
+<td>Profile harness, remove bottlenecks, mock I/O</td>
+</tr>
+<tr>
+<td><strong>No crashes found</strong></td>
+<td>Coverage not reaching buggy code</td>
+<td>Check coverage, improve harness to reach more paths</td>
+</tr>
+<tr>
+<td><strong>Non-reproducible crashes</strong></td>
+<td>Non-determinism or global state</td>
+<td>Remove randomness, reset globals between iterations</td>
+</tr>
+<tr>
+<td><strong>Fuzzer exits immediately</strong></td>
+<td>Harness calls <code>exit()</code></td>
+<td>Replace <code>exit()</code> with <code>abort()</code> or return error</td>
+</tr>
+<tr>
+<td><strong>Out of memory errors</strong></td>
+<td>Memory leaks in harness or SUT</td>
+<td>Free allocations, use leak sanitizer to find leaks</td>
+</tr>
+<tr>
+<td><strong>Crashes on empty input</strong></td>
+<td>Harness doesn't validate size</td>
+<td>Add <code>if (size &lt; MIN_SIZE) return 0;</code></td>
+</tr>
+<tr>
+<td><strong>Corpus not growing</strong></td>
+<td>Inputs too constrained or format too strict</td>
+<td>Use FuzzedDataProvider or structure-aware fuzzing</td>
+</tr>
+</tbody>
+</table>
+<h2>Related Skills</h2>
+<h3>Tools That Use This Technique</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>How It Applies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>libfuzzer</strong></td>
+<td>Uses <code>LLVMFuzzerTestOneInput</code> harness signature with FuzzedDataProvider</td>
+</tr>
+<tr>
+<td><strong>aflpp</strong></td>
+<td>Supports persistent mode harnesses with <code>__AFL_LOOP</code> for performance</td>
+</tr>
+<tr>
+<td><strong>cargo-fuzz</strong></td>
+<td>Uses Rust-specific <code>fuzz_target!</code> macro with arbitrary crate integration</td>
+</tr>
+<tr>
+<td><strong>atheris</strong></td>
+<td>Python harness takes bytes, calls Python functions</td>
+</tr>
+<tr>
+<td><strong>ossfuzz</strong></td>
+<td>Requires harnesses in specific directory structure for cloud fuzzing</td>
+</tr>
+</tbody>
+</table>
+<h3>Related Techniques</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Relationship</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>coverage-analysis</strong></td>
+<td>Measure harness effectiveness—are you reaching target code?</td>
+</tr>
+<tr>
+<td><strong>address-sanitizer</strong></td>
+<td>Detects bugs found by harness (buffer overflows, use-after-free)</td>
+</tr>
+<tr>
+<td><strong>fuzzing-dictionary</strong></td>
+<td>Provide tokens to help fuzzer pass format checks in harness</td>
+</tr>
+<tr>
+<td><strong>fuzzing-obstacles</strong></td>
+<td>Patch SUT when it violates harness rules (exit, non-determinism)</td>
+</tr>
+</tbody>
+</table>
+<h2>Resources</h2>
+<h3>Key External Resources</h3>
+<p><strong><a href="https://github.com/google/fuzzing/blob/master/docs/split-inputs.md" target="_blank" rel="ugc nofollow noopener">Split Inputs in libFuzzer - Google Fuzzing Docs</a></strong>
+Explains techniques for handling multiple input parameters in a single fuzzing harness, including use of magic separators and FuzzedDataProvider.</p>
+<p><strong><a href="https://github.com/google/fuzzing/blob/master/docs/structure-aware-fuzzing.md" target="_blank" rel="ugc nofollow noopener">Structure-Aware Fuzzing with Protocol Buffers</a></strong>
+Advanced technique using protobuf as intermediate format with custom mutators to ensure fuzzer mutates message contents rather than format encoding.</p>
+<p><strong><a href="https://llvm.org/docs/LibFuzzer.html" target="_blank" rel="ugc nofollow noopener">libFuzzer Documentation</a></strong>
+Official LLVM documentation covering harness requirements, best practices, and advanced features.</p>
+<p><strong><a href="https://rust-fuzz.github.io/book/cargo-fuzz.html" target="_blank" rel="ugc nofollow noopener">cargo-fuzz Book</a></strong>
+Comprehensive guide to writing Rust fuzzing harnesses with cargo-fuzz and the arbitrary crate.</p>
+<h3>Video Resources</h3>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=qTTwqFRD1H8" target="_blank" rel="ugc nofollow noopener">Effective File Format Fuzzing</a> - Conference talk on writing harnesses for file format parsers</li>
+<li><a href="https://www.youtube.com/watch?v=x0FQkAPokfE" target="_blank" rel="ugc nofollow noopener">Modern Fuzzing of C/C++ Projects</a> - Tutorial covering harness design patterns</li>
+</ul></div>

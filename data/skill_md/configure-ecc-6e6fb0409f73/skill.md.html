@@ -1,0 +1,520 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Configure Everything Claude Code (ECC)</h1>
+<p>An interactive, step-by-step installation wizard for the Everything Claude Code project. Uses <code>AskUserQuestion</code> to guide users through selective installation of skills and rules, then verifies correctness and offers optimization.</p>
+<h2>When to Activate</h2>
+<ul>
+<li>User says "configure ecc", "install ecc", "setup everything claude code", or similar</li>
+<li>User wants to selectively install skills or rules from this project</li>
+<li>User wants to verify or fix an existing ECC installation</li>
+<li>User wants to optimize installed skills or rules for their project</li>
+</ul>
+<h2>Prerequisites</h2>
+<p>This skill must be accessible to Claude Code before activation. Two ways to bootstrap:</p>
+<ol>
+<li><strong>Via Plugin</strong>: <code>/plugin install ecc@ecc</code> — the plugin loads this skill automatically</li>
+<li><strong>Manual</strong>: Copy only this skill to <code>~/.claude/skills/configure-ecc/SKILL.md</code>, then activate by saying "configure ecc"</li>
+</ol>
+<hr></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Step 0: Clone ECC Repository</h2>
+<p>Before any installation, clone the latest ECC source to <code>/tmp</code>:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> /tmp/everything-claude-code
+</span><span class="code-line"><span class="token function">git</span> clone https://github.com/affaan-m/everything-claude-code.git /tmp/everything-claude-code
+</span></code></pre>
+<p>Set <code>ECC_ROOT=/tmp/everything-claude-code</code> as the source for all subsequent copy operations.</p>
+<p>If the clone fails (network issues, etc.), use <code>AskUserQuestion</code> to ask the user to provide a local path to an existing ECC clone.</p>
+<hr>
+<h2>Step 1: Choose Installation Level</h2>
+<p>Use <code>AskUserQuestion</code> to ask the user where to install:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Question: "Where should ECC components be installed?"
+</span><span class="code-line">Options:
+</span><span class="code-line">  - "User-level (~/.claude/)" — "Applies to all your Claude Code projects"
+</span><span class="code-line">  - "Project-level (.claude/)" — "Applies only to the current project"
+</span><span class="code-line">  - "Both" — "Common/shared items user-level, project-specific items project-level"
+</span></code></pre>
+<p>Store the choice as <code>INSTALL_LEVEL</code>. Set the target directory:</p>
+<ul>
+<li>User-level: <code>TARGET=~/.claude</code></li>
+<li>Project-level: <code>TARGET=.claude</code> (relative to current project root)</li>
+<li>Both: <code>TARGET_USER=~/.claude</code>, <code>TARGET_PROJECT=.claude</code></li>
+</ul>
+<p>Create the target directories if they don't exist:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token variable">$TARGET</span>/skills <span class="token variable">$TARGET</span>/rules
+</span></code></pre>
+<hr>
+<h2>Step 2: Select &amp; Install Skills</h2>
+<h3>2a: Choose Scope (Core vs Niche)</h3>
+<p>Default to <strong>Core (recommended for new users)</strong> — copy <code>.agents/skills/*</code> plus <code>skills/search-first/</code> for research-first workflows. This bundle covers engineering, evals, verification, security, strategic compaction, frontend design, and Anthropic cross-functional skills (article-writing, content-engine, market-research, frontend-slides).</p>
+<p>Use <code>AskUserQuestion</code> (single select):</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Question: "Install core skills only, or include niche/framework packs?"
+</span><span class="code-line">Options:
+</span><span class="code-line">  - "Core only (recommended)" — "tdd, e2e, evals, verification, research-first, security, frontend patterns, compacting, cross-functional Anthropic skills"
+</span><span class="code-line">  - "Core + selected niche" — "Add framework/domain-specific skills after core"
+</span><span class="code-line">  - "Niche only" — "Skip core, install specific framework/domain skills"
+</span><span class="code-line">Default: Core only
+</span></code></pre>
+<p>If the user chooses niche or core + niche, continue to category selection below and only include those niche skills they pick.</p>
+<h3>2b: Choose Skill Categories</h3>
+<p>There are 7 selectable category groups below. The detailed confirmation lists that follow cover 45 skills across 8 categories, plus 1 standalone template. Use <code>AskUserQuestion</code> with <code>multiSelect: true</code>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Question: "Which skill categories do you want to install?"
+</span><span class="code-line">Options:
+</span><span class="code-line">  - "Framework &amp; Language" — "Django, Laravel, Spring Boot, Quarkus, Go, Python, Java, Frontend, Backend patterns"
+</span><span class="code-line">  - "Database" — "PostgreSQL, ClickHouse, JPA/Hibernate patterns"
+</span><span class="code-line">  - "Workflow &amp; Quality" — "TDD, verification, learning, security review, compaction"
+</span><span class="code-line">  - "Research &amp; APIs" — "Deep research, Exa search, Claude API patterns"
+</span><span class="code-line">  - "Social &amp; Content Distribution" — "X/Twitter API, crossposting alongside content-engine"
+</span><span class="code-line">  - "Media Generation" — "fal.ai image/video/audio alongside VideoDB"
+</span><span class="code-line">  - "Orchestration" — "dmux multi-agent workflows"
+</span><span class="code-line">  - "All skills" — "Install every available skill"
+</span></code></pre>
+<h3>2c: Confirm Individual Skills</h3>
+<p>For each selected category, print the full list of skills below and ask the user to confirm or deselect specific ones. If the list exceeds 4 items, print the list as text and use <code>AskUserQuestion</code> with an "Install all listed" option plus "Other" for the user to paste specific names.</p>
+<p><strong>Category: Framework &amp; Language (25 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend-patterns</code></td>
+<td>Backend architecture, API design, server-side best practices for Node.js/Express/Next.js</td>
+</tr>
+<tr>
+<td><code>coding-standards</code></td>
+<td>Universal coding standards for TypeScript, JavaScript, React, Node.js</td>
+</tr>
+<tr>
+<td><code>django-patterns</code></td>
+<td>Django architecture, REST API with DRF, ORM, caching, signals, middleware</td>
+</tr>
+<tr>
+<td><code>django-security</code></td>
+<td>Django security: auth, CSRF, SQL injection, XSS prevention</td>
+</tr>
+<tr>
+<td><code>django-tdd</code></td>
+<td>Django testing with pytest-django, factory_boy, mocking, coverage</td>
+</tr>
+<tr>
+<td><code>django-verification</code></td>
+<td>Django verification loop: migrations, linting, tests, security scans</td>
+</tr>
+<tr>
+<td><code>laravel-patterns</code></td>
+<td>Laravel architecture patterns: routing, controllers, Eloquent, queues, caching</td>
+</tr>
+<tr>
+<td><code>laravel-security</code></td>
+<td>Laravel security: auth, policies, CSRF, mass assignment, rate limiting</td>
+</tr>
+<tr>
+<td><code>laravel-tdd</code></td>
+<td>Laravel testing with PHPUnit and Pest, factories, fakes, coverage</td>
+</tr>
+<tr>
+<td><code>laravel-verification</code></td>
+<td>Laravel verification: linting, static analysis, tests, security scans</td>
+</tr>
+<tr>
+<td><code>frontend-patterns</code></td>
+<td>React, Next.js, state management, performance, UI patterns</td>
+</tr>
+<tr>
+<td><code>frontend-slides</code></td>
+<td>Zero-dependency HTML presentations, style previews, and PPTX-to-web conversion</td>
+</tr>
+<tr>
+<td><code>golang-patterns</code></td>
+<td>Idiomatic Go patterns, conventions for robust Go applications</td>
+</tr>
+<tr>
+<td><code>golang-testing</code></td>
+<td>Go testing: table-driven tests, subtests, benchmarks, fuzzing</td>
+</tr>
+<tr>
+<td><code>java-coding-standards</code></td>
+<td>Java coding standards for Spring Boot and Quarkus: naming, immutability, Optional, streams, CDI</td>
+</tr>
+<tr>
+<td><code>python-patterns</code></td>
+<td>Pythonic idioms, PEP 8, type hints, best practices</td>
+</tr>
+<tr>
+<td><code>python-testing</code></td>
+<td>Python testing with pytest, TDD, fixtures, mocking, parametrization</td>
+</tr>
+<tr>
+<td><code>quarkus-patterns</code></td>
+<td>Quarkus architecture, Camel messaging, CDI services, Panache data access</td>
+</tr>
+<tr>
+<td><code>quarkus-security</code></td>
+<td>Quarkus security: JWT/OIDC, RBAC, input validation, secrets management</td>
+</tr>
+<tr>
+<td><code>quarkus-tdd</code></td>
+<td>Quarkus TDD with JUnit 5, Mockito, REST Assured, Camel testing</td>
+</tr>
+<tr>
+<td><code>quarkus-verification</code></td>
+<td>Quarkus verification: build, static analysis, tests, native compilation</td>
+</tr>
+<tr>
+<td><code>springboot-patterns</code></td>
+<td>Spring Boot architecture, REST API, layered services, caching, async</td>
+</tr>
+<tr>
+<td><code>springboot-security</code></td>
+<td>Spring Security: authn/authz, validation, CSRF, secrets, rate limiting</td>
+</tr>
+<tr>
+<td><code>springboot-tdd</code></td>
+<td>Spring Boot TDD with JUnit 5, Mockito, MockMvc, Testcontainers</td>
+</tr>
+<tr>
+<td><code>springboot-verification</code></td>
+<td>Spring Boot verification: build, static analysis, tests, security scans</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category: Database (3 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clickhouse-io</code></td>
+<td>ClickHouse patterns, query optimization, analytics, data engineering</td>
+</tr>
+<tr>
+<td><code>jpa-patterns</code></td>
+<td>JPA/Hibernate entity design, relationships, query optimization, transactions</td>
+</tr>
+<tr>
+<td><code>postgres-patterns</code></td>
+<td>PostgreSQL query optimization, schema design, indexing, security</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category: Workflow &amp; Quality (8 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>continuous-learning</code></td>
+<td>Legacy v1 Stop-hook session pattern extraction; prefer <code>continuous-learning-v2</code> for new installs</td>
+</tr>
+<tr>
+<td><code>continuous-learning-v2</code></td>
+<td>Instinct-based learning with confidence scoring, evolves into skills, agents, and optional legacy command shims</td>
+</tr>
+<tr>
+<td><code>eval-harness</code></td>
+<td>Formal evaluation framework for eval-driven development (EDD)</td>
+</tr>
+<tr>
+<td><code>iterative-retrieval</code></td>
+<td>Progressive context refinement for subagent context problem</td>
+</tr>
+<tr>
+<td><code>security-review</code></td>
+<td>Security checklist: auth, input, secrets, API, payment features</td>
+</tr>
+<tr>
+<td><code>strategic-compact</code></td>
+<td>Suggests manual context compaction at logical intervals</td>
+</tr>
+<tr>
+<td><code>tdd-workflow</code></td>
+<td>Enforces TDD with 80%+ coverage: unit, integration, E2E</td>
+</tr>
+<tr>
+<td><code>verification-loop</code></td>
+<td>Verification and quality loop patterns</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category: Business &amp; Content (5 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>article-writing</code></td>
+<td>Long-form writing in a supplied voice using notes, examples, or source docs</td>
+</tr>
+<tr>
+<td><code>content-engine</code></td>
+<td>Multi-platform social content, scripts, and repurposing workflows</td>
+</tr>
+<tr>
+<td><code>market-research</code></td>
+<td>Source-attributed market, competitor, fund, and technology research</td>
+</tr>
+<tr>
+<td><code>investor-materials</code></td>
+<td>Pitch decks, one-pagers, investor memos, and financial models</td>
+</tr>
+<tr>
+<td><code>investor-outreach</code></td>
+<td>Personalized investor cold emails, warm intros, and follow-ups</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category: Research &amp; APIs (2 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deep-research</code></td>
+<td>Multi-source deep research using firecrawl and exa MCPs with cited reports</td>
+</tr>
+<tr>
+<td><code>exa-search</code></td>
+<td>Neural search via Exa MCP for web, code, company, and people research</td>
+</tr>
+</tbody>
+</table>
+<p><code>claude-api</code> is an Anthropic canonical skill. Install it from <a href="https://github.com/anthropics/skills" target="_blank" rel="ugc nofollow noopener"><code>anthropics/skills</code></a> when you want the official Claude API workflow instead of an ECC-bundled copy.</p>
+<p><strong>Category: Social &amp; Content Distribution (2 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x-api</code></td>
+<td>X/Twitter API integration for posting, threads, search, and analytics</td>
+</tr>
+<tr>
+<td><code>crosspost</code></td>
+<td>Multi-platform content distribution with platform-native adaptation</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category: Media Generation (2 skills)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fal-ai-media</code></td>
+<td>Unified AI media generation (image, video, audio) via fal.ai MCP</td>
+</tr>
+<tr>
+<td><code>video-editing</code></td>
+<td>AI-assisted video editing for cutting, structuring, and augmenting real footage</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category: Orchestration (1 skill)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dmux-workflows</code></td>
+<td>Multi-agent orchestration using dmux for parallel agent sessions</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Standalone</strong></p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/examples/project-guidelines-template.md</code></td>
+<td>Template for creating project-specific skills</td>
+</tr>
+</tbody>
+</table>
+<h3>2d: Execute Installation</h3>
+<p>For each selected skill, copy the entire skill directory from the correct source root:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Core skills live under .agents/skills/</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-R</span> <span class="token string">"<span class="token variable">$ECC_ROOT</span>/.agents/skills/&lt;skill-name&gt;"</span> <span class="token string">"<span class="token variable">$TARGET</span>/skills/"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Niche skills live under skills/</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-R</span> <span class="token string">"<span class="token variable">$ECC_ROOT</span>/skills/&lt;skill-name&gt;"</span> <span class="token string">"<span class="token variable">$TARGET</span>/skills/"</span>
+</span></code></pre>
+<p>When iterating over globbed source directories, never pass a trailing-slash source directly to <code>cp</code>. Use the directory path as the destination name explicitly:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-R</span> <span class="token string">"<span class="token variable">${src<span class="token operator">%</span><span class="token operator">/</span>}</span>"</span> <span class="token string">"<span class="token variable">$TARGET</span>/skills/<span class="token variable"><span class="token variable">$(</span><span class="token function">basename</span> <span class="token string">"<span class="token variable">${src<span class="token operator">%</span><span class="token operator">/</span>}</span>"</span><span class="token variable">)</span></span>"</span>
+</span></code></pre>
+<p>Note: <code>continuous-learning</code> and <code>continuous-learning-v2</code> have extra files (config.json, hooks, scripts) — ensure the entire directory is copied, not just SKILL.md.</p>
+<hr>
+<h2>Step 3: Select &amp; Install Rules</h2>
+<p>Use <code>AskUserQuestion</code> with <code>multiSelect: true</code>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Question: "Which rule sets do you want to install?"
+</span><span class="code-line">Options:
+</span><span class="code-line">  - "Common rules (Recommended)" — "Language-agnostic principles: coding style, git workflow, testing, security, etc. (8 files)"
+</span><span class="code-line">  - "TypeScript/JavaScript" — "TS/JS patterns, hooks, testing with Playwright (5 files)"
+</span><span class="code-line">  - "Python" — "Python patterns, pytest, black/ruff formatting (5 files)"
+</span><span class="code-line">  - "Go" — "Go patterns, table-driven tests, gofmt/staticcheck (5 files)"
+</span></code></pre>
+<p>Execute installation:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Common rules</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-r</span> <span class="token variable">$ECC_ROOT</span>/rules/common <span class="token variable">$TARGET</span>/rules/common
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Language-specific rules (preserve per-language directories)</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-r</span> <span class="token variable">$ECC_ROOT</span>/rules/typescript <span class="token variable">$TARGET</span>/rules/typescript   <span class="token comment"># if selected</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-r</span> <span class="token variable">$ECC_ROOT</span>/rules/python <span class="token variable">$TARGET</span>/rules/python            <span class="token comment"># if selected</span>
+</span><span class="code-line"><span class="token function">cp</span> <span class="token parameter variable">-r</span> <span class="token variable">$ECC_ROOT</span>/rules/golang <span class="token variable">$TARGET</span>/rules/golang            <span class="token comment"># if selected</span>
+</span></code></pre>
+<p><strong>Important</strong>: If the user selects any language-specific rules but NOT common rules, warn them:</p>
+<blockquote>
+<p>"Language-specific rules extend the common rules. Installing without common rules may result in incomplete coverage. Install common rules too?"</p>
+</blockquote>
+<hr>
+<h2>Step 4: Post-Installation Verification</h2>
+<p>After installation, perform these automated checks:</p>
+<h3>4a: Verify File Existence</h3>
+<p>List all installed files and confirm they exist at the target location:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> <span class="token variable">$TARGET</span>/skills/
+</span><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> <span class="token variable">$TARGET</span>/rules/
+</span></code></pre>
+<h3>4b: Check Path References</h3>
+<p>Scan all installed <code>.md</code> files for path references:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-rn</span> <span class="token string">"~/.claude/"</span> <span class="token variable">$TARGET</span>/skills/ <span class="token variable">$TARGET</span>/rules/
+</span><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-rn</span> <span class="token string">"../common/"</span> <span class="token variable">$TARGET</span>/rules/
+</span><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-rn</span> <span class="token string">"skills/"</span> <span class="token variable">$TARGET</span>/skills/
+</span></code></pre>
+<p><strong>For project-level installs</strong>, flag any references to <code>~/.claude/</code> paths:</p>
+<ul>
+<li>If a skill references <code>~/.claude/settings.json</code> — this is usually fine (settings are always user-level)</li>
+<li>If a skill references <code>~/.claude/skills/</code> or <code>~/.claude/rules/</code> — this may be broken if installed only at project level</li>
+<li>If a skill references another skill by name — check that the referenced skill was also installed</li>
+</ul>
+<h3>4c: Check Cross-References Between Skills</h3>
+<p>Some skills reference others. Verify these dependencies:</p>
+<ul>
+<li><code>django-tdd</code> may reference <code>django-patterns</code></li>
+<li><code>laravel-tdd</code> may reference <code>laravel-patterns</code></li>
+<li><code>quarkus-tdd</code> may reference <code>quarkus-patterns</code></li>
+<li><code>springboot-tdd</code> may reference <code>springboot-patterns</code></li>
+<li><code>continuous-learning-v2</code> references <code>~/.claude/homunculus/</code> directory</li>
+<li><code>python-testing</code> may reference <code>python-patterns</code></li>
+<li><code>golang-testing</code> may reference <code>golang-patterns</code></li>
+<li><code>crosspost</code> references <code>content-engine</code> and <code>x-api</code></li>
+<li><code>deep-research</code> references <code>exa-search</code> (complementary MCP tools)</li>
+<li><code>fal-ai-media</code> references <code>videodb</code> (complementary media skill)</li>
+<li><code>x-api</code> references <code>content-engine</code> and <code>crosspost</code></li>
+<li>Language-specific rules reference <code>common/</code> counterparts</li>
+</ul>
+<h3>4d: Report Issues</h3>
+<p>For each issue found, report:</p>
+<ol>
+<li><strong>File</strong>: The file containing the problematic reference</li>
+<li><strong>Line</strong>: The line number</li>
+<li><strong>Issue</strong>: What's wrong (e.g., "references ~/.claude/skills/python-patterns but python-patterns was not installed")</li>
+<li><strong>Suggested fix</strong>: What to do (e.g., "install python-patterns skill" or "update path to .claude/skills/")</li>
+</ol>
+<hr>
+<h2>Step 5: Optimize Installed Files (Optional)</h2>
+<p>Use <code>AskUserQuestion</code>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Question: "Would you like to optimize the installed files for your project?"
+</span><span class="code-line">Options:
+</span><span class="code-line">  - "Optimize skills" — "Remove irrelevant sections, adjust paths, tailor to your tech stack"
+</span><span class="code-line">  - "Optimize rules" — "Adjust coverage targets, add project-specific patterns, customize tool configs"
+</span><span class="code-line">  - "Optimize both" — "Full optimization of all installed files"
+</span><span class="code-line">  - "Skip" — "Keep everything as-is"
+</span></code></pre>
+<h3>If optimizing skills:</h3>
+<ol>
+<li>Read each installed SKILL.md</li>
+<li>Ask the user what their project's tech stack is (if not already known)</li>
+<li>For each skill, suggest removals of irrelevant sections</li>
+<li>Edit the SKILL.md files in-place at the installation target (NOT the source repo)</li>
+<li>Fix any path issues found in Step 4</li>
+</ol>
+<h3>If optimizing rules:</h3>
+<ol>
+<li>Read each installed rule .md file</li>
+<li>Ask the user about their preferences:
+<ul>
+<li>Test coverage target (default 80%)</li>
+<li>Preferred formatting tools</li>
+<li>Git workflow conventions</li>
+<li>Security requirements</li>
+</ul>
+</li>
+<li>Edit the rule files in-place at the installation target</li>
+</ol>
+<p><strong>Critical</strong>: Only modify files in the installation target (<code>$TARGET/</code>), NEVER modify files in the source ECC repository (<code>$ECC_ROOT/</code>).</p>
+<hr>
+<h2>Step 6: Installation Summary</h2>
+<p>Clean up the cloned repository from <code>/tmp</code>:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> /tmp/everything-claude-code
+</span></code></pre>
+<p>Then print a summary report:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">## ECC Installation Complete
+</span><span class="code-line">
+</span><span class="code-line">### Installation Target
+</span><span class="code-line">- Level: [user-level / project-level / both]
+</span><span class="code-line">- Path: [target path]
+</span><span class="code-line">
+</span><span class="code-line">### Skills Installed ([count])
+</span><span class="code-line">- skill-1, skill-2, skill-3, ...
+</span><span class="code-line">
+</span><span class="code-line">### Rules Installed ([count])
+</span><span class="code-line">- common (8 files)
+</span><span class="code-line">- typescript (5 files)
+</span><span class="code-line">- ...
+</span><span class="code-line">
+</span><span class="code-line">### Verification Results
+</span><span class="code-line">- [count] issues found, [count] fixed
+</span><span class="code-line">- [list any remaining issues]
+</span><span class="code-line">
+</span><span class="code-line">### Optimizations Applied
+</span><span class="code-line">- [list changes made, or "None"]
+</span></code></pre>
+<hr>
+<h2>Troubleshooting</h2>
+<h3>"Skills not being picked up by Claude Code"</h3>
+<ul>
+<li>Verify the skill directory contains a <code>SKILL.md</code> file (not just loose .md files)</li>
+<li>For user-level: check <code>~/.claude/skills/&lt;skill-name&gt;/SKILL.md</code> exists</li>
+<li>For project-level: check <code>.claude/skills/&lt;skill-name&gt;/SKILL.md</code> exists</li>
+</ul>
+<h3>"Rules not working"</h3>
+<ul>
+<li>Rules are flat files, not in subdirectories: <code>$TARGET/rules/coding-style.md</code> (correct) vs <code>$TARGET/rules/common/coding-style.md</code> (incorrect for flat install)</li>
+<li>Restart Claude Code after installing rules</li>
+</ul>
+<h3>"Path reference errors after project-level install"</h3>
+<ul>
+<li>Some skills assume <code>~/.claude/</code> paths. Run Step 4 verification to find and fix these.</li>
+<li>For <code>continuous-learning-v2</code>, the <code>~/.claude/homunculus/</code> directory is always user-level — this is expected and not an error.</li>
+</ul></div>

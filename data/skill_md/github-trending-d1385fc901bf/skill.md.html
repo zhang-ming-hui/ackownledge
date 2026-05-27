@@ -1,0 +1,270 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>GitHub Trending Data</h1>
+<p>Access GitHub trending repositories and developers data.</p>
+<h2>Important Note</h2>
+<p><strong>GitHub does NOT provide an official trending API.</strong> The trending page at <code>github.com/trending</code> must be scraped directly or use the GitHub Search API as an alternative.</p>
+<h2>Approach 1: Direct Web Scraping (Recommended)</h2>
+<p>Scrape <code>github.com/trending</code> directly using Cheerio:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> cheerio <span class="token keyword">from</span> <span class="token string">'cheerio'</span><span class="token punctuation">;</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>interface TrendingRepo {
+owner: string;
+name: string;
+fullName: string;
+url: string;
+description: string;
+language: string;
+languageColor: string;
+stars: number;
+forks: number;
+starsToday: number;
+}</p>
+<p>async function scrapeTrending(options: {
+language?: string;
+since?: 'daily' | 'weekly' | 'monthly';
+} = {}): Promise&lt;TrendingRepo[]&gt; {
+// Build URL: github.com/trending or github.com/trending/typescript?since=weekly
+let url = '<a href="https://github.com/trending" target="_blank" rel="ugc nofollow noopener">https://github.com/trending</a>';
+if (options.language) {
+url += <code>/${encodeURIComponent(options.language)}</code>;
+}
+if (options.since) {
+url += <code>?since=${options.since}</code>;
+}</p>
+<p>const response = await fetch(url, {
+headers: {
+'User-Agent': 'Mozilla/5.0 (compatible; TrendingBot/1.0)',
+},
+});</p>
+<p>if (!response.ok) {
+throw new Error(<code>Failed to fetch trending: ${response.status}</code>);
+}</p>
+<p>const html = await response.text();
+const $ = cheerio.load(html);
+const repos: TrendingRepo[] = [];</p>
+<p>// Each trending repo is in an article.Box-row element
+$('article.Box-row').each((_, element) =&gt; {
+const $el = $(element);</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">// Get repo link (e.g., /owner/repo)
+</span><span class="code-line">const repoLink = $el.find('h2 a').attr('href')?.trim() || '';
+</span><span class="code-line">const [, owner, name] = repoLink.split('/');
+</span><span class="code-line">
+</span><span class="code-line">// Get description
+</span><span class="code-line">const description = $el.find('p.col-9').text().trim();
+</span><span class="code-line">
+</span><span class="code-line">// Get language
+</span><span class="code-line">const language = $el.find('[itemprop="programmingLanguage"]').text().trim();
+</span><span class="code-line">
+</span><span class="code-line">// Get language color from the colored dot
+</span><span class="code-line">const langColorStyle = $el.find('.repo-language-color').attr('style') || '';
+</span><span class="code-line">const langColorMatch = langColorStyle.match(/background-color:\s*([^;]+)/);
+</span><span class="code-line">const languageColor = langColorMatch ? langColorMatch[1].trim() : '';
+</span><span class="code-line">
+</span><span class="code-line">// Get stars (total)
+</span><span class="code-line">const starsText = $el.find('a[href$="/stargazers"]').text().trim();
+</span><span class="code-line">const stars = parseNumber(starsText);
+</span><span class="code-line">
+</span><span class="code-line">// Get forks
+</span><span class="code-line">const forksText = $el.find('a[href$="/forks"]').text().trim();
+</span><span class="code-line">const forks = parseNumber(forksText);
+</span><span class="code-line">
+</span><span class="code-line">// Get stars today/this week/this month
+</span><span class="code-line">const starsTodayText = $el.find('.float-sm-right, .d-inline-block.float-sm-right').text().trim();
+</span><span class="code-line">const starsToday = parseNumber(starsTodayText);
+</span><span class="code-line">
+</span><span class="code-line">if (owner &amp;&amp; name) {
+</span><span class="code-line">  repos.push({
+</span><span class="code-line">    owner,
+</span><span class="code-line">    name,
+</span><span class="code-line">    fullName: `${owner}/${name}`,
+</span><span class="code-line">    url: `https://github.com${repoLink}`,
+</span><span class="code-line">    description,
+</span><span class="code-line">    language,
+</span><span class="code-line">    languageColor,
+</span><span class="code-line">    stars,
+</span><span class="code-line">    forks,
+</span><span class="code-line">    starsToday,
+</span><span class="code-line">  });
+</span><span class="code-line">}
+</span></code></pre>
+<p>});</p>
+<p>return repos;
+}</p>
+<p>function parseNumber(text: string): number {
+const clean = text.replace(/,/g, '').trim();
+if (clean.includes('k')) {
+return Math.round(parseFloat(clean) * 1000);
+}
+return parseInt(clean) || 0;
+}</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">## Approach 2: GitHub Search API (Official Alternative)
+</span><span class="code-line">
+</span><span class="code-line">Use GitHub's Search API to find recently created repos with high stars:
+</span><span class="code-line">
+</span><span class="code-line">```typescript
+</span><span class="code-line">interface GitHubSearchResult {
+</span><span class="code-line">  total_count: number;
+</span><span class="code-line">  items: GitHubRepo[];
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">interface GitHubRepo {
+</span><span class="code-line">  full_name: string;
+</span><span class="code-line">  html_url: string;
+</span><span class="code-line">  description: string;
+</span><span class="code-line">  language: string;
+</span><span class="code-line">  stargazers_count: number;
+</span><span class="code-line">  forks_count: number;
+</span><span class="code-line">  created_at: string;
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">async function getTrendingViaSearch(options: {
+</span><span class="code-line">  language?: string;
+</span><span class="code-line">  days?: number;
+</span><span class="code-line">  minStars?: number;
+</span><span class="code-line">} = {}): Promise&lt;GitHubRepo[]&gt; {
+</span><span class="code-line">  const days = options.days || 7;
+</span><span class="code-line">  const minStars = options.minStars || 100;
+</span><span class="code-line">  
+</span><span class="code-line">  // Calculate date N days ago
+</span><span class="code-line">  const date = new Date();
+</span><span class="code-line">  date.setDate(date.getDate() - days);
+</span><span class="code-line">  const since = date.toISOString().split('T')[0];
+</span><span class="code-line">
+</span><span class="code-line">  // Build search query
+</span><span class="code-line">  const queryParts = [
+</span><span class="code-line">    `created:&gt;${since}`,
+</span><span class="code-line">    `stars:&gt;=${minStars}`,
+</span><span class="code-line">  ];
+</span><span class="code-line">  if (options.language) {
+</span><span class="code-line">    queryParts.push(`language:${options.language}`);
+</span><span class="code-line">  }
+</span><span class="code-line">  const query = queryParts.join(' ');
+</span><span class="code-line">
+</span><span class="code-line">  const response = await fetch(
+</span><span class="code-line">    `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&amp;sort=stars&amp;order=desc&amp;per_page=25`,
+</span><span class="code-line">    {
+</span><span class="code-line">      headers: {
+</span><span class="code-line">        'Accept': 'application/vnd.github.v3+json',
+</span><span class="code-line">        'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`, // Optional but recommended
+</span><span class="code-line">        'User-Agent': 'TrendingApp/1.0',
+</span><span class="code-line">      },
+</span><span class="code-line">    }
+</span><span class="code-line">  );
+</span><span class="code-line">
+</span><span class="code-line">  if (!response.ok) {
+</span><span class="code-line">    throw new Error(`GitHub API error: ${response.status}`);
+</span><span class="code-line">  }
+</span><span class="code-line">
+</span><span class="code-line">  const data: GitHubSearchResult = await response.json();
+</span><span class="code-line">  return data.items;
+</span><span class="code-line">}
+</span></code></pre>
+<p><strong>Note:</strong> The Search API has rate limits (10 requests/minute unauthenticated, 30/minute with token).</p>
+<h2>Next.js API Route (Server-Side Scraping)</h2>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// app/api/trending/route.ts</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> NextRequest <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'next/server'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> cheerio <span class="token keyword">from</span> <span class="token string">'cheerio'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token constant">GET</span><span class="token punctuation">(</span>request<span class="token operator">:</span> NextRequest<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> searchParams <span class="token operator">=</span> request<span class="token punctuation">.</span>nextUrl<span class="token punctuation">.</span>searchParams<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> language <span class="token operator">=</span> searchParams<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'language'</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> since <span class="token operator">=</span> searchParams<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'since'</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token string">'daily'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> url <span class="token operator">=</span> <span class="token string">'https://github.com/trending'</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>language<span class="token punctuation">)</span> url <span class="token operator">+=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token function">encodeURIComponent</span><span class="token punctuation">(</span>language<span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">    url <span class="token operator">+=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">?since=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>since<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      headers<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token string-property property">'User-Agent'</span><span class="token operator">:</span> <span class="token string">'Mozilla/5.0 (compatible)'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      next<span class="token operator">:</span> <span class="token punctuation">{</span> revalidate<span class="token operator">:</span> <span class="token number">3600</span> <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token comment">// Cache for 1 hour</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> html <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> repos <span class="token operator">=</span> <span class="token function">parseGitHubTrending</span><span class="token punctuation">(</span>html<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token keyword">return</span> Response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span>repos<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">'Trending scrape failed:'</span><span class="token punctuation">,</span> error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> error<span class="token operator">:</span> <span class="token string">'Failed to fetch trending repos'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> status<span class="token operator">:</span> <span class="token number">500</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">parseGitHubTrending</span><span class="token punctuation">(</span>html<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> $ <span class="token operator">=</span> cheerio<span class="token punctuation">.</span><span class="token function">load</span><span class="token punctuation">(</span>html<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> repos<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">$</span><span class="token punctuation">(</span><span class="token string">'article.Box-row'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">each</span><span class="token punctuation">(</span><span class="token punctuation">(</span>_<span class="token punctuation">,</span> el<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> $el <span class="token operator">=</span> <span class="token function">$</span><span class="token punctuation">(</span>el<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> repoLink <span class="token operator">=</span> $el<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token string">'h2 a'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">attr</span><span class="token punctuation">(</span><span class="token string">'href'</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">[</span><span class="token punctuation">,</span> owner<span class="token punctuation">,</span> name<span class="token punctuation">]</span> <span class="token operator">=</span> repoLink<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    
+</span><span class="code-line">    repos<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      owner<span class="token punctuation">,</span>
+</span><span class="code-line">      name<span class="token punctuation">,</span>
+</span><span class="code-line">      fullName<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>owner<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">      url<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">https://github.com</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>repoLink<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">      description<span class="token operator">:</span> $el<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token string">'p.col-9'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      language<span class="token operator">:</span> $el<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token string">'[itemprop="programmingLanguage"]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      stars<span class="token operator">:</span> <span class="token function">parseNumber</span><span class="token punctuation">(</span>$el<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token string">'a[href$="/stargazers"]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      forks<span class="token operator">:</span> <span class="token function">parseNumber</span><span class="token punctuation">(</span>$el<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token string">'a[href$="/forks"]'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      starsToday<span class="token operator">:</span> <span class="token function">parseNumber</span><span class="token punctuation">(</span>$el<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token string">'.float-sm-right'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> repos<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">parseNumber</span><span class="token punctuation">(</span>text<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">number</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> clean <span class="token operator">=</span> text<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">,</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>clean<span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span><span class="token string">'k'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> Math<span class="token punctuation">.</span><span class="token function">round</span><span class="token punctuation">(</span><span class="token function">parseFloat</span><span class="token punctuation">(</span>clean<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token function">parseInt</span><span class="token punctuation">(</span>clean<span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>React Hook</h2>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> useState<span class="token punctuation">,</span> useEffect <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">useTrending</span><span class="token punctuation">(</span>options<span class="token operator">:</span> <span class="token punctuation">{</span> language<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span> since<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>repos<span class="token punctuation">,</span> setRepos<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>isLoading<span class="token punctuation">,</span> setIsLoading<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>error<span class="token punctuation">,</span> setError<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token generic-function"><span class="token function">useState</span><span class="token generic class-name"><span class="token operator">&lt;</span><span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span><span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">fetchTrending</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token function">setIsLoading</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span>options<span class="token punctuation">.</span><span class="token property-access">language</span><span class="token punctuation">)</span> params<span class="token punctuation">.</span><span class="token method function property-access">set</span><span class="token punctuation">(</span><span class="token string">'language'</span><span class="token punctuation">,</span> options<span class="token punctuation">.</span><span class="token property-access">language</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span>options<span class="token punctuation">.</span><span class="token property-access">since</span><span class="token punctuation">)</span> params<span class="token punctuation">.</span><span class="token method function property-access">set</span><span class="token punctuation">(</span><span class="token string">'since'</span><span class="token punctuation">,</span> options<span class="token punctuation">.</span><span class="token property-access">since</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/trending?</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>params<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>response<span class="token punctuation">.</span><span class="token property-access">ok</span><span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Failed to fetch'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">setRepos</span><span class="token punctuation">(</span><span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token method function property-access">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">setError</span><span class="token punctuation">(</span>err <span class="token keyword">instanceof</span> <span class="token class-name">Error</span> <span class="token operator">?</span> err<span class="token punctuation">.</span><span class="token property-access">message</span> <span class="token operator">:</span> <span class="token string">'Unknown error'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span> <span class="token keyword">finally</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">setIsLoading</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">fetchTrending</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>options<span class="token punctuation">.</span><span class="token property-access">language</span><span class="token punctuation">,</span> options<span class="token punctuation">.</span><span class="token property-access">since</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> repos<span class="token punctuation">,</span> isLoading<span class="token punctuation">,</span> error <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Important Considerations</h2>
+<ol>
+<li><strong>No Official API</strong>: GitHub's trending page has no official API - scraping is the only option</li>
+<li><strong>Rate Limiting</strong>: Respect GitHub's servers - cache aggressively</li>
+<li><strong>HTML Structure Changes</strong>: GitHub may change their HTML - monitor for breakages</li>
+<li><strong>User-Agent</strong>: Always include a User-Agent header</li>
+<li><strong>Server-Side Only</strong>: Do scraping server-side to avoid CORS issues</li>
+</ol>
+<h2>Resources</h2>
+<ul>
+<li><strong>GitHub Trending Page</strong>: <a href="https://github.com/trending" target="_blank" rel="ugc nofollow noopener">https://github.com/trending</a></li>
+<li><strong>GitHub Search API</strong>: <a href="https://docs.github.com/en/rest/search" target="_blank" rel="ugc nofollow noopener">https://docs.github.com/en/rest/search</a></li>
+</ul></div>

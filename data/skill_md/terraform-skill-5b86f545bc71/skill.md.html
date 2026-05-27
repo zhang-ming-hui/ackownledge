@@ -1,0 +1,486 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Terraform Skill for Claude</h1>
+<p>Diagnose-first guidance for Terraform and OpenTofu. Core file is a workflow; depth lives in references loaded on demand.</p>
+<h2>Response Contract</h2>
+<p>Every Terraform/OpenTofu response must include:</p>
+<ol>
+<li><strong>Assumptions &amp; version floor</strong> — runtime (<code>terraform</code> or <code>tofu</code>), exact version, providers, state backend, execution path (local/CI/Cloud/Atlantis), environment criticality. State assumptions explicitly if the user did not provide them.</li>
+<li><strong>Risk category addressed</strong> — one or more of: identity churn, secret exposure, blast radius, CI drift, compliance gaps, state corruption, provider upgrade risk, testing blind spots.</li>
+<li><strong>Chosen remediation &amp; tradeoffs</strong> — what was chosen, what was traded off, why.</li>
+<li><strong>Validation plan</strong> — exact commands (<code>fmt -check</code>, <code>validate</code>, <code>plan -out</code>, policy check) tailored to runtime and risk tier.</li>
+<li><strong>Rollback notes</strong> — for any destructive or state-mutating change: how to undo, what evidence to keep.</li>
+</ol>
+<p>Never recommend direct production apply without a reviewed plan artifact and approval.</p>
+<h2>Workflow</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Capture execution context</strong> — runtime+version, provider(s), backend, execution path, environment criticality.</li>
+<li><strong>Diagnose failure mode(s)</strong> using the routing table below. If intent spans categories, load both references.</li>
+<li><strong>Load only the matching reference file(s)</strong> — do not preload depth the task does not need.</li>
+<li><strong>Propose fix with risk controls</strong> — why this addresses the mode, what could still go wrong, guardrails (tests/approvals/rollback).</li>
+<li><strong>Generate artifacts</strong> — HCL, migration blocks (<code>moved</code>, <code>import</code>), CI changes, policy rules.</li>
+<li><strong>Validate before finalizing</strong> — run validation commands tailored to risk tier.</li>
+<li><strong>Emit the Response Contract</strong> at the end.</li>
+</ol>
+<h2>Diagnose Before You Generate</h2>
+<table>
+<thead>
+<tr>
+<th>Failure category</th>
+<th>Symptoms</th>
+<th>Primary references</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Identity churn</strong></td>
+<td>Resource addresses shift after refactor, <code>count</code> index churn, missing <code>moved</code> blocks</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#count-vs-for_each-deep-dive" target="_blank" rel="ugc nofollow noopener">Code Patterns: count vs for_each</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#moved-blocks-terraform-11" target="_blank" rel="ugc nofollow noopener">Code Patterns: moved blocks</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#llm-mistake-checklist--code-patterns" target="_blank" rel="ugc nofollow noopener">Code Patterns: LLM mistakes</a></td>
+</tr>
+<tr>
+<td><strong>Secret exposure</strong></td>
+<td>Secrets in defaults, state, logs, CI artifacts</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/security-compliance.md" target="_blank" rel="ugc nofollow noopener">Security &amp; Compliance</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#write-only-arguments-terraform-111" target="_blank" rel="ugc nofollow noopener">Code Patterns: write-only</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/state-management.md" target="_blank" rel="ugc nofollow noopener">State Management</a></td>
+</tr>
+<tr>
+<td><strong>Blast radius</strong></td>
+<td>Oversized stacks, shared prod/non-prod state, unsafe applies</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/state-management.md" target="_blank" rel="ugc nofollow noopener">State Management</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/module-patterns.md" target="_blank" rel="ugc nofollow noopener">Module Patterns</a></td>
+</tr>
+<tr>
+<td><strong>CI drift</strong></td>
+<td>Local plan ≠ CI plan, apply without reviewed artifact, unpinned versions</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/ci-cd-workflows.md" target="_blank" rel="ugc nofollow noopener">CI/CD Workflows</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#version-management" target="_blank" rel="ugc nofollow noopener">Code Patterns: versions</a></td>
+</tr>
+<tr>
+<td><strong>Compliance gaps</strong></td>
+<td>Missing policy stage, no approval model, no evidence retention</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/security-compliance.md" target="_blank" rel="ugc nofollow noopener">Security &amp; Compliance</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/ci-cd-workflows.md" target="_blank" rel="ugc nofollow noopener">CI/CD Workflows</a></td>
+</tr>
+<tr>
+<td><strong>Testing blind spots</strong></td>
+<td>Plan-only validation of computed values, set-type indexing, mock/real confusion</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/testing-frameworks.md" target="_blank" rel="ugc nofollow noopener">Testing Frameworks</a></td>
+</tr>
+<tr>
+<td><strong>State corruption / recovery</strong></td>
+<td>Stuck lock, backend migration, drift reconciliation</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/state-management.md" target="_blank" rel="ugc nofollow noopener">State Management</a></td>
+</tr>
+<tr>
+<td><strong>Provider upgrade risk</strong></td>
+<td>Breaking-change provider bump, unpinned modules</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#version-management" target="_blank" rel="ugc nofollow noopener">Code Patterns: versions</a>, <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/module-patterns.md" target="_blank" rel="ugc nofollow noopener">Module Patterns</a></td>
+</tr>
+<tr>
+<td><strong>Provider lifecycle</strong></td>
+<td>Removing a provider with resources still in state, orphaned resources, <code>removed</code> block usage</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/state-management.md#provider-removal" target="_blank" rel="ugc nofollow noopener">State Management: Provider Removal</a></td>
+</tr>
+<tr>
+<td><strong>Navigation / safe-rename blind spots</strong></td>
+<td>Cannot locate symbol defs/refs semantically, value-symbol rename done as blind text replace, grep-only refactor missing refs, hallucinated <code>rg</code> shim</td>
+<td><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-intelligence-lsp.md#terraform-ls-capability-matrix" target="_blank" rel="ugc nofollow noopener">Code Intelligence</a></td>
+</tr>
+</tbody>
+</table>
+<h2>When to Use This Skill</h2>
+<p><strong>Activate when:</strong> creating or reviewing Terraform/OpenTofu configurations or modules, setting up or debugging tests, structuring multi-environment deployments, implementing IaC CI/CD, choosing module patterns or state organization, configuring or migrating remote state backends.</p>
+<p><strong>Don't use for:</strong> basic HCL syntax questions Claude already knows, provider API reference (link to docs), cloud-platform questions unrelated to Terraform/OpenTofu.</p>
+<h2>Core Principles</h2>
+<h3>Module Hierarchy</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>When to Use</th>
+<th>Scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Resource module</strong></td>
+<td>Single logical group of connected resources</td>
+<td>VPC + subnets, SG + rules</td>
+</tr>
+<tr>
+<td><strong>Infrastructure module</strong></td>
+<td>Collection of resource modules for a purpose</td>
+<td>Multiple resource modules in one region/account</td>
+</tr>
+<tr>
+<td><strong>Composition</strong></td>
+<td>Complete infrastructure</td>
+<td>Spans multiple regions/accounts</td>
+</tr>
+</tbody>
+</table>
+<p>Flow: resource → resource module → infrastructure module → composition.</p>
+<h3>Directory Layout</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">environments/   # prod/ staging/ dev/  — per-env configurations
+</span><span class="code-line">modules/        # networking/ compute/ data/ — reusable modules
+</span><span class="code-line">examples/       # minimal/ complete/ — docs + integration fixtures
+</span></code></pre>
+<p>Separate <strong>environments</strong> from <strong>modules</strong>. Use <code>examples/</code> as both documentation and test fixtures. Keep modules small and single-responsibility.</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/module-patterns.md" target="_blank" rel="ugc nofollow noopener">Module Patterns</a> for architecture principles, naming conventions, variable/output contracts.</p>
+<h3>Naming Conventions (summary)</h3>
+<ul>
+<li>Descriptive resource names (<code>aws_instance.web_server</code>, not <code>aws_instance.main</code>)</li>
+<li>Reserve <code>this</code> for genuine singleton resources only</li>
+<li>Prefix variables with context (<code>vpc_cidr_block</code>, not <code>cidr</code>)</li>
+<li>Standard files: <code>main.tf</code>, <code>variables.tf</code>, <code>outputs.tf</code>, <code>versions.tf</code></li>
+</ul>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/module-patterns.md" target="_blank" rel="ugc nofollow noopener">Module Patterns: Variable Naming</a> and <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#block-ordering--structure" target="_blank" rel="ugc nofollow noopener">Code Patterns: Block Ordering</a> for examples.</p>
+<h3>Block Ordering (summary)</h3>
+<p>Resource blocks: <code>count</code>/<code>for_each</code> first → arguments → <code>tags</code> → <code>depends_on</code> → <code>lifecycle</code>.
+Variable blocks: <code>description</code> → <code>type</code> → <code>default</code> → <code>validation</code> → <code>nullable</code> → <code>sensitive</code>.</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#block-ordering--structure" target="_blank" rel="ugc nofollow noopener">Code Patterns: Block Ordering &amp; Structure</a> for the full rules and examples.</p>
+<h2>Testing Strategy</h2>
+<h3>Decision Matrix: Which Testing Approach?</h3>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Approach</th>
+<th>Tools</th>
+<th>Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quick syntax check</td>
+<td>Static analysis</td>
+<td><code>validate</code>, <code>fmt</code></td>
+<td>Free</td>
+</tr>
+<tr>
+<td>Pre-commit validation</td>
+<td>Static + lint</td>
+<td><code>validate</code>, <code>tflint</code>, <code>trivy</code>, <code>checkov</code></td>
+<td>Free</td>
+</tr>
+<tr>
+<td>Terraform 1.6+, simple logic</td>
+<td>Native test framework</td>
+<td><code>terraform test</code></td>
+<td>Free-Low</td>
+</tr>
+<tr>
+<td>Pre-1.6, or Go expertise</td>
+<td>Integration testing</td>
+<td>Terratest</td>
+<td>Low-Med</td>
+</tr>
+<tr>
+<td>Security/compliance focus</td>
+<td>Policy as code</td>
+<td>OPA, Sentinel</td>
+<td>Free</td>
+</tr>
+<tr>
+<td>Cost-sensitive workflow</td>
+<td>Mock providers (1.7+)</td>
+<td>Native tests + mocks</td>
+<td>Free</td>
+</tr>
+<tr>
+<td>Multi-cloud, complex</td>
+<td>Full integration</td>
+<td>Terratest + real infra</td>
+<td>Med-High</td>
+</tr>
+</tbody>
+</table>
+<h3>Native Test Rules (1.6+)</h3>
+<p>Before writing test code: validate resource schemas via Terraform MCP so assertions target real attributes.</p>
+<ul>
+<li><code>command = plan</code> — fast, for input-derived values only</li>
+<li><code>command = apply</code> — required for <strong>computed values</strong> (ARNs, generated names) and <strong>set-type nested blocks</strong></li>
+<li>Set-type blocks cannot be indexed with <code>[0]</code> — use <code>for</code> expressions or materialize via <code>command = apply</code></li>
+<li>Common set types: S3 encryption rules, lifecycle transitions, IAM policy statements</li>
+</ul>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/testing-frameworks.md" target="_blank" rel="ugc nofollow noopener">Testing Frameworks</a> for static-analysis pipelines, native-test patterns, Terratest integration, mock providers, and the full LLM-mistake checklist.</p>
+<h2>Count vs For_Each — Quick Rule</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Use</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Boolean condition (create / don't)</td>
+<td><code>count = condition ? 1 : 0</code></td>
+<td>Optional singleton toggle</td>
+</tr>
+<tr>
+<td>Items may be reordered or removed</td>
+<td><code>for_each = toset(list)</code></td>
+<td>Stable resource addresses</td>
+</tr>
+<tr>
+<td>Reference by key</td>
+<td><code>for_each = map</code></td>
+<td>Named access</td>
+</tr>
+<tr>
+<td>Multiple named resources</td>
+<td><code>for_each</code></td>
+<td>Better identity stability</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Never</strong> use list index as long-lived identity — removing a middle element reshuffles every address after it. For the decision matrix, safe migration playbook, <code>moved</code> block patterns, and known-at-plan failure cases, see <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#count-vs-for_each-deep-dive" target="_blank" rel="ugc nofollow noopener">Code Patterns: count vs for_each</a>.</p>
+<h2>Locals for Dependency Management</h2>
+<p>Using <code>try()</code> in a local to prefer a conditional resource's attribute over its parent is a specialized but high-value pattern — it forces correct deletion order without explicit <code>depends_on</code>. Common use: VPC + secondary CIDR associations + subnets.</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#locals-for-dependency-management" target="_blank" rel="ugc nofollow noopener">Code Patterns: Locals for Dependency Management</a> for the full pattern and worked example.</p>
+<h2>Module Development</h2>
+<p>Standard layout:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">my-module/
+</span><span class="code-line">├── README.md       # Usage documentation
+</span><span class="code-line">├── main.tf         # Primary resources
+</span><span class="code-line">├── variables.tf    # Typed inputs with descriptions
+</span><span class="code-line">├── outputs.tf      # Output values
+</span><span class="code-line">├── versions.tf     # required_version + required_providers
+</span><span class="code-line">├── examples/
+</span><span class="code-line">│   ├── minimal/
+</span><span class="code-line">│   └── complete/
+</span><span class="code-line">└── tests/
+</span><span class="code-line">    └── module_test.tftest.hcl   # or Go for Terratest
+</span></code></pre>
+<p><strong>Variable contracts</strong>: always <code>description</code>, always explicit <code>type</code>, use <code>validation</code> for complex constraints, use <code>sensitive = true</code> for secrets, prefer <code>optional()</code> with typed defaults (1.3+) over untyped <code>map(any)</code>.</p>
+<p><strong>Output contracts</strong>: always <code>description</code>, mark sensitive outputs, expose stable subsets (not whole provider objects).</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/module-patterns.md" target="_blank" rel="ugc nofollow noopener">Module Patterns</a> for the full contract patterns, module release checklist, and LLM-mistake checklist.</p>
+<h2>CI/CD</h2>
+<p>Pipeline stages: <strong>validate</strong> → <strong>test</strong> → <strong>plan</strong> → <strong>apply</strong> (with environment protection).</p>
+<p>Cost control: mock providers on PR validation, real-cloud integration only on main or scheduled, tag test resources, auto-cleanup.</p>
+<p>Drift prevention: pin runtime and providers, commit <code>.terraform.lock.hcl</code>, apply the <strong>reviewed plan artifact</strong> from the plan stage (do not re-run <code>plan</code> inside the apply job), run policy/security stage on every path to apply.</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/ci-cd-workflows.md" target="_blank" rel="ugc nofollow noopener">CI/CD Workflows</a> for GitHub Actions, GitLab CI, and Atlantis templates plus the LLM-mistake checklist.</p>
+<h2>Security &amp; Compliance</h2>
+<p><strong>Essential checks:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">trivy config <span class="token builtin class-name">.</span>
+</span><span class="code-line">checkov <span class="token parameter variable">-d</span> <span class="token builtin class-name">.</span>
+</span></code></pre>
+<p><strong>Don't:</strong> store secrets in variables or <code>.tfvars</code>, use default VPC, skip encryption, open security groups to <code>0.0.0.0/0</code>, use inline <code>ingress</code>/<code>egress</code> blocks in <code>aws_security_group</code>.</p>
+<p><strong>Do:</strong> source secrets from AWS Secrets Manager / Parameter Store or use <code>write_only</code> arguments on 1.11+, create dedicated VPCs, enforce encryption at rest and TLS, least-privilege SGs, use separate <code>aws_vpc_security_group_{ingress,egress}_rule</code> resources (AWS provider v5+).</p>
+<p>Marking a variable <code>sensitive = true</code> masks display only — the value still lives in state. Use <code>write_only</code> / <code>*_wo</code> on 1.11+, or keep secret material out of Terraform entirely via runtime lookups.</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/security-compliance.md" target="_blank" rel="ugc nofollow noopener">Security &amp; Compliance</a> for trivy/checkov pipelines, state-file hardening, compliance mappings, and the LLM-mistake checklist.</p>
+<h2>State Management</h2>
+<p><strong>Never use local state in teams or production.</strong> Remote backends provide automatic locking, encryption, versioning, audit logging, and safe collaboration.</p>
+<h3>Minimum Viable Backend (AWS S3, 1.10+)</h3>
+<pre class="language-hcl"><code class="language-hcl code-highlight"><span class="code-line"><span class="token keyword">terraform</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">backend<span class="token type variable"> "s3" </span></span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">bucket</span>        <span class="token punctuation">=</span> <span class="token string">"my-terraform-state"</span>
+</span><span class="code-line">    <span class="token property">key</span>           <span class="token punctuation">=</span> <span class="token string">"prod/vpc/terraform.tfstate"</span>
+</span><span class="code-line">    <span class="token property">region</span>        <span class="token punctuation">=</span> <span class="token string">"us-east-1"</span>
+</span><span class="code-line">    <span class="token property">encrypt</span>       <span class="token punctuation">=</span> <span class="token boolean">true</span>
+</span><span class="code-line">    <span class="token property">use_lockfile</span>  <span class="token punctuation">=</span> <span class="token boolean">true</span>   <span class="token comment"># Native S3 locking, 1.10+</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>On Terraform &lt; 1.10, use <code>dynamodb_table = "terraform-state-lock"</code> instead of <code>use_lockfile</code>. Azure Storage, GCS, and Terraform Cloud all offer built-in locking — see the State Management reference for syntax.</p>
+<h3>State Organization</h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Use When</th>
+<th>Example Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Per environment</strong></td>
+<td>Different teams per env</td>
+<td><code>prod/terraform.tfstate</code>, <code>staging/...</code></td>
+</tr>
+<tr>
+<td><strong>Per component</strong></td>
+<td>Independent lifecycles</td>
+<td><code>prod/vpc/</code>, <code>prod/eks/</code>, <code>prod/rds/</code></td>
+</tr>
+<tr>
+<td><strong>Hybrid</strong> (recommended)</td>
+<td>Both benefits</td>
+<td><code>prod/networking/</code>, <code>prod/compute/</code>, <code>staging/networking/</code></td>
+</tr>
+</tbody>
+</table>
+<p>Split state when: different teams, different update cadences, or &gt;500 resources. Combine when: tightly coupled resources, &lt;100 resources, same lifecycle.</p>
+<p>See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/state-management.md" target="_blank" rel="ugc nofollow noopener">State Management</a> for locking, migration, multi-team isolation, disaster recovery, and the LLM-mistake checklist.</p>
+<h2>Version Management</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Strategy</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terraform runtime</td>
+<td>Pin minor</td>
+<td><code>required_version = "~&gt; 1.9"</code></td>
+</tr>
+<tr>
+<td>Providers</td>
+<td>Pin major</td>
+<td><code>version = "~&gt; 5.0"</code></td>
+</tr>
+<tr>
+<td>Modules (prod)</td>
+<td>Pin exact</td>
+<td><code>version = "5.1.2"</code></td>
+</tr>
+<tr>
+<td>Modules (dev)</td>
+<td>Allow patch</td>
+<td><code>version = "~&gt; 5.1"</code></td>
+</tr>
+</tbody>
+</table>
+<p>Commit <code>.terraform.lock.hcl</code> intentionally. Keep provider/runtime upgrades in a separate PR from functional changes. See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#version-management" target="_blank" rel="ugc nofollow noopener">Code Patterns: Version Management</a> for constraint syntax and upgrade workflow.</p>
+<h2>Modern Terraform Features (1.0+)</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Min version</th>
+<th>Common use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>try()</code></td>
+<td>0.13+</td>
+<td>Safe fallbacks, replaces <code>element(concat())</code></td>
+</tr>
+<tr>
+<td><code>nullable = false</code></td>
+<td>1.1+</td>
+<td>Prevent <code>null</code> silently overriding defaults</td>
+</tr>
+<tr>
+<td><code>moved</code> blocks</td>
+<td>1.1+</td>
+<td>Refactor without destroy/recreate</td>
+</tr>
+<tr>
+<td><code>optional()</code> with defaults</td>
+<td>1.3+</td>
+<td>Typed object attributes</td>
+</tr>
+<tr>
+<td><code>import</code> blocks</td>
+<td>1.5+</td>
+<td>Declarative imports, reviewable in VCS</td>
+</tr>
+<tr>
+<td><code>check</code> blocks</td>
+<td>1.5+</td>
+<td>Runtime assertions</td>
+</tr>
+<tr>
+<td>Native <code>terraform test</code></td>
+<td>1.6+</td>
+<td>Built-in test framework</td>
+</tr>
+<tr>
+<td>Mock providers</td>
+<td>1.7+</td>
+<td>Cost-free unit testing</td>
+</tr>
+<tr>
+<td><code>removed</code> blocks</td>
+<td>1.7+</td>
+<td>Declarative resource removal</td>
+</tr>
+<tr>
+<td>Provider-defined functions</td>
+<td>1.8+</td>
+<td>Provider-specific transformations (requires provider to declare functions)</td>
+</tr>
+<tr>
+<td>Cross-variable validation</td>
+<td>1.9+</td>
+<td>Reference other <code>var.*</code> in <code>validation</code> blocks</td>
+</tr>
+<tr>
+<td><code>write_only</code> arguments</td>
+<td>1.11+</td>
+<td>Secrets never stored in state</td>
+</tr>
+<tr>
+<td>S3 native lock-file</td>
+<td>1.10+</td>
+<td>State locking without DynamoDB</td>
+</tr>
+</tbody>
+</table>
+<p>Before emitting a feature, verify the runtime floor. See <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md#feature-guard-table--version-floor--common-llm-errors" target="_blank" rel="ugc nofollow noopener">Code Patterns: Feature Guard Table</a> for the full table with common LLM error patterns per feature.</p>
+<h2>Runtime-Specific Guidance</h2>
+<ul>
+<li><strong>Terraform 1.0-1.5 / OpenTofu 1.0-1.5</strong>: Terratest for integration, static analysis + plan validation only (no native tests).</li>
+<li><strong>1.6+</strong>: native <code>terraform test</code> / <code>tofu test</code> available — migrate simple unit tests, keep Terratest for complex integration.</li>
+<li><strong>1.7+</strong>: mock providers cut test cost — mock for unit tests, real runs for final integration.</li>
+<li><strong>1.10+</strong>: S3 native lock-file (<code>use_lockfile</code>) is the correct default for new configurations — DynamoDB locking is no longer required.</li>
+<li><strong>1.11+</strong>: <code>write_only</code> arguments for secret handling keep credentials out of state.</li>
+<li><strong>Terraform vs OpenTofu</strong>: both supported. For licensing, governance, and feature delta, see <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/quick-reference.md#terraform-vs-opentofu-comparison" target="_blank" rel="ugc nofollow noopener">Quick Reference: Terraform vs OpenTofu</a>.</li>
+</ul>
+<h2>Code Intelligence (terraform-ls)</h2>
+<p>Semantic navigation for HCL. terraform-ls is optional; without it every row below degrades to a disclosed <code>rg</code> + Read fallback.</p>
+<p>Self-contained terraform-ls layer of a generic code-intelligence discipline - apply the rows below directly. Recommended companion: the <code>code-intelligence</code> plugin (same <code>antonbabenko/agent-plugins</code> marketplace) carries the generic discipline (position anchoring, degradation gate, disclosure format, anti-phantom-shim) and ships <code>/code-intelligence:doctor</code> for readiness. If it is installed, defer to its generic protocol; this skill stays fully self-contained without it.</p>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Use</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Find definition / all references</td>
+<td>terraform-ls <code>goToDefinition</code> / <code>findReferences</code></td>
+<td>Needs <code>init</code> + a position anchor</td>
+</tr>
+<tr>
+<td>Rename value symbol (var/local/output/provider alias)</td>
+<td>Manual: <code>findReferences</code> -&gt; per-file fresh Read -&gt; edit -&gt; <code>validate</code></td>
+<td>No rename provider</td>
+</tr>
+<tr>
+<td>Rename resource/module address</td>
+<td><code>moved</code> block + <code>plan</code> shows 0 destroy</td>
+<td>Text rename forces destroy/recreate</td>
+</tr>
+<tr>
+<td>Exact text / known name / <code>.tfvars</code> / non-HCL</td>
+<td><code>rg</code> + Read</td>
+<td>No semantic scope</td>
+</tr>
+</tbody>
+</table>
+<p>✅ Supported: <code>goToDefinition</code>, <code>findReferences</code>, <code>documentSymbol</code>, <code>hover</code>, <code>workspaceSymbol</code>.
+❌ Unsupported: <code>goToImplementation</code>, call hierarchy, rename provider. Do not call these then report their absence as a finding.</p>
+<ul>
+<li>✅ Prereq: local <code>terraform</code>/<code>tofu</code> on PATH, <code>terraform init</code> run; cold start may need one retry.</li>
+<li>✅ LSP calls are position-anchored (<code>file:line:character</code>) - anchor with <code>rg</code> first, never symbol-name-only.</li>
+<li>❌ Do not claim "LSP broken, using rg" until the <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-intelligence-lsp.md#degradation-gate" target="_blank" rel="ugc nofollow noopener">Degradation Gate</a> passes; disclose any tool substitution on the first line.</li>
+</ul>
+<p>Depth: <a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-intelligence-lsp.md#terraform-ls-capability-matrix" target="_blank" rel="ugc nofollow noopener">Code Intelligence</a>.</p>
+<h2>Reference Files</h2>
+<p>Progressive disclosure — essentials here, depth on demand:</p>
+<ul>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/testing-frameworks.md" target="_blank" rel="ugc nofollow noopener">Testing Frameworks</a> — static analysis, native tests, Terratest, mock providers</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/module-patterns.md" target="_blank" rel="ugc nofollow noopener">Module Patterns</a> — structure, variable/output contracts, <code>terraform_remote_state</code> rules, release checklist</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/ci-cd-workflows.md" target="_blank" rel="ugc nofollow noopener">CI/CD Workflows</a> — GitHub Actions, GitLab CI, Atlantis, cost control</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/security-compliance.md" target="_blank" rel="ugc nofollow noopener">Security &amp; Compliance</a> — trivy/checkov, secrets handling, compliance mappings</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/state-management.md" target="_blank" rel="ugc nofollow noopener">State Management</a> — backends, locking, migration, multi-team, recovery</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-patterns.md" target="_blank" rel="ugc nofollow noopener">Code Patterns</a> — block ordering, <code>count</code>/<code>for_each</code> deep dive, modern features, version management, locals</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/code-intelligence-lsp.md" target="_blank" rel="ugc nofollow noopener">Code Intelligence</a> - terraform-ls capabilities, position-anchored calls, manual rename, degradation gate</li>
+<li><a href="https://github.com/antonbabenko/terraform-skill/blob/HEAD/skills/terraform-skill/references/quick-reference.md" target="_blank" rel="ugc nofollow noopener">Quick Reference</a> — command cheat sheets, flowcharts, troubleshooting</li>
+</ul>
+<h2>License</h2>
+<p>Apache License 2.0. See LICENSE for full terms.</p>
+<p><strong>Copyright © 2026 Anton Babenko</strong></p></div>

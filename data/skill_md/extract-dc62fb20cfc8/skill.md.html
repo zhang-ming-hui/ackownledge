@@ -1,0 +1,180 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>/si:extract — Create Skills from Patterns</h1>
+<p>Transforms a recurring pattern or debugging solution into a standalone, portable skill that can be installed in any project.</p>
+<h2>Usage</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/si:extract &lt;pattern description&gt;                  # Interactive extraction
+</span><span class="code-line">/si:extract &lt;pattern&gt; --name docker-m1-fixes       # Specify skill name
+</span><span class="code-line">/si:extract &lt;pattern&gt; --output ./skills/            # Custom output directory
+</span><span class="code-line">/si:extract &lt;pattern&gt; --dry-run                     # Preview without creating files
+</span></code></pre>
+<h2>When to Extract</h2>
+<p>A learning qualifies for skill extraction when ANY of these are true:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Recurring</strong></td>
+<td>Same issue across 2+ projects</td>
+</tr>
+<tr>
+<td><strong>Non-obvious</strong></td>
+<td>Required real debugging to discover</td>
+</tr>
+<tr>
+<td><strong>Broadly applicable</strong></td>
+<td>Not tied to one specific codebase</td>
+</tr>
+<tr>
+<td><strong>Complex solution</strong></td>
+<td>Multi-step fix that's easy to forget</td>
+</tr>
+<tr>
+<td><strong>User-flagged</strong></td>
+<td>"Save this as a skill", "I want to reuse this"</td>
+</tr>
+</tbody>
+</table>
+<h2>Workflow</h2>
+<h3>Step 1: Identify the pattern</h3>
+<p>Read the user's description. Search auto-memory for related entries:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">MEMORY_DIR</span><span class="token operator">=</span><span class="token string">"<span class="token environment constant">$HOME</span>/.claude/projects/<span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">pwd</span> <span class="token operator">|</span> <span class="token function">sed</span> <span class="token string">'s|/|%2F|g; s|%2F|/|; s|^/||'</span><span class="token variable">)</span></span>/memory"</span>
+</span><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-rni</span> <span class="token string">"&lt;keywords&gt;"</span> <span class="token string">"<span class="token variable">$MEMORY_DIR</span>/"</span>
+</span></code></pre>
+<p>If found in auto-memory, use those entries as source material. If not, use the user's description directly.</p>
+<h3>Step 2: Determine skill scope</h3>
+<p>Ask (max 2 questions):</p>
+<ul>
+<li>"What problem does this solve?" (if not clear)</li>
+<li>"Should this include code examples?" (if applicable)</li>
+</ul>
+<h3>Step 3: Generate skill name</h3>
+<p>Rules for naming:</p>
+<ul>
+<li>Lowercase, hyphens between words</li>
+<li>Descriptive but concise (2-4 words)</li>
+<li>Examples: <code>docker-m1-fixes</code>, <code>api-timeout-patterns</code>, <code>pnpm-workspace-setup</code></li>
+</ul>
+<p><strong>Reserved fragments — must NOT appear in the skill name:</strong></p>
+<ul>
+<li><code>claude</code></li>
+<li><code>anthropic</code></li>
+</ul>
+<p>For skills about Claude Code itself, use the <code>cc-</code> prefix instead:</p>
+<ul>
+<li>❌ <code>claude-code-settings</code> → ✅ <code>cc-settings</code></li>
+<li>❌ <code>claude-code-maintenance</code> → ✅ <code>cc-maintenance</code></li>
+<li>❌ <code>claude-mcp-tools</code> → ✅ <code>cc-mcp-tools</code></li>
+<li>❌ <code>claude-plugin-development</code> → ✅ <code>cc-plugin-development</code></li>
+</ul>
+<p>Before writing the skill directory, check the proposed name against this list.
+If a reserved fragment is present, transform it (drop the fragment or replace
+the <code>claude*</code>/<code>anthropic*</code> prefix with <code>cc-</code>) and confirm with the user.</p>
+<h3>Step 4: Create the skill files</h3>
+<p><strong>Spawn the <code>skill-extractor</code> agent</strong> for the actual file generation.</p>
+<p>The agent creates:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">&lt;skill-name&gt;/
+</span><span class="code-line">├── SKILL.md            # Main skill file with frontmatter
+</span><span class="code-line">├── README.md           # Human-readable overview
+</span><span class="code-line">└── reference/          # (optional) Supporting documentation
+</span><span class="code-line">    └── examples.md     # Concrete examples and edge cases
+</span></code></pre>
+<h3>Step 5: SKILL.md structure</h3>
+<p>The generated SKILL.md must follow this format:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token front-matter-block"><span class="token punctuation">---</span>
+</span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"skill-name"</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"&lt;one-line description&gt;. Use when: &lt;trigger conditions&gt;."</span></span>
+</span></span><span class="code-line"><span class="token front-matter-block"><span class="token punctuation">---</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> &lt;Skill Title&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token blockquote punctuation">&gt;</span> One-line summary of what this skill solves.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Quick Reference</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Problem </span><span class="token punctuation">|</span><span class="token table-header important"> Solution </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">---------</span><span class="token punctuation">|</span><span class="token punctuation">----------</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> {{problem 1}} </span><span class="token punctuation">|</span><span class="token table-data"> {{solution 1}} </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> {{problem 2}} </span><span class="token punctuation">|</span><span class="token table-data"> {{solution 2}} </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> The Problem</span>
+</span><span class="code-line">
+</span><span class="code-line">{{2-3 sentences explaining what goes wrong and why it's non-obvious.}}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Solutions</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Option 1: {{Name}} (Recommended)</span>
+</span><span class="code-line">
+</span><span class="code-line">{{Step-by-step with code examples.}}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Option 2: {{Alternative}}</span>
+</span><span class="code-line">
+</span><span class="code-line">{{For when Option 1 doesn't apply.}}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Trade-offs</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Approach </span><span class="token punctuation">|</span><span class="token table-header important"> Pros </span><span class="token punctuation">|</span><span class="token table-header important"> Cons </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">----------</span><span class="token punctuation">|</span><span class="token punctuation">------</span><span class="token punctuation">|</span><span class="token punctuation">------</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Option 1 </span><span class="token punctuation">|</span><span class="token table-data"> {{pros}} </span><span class="token punctuation">|</span><span class="token table-data"> {{cons}} </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Option 2 </span><span class="token punctuation">|</span><span class="token table-data"> {{pros}} </span><span class="token punctuation">|</span><span class="token table-data"> {{cons}} </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Edge Cases</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> {{edge case 1 and how to handle it}}
+</span><span class="code-line"><span class="token list punctuation">-</span> {{edge case 2 and how to handle it}}
+</span></code></pre>
+<h3>Step 6: Quality gates</h3>
+<p>Before finalizing, verify:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> SKILL.md has valid YAML frontmatter with <code>name</code> and <code>description</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>name</code> matches the folder name (lowercase, hyphens)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>name</code> does NOT contain reserved fragments <code>claude</code> or <code>anthropic</code> (use <code>cc-</code> prefix for Claude Code skills)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Description includes "Use when:" trigger conditions</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Solutions are self-contained (no external context needed)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Code examples are complete and copy-pasteable</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No project-specific hardcoded values (paths, URLs, credentials)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No unnecessary dependencies</li>
+</ul>
+<h3>Step 7: Report</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">✅ Skill extracted: {{skill-name}}
+</span><span class="code-line">
+</span><span class="code-line">Files created:
+</span><span class="code-line">  {{path}}/SKILL.md          ({{lines}} lines)
+</span><span class="code-line">  {{path}}/README.md         ({{lines}} lines)
+</span><span class="code-line">  {{path}}/reference/examples.md  ({{lines}} lines)
+</span><span class="code-line">
+</span><span class="code-line">Install: /plugin install (copy to your skills directory)
+</span><span class="code-line">Publish: clawhub publish {{path}}
+</span><span class="code-line">
+</span><span class="code-line">Source: MEMORY.md entries at lines {{n, m, ...}} (retained — the skill is portable, the memory is project-specific)
+</span></code></pre>
+<h2>Examples</h2>
+<h3>Extracting a debugging pattern</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/si:extract "Fix for Docker builds failing on Apple Silicon with platform mismatch"
+</span></code></pre>
+<p>Creates <code>docker-m1-fixes/SKILL.md</code> with:</p>
+<ul>
+<li>The platform mismatch error message</li>
+<li>Three solutions (build flag, Dockerfile, docker-compose)</li>
+<li>Trade-offs table</li>
+<li>Performance note about Rosetta 2 emulation</li>
+</ul>
+<h3>Extracting a workflow pattern</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/si:extract "Always regenerate TypeScript API client after modifying OpenAPI spec"
+</span></code></pre>
+<p>Creates <code>api-client-regen/SKILL.md</code> with:</p>
+<ul>
+<li>Why manual regen is needed</li>
+<li>The exact command sequence</li>
+<li>CI integration snippet</li>
+<li>Common failure modes</li>
+</ul>
+<h2>Tips</h2>
+<ul>
+<li>Extract patterns that would save time in a <em>different</em> project</li>
+<li>Keep skills focused — one problem per skill</li>
+<li>Include the error messages people would search for</li>
+<li>Test the skill by reading it without the original context — does it make sense?</li>
+</ul></div>

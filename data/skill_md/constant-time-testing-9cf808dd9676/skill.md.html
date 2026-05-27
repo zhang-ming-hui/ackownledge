@@ -1,0 +1,619 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Constant-Time Testing</h1>
+<p>Timing attacks exploit variations in execution time to extract secret information from cryptographic implementations. Unlike cryptanalysis that targets theoretical weaknesses, timing attacks leverage implementation flaws - and they can affect any cryptographic code.</p>
+<h2>Background</h2>
+<p>Timing attacks were introduced by <a href="https://paulkocher.com/doc/TimingAttacks.pdf" target="_blank" rel="ugc nofollow noopener">Kocher</a> in 1996. Since then, researchers have demonstrated practical attacks on RSA (<a href="https://link.springer.com/content/pdf/10.1007/3-540-44499-8_8.pdf" target="_blank" rel="ugc nofollow noopener">Schindler</a>), OpenSSL (<a href="https://crypto.stanford.edu/~dabo/papers/ssl-timing.pdf" target="_blank" rel="ugc nofollow noopener">Brumley and Boneh</a>), AES implementations, and even post-quantum algorithms like <a href="https://eprint.iacr.org/2024/1049.pdf" target="_blank" rel="ugc nofollow noopener">Kyber</a>.</p>
+<h3>Key Concepts</h3>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Constant-time</td>
+<td>Code path and memory accesses independent of secret data</td>
+</tr>
+<tr>
+<td>Timing leakage</td>
+<td>Observable execution time differences correlated with secrets</td>
+</tr>
+<tr>
+<td>Side channel</td>
+<td>Information extracted from implementation rather than algorithm</td>
+</tr>
+<tr>
+<td>Microarchitecture</td>
+<td>CPU-level timing differences (cache, division, shifts)</td>
+</tr>
+</tbody>
+</table>
+<h3>Why This Matters</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Timing vulnerabilities can:</p>
+<ul>
+<li><strong>Expose private keys</strong> - Extract secret exponents in RSA/ECDH</li>
+<li><strong>Enable remote attacks</strong> - Network-observable timing differences</li>
+<li><strong>Bypass cryptographic security</strong> - Undermine theoretical guarantees</li>
+<li><strong>Persist silently</strong> - Often undetected without specialized analysis</li>
+</ul>
+<p>Two prerequisites enable exploitation:</p>
+<ol>
+<li><strong>Access to oracle</strong> - Sufficient queries to the vulnerable implementation</li>
+<li><strong>Timing dependency</strong> - Correlation between execution time and secret data</li>
+</ol>
+<h3>Common Constant-Time Violation Patterns</h3>
+<p>Four patterns account for most timing vulnerabilities:</p>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token comment">// 1. Conditional jumps - most severe timing differences</span>
+</span><span class="code-line"><span class="token keyword">if</span><span class="token punctuation">(</span>secret <span class="token operator">==</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">while</span><span class="token punctuation">(</span>secret <span class="token operator">&gt;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 2. Array access - cache-timing attacks</span>
+</span><span class="code-line">lookup_table<span class="token punctuation">[</span>secret<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 3. Integer division (processor dependent)</span>
+</span><span class="code-line">data <span class="token operator">=</span> secret <span class="token operator">/</span> m<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 4. Shift operation (processor dependent)</span>
+</span><span class="code-line">data <span class="token operator">=</span> a <span class="token operator">&lt;&lt;</span> secret<span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Conditional jumps</strong> cause different code paths, leading to vast timing differences.</p>
+<p><strong>Array access</strong> dependent on secrets enables cache-timing attacks, as shown in <a href="https://cr.yp.to/antiforgery/cachetiming-20050414.pdf" target="_blank" rel="ugc nofollow noopener">AES cache-timing research</a>.</p>
+<p><strong>Integer division and shift operations</strong> leak secrets on certain CPU architectures and compiler configurations.</p>
+<p>When patterns cannot be avoided, employ <a href="https://link.springer.com/chapter/10.1007/978-3-642-38348-9_9" target="_blank" rel="ugc nofollow noopener">masking techniques</a> to remove correlation between timing and secrets.</p>
+<h3>Example: Modular Exponentiation Timing Attacks</h3>
+<p>Modular exponentiation (used in RSA and Diffie-Hellman) is susceptible to timing attacks. RSA decryption computes:</p>
+<p>$$ct^{d} \mod{N}$$</p>
+<p>where $d$ is the secret exponent. The <em>exponentiation by squaring</em> optimization reduces multiplications to $\log{d}$:</p>
+<p>$$
+\begin{align*}
+&amp; \textbf{Input: } \text{base }y,\text{exponent } d={d_n,\cdots,d_0}_2,\text{modulus } N \
+&amp; r = 1 \
+&amp; \textbf{for } i=|n| \text{ downto } 0: \
+&amp; \quad\textbf{if } d_i == 1: \
+&amp; \quad\quad r = r * y \mod{N} \
+&amp; \quad y = y * y \mod{N} \
+&amp; \textbf{return }r
+\end{align*}
+$$</p>
+<p>The code branches on exponent bit $d_i$, violating constant-time principles. When $d_i = 1$, an additional multiplication occurs, increasing execution time and leaking bit information.</p>
+<p>Montgomery multiplication (commonly used for modular arithmetic) also leaks timing: when intermediate values exceed modulus $N$, an additional reduction step is required. An attacker constructs inputs $y$ and $y'$ such that:</p>
+<p>$$
+\begin{align*}
+y^2 &lt; y^3 &lt; N \
+y'^2 &lt; N \leq y'^3
+\end{align*}
+$$</p>
+<p>For $y$, both multiplications take time $t_1+t_1$. For $y'$, the second multiplication requires reduction, taking time $t_1+t_2$. This timing difference reveals whether $d_i$ is 0 or 1.</p>
+<h2>When to Use</h2>
+<p><strong>Apply constant-time analysis when:</strong></p>
+<ul>
+<li>Auditing cryptographic implementations (primitives, protocols)</li>
+<li>Code handles secret keys, passwords, or sensitive cryptographic material</li>
+<li>Implementing crypto algorithms from scratch</li>
+<li>Reviewing PRs that touch crypto code</li>
+<li>Investigating potential timing vulnerabilities</li>
+</ul>
+<p><strong>Consider alternatives when:</strong></p>
+<ul>
+<li>Code does not process secret data</li>
+<li>Public algorithms with no secret inputs</li>
+<li>Non-cryptographic timing requirements (performance optimization)</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Recommended Approach</th>
+<th>Skill</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prove absence of leaks</td>
+<td>Formal verification</td>
+<td>SideTrail, ct-verif, FaCT</td>
+</tr>
+<tr>
+<td>Detect statistical timing differences</td>
+<td>Statistical testing</td>
+<td><strong>dudect</strong></td>
+</tr>
+<tr>
+<td>Track secret data flow at runtime</td>
+<td>Dynamic analysis</td>
+<td><strong>timecop</strong></td>
+</tr>
+<tr>
+<td>Find cache-timing vulnerabilities</td>
+<td>Symbolic execution</td>
+<td>Binsec, pitchfork</td>
+</tr>
+</tbody>
+</table>
+<h2>Constant-Time Tooling Categories</h2>
+<p>The cryptographic community has developed four categories of timing analysis tools:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Approach</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Formal</strong></td>
+<td>Mathematical proof on model</td>
+<td>Guarantees absence of leaks</td>
+<td>Complexity, modeling assumptions</td>
+</tr>
+<tr>
+<td><strong>Symbolic</strong></td>
+<td>Symbolic execution paths</td>
+<td>Concrete counterexamples</td>
+<td>Time-intensive path exploration</td>
+</tr>
+<tr>
+<td><strong>Dynamic</strong></td>
+<td>Runtime tracing with marked secrets</td>
+<td>Granular, flexible</td>
+<td>Limited coverage to executed paths</td>
+</tr>
+<tr>
+<td><strong>Statistical</strong></td>
+<td>Measure real execution timing</td>
+<td>Practical, simple setup</td>
+<td>No root cause, noise sensitivity</td>
+</tr>
+</tbody>
+</table>
+<h3>1. Formal Tools</h3>
+<p>Formal verification mathematically proves timing properties on an abstraction (model) of code. Tools create a model from source/binary and verify it satisfies specified properties (e.g., variables annotated as secret).</p>
+<p><strong>Popular tools:</strong></p>
+<ul>
+<li><a href="https://github.com/aws/s2n-tls/tree/main/tests/sidetrail" target="_blank" rel="ugc nofollow noopener">SideTrail</a></li>
+<li><a href="https://github.com/imdea-software/verifying-constant-time" target="_blank" rel="ugc nofollow noopener">ct-verif</a></li>
+<li><a href="https://github.com/plsyssec/fact" target="_blank" rel="ugc nofollow noopener">FaCT</a></li>
+</ul>
+<p><strong>Strengths:</strong> Proof of absence, language-agnostic (LLVM bytecode)
+<strong>Weaknesses:</strong> Requires expertise, modeling assumptions may miss real-world issues</p>
+<h3>2. Symbolic Tools</h3>
+<p>Symbolic execution analyzes how paths and memory accesses depend on symbolic variables (secrets). Provides concrete counterexamples. Focus on cache-timing attacks.</p>
+<p><strong>Popular tools:</strong></p>
+<ul>
+<li><a href="https://github.com/binsec/binsec" target="_blank" rel="ugc nofollow noopener">Binsec</a></li>
+<li><a href="https://github.com/PLSysSec/haybale-pitchfork" target="_blank" rel="ugc nofollow noopener">pitchfork</a></li>
+</ul>
+<p><strong>Strengths:</strong> Concrete counterexamples aid debugging
+<strong>Weaknesses:</strong> Path explosion leads to long execution times</p>
+<h3>3. Dynamic Tools</h3>
+<p>Dynamic analysis marks sensitive memory regions and traces execution to detect timing-dependent operations.</p>
+<p><strong>Popular tools:</strong></p>
+<ul>
+<li><a href="https://clang.llvm.org/docs/MemorySanitizer.html" target="_blank" rel="ugc nofollow noopener">Memsan</a>: <a href="https://crocs-muni.github.io/ct-tools/tutorials/memsan" target="_blank" rel="ugc nofollow noopener">Tutorial</a></li>
+<li><strong>Timecop</strong> (see below)</li>
+</ul>
+<p><strong>Strengths:</strong> Granular control, targeted analysis
+<strong>Weaknesses:</strong> Coverage limited to executed paths</p>
+<blockquote>
+<p><strong>Detailed Guidance:</strong> See the <strong>timecop</strong> skill for setup and usage.</p>
+</blockquote>
+<h3>4. Statistical Tools</h3>
+<p>Execute code with various inputs, measure elapsed time, and detect inconsistencies. Tests actual implementation including compiler optimizations and architecture.</p>
+<p><strong>Popular tools:</strong></p>
+<ul>
+<li><strong>dudect</strong> (see below)</li>
+<li><a href="https://github.com/tlsfuzzer/tlsfuzzer" target="_blank" rel="ugc nofollow noopener">tlsfuzzer</a></li>
+</ul>
+<p><strong>Strengths:</strong> Simple setup, practical real-world results
+<strong>Weaknesses:</strong> No root cause info, noise obscures weak signals</p>
+<blockquote>
+<p><strong>Detailed Guidance:</strong> See the <strong>dudect</strong> skill for setup and usage.</p>
+</blockquote>
+<h2>Testing Workflow</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Phase 1: Static Analysis        Phase 2: Statistical Testing
+</span><span class="code-line">┌─────────────────┐            ┌─────────────────┐
+</span><span class="code-line">│ Identify secret │      →     │ Detect timing   │
+</span><span class="code-line">│ data flow       │            │ differences     │
+</span><span class="code-line">│ Tool: ct-verif  │            │ Tool: dudect    │
+</span><span class="code-line">└─────────────────┘            └─────────────────┘
+</span><span class="code-line">         ↓                              ↓
+</span><span class="code-line">Phase 4: Root Cause             Phase 3: Dynamic Tracing
+</span><span class="code-line">┌─────────────────┐            ┌─────────────────┐
+</span><span class="code-line">│ Pinpoint leak   │      ←     │ Track secret    │
+</span><span class="code-line">│ location        │            │ propagation     │
+</span><span class="code-line">│ Tool: Timecop   │            │ Tool: Timecop   │
+</span><span class="code-line">└─────────────────┘            └─────────────────┘
+</span></code></pre>
+<p><strong>Recommended approach:</strong></p>
+<ol>
+<li><strong>Start with dudect</strong> - Quick statistical check for timing differences</li>
+<li><strong>If leaks found</strong> - Use Timecop to pinpoint root cause</li>
+<li><strong>For high-assurance</strong> - Apply formal verification (ct-verif, SideTrail)</li>
+<li><strong>Continuous monitoring</strong> - Integrate dudect into CI pipeline</li>
+</ol>
+<h2>Tools and Approaches</h2>
+<h3>Dudect - Statistical Analysis</h3>
+<p><a href="https://github.com/oreparaz/dudect/" target="_blank" rel="ugc nofollow noopener">Dudect</a> measures execution time for two input classes (fixed vs random) and uses Welch's t-test to detect statistically significant differences.</p>
+<blockquote>
+<p><strong>Detailed Guidance:</strong> See the <strong>dudect</strong> skill for complete setup, usage patterns, and CI integration.</p>
+</blockquote>
+<h4>Quick Start for Constant-Time Analysis</h4>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">DUDECT_IMPLEMENTATION</span></span>
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"dudect.h"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token class-name">uint8_t</span> <span class="token function">do_one_computation</span><span class="token punctuation">(</span><span class="token class-name">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Code to measure goes here</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">prepare_inputs</span><span class="token punctuation">(</span><span class="token class-name">dudect_config_t</span> <span class="token operator">*</span>c<span class="token punctuation">,</span> <span class="token class-name">uint8_t</span> <span class="token operator">*</span>input_data<span class="token punctuation">,</span> <span class="token class-name">uint8_t</span> <span class="token operator">*</span>classes<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">size_t</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> c<span class="token operator">-&gt;</span>number_measurements<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        classes<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">randombit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token class-name">uint8_t</span> <span class="token operator">*</span>input <span class="token operator">=</span> input_data <span class="token operator">+</span> <span class="token punctuation">(</span><span class="token class-name">size_t</span><span class="token punctuation">)</span>i <span class="token operator">*</span> c<span class="token operator">-&gt;</span>chunk_size<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token punctuation">(</span>classes<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// Fixed input class</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token comment">// Random input class</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Key advantages:</strong></p>
+<ul>
+<li>Simple C header-only integration</li>
+<li>Statistical rigor via Welch's t-test</li>
+<li>Works with compiled binaries (real-world conditions)</li>
+</ul>
+<p><strong>Key limitations:</strong></p>
+<ul>
+<li>No root cause information when leak detected</li>
+<li>Sensitive to measurement noise</li>
+<li>Cannot guarantee absence of leaks (statistical confidence only)</li>
+</ul>
+<h3>Timecop - Dynamic Tracing</h3>
+<p><a href="https://post-apocalyptic-crypto.org/timecop/" target="_blank" rel="ugc nofollow noopener">Timecop</a> wraps Valgrind to detect runtime operations dependent on secret memory regions.</p>
+<blockquote>
+<p><strong>Detailed Guidance:</strong> See the <strong>timecop</strong> skill for installation, examples, and debugging.</p>
+</blockquote>
+<h4>Quick Start for Constant-Time Analysis</h4>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">"valgrind/memcheck.h"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name function">poison</span><span class="token expression"><span class="token punctuation">(</span>addr<span class="token punctuation">,</span> len<span class="token punctuation">)</span> <span class="token function">VALGRIND_MAKE_MEM_UNDEFINED</span><span class="token punctuation">(</span>addr<span class="token punctuation">,</span> len<span class="token punctuation">)</span></span></span>
+</span><span class="code-line"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name function">unpoison</span><span class="token expression"><span class="token punctuation">(</span>addr<span class="token punctuation">,</span> len<span class="token punctuation">)</span> <span class="token function">VALGRIND_MAKE_MEM_DEFINED</span><span class="token punctuation">(</span>addr<span class="token punctuation">,</span> len<span class="token punctuation">)</span></span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">unsigned</span> <span class="token keyword">long</span> <span class="token keyword">long</span> secret_key <span class="token operator">=</span> <span class="token number">0x12345678</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Mark secret as poisoned</span>
+</span><span class="code-line">    <span class="token function">poison</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>secret_key<span class="token punctuation">,</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span>secret_key<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Any branching or memory access dependent on secret_key</span>
+</span><span class="code-line">    <span class="token comment">// will be reported by Valgrind</span>
+</span><span class="code-line">    <span class="token function">crypto_operation</span><span class="token punctuation">(</span>secret_key<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">unpoison</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>secret_key<span class="token punctuation">,</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span>secret_key<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Run with Valgrind:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">valgrind --leak-check<span class="token operator">=</span>full --track-origins<span class="token operator">=</span>yes ./binary
+</span></code></pre>
+<p><strong>Key advantages:</strong></p>
+<ul>
+<li>Pinpoints exact line of timing leak</li>
+<li>No code instrumentation required</li>
+<li>Tracks secret propagation through execution</li>
+</ul>
+<p><strong>Key limitations:</strong></p>
+<ul>
+<li>Cannot detect microarchitecture timing differences</li>
+<li>Coverage limited to executed paths</li>
+<li>Performance overhead (runs on synthetic CPU)</li>
+</ul>
+<h2>Implementation Guide</h2>
+<h3>Phase 1: Initial Assessment</h3>
+<p><strong>Identify cryptographic code handling secrets:</strong></p>
+<ul>
+<li>Private keys, exponents, nonces</li>
+<li>Password hashes, authentication tokens</li>
+<li>Encryption/decryption operations</li>
+</ul>
+<p><strong>Quick statistical check:</strong></p>
+<ol>
+<li>Write dudect harness for the crypto function</li>
+<li>Run for 5-10 minutes with <code>timeout 600 ./ct_test</code></li>
+<li>Monitor t-value: high absolute values indicate leakage</li>
+</ol>
+<p><strong>Tools:</strong> dudect
+<strong>Expected time:</strong> 1-2 hours (harness writing + initial run)</p>
+<h3>Phase 2: Detailed Analysis</h3>
+<p>If dudect detects leakage:</p>
+<p><strong>Root cause investigation:</strong></p>
+<ol>
+<li>Mark secret variables with Timecop <code>poison()</code></li>
+<li>Run under Valgrind to identify exact line</li>
+<li>Review the four common violation patterns</li>
+<li>Check assembly output for conditional branches</li>
+</ol>
+<p><strong>Tools:</strong> Timecop, compiler output (<code>objdump -d</code>)</p>
+<h3>Phase 3: Remediation</h3>
+<p><strong>Fix the timing leak:</strong></p>
+<ul>
+<li>Replace conditional branches with constant-time selection (bitwise operations)</li>
+<li>Use constant-time comparison functions</li>
+<li>Replace array lookups with constant-time alternatives or masking</li>
+<li>Verify compiler doesn't optimize away constant-time code</li>
+</ul>
+<p><strong>Re-verify:</strong></p>
+<ol>
+<li>Run dudect again for extended period (30+ minutes)</li>
+<li>Test across different compilers and optimization levels</li>
+<li>Test on different CPU architectures</li>
+</ol>
+<h3>Phase 4: Continuous Monitoring</h3>
+<p><strong>Integrate into CI:</strong></p>
+<ul>
+<li>Add dudect tests to test suite</li>
+<li>Run for fixed duration (5-10 minutes in CI)</li>
+<li>Fail build if leakage detected</li>
+</ul>
+<p>See the <strong>dudect</strong> skill for CI integration examples.</p>
+<h2>Common Vulnerabilities</h2>
+<table>
+<thead>
+<tr>
+<th>Vulnerability</th>
+<th>Description</th>
+<th>Detection</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Secret-dependent branch</td>
+<td><code>if (secret_bit) { ... }</code></td>
+<td>dudect, Timecop</td>
+<td>CRITICAL</td>
+</tr>
+<tr>
+<td>Secret-dependent array access</td>
+<td><code>table[secret_index]</code></td>
+<td>Timecop, Binsec</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>Variable-time division</td>
+<td><code>result = x / secret</code></td>
+<td>Timecop</td>
+<td>MEDIUM</td>
+</tr>
+<tr>
+<td>Variable-time shift</td>
+<td><code>result = x &lt;&lt; secret</code></td>
+<td>Timecop</td>
+<td>MEDIUM</td>
+</tr>
+<tr>
+<td>Montgomery reduction leak</td>
+<td>Extra reduction when intermediate &gt; N</td>
+<td>dudect</td>
+<td>HIGH</td>
+</tr>
+</tbody>
+</table>
+<h3>Secret-Dependent Branch: Deep Dive</h3>
+<p><strong>The vulnerability:</strong>
+Execution time differs based on whether branch is taken. Common in optimized modular exponentiation (square-and-multiply).</p>
+<p><strong>How to detect with dudect:</strong></p>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token class-name">uint8_t</span> <span class="token function">do_one_computation</span><span class="token punctuation">(</span><span class="token class-name">uint8_t</span> <span class="token operator">*</span>data<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token class-name">uint64_t</span> base <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token class-name">uint64_t</span><span class="token operator">*</span><span class="token punctuation">)</span>data<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token class-name">uint64_t</span> exponent <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token class-name">uint64_t</span><span class="token operator">*</span><span class="token punctuation">)</span>data<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token comment">// Secret!</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token function">mod_exp</span><span class="token punctuation">(</span>base<span class="token punctuation">,</span> exponent<span class="token punctuation">,</span> MODULUS<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">void</span> <span class="token function">prepare_inputs</span><span class="token punctuation">(</span><span class="token class-name">dudect_config_t</span> <span class="token operator">*</span>c<span class="token punctuation">,</span> <span class="token class-name">uint8_t</span> <span class="token operator">*</span>input_data<span class="token punctuation">,</span> <span class="token class-name">uint8_t</span> <span class="token operator">*</span>classes<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">size_t</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> c<span class="token operator">-&gt;</span>number_measurements<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        classes<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">randombit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token class-name">uint64_t</span> <span class="token operator">*</span>input <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">uint64_t</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>input_data <span class="token operator">+</span> i <span class="token operator">*</span> c<span class="token operator">-&gt;</span>chunk_size<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        input<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">rand</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Random base</span>
+</span><span class="code-line">        input<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span>classes<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">?</span> FIXED_EXPONENT <span class="token operator">:</span> <span class="token function">rand</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Fixed vs random</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>How to detect with Timecop:</strong></p>
+<pre class="language-c"><code class="language-c code-highlight"><span class="code-line"><span class="token function">poison</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>exponent<span class="token punctuation">,</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span>exponent<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">result <span class="token operator">=</span> <span class="token function">mod_exp</span><span class="token punctuation">(</span>base<span class="token punctuation">,</span> exponent<span class="token punctuation">,</span> modulus<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token function">unpoison</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>exponent<span class="token punctuation">,</span> <span class="token keyword">sizeof</span><span class="token punctuation">(</span>exponent<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Valgrind will report:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Conditional jump or move depends on uninitialised value(s)
+</span><span class="code-line">  at 0x40115D: mod_exp (example.c:14)
+</span></code></pre>
+<p><strong>Related skill:</strong> <strong>dudect</strong>, <strong>timecop</strong></p>
+<h2>Case Studies</h2>
+<h3>Case Study: OpenSSL RSA Timing Attack</h3>
+<p>Brumley and Boneh (2005) extracted RSA private keys from OpenSSL over a network. The vulnerability exploited Montgomery multiplication's variable-time reduction step.</p>
+<p><strong>Attack vector:</strong> Timing differences in modular exponentiation
+<strong>Detection approach:</strong> Statistical analysis (precursor to dudect)
+<strong>Impact:</strong> Remote key extraction</p>
+<p><strong>Tools used:</strong> Custom timing measurement
+<strong>Techniques applied:</strong> Statistical analysis, chosen-ciphertext queries</p>
+<h3>Case Study: KyberSlash</h3>
+<p>Post-quantum algorithm Kyber's reference implementation contained timing vulnerabilities in polynomial operations. Division operations leaked secret coefficients.</p>
+<p><strong>Attack vector:</strong> Secret-dependent division timing
+<strong>Detection approach:</strong> Dynamic analysis and statistical testing
+<strong>Impact:</strong> Secret key recovery in post-quantum cryptography</p>
+<p><strong>Tools used:</strong> Timing measurement tools
+<strong>Techniques applied:</strong> Differential timing analysis</p>
+<h2>Advanced Usage</h2>
+<h3>Tips and Tricks</h3>
+<table>
+<thead>
+<tr>
+<th>Tip</th>
+<th>Why It Helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pin dudect to isolated CPU core (<code>taskset -c 2</code>)</td>
+<td>Reduces OS noise, improves signal detection</td>
+</tr>
+<tr>
+<td>Test multiple compilers (gcc, clang, MSVC)</td>
+<td>Optimizations may introduce or remove leaks</td>
+</tr>
+<tr>
+<td>Run dudect for extended periods (hours)</td>
+<td>Increases statistical confidence</td>
+</tr>
+<tr>
+<td>Minimize non-crypto code in harness</td>
+<td>Reduces noise that masks weak signals</td>
+</tr>
+<tr>
+<td>Check assembly output (<code>objdump -d</code>)</td>
+<td>Verify compiler didn't introduce branches</td>
+</tr>
+<tr>
+<td>Use <code>-O3 -march=native</code> in testing</td>
+<td>Matches production optimization levels</td>
+</tr>
+</tbody>
+</table>
+<h3>Common Mistakes</h3>
+<table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>Why It's Wrong</th>
+<th>Correct Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only testing one input distribution</td>
+<td>May miss leaks visible with other patterns</td>
+<td>Test fixed-vs-random, fixed-vs-fixed-different, etc.</td>
+</tr>
+<tr>
+<td>Short dudect runs (&lt; 1 minute)</td>
+<td>Insufficient measurements for weak signals</td>
+<td>Run 5-10+ minutes, longer for high assurance</td>
+</tr>
+<tr>
+<td>Ignoring compiler optimization levels</td>
+<td><code>-O0</code> may hide leaks present in <code>-O3</code></td>
+<td>Test at production optimization level</td>
+</tr>
+<tr>
+<td>Not testing on target architecture</td>
+<td>x86 vs ARM have different timing characteristics</td>
+<td>Test on deployment platform</td>
+</tr>
+<tr>
+<td>Marking too much as secret in Timecop</td>
+<td>False positives, unclear results</td>
+<td>Mark only true secrets (keys, not public data)</td>
+</tr>
+</tbody>
+</table>
+<h2>Related Skills</h2>
+<h3>Tool Skills</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Primary Use in Constant-Time Analysis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>dudect</strong></td>
+<td>Statistical detection of timing differences via Welch's t-test</td>
+</tr>
+<tr>
+<td><strong>timecop</strong></td>
+<td>Dynamic tracing to pinpoint exact location of timing leaks</td>
+</tr>
+</tbody>
+</table>
+<h3>Technique Skills</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>When to Apply</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>coverage-analysis</strong></td>
+<td>Ensure test inputs exercise all code paths in crypto function</td>
+</tr>
+<tr>
+<td><strong>ci-integration</strong></td>
+<td>Automate constant-time testing in continuous integration pipeline</td>
+</tr>
+</tbody>
+</table>
+<h3>Related Domain Skills</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Relationship</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>crypto-testing</strong></td>
+<td>Constant-time analysis is essential component of cryptographic testing</td>
+</tr>
+<tr>
+<td><strong>fuzzing</strong></td>
+<td>Fuzzing crypto code may trigger timing-dependent paths</td>
+</tr>
+</tbody>
+</table>
+<h2>Skill Dependency Map</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">                    ┌─────────────────────────┐
+</span><span class="code-line">                    │  constant-time-analysis │
+</span><span class="code-line">                    │     (this skill)        │
+</span><span class="code-line">                    └───────────┬─────────────┘
+</span><span class="code-line">                                │
+</span><span class="code-line">                ┌───────────────┴───────────────┐
+</span><span class="code-line">                │                               │
+</span><span class="code-line">                ▼                               ▼
+</span><span class="code-line">    ┌───────────────────┐           ┌───────────────────┐
+</span><span class="code-line">    │      dudect       │           │     timecop       │
+</span><span class="code-line">    │  (statistical)    │           │    (dynamic)      │
+</span><span class="code-line">    └────────┬──────────┘           └────────┬──────────┘
+</span><span class="code-line">             │                               │
+</span><span class="code-line">             └───────────────┬───────────────┘
+</span><span class="code-line">                             │
+</span><span class="code-line">                             ▼
+</span><span class="code-line">              ┌──────────────────────────────┐
+</span><span class="code-line">              │   Supporting Techniques      │
+</span><span class="code-line">              │ coverage, CI integration     │
+</span><span class="code-line">              └──────────────────────────────┘
+</span></code></pre>
+<h2>Resources</h2>
+<h3>Key External Resources</h3>
+<p><strong><a href="https://www.usenix.org/system/files/sec24fall-prepub-760-fourne.pdf" target="_blank" rel="ugc nofollow noopener">These results must be false: A usability evaluation of constant-time analysis tools</a></strong>
+Comprehensive usability study of constant-time analysis tools. Key findings: developers struggle with false positives, need better error messages, and benefit from tool integration. Evaluates FaCT, ct-verif, dudect, and Memsan across multiple cryptographic implementations. Recommends improved tooling UX and better documentation.</p>
+<p><strong><a href="https://crocs-muni.github.io/ct-tools/" target="_blank" rel="ugc nofollow noopener">List of constant-time tools - CROCS</a></strong>
+Curated catalog of constant-time analysis tools with tutorials. Covers formal tools (ct-verif, FaCT), dynamic tools (Memsan, Timecop), symbolic tools (Binsec), and statistical tools (dudect). Includes practical tutorials for setup and usage.</p>
+<p><strong><a href="https://paulkocher.com/doc/TimingAttacks.pdf" target="_blank" rel="ugc nofollow noopener">Paul Kocher: Timing Attacks on Implementations of Diffie-Hellman, RSA, DSS, and Other Systems</a></strong>
+Original 1996 paper introducing timing attacks. Demonstrates attacks on modular exponentiation in RSA and Diffie-Hellman. Essential historical context for understanding timing vulnerabilities.</p>
+<p><strong><a href="https://crypto.stanford.edu/~dabo/papers/ssl-timing.pdf" target="_blank" rel="ugc nofollow noopener">Remote Timing Attacks are Practical (Brumley &amp; Boneh)</a></strong>
+Demonstrates practical remote timing attacks against OpenSSL. Shows network-level timing differences are sufficient to extract RSA keys. Proves timing attacks work in realistic network conditions.</p>
+<p><strong><a href="https://cr.yp.to/antiforgery/cachetiming-20050414.pdf" target="_blank" rel="ugc nofollow noopener">Cache-timing attacks on AES</a></strong>
+Shows AES implementations using lookup tables are vulnerable to cache-timing attacks. Demonstrates practical attacks extracting AES keys via cache timing side channels.</p>
+<p><strong><a href="https://eprint.iacr.org/2024/1049.pdf" target="_blank" rel="ugc nofollow noopener">KyberSlash: Division Timings Leak Secrets</a></strong>
+Recent discovery of timing vulnerabilities in Kyber (NIST post-quantum standard). Shows division operations leak secret coefficients. Highlights that constant-time issues persist even in modern post-quantum cryptography.</p>
+<h3>Video Resources</h3>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=vW6wqTzfz5g" target="_blank" rel="ugc nofollow noopener">Trail of Bits: Constant-Time Programming</a> - Overview of constant-time programming principles and tools</li>
+</ul></div>

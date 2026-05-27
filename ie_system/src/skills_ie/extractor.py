@@ -1,3 +1,9 @@
+'''
+从技能描述文本中抽取出平台、语言、动作类型、目标领域、输出格式、指标等结构化信息，
+并记录每条提取的证据（规则来源、匹配文本、上下文等）。
+它还支持生成报告、搜索提取结果以及保存数据。
+下面分模块详细讲解其逻辑。
+'''
 from __future__ import annotations
 
 import json
@@ -9,6 +15,9 @@ from typing import Any, Dict, List, Tuple
 from .config import IEConfig
 from .state import save_json_atomic, utc_now_iso
 
+# 抽取器的核心思路是“规则命中 + 证据保留”：
+# 每个字段不只输出抽取值，还会记录规则来源、命中文本和上下文，
+# 方便人工复核、误差分析和自动评测。
 
 ACTION_ALIAS_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:analysis|analytics|analyzer|analyst)\b", re.IGNORECASE), "analyze"),
@@ -43,6 +52,7 @@ class SkillsIESystem:
     """Rule-based information extraction system for skill descriptions."""
 
     def __init__(self, config: IEConfig, variant: str = "enhanced") -> None:
+        """初始化关键字模式、动作别名模式和指标模式。"""
         self.config = config
         self.variant = variant
         self.use_action_aliases = variant != "baseline"
@@ -69,6 +79,7 @@ class SkillsIESystem:
 
     @staticmethod
     def _build_keyword_patterns(keywords: List[str]) -> List[Tuple[re.Pattern[str], str]]:
+        """把关键字列表编译成正则模式，供字段抽取复用。"""
         patterns: List[Tuple[re.Pattern[str], str]] = []
         for keyword in keywords:
             escaped = re.escape(keyword)
@@ -77,6 +88,7 @@ class SkillsIESystem:
 
     @staticmethod
     def _empty_extraction() -> Dict[str, Any]:
+        """构造一个字段齐全但内容为空的抽取结果骨架。"""
         extraction = {field: [] for field in EXTRACTED_FIELDS}
         extraction["evidence"] = {field: [] for field in EXTRACTED_FIELDS}
         return extraction
@@ -91,6 +103,7 @@ class SkillsIESystem:
         context: str,
         extra: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
+        """生成统一结构的证据记录。"""
         entry: Dict[str, Any] = {
             "field": field,
             "value": value,
@@ -105,6 +118,7 @@ class SkillsIESystem:
 
     @staticmethod
     def _context_snippet(text: str, start: int, end: int, window: int = 48) -> str:
+        """截取命中片段周边的上下文，提升可解释性。"""
         left = max(0, start - window)
         right = min(len(text), end + window)
         snippet = " ".join(text[left:right].split())
@@ -116,23 +130,45 @@ class SkillsIESystem:
 
     @staticmethod
     def _short_text(value: str, limit: int = 220) -> str:
+        """生成适合报告展示的短文本预览。"""
         value = " ".join(value.split())
         if len(value) <= limit:
             return value
         return value[: limit - 1] + "…"
 
     def load_data(self) -> int:
+        """加载共享技能数据集。"""
         with self.config.paths.data_file.open("r", encoding="utf-8") as file:
             self.documents = json.load(file)
         return len(self.documents)
 
+    def _read_external_skill_text(self, doc: Dict[str, Any]) -> str:
+        """优先读取外部 skill_md 文本文件，获取更完整的抽取语料。"""
+        data_dir = self.config.paths.data_file.parent
+        raw_path = str(doc.get("skill_md_raw_text_path") or "").strip()
+        text_path = str(doc.get("skill_md_text_path") or "").strip()
+
+        for rel_path in [raw_path, text_path]:
+            if not rel_path:
+                continue
+            path = data_dir / rel_path
+            if path.exists():
+                try:
+                    return path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+        return ""
+
     def extract_from_text(self, text: str) -> Dict[str, Any]:
+        """按当前实例默认变体执行抽取。"""
         return self._extract_structured(text, use_action_aliases=self.use_action_aliases)
 
     def extract_from_text_variant(self, text: str, variant: str = "enhanced") -> Dict[str, Any]:
+        """按指定变体执行抽取。"""
         return self._extract_structured(text, use_action_aliases=(variant != "baseline"))
 
     def extract_debug_payload(self, text: str, variant: str = "enhanced") -> Dict[str, Any]:
+        """返回包含证据和摘要的调试结构。"""
         extraction = self.extract_from_text_variant(text, variant=variant)
         evidence_map = extraction.get("evidence", {}) if isinstance(extraction, dict) else {}
         evidence_count = 0
@@ -156,12 +192,14 @@ class SkillsIESystem:
         }
 
     def _extract_structured(self, text: str, use_action_aliases: bool) -> Dict[str, Any]:
+        """执行完整的结构化抽取流程。"""
         if not text:
             return self._empty_extraction()
 
         extraction = self._empty_extraction()
         evidence = extraction["evidence"]
 
+        # 每个字段都同时生成“值”和“证据”，后续可以直接用于解释与评测。
         extraction["platforms"], evidence["platforms"] = self._extract_keywords_with_evidence(
             text, self._platform_patterns, field="platforms", rule_source="exact_keyword"
         )
@@ -186,6 +224,7 @@ class SkillsIESystem:
         return extraction
 
     def _extract_keywords(self, text: str, patterns: List[Tuple[re.Pattern[str], str]]) -> List[str]:
+        """仅提取命中的关键字值，不保留证据。"""
         seen = set()
         values: List[str] = []
         for pattern, keyword in patterns:
@@ -201,6 +240,7 @@ class SkillsIESystem:
         field: str,
         rule_source: str,
     ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        """提取关键字并记录每次命中的证据。"""
         seen = set()
         values: List[str] = []
         evidence: List[Dict[str, Any]] = []
@@ -223,6 +263,7 @@ class SkillsIESystem:
         return values, evidence
 
     def _expand_action_aliases(self, text: str, action_types: List[str]) -> List[str]:
+        """通过动作别名模式补充动作类型。"""
         seen = set(action_types)
         expanded = list(action_types)
         for pattern, canonical_action in ACTION_ALIAS_PATTERNS:
@@ -234,6 +275,7 @@ class SkillsIESystem:
     def _expand_action_aliases_with_evidence(
         self, text: str, action_types: List[str]
     ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        """补充动作别名，并把别名命中纳入证据。"""
         seen = set(action_types)
         expanded = list(action_types)
         evidence: List[Dict[str, Any]] = []
@@ -256,12 +298,14 @@ class SkillsIESystem:
         return expanded, evidence
 
     def _extract_metrics(self, text: str) -> List[Dict[str, str]]:
+        """仅提取指标项，不返回证据。"""
         metrics, _ = self._extract_metrics_with_evidence(text)
         return metrics
 
     def _extract_metrics_with_evidence(
         self, text: str
     ) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
+        """通过正则模式抽取数值/量纲型指标，并记录证据。"""
         word_to_num = {
             "two": "2",
             "three": "3",
@@ -307,6 +351,7 @@ class SkillsIESystem:
         return metrics, evidence
 
     def build_event_records(self, variant: str = "enhanced") -> List[Dict[str, Any]]:
+        """把原始文档集转换为评测和比较使用的事件记录。"""
         if not self.documents:
             self.load_data()
 
@@ -315,10 +360,12 @@ class SkillsIESystem:
             skill_id = doc.get("skill_id", "")
             skill_name = doc.get("skill_name", "")
             description = doc.get("description", "")
+            external_skill_text = self._read_external_skill_text(doc)
             skill_md_raw_text = doc.get("skill_md_raw_text", "")
             skill_md = doc.get("skill_md", "")
             category = doc.get("category", "")
-            extraction_text = skill_md_raw_text or skill_md or description or ""
+            # 优先选择更长、更原始的 skill_md 文本，以提升规则覆盖率。
+            extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
             full_text = f"{skill_name} {category} {extraction_text}"
             extraction = self.extract_from_text_variant(full_text, variant=variant)
             event = {
@@ -344,6 +391,7 @@ class SkillsIESystem:
         return events
 
     def extract_all(self) -> List[Dict[str, Any]]:
+        """对当前数据集执行整批抽取，并缓存结果。"""
         if not self.documents:
             self.load_data()
 
@@ -352,10 +400,11 @@ class SkillsIESystem:
             skill_id = doc.get("skill_id", "")
             skill_name = doc.get("skill_name", "")
             description = doc.get("description", "")
+            external_skill_text = self._read_external_skill_text(doc)
             skill_md_raw_text = doc.get("skill_md_raw_text", "")
             skill_md = doc.get("skill_md", "")
             category = doc.get("category", "")
-            extraction_text = skill_md_raw_text or skill_md or description or ""
+            extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
             full_text = f"{skill_name} {category} {extraction_text}"
             extraction = self.extract_from_text(full_text)
             event = {
@@ -382,6 +431,7 @@ class SkillsIESystem:
 
     @staticmethod
     def _build_event_summary(skill_name: str, extraction: Dict[str, Any]) -> str:
+        """把抽取结果压缩为一段便于阅读的摘要。"""
         parts = [f"[{skill_name}]"]
 
         actions = extraction.get("action_types", [])
@@ -413,6 +463,7 @@ class SkillsIESystem:
 
     @staticmethod
     def _compact_evidence_sample(event: Dict[str, Any], evidence_entry: Dict[str, Any]) -> Dict[str, Any]:
+        """把完整证据记录压缩成报告友好的样本结构。"""
         return {
             "skill_name": event.get("skill_name", ""),
             "skill_id": event.get("skill_id", ""),
@@ -425,6 +476,7 @@ class SkillsIESystem:
         }
 
     def _summarize_explainability(self) -> Dict[str, Any]:
+        """按字段汇总证据覆盖率和证据来源分布。"""
         total = len(self.extraction_results)
         field_docs = Counter()
         field_items = Counter()
@@ -476,6 +528,7 @@ class SkillsIESystem:
         }
 
     def generate_report(self) -> Dict[str, Any]:
+        """生成抽取覆盖率、值分布与证据统计报告。"""
         if not self.extraction_results:
             self.extract_all()
 
@@ -526,6 +579,7 @@ class SkillsIESystem:
         return report
 
     def save_results(self) -> Dict[str, str]:
+        """保存抽取结果、报告与项目状态文件。"""
         self.config.ensure_runtime_dirs()
         results_path = self.config.paths.extraction_results_file
         save_json_atomic(
@@ -560,9 +614,11 @@ class SkillsIESystem:
     def search_extractions(
         self, query: str, field: str | None = None, top_k: int = 10
     ) -> List[Dict[str, Any]]:
+        """在抽取结果上做轻量字段检索。"""
         if not self.extraction_results:
             self.extract_all()
 
+        # 这里使用启发式打分而非复杂排序，目标是便于人工浏览抽取结果。
         query_lower = query.lower().strip()
         scored: List[Tuple[float, Dict[str, Any]]] = []
         fields_to_search = [field] if field else [
@@ -603,6 +659,7 @@ class SkillsIESystem:
 
 
 def print_extraction_results(results: List[Dict[str, Any]], limit: int = 10) -> None:
+    """把抽取结果打印为终端可读格式。"""
     for i, event in enumerate(results[:limit], 1):
         print(f"\n[{i}] {event['skill_name']}  (category: {event.get('category', '')})")
         extraction = event["extraction"]

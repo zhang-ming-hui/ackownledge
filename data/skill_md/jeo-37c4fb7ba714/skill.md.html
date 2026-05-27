@@ -1,0 +1,1250 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>JEO — Integrated Agent Orchestration</h1>
+<blockquote>
+<p>Keyword: <code>jeo</code> · <code>annotate</code> · <code>UI-review</code> · <code>agentui (deprecated)</code> | Platforms: Claude Code · Codex CLI · Gemini CLI · OpenCode</p>
+<p>A unified skill providing fully automated orchestration flow:
+Plan (ralph+plannotator) → Execute (team/bmad) → UI Feedback (agentation/annotate) → Cleanup (worktree cleanup)</p>
+</blockquote>
+<h2>Control Layers</h2>
+<p>JEO uses one cross-platform abstraction for orchestration:</p>
+<ul>
+<li><code>settings</code>: platform/runtime configuration such as Claude hooks, Codex <code>config.toml</code>, Gemini <code>settings.json</code>, MCP registration, and prompt parameters</li>
+<li><code>rules</code>: policy constraints that must hold on every platform</li>
+<li><code>hooks</code>: event callbacks that enforce those rules on each platform</li>
+</ul>
+<p>The key JEO rules are:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>do not reopen the PLAN gate when the current plan hash already has a terminal result</li>
+<li>only a revised plan resets <code>plan_gate_status</code> to <code>pending</code></li>
+<li>do not process agentation annotations before explicit submit/onSubmit opens the submit gate</li>
+</ul>
+<p>The authoritative state is <code>.omc/state/jeo-state.json</code>. Hooks may help advance the workflow, but they must obey the state file.</p>
+<hr>
+<h2>0. Agent Execution Protocol (follow immediately upon <code>jeo</code> keyword detection)</h2>
+<blockquote>
+<p>The following are commands, not descriptions. Execute them in order. Each step only proceeds after the previous one completes.</p>
+</blockquote>
+<h3>STEP 0: State File Bootstrap (required — always first)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> .omc/state .omc/plans .omc/logs
+</span></code></pre>
+<p>If <code>.omc/state/jeo-state.json</code> does not exist, create it:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"phase"</span><span class="token operator">:</span> <span class="token string">"plan"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"task"</span><span class="token operator">:</span> <span class="token string">"&lt;detected task&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_approved"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_gate_status"</span><span class="token operator">:</span> <span class="token string">"pending"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_current_hash"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"last_reviewed_plan_hash"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"last_reviewed_plan_at"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_review_method"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"team_available"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"retry_count"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"last_error"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"checkpoint"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"created_at"</span><span class="token operator">:</span> <span class="token string">"&lt;ISO 8601&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"updated_at"</span><span class="token operator">:</span> <span class="token string">"&lt;ISO 8601&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"agentation"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"active"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"session_id"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"keyword_used"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submit_gate_status"</span><span class="token operator">:</span> <span class="token string">"idle"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submit_signal"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submit_received_at"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submitted_annotation_count"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"started_at"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"timeout_seconds"</span><span class="token operator">:</span> <span class="token number">120</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"annotations"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"total"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"acknowledged"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"resolved"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"dismissed"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"pending"</span><span class="token operator">:</span> <span class="token number">0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"completed_at"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"exit_reason"</span><span class="token operator">:</span> <span class="token null keyword">null</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Notify the user:</p>
+<blockquote>
+<p>"JEO activated. Phase: PLAN. Add the <code>annotate</code> keyword if a UI feedback loop is needed."</p>
+</blockquote>
+<hr>
+<h3>STEP 0.1: Error Recovery Protocol (applies to all STEPs)</h3>
+<p><strong>Checkpoint recording — immediately after entering each STEP:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># Execute immediately at the start of each STEP (agent updates jeo-state.json directly)</span>
+</span><span class="code-line">python3 <span class="token operator">-</span>c "
+</span><span class="code-line"><span class="token keyword">import</span> json<span class="token punctuation">,</span> datetime<span class="token punctuation">,</span> os<span class="token punctuation">,</span> subprocess<span class="token punctuation">,</span> tempfile
+</span><span class="code-line"><span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">    root <span class="token operator">=</span> subprocess<span class="token punctuation">.</span>check_output<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'git'</span><span class="token punctuation">,</span> <span class="token string">'rev-parse'</span><span class="token punctuation">,</span> <span class="token string">'--show-toplevel'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> stderr<span class="token operator">=</span>subprocess<span class="token punctuation">.</span>DEVNULL<span class="token punctuation">)</span><span class="token punctuation">.</span>decode<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">except</span><span class="token punctuation">:</span>
+</span><span class="code-line">    root <span class="token operator">=</span> os<span class="token punctuation">.</span>getcwd<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">f <span class="token operator">=</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>join<span class="token punctuation">(</span>root<span class="token punctuation">,</span> <span class="token string">'.omc/state/jeo-state.json'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">if</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>exists<span class="token punctuation">(</span>f<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">import</span> fcntl
+</span><span class="code-line">    <span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span>f<span class="token punctuation">,</span> <span class="token string">'r+'</span><span class="token punctuation">)</span> <span class="token keyword">as</span> fh<span class="token punctuation">:</span>
+</span><span class="code-line">        fcntl<span class="token punctuation">.</span>flock<span class="token punctuation">(</span>fh<span class="token punctuation">,</span> fcntl<span class="token punctuation">.</span>LOCK_EX<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">            d <span class="token operator">=</span> json<span class="token punctuation">.</span>load<span class="token punctuation">(</span>fh<span class="token punctuation">)</span>
+</span><span class="code-line">            d<span class="token punctuation">[</span><span class="token string">'checkpoint'</span><span class="token punctuation">]</span><span class="token operator">=</span><span class="token string">'&lt;current_phase&gt;'</span>   <span class="token comment"># 'plan'|'execute'|'verify'|'cleanup'</span>
+</span><span class="code-line">            d<span class="token punctuation">[</span><span class="token string">'updated_at'</span><span class="token punctuation">]</span><span class="token operator">=</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>utcnow<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>isoformat<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">+</span><span class="token string">'Z'</span>
+</span><span class="code-line">            fh<span class="token punctuation">.</span>seek<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">            json<span class="token punctuation">.</span>dump<span class="token punctuation">(</span>d<span class="token punctuation">,</span> fh<span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> indent<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span>
+</span><span class="code-line">            fh<span class="token punctuation">.</span>truncate<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">finally</span><span class="token punctuation">:</span>
+</span><span class="code-line">            fcntl<span class="token punctuation">.</span>flock<span class="token punctuation">(</span>fh<span class="token punctuation">,</span> fcntl<span class="token punctuation">.</span>LOCK_UN<span class="token punctuation">)</span>
+</span><span class="code-line">" <span class="token number">2</span><span class="token operator">&gt;</span><span class="token operator">/</span>dev<span class="token operator">/</span>null <span class="token operator">|</span><span class="token operator">|</span> true
+</span></code></pre>
+<p><strong>last_error recording — on pre-flight failure or exception:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line">python3 <span class="token operator">-</span>c "
+</span><span class="code-line"><span class="token keyword">import</span> json<span class="token punctuation">,</span> datetime<span class="token punctuation">,</span> os<span class="token punctuation">,</span> subprocess<span class="token punctuation">,</span> fcntl
+</span><span class="code-line"><span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">    root <span class="token operator">=</span> subprocess<span class="token punctuation">.</span>check_output<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'git'</span><span class="token punctuation">,</span> <span class="token string">'rev-parse'</span><span class="token punctuation">,</span> <span class="token string">'--show-toplevel'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> stderr<span class="token operator">=</span>subprocess<span class="token punctuation">.</span>DEVNULL<span class="token punctuation">)</span><span class="token punctuation">.</span>decode<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">except</span><span class="token punctuation">:</span>
+</span><span class="code-line">    root <span class="token operator">=</span> os<span class="token punctuation">.</span>getcwd<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">f <span class="token operator">=</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>join<span class="token punctuation">(</span>root<span class="token punctuation">,</span> <span class="token string">'.omc/state/jeo-state.json'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">if</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>exists<span class="token punctuation">(</span>f<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span>f<span class="token punctuation">,</span> <span class="token string">'r+'</span><span class="token punctuation">)</span> <span class="token keyword">as</span> fh<span class="token punctuation">:</span>
+</span><span class="code-line">        fcntl<span class="token punctuation">.</span>flock<span class="token punctuation">(</span>fh<span class="token punctuation">,</span> fcntl<span class="token punctuation">.</span>LOCK_EX<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">            d <span class="token operator">=</span> json<span class="token punctuation">.</span>load<span class="token punctuation">(</span>fh<span class="token punctuation">)</span>
+</span><span class="code-line">            d<span class="token punctuation">[</span><span class="token string">'last_error'</span><span class="token punctuation">]</span><span class="token operator">=</span><span class="token string">'&lt;error message&gt;'</span>
+</span><span class="code-line">            d<span class="token punctuation">[</span><span class="token string">'retry_count'</span><span class="token punctuation">]</span><span class="token operator">=</span>d<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'retry_count'</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token operator">+</span><span class="token number">1</span>
+</span><span class="code-line">            d<span class="token punctuation">[</span><span class="token string">'updated_at'</span><span class="token punctuation">]</span><span class="token operator">=</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>utcnow<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>isoformat<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">+</span><span class="token string">'Z'</span>
+</span><span class="code-line">            fh<span class="token punctuation">.</span>seek<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">            json<span class="token punctuation">.</span>dump<span class="token punctuation">(</span>d<span class="token punctuation">,</span> fh<span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> indent<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span>
+</span><span class="code-line">            fh<span class="token punctuation">.</span>truncate<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">finally</span><span class="token punctuation">:</span>
+</span><span class="code-line">            fcntl<span class="token punctuation">.</span>flock<span class="token punctuation">(</span>fh<span class="token punctuation">,</span> fcntl<span class="token punctuation">.</span>LOCK_UN<span class="token punctuation">)</span>
+</span><span class="code-line">" <span class="token number">2</span><span class="token operator">&gt;</span><span class="token operator">/</span>dev<span class="token operator">/</span>null <span class="token operator">|</span><span class="token operator">|</span> true
+</span></code></pre>
+<p><strong>Checkpoint-based resume on restart:</strong></p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># If jeo-state.json already exists, resume from checkpoint</span>
+</span><span class="code-line">python3 <span class="token operator">-</span>c "
+</span><span class="code-line"><span class="token keyword">import</span> json<span class="token punctuation">,</span> os<span class="token punctuation">,</span> subprocess
+</span><span class="code-line"><span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">    root <span class="token operator">=</span> subprocess<span class="token punctuation">.</span>check_output<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'git'</span><span class="token punctuation">,</span> <span class="token string">'rev-parse'</span><span class="token punctuation">,</span> <span class="token string">'--show-toplevel'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> stderr<span class="token operator">=</span>subprocess<span class="token punctuation">.</span>DEVNULL<span class="token punctuation">)</span><span class="token punctuation">.</span>decode<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">except</span><span class="token punctuation">:</span>
+</span><span class="code-line">    root <span class="token operator">=</span> os<span class="token punctuation">.</span>getcwd<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">f <span class="token operator">=</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>join<span class="token punctuation">(</span>root<span class="token punctuation">,</span> <span class="token string">'.omc/state/jeo-state.json'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">if</span> os<span class="token punctuation">.</span>path<span class="token punctuation">.</span>exists<span class="token punctuation">(</span>f<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    d<span class="token operator">=</span>json<span class="token punctuation">.</span>load<span class="token punctuation">(</span><span class="token builtin">open</span><span class="token punctuation">(</span>f<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    cp<span class="token operator">=</span>d<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'checkpoint'</span><span class="token punctuation">)</span>
+</span><span class="code-line">    err<span class="token operator">=</span>d<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'last_error'</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> err<span class="token punctuation">:</span> <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f'Previous error: </span><span class="token interpolation"><span class="token punctuation">{</span>err<span class="token punctuation">}</span></span><span class="token string">'</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> cp<span class="token punctuation">:</span> <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f'Resuming from: </span><span class="token interpolation"><span class="token punctuation">{</span>cp<span class="token punctuation">}</span></span><span class="token string">'</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">" <span class="token number">2</span><span class="token operator">&gt;</span><span class="token operator">/</span>dev<span class="token operator">/</span>null <span class="token operator">|</span><span class="token operator">|</span> true
+</span></code></pre>
+<blockquote>
+<p><strong>Rule</strong>: Before <code>exit 1</code> in pre-flight, always update <code>last_error</code> and increment <code>retry_count</code>.
+If <code>retry_count &gt;= 3</code>, ask the user whether to abort.</p>
+</blockquote>
+<hr>
+<h3>STEP 1: PLAN (never skip)</h3>
+<p><strong>Pre-flight (required before entering):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Record checkpoint</span>
+</span><span class="code-line">python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json,datetime,os,subprocess,fcntl,tempfile
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+</span></span><span class="code-line"><span class="token string">except:
+</span></span><span class="code-line"><span class="token string">    root=os.getcwd()
+</span></span><span class="code-line"><span class="token string">f=os.path.join(root,'.omc/state/jeo-state.json')
+</span></span><span class="code-line"><span class="token string">if os.path.exists(f):
+</span></span><span class="code-line"><span class="token string">    with open(f,'r+') as fh:
+</span></span><span class="code-line"><span class="token string">        fcntl.flock(fh,fcntl.LOCK_EX)
+</span></span><span class="code-line"><span class="token string">        try:
+</span></span><span class="code-line"><span class="token string">            d=json.load(fh)
+</span></span><span class="code-line"><span class="token string">            d.update({'checkpoint':'plan','updated_at':datetime.datetime.utcnow().isoformat()+'Z'})
+</span></span><span class="code-line"><span class="token string">            fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+</span></span><span class="code-line"><span class="token string">        finally:
+</span></span><span class="code-line"><span class="token string">            fcntl.flock(fh,fcntl.LOCK_UN)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token boolean">true</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># NOTE: Claude Code — skip this entire bash block.</span>
+</span><span class="code-line"><span class="token comment"># plannotator is a hook-only binary; calling it directly always fails.</span>
+</span><span class="code-line"><span class="token comment"># For Claude Code: call EnterPlanMode → write plan → call ExitPlanMode.</span>
+</span><span class="code-line"><span class="token comment"># The ExitPlanMode PermissionRequest hook fires plannotator automatically.</span>
+</span><span class="code-line"><span class="token comment"># The following script is for Codex / Gemini / OpenCode only.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GUARD: enforce no-repeat PLAN review by plan hash.</span>
+</span><span class="code-line"><span class="token comment"># same hash + terminal gate status =&gt; skip reopening the plan gate</span>
+</span><span class="code-line"><span class="token comment"># revised plan.md content =&gt; reset gate to pending and review again</span>
+</span><span class="code-line"><span class="token assign-left variable">PLAN_GATE_STATUS</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>python3 <span class="token parameter variable">-c</span> "
+</span></span><span class="code-line"><span class="token variable"><span class="token function">import</span> json, os
+</span></span><span class="code-line"><span class="token variable">try:
+</span></span><span class="code-line"><span class="token variable">    s <span class="token operator">=</span> json.load<span class="token punctuation">(</span>open<span class="token punctuation">(</span><span class="token string">'.omc/state/jeo-state.json'</span><span class="token punctuation">)</span><span class="token variable">)</span></span>
+</span><span class="code-line">    print<span class="token punctuation">(</span>s.get<span class="token punctuation">(</span><span class="token string">'plan_gate_status'</span>, <span class="token string">'pending'</span><span class="token punctuation">))</span>
+</span><span class="code-line">except Exception:
+</span><span class="code-line">    print<span class="token punctuation">(</span><span class="token string">'pending'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token string">" 2&gt;/dev/null || echo "</span>pending<span class="token string">")
+</span></span><span class="code-line"><span class="token string">
+</span></span><span class="code-line"><span class="token string">HASH_MATCH=<span class="token variable"><span class="token variable">$(</span>python3 <span class="token parameter variable">-c</span> "
+</span></span></span><span class="code-line"><span class="token string"><span class="token variable"><span class="token function">import</span> hashlib, json, os
+</span></span></span><span class="code-line"><span class="token string"><span class="token variable">try:
+</span></span></span><span class="code-line"><span class="token string"><span class="token variable">    s <span class="token operator">=</span> json.load<span class="token punctuation">(</span>open<span class="token punctuation">(</span><span class="token string">'.omc/state/jeo-state.json'</span><span class="token punctuation">)</span><span class="token variable">)</span></span>
+</span></span><span class="code-line"><span class="token string">    if not os.path.exists('plan.md'):
+</span></span><span class="code-line"><span class="token string">        print('no-match')
+</span></span><span class="code-line"><span class="token string">    else:
+</span></span><span class="code-line"><span class="token string">        current_hash = hashlib.sha256(open('plan.md', 'rb').read()).hexdigest()
+</span></span><span class="code-line"><span class="token string">        print('match' if current_hash == (s.get('last_reviewed_plan_hash') or '') else 'no-match')
+</span></span><span class="code-line"><span class="token string">except Exception:
+</span></span><span class="code-line"><span class="token string">    print('no-match')
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">"no-match"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$HASH_MATCH</span>"</span> <span class="token operator">==</span> <span class="token string">"match"</span> <span class="token operator">&amp;&amp;</span> <span class="token string">"<span class="token variable">$PLAN_GATE_STATUS</span>"</span> <span class="token operator">=~</span> ^<span class="token punctuation">(</span>approved<span class="token operator">|</span>manual_approved<span class="token punctuation">)</span>$ <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"✅ Current plan hash already approved. Skipping re-review."</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">0</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># BUG FIX (v1.3.1): feedback_required + same hash must NOT exit 0 (approved).</span>
+</span><span class="code-line"><span class="token comment"># The plan has outstanding feedback and must be revised before re-opening plannotator.</span>
+</span><span class="code-line"><span class="token comment"># Exiting 0 here would cause JEO to proceed to EXECUTE with an unapproved plan.</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$HASH_MATCH</span>"</span> <span class="token operator">==</span> <span class="token string">"match"</span> <span class="token operator">&amp;&amp;</span> <span class="token string">"<span class="token variable">$PLAN_GATE_STATUS</span>"</span> <span class="token operator">==</span> <span class="token string">"feedback_required"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"❌ Feedback pending for this plan hash — revise plan.md content (new hash required) before re-opening plannotator."</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"   Check .omc/state/jeo-state.json → plannotator_feedback for the recorded feedback."</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$HASH_MATCH</span>"</span> <span class="token operator">==</span> <span class="token string">"match"</span> <span class="token operator">&amp;&amp;</span> <span class="token string">"<span class="token variable">$PLAN_GATE_STATUS</span>"</span> <span class="token operator">==</span> <span class="token string">"infrastructure_blocked"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"⚠️ Infrastructure blocked for current plan hash. Use manual TTY gate or set plan_gate_status='manual_approved' in jeo-state.json."</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">32</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># plannotator is mandatory for the PLAN step (Codex/Gemini/OpenCode).</span>
+</span><span class="code-line"><span class="token comment"># If missing, JEO auto-installs it before opening the PLAN gate.</span>
+</span><span class="code-line"><span class="token comment"># Resolve the JEO scripts directory (works from any CWD)</span>
+</span><span class="code-line"><span class="token assign-left variable">_JEO_SCRIPTS</span><span class="token operator">=</span><span class="token string">""</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">_candidate</span> <span class="token keyword">in</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token string">"<span class="token variable">${JEO_SKILL_DIR<span class="token operator">:-</span>}</span>/scripts"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token string">"<span class="token environment constant">$HOME</span>/.agent-skills/jeo/scripts"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token string">"<span class="token environment constant">$HOME</span>/.codex/skills/jeo/scripts"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token string">"<span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">pwd</span><span class="token variable">)</span></span>/.agent-skills/jeo/scripts"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token string">"scripts"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">${_candidate}</span>/plannotator-plan-loop.sh"</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">    <span class="token assign-left variable">_JEO_SCRIPTS</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$_candidate</span>"</span>
+</span><span class="code-line">    <span class="token builtin class-name">break</span>
+</span><span class="code-line">  <span class="token keyword">fi</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token parameter variable">-z</span> <span class="token string">"<span class="token variable">$_JEO_SCRIPTS</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"❌ JEO scripts not found. Re-run: bash setup-codex.sh (or setup-gemini.sh)"</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token operator">!</span> <span class="token function">bash</span> <span class="token string">"<span class="token variable">${_JEO_SCRIPTS}</span>/ensure-plannotator.sh"</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"❌ plannotator auto-install failed: cannot proceed with PLAN step."</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"   Retry: bash <span class="token variable">${_JEO_SCRIPTS}</span>/../scripts/install.sh --with-plannotator"</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Required PLAN gate (Codex / Gemini / OpenCode):</span>
+</span><span class="code-line"><span class="token comment"># - Must wait until approve/feedback is received</span>
+</span><span class="code-line"><span class="token comment"># - Auto-restart on session exit (up to 3 times)</span>
+</span><span class="code-line"><span class="token comment"># - After 3 exits, ask user whether to end PLAN</span>
+</span><span class="code-line"><span class="token assign-left variable">FEEDBACK_DIR</span><span class="token operator">=</span><span class="token punctuation">$(</span>python3 <span class="token parameter variable">-c</span> <span class="token string">"import hashlib,os; h=hashlib.md5(os.getcwd().encode()).hexdigest()[:8]; d=f'/tmp/jeo-{h}'; os.makedirs(d,exist_ok=True); print(d)"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">'/tmp'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">FEEDBACK_FILE</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${FEEDBACK_DIR}</span>/plannotator_feedback.txt"</span>
+</span><span class="code-line"><span class="token function">bash</span> <span class="token string">"<span class="token variable">${_JEO_SCRIPTS}</span>/plannotator-plan-loop.sh"</span> plan.md <span class="token string">"<span class="token variable">$FEEDBACK_FILE</span>"</span> <span class="token number">3</span>
+</span><span class="code-line"><span class="token assign-left variable">PLAN_RC</span><span class="token operator">=</span><span class="token variable">$?</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$PLAN_RC</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">0</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"✅ Plan approved"</span>
+</span><span class="code-line"><span class="token keyword">elif</span> <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$PLAN_RC</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">10</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"❌ Plan not approved — apply feedback, revise plan.md, and retry"</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">elif</span> <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$PLAN_RC</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">32</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"⚠️ plannotator UI unavailable (sandbox/CI). Entering Conversation Approval Mode:"</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"   1. Output plan.md content to user in conversation"</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"   2. Ask user: 'approve' to proceed or provide feedback"</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"   3. DO NOT proceed to EXECUTE until user explicitly approves"</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">32</span>
+</span><span class="code-line"><span class="token keyword">elif</span> <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$PLAN_RC</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">30</span> <span class="token punctuation">]</span> <span class="token operator">||</span> <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$PLAN_RC</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">31</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"⛔ PLAN exit decision (or awaiting confirmation). Confirm with user before retrying."</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">else</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"❌ plannotator PLAN gate failed (code=<span class="token variable">$PLAN_RC</span>)"</span>
+</span><span class="code-line">  <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> .omc/plans .omc/logs
+</span></code></pre>
+<ol>
+<li>Write <code>plan.md</code> (include goal, steps, risks, and completion criteria)</li>
+<li><strong>Invoke plannotator</strong> (per platform):
+<ul>
+<li><strong>Claude Code (hook mode — only supported method)</strong>:
+<code>plannotator</code> is a hook-only binary. It cannot be called via MCP tool or CLI directly.
+Call <code>EnterPlanMode</code>, write the plan content in plan mode, then call <code>ExitPlanMode</code>.
+The <code>ExitPlanMode</code> PermissionRequest hook fires the JEO Claude plan-gate wrapper automatically.
+That wrapper must skip re-entry when the current plan hash already has a terminal review result.
+Wait for the hook to return before proceeding — approved or feedback will arrive via the hook result.</li>
+<li><strong>Codex / Gemini / OpenCode</strong>: run blocking CLI (never use <code>&amp;</code>):
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># _JEO_SCRIPTS must be resolved first via the dynamic path discovery block in the pre-flight above</span>
+</span><span class="code-line"><span class="token function">bash</span> <span class="token string">"<span class="token variable">${_JEO_SCRIPTS}</span>/plannotator-plan-loop.sh"</span> plan.md /tmp/plannotator_feedback.txt <span class="token number">3</span>
+</span></code></pre>
+If <code>plannotator</code> is missing, JEO must auto-run <code>bash "${_JEO_SCRIPTS}/ensure-plannotator.sh"</code> first and continue only after the CLI is available.</li>
+</ul>
+</li>
+<li>Check result:
+<ul>
+<li><code>approved: true</code> (Claude Code: hook returns approved) → update <code>jeo-state.json</code> <code>phase</code> to <code>"execute"</code> and <code>plan_approved</code> to <code>true</code> → <strong>enter STEP 2</strong></li>
+<li>Not approved (Claude Code: hook returns feedback; others: <code>exit 10</code>) → read feedback, revise <code>plan.md</code> → repeat step 2</li>
+<li>Infrastructure blocked (<code>exit 32</code>) → localhost bind unavailable (e.g., sandbox/CI). Use manual gate in TTY; confirm with user and retry outside sandbox in non-TTY</li>
+<li>Session exited 3 times (<code>exit 30/31</code>) → ask user whether to end PLAN and decide to abort or resume</li>
+</ul>
+</li>
+</ol>
+<p><strong>NEVER: enter EXECUTE without <code>approved: true</code>. NEVER: run with <code>&amp;</code> background.</strong>
+<strong>NEVER: reopen the same unchanged plan after <code>approved</code> or <code>manual_approved</code> — it is already approved.</strong>
+<strong>NEVER: treat <code>feedback_required</code> as approved — it means the plan was REJECTED and must be revised.</strong>
+<strong>When <code>feedback_required</code> + same hash → exit 1 (not 0), revise plan content to get a new hash, then re-open plannotator.</strong></p>
+<hr>
+<h3>STEP 2: EXECUTE</h3>
+<p><strong>Pre-flight (auto-detect team availability):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Record checkpoint</span>
+</span><span class="code-line">python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json,datetime,os,subprocess,fcntl
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+</span></span><span class="code-line"><span class="token string">except:
+</span></span><span class="code-line"><span class="token string">    root=os.getcwd()
+</span></span><span class="code-line"><span class="token string">f=os.path.join(root,'.omc/state/jeo-state.json')
+</span></span><span class="code-line"><span class="token string">if os.path.exists(f):
+</span></span><span class="code-line"><span class="token string">    with open(f,'r+') as fh:
+</span></span><span class="code-line"><span class="token string">        fcntl.flock(fh,fcntl.LOCK_EX)
+</span></span><span class="code-line"><span class="token string">        try:
+</span></span><span class="code-line"><span class="token string">            d=json.load(fh)
+</span></span><span class="code-line"><span class="token string">            d.update({'checkpoint':'execute','updated_at':datetime.datetime.utcnow().isoformat()+'Z'})
+</span></span><span class="code-line"><span class="token string">            fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+</span></span><span class="code-line"><span class="token string">        finally:
+</span></span><span class="code-line"><span class="token string">            fcntl.flock(fh,fcntl.LOCK_UN)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token boolean">true</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token assign-left variable">TEAM_AVAILABLE</span><span class="token operator">=</span>false
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token string">"<span class="token variable">${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS<span class="token operator">:-</span>}</span>"</span> <span class="token operator">=~</span> ^<span class="token punctuation">(</span><span class="token number">1</span><span class="token operator">|</span><span class="token boolean">true</span><span class="token operator">|</span>True<span class="token operator">|</span><span class="token function">yes</span><span class="token operator">|</span>YES<span class="token punctuation">)</span>$ <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token assign-left variable">TEAM_AVAILABLE</span><span class="token operator">=</span>true
+</span><span class="code-line"><span class="token keyword">elif</span> python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json, os, sys
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    s = json.load(open(os.path.expanduser('~/.claude/settings.json')))
+</span></span><span class="code-line"><span class="token string">    val = s.get('env', {}).get('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS', '')
+</span></span><span class="code-line"><span class="token string">    sys.exit(0 if str(val) in ('1', 'true', 'True', 'yes') else 1)
+</span></span><span class="code-line"><span class="token string">except Exception:
+</span></span><span class="code-line"><span class="token string">    sys.exit(1)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null<span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token assign-left variable">TEAM_AVAILABLE</span><span class="token operator">=</span>true
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">TEAM_AVAILABLE_BOOL</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$TEAM_AVAILABLE</span>"</span>
+</span><span class="code-line">python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json,os,subprocess,fcntl
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+</span></span><span class="code-line"><span class="token string">except:
+</span></span><span class="code-line"><span class="token string">    root=os.getcwd()
+</span></span><span class="code-line"><span class="token string">f=os.path.join(root,'.omc/state/jeo-state.json')
+</span></span><span class="code-line"><span class="token string">if os.path.exists(f):
+</span></span><span class="code-line"><span class="token string">    with open(f,'r+') as fh:
+</span></span><span class="code-line"><span class="token string">        fcntl.flock(fh,fcntl.LOCK_EX)
+</span></span><span class="code-line"><span class="token string">        try:
+</span></span><span class="code-line"><span class="token string">            d=json.load(fh)
+</span></span><span class="code-line"><span class="token string">            d['team_available']=os.environ.get('TEAM_AVAILABLE_BOOL','false').lower()=='true'
+</span></span><span class="code-line"><span class="token string">            fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+</span></span><span class="code-line"><span class="token string">        finally:
+</span></span><span class="code-line"><span class="token string">            fcntl.flock(fh,fcntl.LOCK_UN)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token boolean">true</span>
+</span></code></pre>
+<ol>
+<li>Update <code>jeo-state.json</code> <code>phase</code> to <code>"execute"</code></li>
+<li><strong>Team available (Claude Code + omc)</strong>:
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/omc:team 3:executor "&lt;task&gt;"
+</span></code></pre>
+</li>
+<li><strong>Claude Code but no team</strong>:
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">echo "❌ JEO requires Claude Code team mode. Re-run bash scripts/setup-claude.sh, restart Claude Code, and confirm CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1."
+</span><span class="code-line">exit 1
+</span></code></pre>
+Never fall back to single-agent execution in Claude Code.</li>
+<li><strong>No omc (BMAD fallback — Codex / Gemini / OpenCode only)</strong>:
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/workflow-init   # Initialize BMAD
+</span><span class="code-line">/workflow-status # Check current step
+</span></code></pre>
+</li>
+</ol>
+<hr>
+<h3>STEP 3: VERIFY</h3>
+<ol>
+<li>Update <code>jeo-state.json</code> <code>phase</code> to <code>"verify"</code></li>
+<li><strong>Basic verification with agent-browser</strong> (when browser UI is present):
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">agent-browser snapshot http://localhost:3000
+</span></code></pre>
+</li>
+<li><code>annotate</code> keyword detected → <strong>enter STEP 3.1</strong></li>
+<li>Otherwise → <strong>enter STEP 4</strong></li>
+</ol>
+<hr>
+<h3>STEP 3.1: VERIFY_UI (only when <code>annotate</code> keyword is detected)</h3>
+<ol>
+<li>Pre-flight check (required before entering):
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Auto-start server, auto-install package, auto-inject component (see §3.3.1 for full script)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/ensure-agentation.sh --project-dir <span class="token string">"<span class="token variable">${PROJECT_DIR<span class="token operator">:-</span>$PWD}</span>"</span> <span class="token parameter variable">--endpoint</span> <span class="token string">"http://localhost:4747"</span> <span class="token operator">||</span> <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token comment"># If agentation-mcp server is still not healthy after pre-flight → graceful skip to STEP 4</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token operator">!</span> <span class="token function">curl</span> <span class="token parameter variable">-sf</span> --connect-timeout <span class="token number">2</span> http://localhost:4747/health <span class="token operator">&gt;</span>/dev/null <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  python3 <span class="token parameter variable">-c</span> "
+</span></code></pre>
+</li>
+</ol>
+<p>import json,os,subprocess,fcntl,time
+try:
+root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+except:
+root=os.getcwd()
+f=os.path.join(root,'.omc/state/jeo-state.json')
+if os.path.exists(f):
+with open(f,'r+') as fh:
+fcntl.flock(fh,fcntl.LOCK_EX)
+try:
+d=json.load(fh)
+d['last_error']='agentation-mcp not running; VERIFY_UI skipped'
+d['updated_at']=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())
+fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+finally:
+fcntl.flock(fh,fcntl.LOCK_UN)
+" 2&gt;/dev/null || true
+# Proceed to STEP 4 CLEANUP (no exit 1 — graceful skip)
+fi</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">2. Update `jeo-state.json`: `phase = "verify_ui"`, `agentation.active = true`, `agentation.submit_gate_status = "waiting_for_submit"`
+</span><span class="code-line">3. Wait for explicit human submit:
+</span><span class="code-line">- **Claude Code**: wait for `UserPromptSubmit` after the user presses **Send Annotations** / `onSubmit`
+</span><span class="code-line">- **Codex / Gemini / OpenCode**: wait until the human confirms submission and the agent emits `ANNOTATE_READY` (or compatibility alias `AGENTUI_READY`)
+</span><span class="code-line">4. Before that submit signal arrives, do not read `/pending`, do not acknowledge annotations, and do not start the fix loop
+</span><span class="code-line">5. After submit arrives, switch `agentation.submit_gate_status = "submitted"` and record `submit_signal`, `submit_received_at`, and `submitted_annotation_count`
+</span><span class="code-line">6. **Claude Code (MCP)**: blocking call to `agentation_watch_annotations` (`batchWindowSeconds:10`, `timeoutSeconds:120`)
+</span><span class="code-line">7. **Codex / Gemini / OpenCode (HTTP)**: polling loop via `GET http://localhost:4747/pending`
+</span><span class="code-line">8. Process each annotation: `acknowledge` → navigate code via `elementPath` → apply fix → `resolve`
+</span><span class="code-line">9. `count=0` or timeout → reset the submit gate or finish the sub-phase → **enter STEP 4**
+</span><span class="code-line">
+</span><span class="code-line">**NEVER: process draft annotations before submit/onSubmit.**
+</span><span class="code-line">
+</span><span class="code-line">---
+</span><span class="code-line">
+</span><span class="code-line">### STEP 4: CLEANUP
+</span><span class="code-line">
+</span><span class="code-line">**Pre-flight (check before entering):**
+</span><span class="code-line">```bash
+</span><span class="code-line"># Record checkpoint
+</span><span class="code-line">python3 -c "
+</span><span class="code-line">import json,datetime,os,subprocess,fcntl
+</span><span class="code-line">try:
+</span><span class="code-line"> root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+</span><span class="code-line">except:
+</span><span class="code-line"> root=os.getcwd()
+</span><span class="code-line">f=os.path.join(root,'.omc/state/jeo-state.json')
+</span><span class="code-line">if os.path.exists(f):
+</span><span class="code-line"> with open(f,'r+') as fh:
+</span><span class="code-line">     fcntl.flock(fh,fcntl.LOCK_EX)
+</span><span class="code-line">     try:
+</span><span class="code-line">         d=json.load(fh)
+</span><span class="code-line">         d.update({'checkpoint':'cleanup','updated_at':datetime.datetime.utcnow().isoformat()+'Z'})
+</span><span class="code-line">         fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+</span><span class="code-line">     finally:
+</span><span class="code-line">         fcntl.flock(fh,fcntl.LOCK_UN)
+</span><span class="code-line">" 2&gt;/dev/null || true
+</span><span class="code-line">
+</span><span class="code-line">if ! git rev-parse --is-inside-work-tree &gt;/dev/null 2&gt;&amp;1; then
+</span><span class="code-line">echo "⚠️ Not a git repository — skipping worktree cleanup"
+</span><span class="code-line">else
+</span><span class="code-line">UNCOMMITTED=$(git status --porcelain 2&gt;/dev/null | wc -l | tr -d ' ')
+</span><span class="code-line">[[ "$UNCOMMITTED" -gt 0 ]] &amp;&amp; echo "⚠️ ${UNCOMMITTED} uncommitted change(s) — recommend commit/stash before cleanup"
+</span><span class="code-line">fi
+</span></code></pre>
+<ol>
+<li>Update <code>jeo-state.json</code> <code>phase</code> to <code>"cleanup"</code></li>
+<li>Worktree cleanup:
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">bash</span> scripts/worktree-cleanup.sh <span class="token operator">||</span> <span class="token function">git</span> worktree prune
+</span></code></pre>
+</li>
+<li>Update <code>jeo-state.json</code> <code>phase</code> to <code>"done"</code></li>
+</ol>
+<hr>
+<h2>1. Quick Start</h2>
+<blockquote>
+<p><strong>Source of truth</strong>: <code>https://github.com/supercent-io/skills-template</code>
+Local paths like <code>~/.claude/skills/jeo/</code> are copies installed via <code>npx skills add</code>.
+To update to the latest version, reinstall using the command below.</p>
+</blockquote>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Install JEO (npx skills add — recommended)</span>
+</span><span class="code-line">npx skills <span class="token function">add</span> https://github.com/supercent-io/skills-template <span class="token parameter variable">--skill</span> jeo
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Full install (all AI tools + all components)</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/install.sh <span class="token parameter variable">--all</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check status</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/check-status.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Individual AI tool setup</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-claude.sh      <span class="token comment"># Claude Code plugin + hooks</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-codex.sh       <span class="token comment"># Codex CLI developer_instructions</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-gemini.sh      <span class="token comment"># Gemini CLI hooks + GEMINI.md</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-opencode.sh    <span class="token comment"># OpenCode plugin registration</span>
+</span></code></pre>
+<hr>
+<h2>2. Installed Components</h2>
+<p>Tools that JEO installs and configures:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+<th>Install Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>omc</strong> (oh-my-claudecode)</td>
+<td>Claude Code multi-agent orchestration</td>
+<td><code>/plugin marketplace add https://github.com/Yeachan-Heo/oh-my-claudecode</code></td>
+</tr>
+<tr>
+<td><strong>omx</strong></td>
+<td>Multi-agent orchestration for OpenCode</td>
+<td><code>bunx oh-my-opencode setup</code></td>
+</tr>
+<tr>
+<td><strong>ohmg</strong></td>
+<td>Multi-agent framework for Gemini CLI</td>
+<td><code>bunx oh-my-ag</code></td>
+</tr>
+<tr>
+<td><strong>bmad</strong></td>
+<td>BMAD workflow orchestration</td>
+<td>Included in skills</td>
+</tr>
+<tr>
+<td><strong>ralph</strong></td>
+<td>Self-referential completion loop</td>
+<td>Included in omc or install separately</td>
+</tr>
+<tr>
+<td><strong>plannotator</strong></td>
+<td>Visual plan/diff review</td>
+<td>Auto-installed during PLAN via <code>bash scripts/ensure-plannotator.sh</code> (or preinstall with <code>bash scripts/install.sh --with-plannotator</code>)</td>
+</tr>
+<tr>
+<td><strong>agentation</strong></td>
+<td>UI annotation → agent code fix integration (<code>annotate</code> keyword, <code>agentui</code> compatibility maintained)</td>
+<td><code>bash scripts/install.sh --with-agentation</code></td>
+</tr>
+<tr>
+<td><strong>agent-browser</strong></td>
+<td>Headless browser for AI agents — <strong>primary tool for browser behavior verification</strong></td>
+<td><code>npm install -g agent-browser</code></td>
+</tr>
+<tr>
+<td><strong>playwriter</strong></td>
+<td>Playwright-based browser automation (optional)</td>
+<td><code>npm install -g playwriter</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>3. JEO Workflow</h2>
+<h3>Full Flow</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">jeo "&lt;task&gt;"
+</span><span class="code-line">    │
+</span><span class="code-line">    ▼
+</span><span class="code-line">[1] PLAN (ralph + plannotator)
+</span><span class="code-line">    Draft plan with ralph → visual review with plannotator → Approve/Feedback
+</span><span class="code-line">    │
+</span><span class="code-line">    ▼
+</span><span class="code-line">[2] EXECUTE
+</span><span class="code-line">    ├─ team available? → /omc:team N:executor "&lt;task&gt;"
+</span><span class="code-line">    │                    staged pipeline: plan→prd→exec→verify→fix
+</span><span class="code-line">    └─ no team?       → /bmad /workflow-init → run BMAD steps
+</span><span class="code-line">    │
+</span><span class="code-line">    ▼
+</span><span class="code-line">[3] VERIFY (agent-browser — default behavior)
+</span><span class="code-line">    Verify browser behavior with agent-browser
+</span><span class="code-line">    → capture snapshot → confirm UI/functionality is working
+</span><span class="code-line">    │
+</span><span class="code-line">    ├─ with annotate keyword → [3.3.1] VERIFY_UI (agentation watch loop)
+</span><span class="code-line">    │   agentation_watch_annotations blocking → annotation ack→fix→resolve loop
+</span><span class="code-line">    │
+</span><span class="code-line">    ▼
+</span><span class="code-line">[4] CLEANUP
+</span><span class="code-line">    After all work is done → bash scripts/worktree-cleanup.sh
+</span><span class="code-line">    git worktree prune
+</span></code></pre>
+<h3>3.1 PLAN Step (ralph + plannotator)</h3>
+<blockquote>
+<p><strong>Platform note</strong>: The <code>/ralph</code> slash command is only available in Claude Code (omc).
+Use the "alternative method" below for Codex/Gemini/OpenCode.</p>
+</blockquote>
+<p><strong>Claude Code (omc):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">/ralph <span class="token string">"jeo-plan: &lt;task&gt;"</span> --completion-promise<span class="token operator">=</span><span class="token string">"PLAN_APPROVED"</span> --max-iterations<span class="token operator">=</span><span class="token number">5</span>
+</span></code></pre>
+<p><strong>Codex / Gemini / OpenCode (alternative):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Session-isolated feedback directory (prevents concurrent run conflicts)</span>
+</span><span class="code-line"><span class="token assign-left variable">FEEDBACK_DIR</span><span class="token operator">=</span><span class="token punctuation">$(</span>python3 <span class="token parameter variable">-c</span> <span class="token string">"import hashlib,os; h=hashlib.md5(os.getcwd().encode()).hexdigest()[:8]; d=f'/tmp/jeo-{h}'; os.makedirs(d,exist_ok=True); print(d)"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">'/tmp'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">FEEDBACK_FILE</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${FEEDBACK_DIR}</span>/plannotator_feedback.txt"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 1. Write plan.md directly, then review with plannotator (blocking — no &amp;)</span>
+</span><span class="code-line"><span class="token assign-left variable">PLANNOTATOR_RUNTIME_HOME</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${FEEDBACK_DIR}</span>/.plannotator"</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token string">"<span class="token variable">$PLANNOTATOR_RUNTIME_HOME</span>"</span>
+</span><span class="code-line"><span class="token function">touch</span> /tmp/jeo-plannotator-direct.lock <span class="token operator">&amp;&amp;</span> python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json
+</span></span><span class="code-line"><span class="token string">print(json.dumps({'tool_input': {'plan': open('plan.md').read(), 'permission_mode': 'acceptEdits'}}))
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator">|</span> <span class="token function">env</span> <span class="token assign-left variable"><span class="token environment constant">HOME</span></span><span class="token operator">=</span><span class="token string">"<span class="token variable">$PLANNOTATOR_RUNTIME_HOME</span>"</span> <span class="token assign-left variable">PLANNOTATOR_HOME</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$PLANNOTATOR_RUNTIME_HOME</span>"</span> plannotator <span class="token operator">&gt;</span> <span class="token string">"<span class="token variable">$FEEDBACK_FILE</span>"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span>
+</span><span class="code-line"><span class="token comment"># ↑ Run without &amp;: waits until user clicks Approve/Send Feedback in browser</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Check result and branch</span>
+</span><span class="code-line"><span class="token keyword">if</span> python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json, sys
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    d = json.load(open('<span class="token variable">$FEEDBACK_FILE</span>'))
+</span></span><span class="code-line"><span class="token string">    sys.exit(0 if d.get('approved') is True else 1)
+</span></span><span class="code-line"><span class="token string">except Exception:
+</span></span><span class="code-line"><span class="token string">    sys.exit(1)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null<span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"PLAN_APPROVED"</span>   <span class="token comment"># → enter EXECUTE step</span>
+</span><span class="code-line"><span class="token keyword">else</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"PLAN_FEEDBACK"</span>   <span class="token comment"># → read \"$FEEDBACK_FILE\", replan, repeat above</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span></code></pre>
+<blockquote>
+<p><strong>Important</strong>: Do not run with <code>&amp;</code> (background). Must run blocking to receive user feedback.</p>
+</blockquote>
+<p>Common flow:</p>
+<ul>
+<li>Generate plan document (<code>plan.md</code>)</li>
+<li>Run plannotator blocking → browser UI opens automatically</li>
+<li>Review plan in browser → Approve or Send Feedback</li>
+<li>Approve (<code>"approved":true</code>) → enter [2] EXECUTE step</li>
+<li>Feedback → read <code>/tmp/plannotator_feedback.txt</code> annotations and replan (loop)</li>
+<li><strong>exit 32 (sandbox/CI — Conversation Approval Mode)</strong>:
+<ol>
+<li>Output full <code>plan.md</code> content to user</li>
+<li>Ask: "⚠️ plannotator UI unavailable. Reply 'approve' to proceed or provide feedback."</li>
+<li><strong>WAIT for user response — do NOT proceed to EXECUTE</strong></li>
+<li>On approval → update <code>jeo-state.json</code> <code>plan_approved=true, plan_gate_status="manual_approved"</code> → EXECUTE</li>
+<li>On feedback → revise <code>plan.md</code>, retry loop, repeat</li>
+</ol>
+</li>
+</ul>
+<p><strong>Claude Code manual run:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Shift+Tab×2 → enter plan mode → plannotator runs automatically when plan is complete
+</span></code></pre>
+<h3>3.2 EXECUTE Step</h3>
+<p><strong>When team is available (Claude Code + omc):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">/omc:team <span class="token number">3</span>:executor <span class="token string">"jeo-exec: &lt;task based on approved plan&gt;"</span>
+</span></code></pre>
+<ul>
+<li>staged pipeline: team-plan → team-prd → team-exec → team-verify → team-fix</li>
+<li>Maximize speed with parallel agent execution</li>
+</ul>
+<p><strong>When Claude Code team mode is unavailable:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"❌ JEO requires /omc:team in Claude Code. Run bash scripts/setup-claude.sh, restart Claude Code, then retry."</span>
+</span><span class="code-line"><span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span></code></pre>
+<ul>
+<li>Do not degrade to single-agent mode</li>
+</ul>
+<p><strong>When team is unavailable (BMAD fallback — Codex / Gemini / OpenCode):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">/workflow-init   <span class="token comment"># Initialize BMAD workflow</span>
+</span><span class="code-line">/workflow-status <span class="token comment"># Check current step</span>
+</span></code></pre>
+<ul>
+<li>Proceed in order: Analysis → Planning → Solutioning → Implementation</li>
+<li>Review documents with plannotator after each step completes</li>
+</ul>
+<h3>3.3 VERIFY Step (agent-browser — default behavior)</h3>
+<p>When browser-based functionality is present, verify behavior with <code>agent-browser</code>.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Capture snapshot from the URL where the app is running</span>
+</span><span class="code-line">agent-browser snapshot http://localhost:3000
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check specific elements (accessibility tree ref method)</span>
+</span><span class="code-line">agent-browser snapshot http://localhost:3000 <span class="token parameter variable">-i</span>
+</span><span class="code-line"><span class="token comment"># → check element state using @eN ref numbers</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Save screenshot</span>
+</span><span class="code-line">agent-browser screenshot http://localhost:3000 <span class="token parameter variable">-o</span> verify.png
+</span></code></pre>
+<blockquote>
+<p><strong>Default behavior</strong>: Automatically runs the agent-browser verification step when browser-related work is complete.
+Backend/CLI tasks without a browser UI skip this step.</p>
+</blockquote>
+<h3>3.3.1 VERIFY_UI Step (annotate — agentation watch loop)</h3>
+<p>Runs the agentation watch loop when the <code>annotate</code> keyword is detected. (The <code>agentui</code> keyword is also supported for backward compatibility.)
+This follows the same pattern as plannotator operating in <code>planui</code> / <code>ExitPlanMode</code>.</p>
+<p><strong>Prerequisites (auto-resolved by pre-flight):</strong></p>
+<ol>
+<li><code>npx agentation-mcp server</code> (HTTP :4747) is running — <strong>auto-started if not running</strong></li>
+<li><code>agentation</code> npm package installed in the project — <strong>auto-installed if absent</strong></li>
+<li><code>&lt;Agentation endpoint="http://localhost:4747" /&gt;</code> is mounted in the app — <strong>auto-injected into entry point if absent</strong></li>
+</ol>
+<p><strong>Pre-flight Check (required before entering — common to all platforms):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># ── Step 1: Auto-start agentation-mcp server if not running ─────────────────</span>
+</span><span class="code-line"><span class="token assign-left variable">JEO_AGENTATION_ENDPOINT</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT<span class="token operator">:-</span>http<span class="token operator">:</span><span class="token operator">/</span><span class="token operator">/</span>localhost<span class="token operator">:</span>4747}</span>"</span>
+</span><span class="code-line"><span class="token assign-left variable">JEO_AGENTATION_PORT</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${JEO_AGENTATION_PORT<span class="token operator">:-</span>4747}</span>"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token operator">!</span> <span class="token function">curl</span> <span class="token parameter variable">-sf</span> --connect-timeout <span class="token number">2</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>/health"</span> <span class="token operator">&gt;</span>/dev/null <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token builtin class-name">echo</span> <span class="token string">"[JEO][ANNOTATE] agentation-mcp not running — attempting auto-start on port <span class="token variable">${JEO_AGENTATION_PORT}</span>..."</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token builtin class-name">command</span> <span class="token parameter variable">-v</span> npx <span class="token operator">&gt;</span>/dev/null <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">    npx <span class="token parameter variable">-y</span> agentation-mcp server <span class="token parameter variable">--port</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_PORT}</span>"</span> <span class="token operator">&gt;</span>/tmp/agentation-mcp.log <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span>
+</span><span class="code-line">    <span class="token assign-left variable">AGENTATION_MCP_PID</span><span class="token operator">=</span><span class="token variable">$!</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"[JEO][ANNOTATE] started agentation-mcp (PID <span class="token variable">${AGENTATION_MCP_PID}</span>)"</span>
+</span><span class="code-line">    <span class="token comment"># Wait up to 8 seconds for server to become healthy</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token for-or-select variable">i</span> <span class="token keyword">in</span> <span class="token variable"><span class="token variable">$(</span><span class="token function">seq</span> <span class="token number">1</span> <span class="token number">8</span><span class="token variable">)</span></span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">      <span class="token function">sleep</span> <span class="token number">1</span>
+</span><span class="code-line">      <span class="token keyword">if</span> <span class="token function">curl</span> <span class="token parameter variable">-sf</span> --connect-timeout <span class="token number">1</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>/health"</span> <span class="token operator">&gt;</span>/dev/null <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">        <span class="token builtin class-name">echo</span> <span class="token string">"[JEO][ANNOTATE] ✅ agentation-mcp server ready"</span>
+</span><span class="code-line">        <span class="token builtin class-name">break</span>
+</span><span class="code-line">      <span class="token keyword">fi</span>
+</span><span class="code-line">    <span class="token keyword">done</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token operator">!</span> <span class="token function">curl</span> <span class="token parameter variable">-sf</span> --connect-timeout <span class="token number">2</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>/health"</span> <span class="token operator">&gt;</span>/dev/null <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">      <span class="token builtin class-name">echo</span> <span class="token string">"[JEO][ANNOTATE] ⚠️  agentation-mcp failed to start — skipping VERIFY_UI"</span>
+</span><span class="code-line">      python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json,os,subprocess,fcntl,time
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+</span></span><span class="code-line"><span class="token string">except:
+</span></span><span class="code-line"><span class="token string">    root=os.getcwd()
+</span></span><span class="code-line"><span class="token string">f=os.path.join(root,'.omc/state/jeo-state.json')
+</span></span><span class="code-line"><span class="token string">if os.path.exists(f):
+</span></span><span class="code-line"><span class="token string">    with open(f,'r+') as fh:
+</span></span><span class="code-line"><span class="token string">        fcntl.flock(fh,fcntl.LOCK_EX)
+</span></span><span class="code-line"><span class="token string">        try:
+</span></span><span class="code-line"><span class="token string">            d=json.load(fh)
+</span></span><span class="code-line"><span class="token string">            d['last_error']='agentation-mcp failed to start; VERIFY_UI skipped'
+</span></span><span class="code-line"><span class="token string">            d['updated_at']=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())
+</span></span><span class="code-line"><span class="token string">            fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+</span></span><span class="code-line"><span class="token string">        finally:
+</span></span><span class="code-line"><span class="token string">            fcntl.flock(fh,fcntl.LOCK_UN)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token boolean">true</span>
+</span><span class="code-line">      <span class="token comment"># Proceed to STEP 4 CLEANUP (no exit 1 — graceful skip)</span>
+</span><span class="code-line">    <span class="token keyword">fi</span>
+</span><span class="code-line">  <span class="token keyword">else</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"[JEO][ANNOTATE] ⚠️  npx not found — cannot auto-start agentation-mcp. Skipping VERIFY_UI."</span>
+</span><span class="code-line">    python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json,os,subprocess,fcntl,time
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    root=subprocess.check_output(['git','rev-parse','--show-toplevel'],stderr=subprocess.DEVNULL).decode().strip()
+</span></span><span class="code-line"><span class="token string">except:
+</span></span><span class="code-line"><span class="token string">    root=os.getcwd()
+</span></span><span class="code-line"><span class="token string">f=os.path.join(root,'.omc/state/jeo-state.json')
+</span></span><span class="code-line"><span class="token string">if os.path.exists(f):
+</span></span><span class="code-line"><span class="token string">    with open(f,'r+') as fh:
+</span></span><span class="code-line"><span class="token string">        fcntl.flock(fh,fcntl.LOCK_EX)
+</span></span><span class="code-line"><span class="token string">        try:
+</span></span><span class="code-line"><span class="token string">            d=json.load(fh)
+</span></span><span class="code-line"><span class="token string">            d['last_error']='npx not found; agentation-mcp auto-start skipped; VERIFY_UI skipped'
+</span></span><span class="code-line"><span class="token string">            d['updated_at']=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())
+</span></span><span class="code-line"><span class="token string">            fh.seek(0); json.dump(d,fh,ensure_ascii=False,indent=2); fh.truncate()
+</span></span><span class="code-line"><span class="token string">        finally:
+</span></span><span class="code-line"><span class="token string">            fcntl.flock(fh,fcntl.LOCK_UN)
+</span></span><span class="code-line"><span class="token string">"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token boolean">true</span>
+</span><span class="code-line">    <span class="token comment"># Proceed to STEP 4 CLEANUP (no exit 1 — graceful skip)</span>
+</span><span class="code-line">  <span class="token keyword">fi</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ── Step 2: Auto-install agentation package + inject &lt;Agentation&gt; if needed ──</span>
+</span><span class="code-line"><span class="token comment"># Only runs when server is confirmed healthy</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token function">curl</span> <span class="token parameter variable">-sf</span> --connect-timeout <span class="token number">2</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>/health"</span> <span class="token operator">&gt;</span>/dev/null <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">  <span class="token assign-left variable">SESSIONS</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">curl</span> <span class="token parameter variable">-sf</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>/sessions"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">"[]"</span><span class="token variable">)</span></span>
+</span><span class="code-line">  <span class="token assign-left variable">S_COUNT</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token builtin class-name">echo</span> <span class="token string">"<span class="token variable">$SESSIONS</span>"</span> <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>len<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token variable">)</span></span><span class="token punctuation">)</span><span class="token string">" 2&gt;/dev/null || echo 0)
+</span></span><span class="code-line"><span class="token string">
+</span></span><span class="code-line"><span class="token string">  if [ "</span><span class="token variable">$S_COUNT</span><span class="token string">" -eq 0 ]; then
+</span></span><span class="code-line"><span class="token string">    echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> No active sessions — running ensure-agentation.sh to <span class="token function">install</span> package and inject component<span class="token punctuation">..</span>.<span class="token string">"
+</span></span><span class="code-line"><span class="token string">
+</span></span><span class="code-line"><span class="token string">    # Locate ensure-agentation.sh (try common installation paths)
+</span></span><span class="code-line"><span class="token string">    ENSURE_SCRIPT="</span>"
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token for-or-select variable">candidate</span> <span class="token keyword">in</span> <span class="token punctuation">\</span>
+</span><span class="code-line">      <span class="token string">"<span class="token variable"><span class="token variable">$(</span><span class="token function">dirname</span> <span class="token string">"<span class="token variable">${<span class="token environment constant">BASH_SOURCE</span><span class="token punctuation">[</span>0<span class="token punctuation">]</span><span class="token operator">:-</span>$0}</span>"</span><span class="token variable">)</span></span>/ensure-agentation.sh"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">      <span class="token string">"<span class="token environment constant">$HOME</span>/.claude/skills/jeo/scripts/ensure-agentation.sh"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">      <span class="token string">"<span class="token environment constant">$HOME</span>/.agent-skills/jeo/scripts/ensure-agentation.sh"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">      <span class="token string">"<span class="token environment constant">$HOME</span>/.codex/skills/jeo/scripts/ensure-agentation.sh"</span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">      <span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$candidate</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">        <span class="token assign-left variable">ENSURE_SCRIPT</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$candidate</span>"</span>
+</span><span class="code-line">        <span class="token builtin class-name">break</span>
+</span><span class="code-line">      <span class="token keyword">fi</span>
+</span><span class="code-line">    <span class="token keyword">done</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-n</span> <span class="token string">"<span class="token variable">$ENSURE_SCRIPT</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">      <span class="token assign-left variable">ENSURE_EXIT</span><span class="token operator">=</span><span class="token number">0</span>
+</span><span class="code-line">      <span class="token function">bash</span> <span class="token string">"<span class="token variable">$ENSURE_SCRIPT</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">        --project-dir <span class="token string">"<span class="token variable">${PROJECT_DIR<span class="token operator">:-</span>$PWD}</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">        <span class="token parameter variable">--endpoint</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>"</span> <span class="token operator">||</span> <span class="token assign-left variable">ENSURE_EXIT</span><span class="token operator">=</span><span class="token variable">$?</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$ENSURE_EXIT</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">0</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">        <span class="token builtin class-name">echo</span> <span class="token string">"[JEO][ANNOTATE] ensure-agentation completed — waiting up to 15s for browser to reconnect..."</span>
+</span><span class="code-line">        <span class="token comment"># Wait for dev server hot-reload and browser reconnection</span>
+</span><span class="code-line">        <span class="token keyword">for</span> <span class="token for-or-select variable">i</span> <span class="token keyword">in</span> <span class="token variable"><span class="token variable">$(</span><span class="token function">seq</span> <span class="token number">1</span> <span class="token number">15</span><span class="token variable">)</span></span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">          <span class="token function">sleep</span> <span class="token number">1</span>
+</span><span class="code-line">          <span class="token assign-left variable">NEW_S_COUNT</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">curl</span> <span class="token parameter variable">-sf</span> <span class="token string">"<span class="token variable">${JEO_AGENTATION_ENDPOINT}</span>/sessions"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span></span><span class="code-line"><span class="token variable">            python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>len<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token variable">)</span></span><span class="token punctuation">)</span><span class="token string">" 2&gt;/dev/null || echo 0)
+</span></span><span class="code-line"><span class="token string">          if [ "</span><span class="token variable">$NEW_S_COUNT</span><span class="token string">" -gt 0 ]; then
+</span></span><span class="code-line"><span class="token string">            echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> ✅ Browser session established <span class="token punctuation">(</span><span class="token variable">${NEW_S_COUNT}</span> session<span class="token punctuation">(</span>s<span class="token punctuation">))</span><span class="token string">"
+</span></span><span class="code-line"><span class="token string">            S_COUNT=<span class="token variable">$NEW_S_COUNT</span>
+</span></span><span class="code-line"><span class="token string">            break
+</span></span><span class="code-line"><span class="token string">          fi
+</span></span><span class="code-line"><span class="token string">        done
+</span></span><span class="code-line"><span class="token string">        if [ "</span><span class="token variable">$S_COUNT</span><span class="token string">" -eq 0 ]; then
+</span></span><span class="code-line"><span class="token string">          echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> ⚠️  Component injected but no browser session yet.<span class="token string">"
+</span></span><span class="code-line"><span class="token string">          echo "</span>   → Refresh the browser at your app URL, <span class="token keyword">then</span> re-run annotate.<span class="token string">"
+</span></span><span class="code-line"><span class="token string">        fi
+</span></span><span class="code-line"><span class="token string">      elif [ "</span><span class="token variable">$ENSURE_EXIT</span><span class="token string">" -eq 2 ]; then
+</span></span><span class="code-line"><span class="token string">        echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> ℹ️  Not a Node.js project — <span class="token function">mount</span> <span class="token operator">&lt;</span>Agentation <span class="token assign-left variable">endpoint</span><span class="token operator">=</span><span class="token string">'${JEO_AGENTATION_ENDPOINT}'</span> /<span class="token operator">&gt;</span> manually.<span class="token string">"
+</span></span><span class="code-line"><span class="token string">      else
+</span></span><span class="code-line"><span class="token string">        echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> ⚠️  ensure-agentation.sh failed <span class="token punctuation">(</span>exit <span class="token variable">$ENSURE_EXIT</span><span class="token punctuation">)</span> — <span class="token function">mount</span> <span class="token operator">&lt;</span>Agentation <span class="token assign-left variable">endpoint</span><span class="token operator">=</span><span class="token string">'${JEO_AGENTATION_ENDPOINT}'</span> /<span class="token operator">&gt;</span> manually.<span class="token string">"
+</span></span><span class="code-line"><span class="token string">      fi
+</span></span><span class="code-line"><span class="token string">    else
+</span></span><span class="code-line"><span class="token string">      echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> ⚠️  ensure-agentation.sh not found — <span class="token function">mount</span> <span class="token operator">&lt;</span>Agentation <span class="token assign-left variable">endpoint</span><span class="token operator">=</span><span class="token string">'${JEO_AGENTATION_ENDPOINT}'</span> /<span class="token operator">&gt;</span> manually.<span class="token string">"
+</span></span><span class="code-line"><span class="token string">    fi
+</span></span><span class="code-line"><span class="token string">  fi
+</span></span><span class="code-line"><span class="token string">
+</span></span><span class="code-line"><span class="token string">  echo "</span><span class="token punctuation">[</span>JEO<span class="token punctuation">]</span><span class="token punctuation">[</span>ANNOTATE<span class="token punctuation">]</span> ✅ agentation ready — server OK, <span class="token variable">${S_COUNT}</span> session<span class="token punctuation">(</span>s<span class="token punctuation">)</span>"
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span></code></pre>
+<blockquote>
+<p>After passing pre-flight (<code>else</code> branch), update jeo-state.json <code>phase</code> to <code>"verify_ui"</code>, set <code>agentation.active</code> to <code>true</code>, and set <code>agentation.submit_gate_status</code> to <code>"waiting_for_submit"</code>.
+Do not call <code>/pending</code> yet. Draft annotations are not actionable until the user explicitly submits them.</p>
+</blockquote>
+<p><strong>Claude Code (direct MCP tool call):</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># annotate keyword detected (or agentui — backward compatible)
+</span><span class="code-line"># 1. wait for UserPromptSubmit after the user clicks Send Annotations / onSubmit
+</span><span class="code-line"># 2. the JEO submit-gate hook records submit_gate_status="submitted"
+</span><span class="code-line"># 3. only then run the blocking agentation watch loop
+</span><span class="code-line">#
+</span><span class="code-line"># batchWindowSeconds:10 — receive annotations in 10-second batches
+</span><span class="code-line"># timeoutSeconds:120   — auto-exit after 120 seconds with no annotations
+</span><span class="code-line">#
+</span><span class="code-line"># Per-annotation processing loop:
+</span><span class="code-line"># 1. agentation_acknowledge_annotation({id})           — show 'processing' in UI
+</span><span class="code-line"># 2. navigate code via annotation.elementPath (CSS selector) → apply fix
+</span><span class="code-line"># 3. agentation_resolve_annotation({id, summary})      — mark 'done' + save summary
+</span><span class="code-line">#
+</span><span class="code-line"># Loop ends when annotation count=0 or timeout
+</span></code></pre>
+<blockquote>
+<p><strong>Important</strong>: <code>agentation_watch_annotations</code> is a blocking call. Do not run with <code>&amp;</code> background.
+Same as plannotator's <code>approved:true</code> loop: annotation count=0 or timeout = completion signal.
+<code>annotate</code> is the primary keyword. <code>agentui</code> is a backward-compatible alias and behaves identically.</p>
+</blockquote>
+<p><strong>Codex / Gemini / OpenCode (HTTP REST API fallback):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">START_TIME</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%s<span class="token variable">)</span></span>
+</span><span class="code-line"><span class="token assign-left variable">TIMEOUT_SECONDS</span><span class="token operator">=</span><span class="token number">120</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Required gate: do not enter the loop until the human has clicked Send Annotations</span>
+</span><span class="code-line"><span class="token comment"># and the platform has opened agentation.submit_gate_status="submitted".</span>
+</span><span class="code-line"><span class="token keyword">while</span> <span class="token boolean">true</span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">  <span class="token comment"># Timeout check</span>
+</span><span class="code-line">  <span class="token assign-left variable">NOW</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%s<span class="token variable">)</span></span>
+</span><span class="code-line">  <span class="token assign-left variable">ELAPSED</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$((</span>NOW <span class="token operator">-</span> START_TIME<span class="token variable">))</span></span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token variable">$ELAPSED</span> <span class="token parameter variable">-ge</span> <span class="token variable">$TIMEOUT_SECONDS</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"[JEO] agentation polling timeout (<span class="token variable">${TIMEOUT_SECONDS}</span>s) — some annotations may remain unresolved"</span>
+</span><span class="code-line">    <span class="token builtin class-name">break</span>
+</span><span class="code-line">  <span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token assign-left variable">SUBMIT_GATE</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>python3 <span class="token parameter variable">-c</span> "
+</span></span><span class="code-line"><span class="token variable"><span class="token function">import</span> json
+</span></span><span class="code-line"><span class="token variable">try:
+</span></span><span class="code-line"><span class="token variable">    print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>open<span class="token punctuation">(</span><span class="token string">'.omc/state/jeo-state.json'</span><span class="token punctuation">)</span><span class="token variable">)</span></span>.get<span class="token punctuation">(</span><span class="token string">'agentation'</span>, <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span>.get<span class="token punctuation">(</span><span class="token string">'submit_gate_status'</span>, <span class="token string">'idle'</span><span class="token punctuation">))</span>
+</span><span class="code-line">except Exception:
+</span><span class="code-line">    print<span class="token punctuation">(</span><span class="token string">'idle'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token string">" 2&gt;/dev/null || echo "</span>idle<span class="token string">")
+</span></span><span class="code-line"><span class="token string">  if [ "</span><span class="token variable">$SUBMIT_GATE</span><span class="token string">" != "</span>submitted<span class="token string">" ]; then
+</span></span><span class="code-line"><span class="token string">    sleep 2
+</span></span><span class="code-line"><span class="token string">    continue
+</span></span><span class="code-line"><span class="token string">  fi
+</span></span><span class="code-line"><span class="token string">
+</span></span><span class="code-line"><span class="token string">  COUNT=$(curl -sf --connect-timeout 3 --max-time 5 http://localhost:4747/pending 2&gt;/dev/null | python3 -c "import sys,json; data=sys.stdin.read(); d=json.loads(data) if data.strip() else {}; print(d.get('count', len(d.get('annotations', [])) if isinstance(d, dict) else 0))"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">[</span> <span class="token string">"<span class="token variable">$COUNT</span>"</span> <span class="token parameter variable">-eq</span> <span class="token number">0</span> <span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">break</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment"># Process each annotation:</span>
+</span><span class="code-line">  <span class="token comment"># a) Acknowledge (show as in-progress)</span>
+</span><span class="code-line">  <span class="token function">curl</span> <span class="token parameter variable">-X</span> PATCH http://localhost:4747/annotations/<span class="token operator">&lt;</span>id<span class="token operator">&gt;</span> <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token parameter variable">-H</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token parameter variable">-d</span> <span class="token string">'{"status": "acknowledged"}'</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment"># b) Navigate code via elementPath (CSS selector) → apply fix</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment"># c) Resolve (mark done + fix summary)</span>
+</span><span class="code-line">  <span class="token function">curl</span> <span class="token parameter variable">-X</span> PATCH http://localhost:4747/annotations/<span class="token operator">&lt;</span>id<span class="token operator">&gt;</span> <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token parameter variable">-H</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token parameter variable">-d</span> <span class="token string">'{"status": "resolved", "resolution": "&lt;fix summary&gt;"}'</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">sleep</span> <span class="token number">3</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span></code></pre>
+<h3>3.4 CLEANUP Step (automatic worktree cleanup)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Runs automatically after all work is complete</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/worktree-cleanup.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Individual commands</span>
+</span><span class="code-line"><span class="token function">git</span> worktree list                         <span class="token comment"># List current worktrees</span>
+</span><span class="code-line"><span class="token function">git</span> worktree prune                        <span class="token comment"># Clean up worktrees for deleted branches</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/worktree-cleanup.sh <span class="token parameter variable">--force</span>  <span class="token comment"># Force cleanup including dirty worktrees</span>
+</span></code></pre>
+<blockquote>
+<p>Default run removes only clean extra worktrees; worktrees with changes are left with a warning.
+Use <code>--force</code> only after review.</p>
+</blockquote>
+<hr>
+<h2>4. Platform Plugin Configuration</h2>
+<h3>4.1 Claude Code</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Automatic setup</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-claude.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or manually:</span>
+</span><span class="code-line">/plugin marketplace <span class="token function">add</span> https://github.com/Yeachan-Heo/oh-my-claudecode
+</span><span class="code-line">/plugin <span class="token function">install</span> oh-my-claudecode
+</span><span class="code-line">/omc:omc-setup
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add plannotator hook</span>
+</span><span class="code-line"><span class="token function">bash</span> .agent-skills/plannotator/scripts/setup-hook.sh
+</span></code></pre>
+<p><strong>Config file</strong>: <code>~/.claude/settings.json</code></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"hooks"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"PermissionRequest"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"matcher"</span><span class="token operator">:</span> <span class="token string">"ExitPlanMode"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"hooks"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"command"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"python3 ~/.agent-skills/jeo/scripts/claude-plan-gate.py"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"timeout"</span><span class="token operator">:</span> <span class="token number">1800</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>agentation MCP config</strong> (<code>~/.claude/settings.json</code> or <code>.claude/mcp.json</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"agentation"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"npx"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"-y"</span><span class="token punctuation">,</span> <span class="token string">"agentation-mcp"</span><span class="token punctuation">,</span> <span class="token string">"server"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"hooks"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"UserPromptSubmit"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"matcher"</span><span class="token operator">:</span> <span class="token string">"*"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"hooks"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"command"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"python3 ~/.agent-skills/jeo/scripts/claude-agentation-submit-hook.py"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"timeout"</span><span class="token operator">:</span> <span class="token number">300</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><code>bash ~/.agent-skills/jeo/scripts/setup-claude.sh</code> migrates stale <code>~/.agent-skills/omg/...</code> hook paths to the active JEO install and installs compatibility shims for legacy Claude setups.</p>
+<h3>4.2 Codex CLI</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Automatic setup</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-codex.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># What gets configured:</span>
+</span><span class="code-line"><span class="token comment"># - developer_instructions: ~/.codex/config.toml</span>
+</span><span class="code-line"><span class="token comment"># - prompt file: ~/.codex/prompts/jeo.md</span>
+</span><span class="code-line"><span class="token comment"># - notify hook: ~/.codex/hooks/jeo-notify.py</span>
+</span><span class="code-line"><span class="token comment"># - [tui] notifications: agent-turn-complete</span>
+</span></code></pre>
+<p><strong>agentation MCP config</strong> (<code>~/.codex/config.toml</code>):</p>
+<pre class="language-toml"><code class="language-toml code-highlight"><span class="code-line"><span class="token punctuation">[</span><span class="token table class-name">mcp_servers.agentation</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key property">command</span> <span class="token punctuation">=</span> <span class="token string">"npx"</span>
+</span><span class="code-line"><span class="token key property">args</span> <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token string">"-y"</span><span class="token punctuation">,</span> <span class="token string">"agentation-mcp"</span><span class="token punctuation">,</span> <span class="token string">"server"</span><span class="token punctuation">]</span>
+</span></code></pre>
+<p><strong>notify hook</strong> (<code>~/.codex/hooks/jeo-notify.py</code>):</p>
+<ul>
+<li>Detects <code>PLAN_READY</code> signal in <code>last-assistant-message</code> when agent turn completes</li>
+<li>Confirms <code>plan.md</code> exists, compares the current hash against <code>last_reviewed_plan_hash</code>, and skips the gate when the plan was already reviewed</li>
+<li>Saves result to <code>/tmp/plannotator_feedback.txt</code></li>
+<li>Detects <code>ANNOTATE_READY</code> signal (or backward-compatible <code>AGENTUI_READY</code>) only in <code>verify_ui</code></li>
+<li>Opens <code>agentation.submit_gate_status="submitted"</code> first, then polls <code>http://localhost:4747/pending</code></li>
+</ul>
+<p><strong><code>~/.codex/config.toml</code></strong> config:</p>
+<pre class="language-toml"><code class="language-toml code-highlight"><span class="code-line"><span class="token key property">developer_instructions</span> <span class="token punctuation">=</span> <span class="token string">"""
+</span></span><span class="code-line"><span class="token string"># JEO Orchestration Workflow
+</span></span><span class="code-line"><span class="token string"># ...
+</span></span><span class="code-line"><span class="token string">"""</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key property">notify</span> <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token string">"python3"</span><span class="token punctuation">,</span> <span class="token string">"~/.codex/hooks/jeo-notify.py"</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token punctuation">[</span><span class="token table class-name">tui</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key property">notifications</span> <span class="token punctuation">=</span> <span class="token punctuation">[</span><span class="token string">"agent-turn-complete"</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key property">notification_method</span> <span class="token punctuation">=</span> <span class="token string">"osc9"</span>
+</span></code></pre>
+<blockquote>
+<p><code>developer_instructions</code> must be a <strong>top-level string</strong>.
+Writing it as a <code>[developer_instructions]</code> table may cause Codex to fail on startup with <code>invalid type: map, expected a string</code>.
+<code>notify</code> and <code>[tui].notifications</code> must also be set correctly for the PLAN/ANNOTATE follow-up loop to actually work.</p>
+</blockquote>
+<p>Using in Codex:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">/prompts:jeo    <span class="token comment"># Activate JEO workflow</span>
+</span><span class="code-line"><span class="token comment"># Agent writes plan.md and outputs "PLAN_READY" → notify hook runs automatically</span>
+</span></code></pre>
+<h3>4.3 Gemini CLI</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Automatic setup</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-gemini.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># What gets configured:</span>
+</span><span class="code-line"><span class="token comment"># - AfterAgent backup hook: ~/.gemini/hooks/jeo-plannotator.sh</span>
+</span><span class="code-line"><span class="token comment"># - Instructions (MANDATORY loop): ~/.gemini/GEMINI.md</span>
+</span></code></pre>
+<p><strong>Key principle</strong>: The agent must call plannotator <strong>directly in blocking mode</strong> to receive feedback in the same turn.
+The AfterAgent hook serves only as a safety net (runs after turn ends → injected in next turn).</p>
+<p><strong>AfterAgent backup hook</strong> (<code>~/.gemini/settings.json</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"hooks"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"AfterAgent"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"matcher"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"hooks"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"plannotator-review"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"command"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"bash ~/.gemini/hooks/jeo-plannotator.sh"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"description"</span><span class="token operator">:</span> <span class="token string">"Run plannotator when plan.md is detected (AfterAgent backup)"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>PLAN instructions added to GEMINI.md (mandatory loop)</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1. Write plan.md
+</span><span class="code-line">2. Run plannotator blocking (no &amp;) → /tmp/plannotator_feedback.txt
+</span><span class="code-line">3. approved=true → EXECUTE / Not approved → revise and repeat step 2
+</span><span class="code-line">NEVER proceed to EXECUTE without approved=true.
+</span></code></pre>
+<p><strong>agentation MCP config</strong> (<code>~/.gemini/settings.json</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"agentation"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"npx"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"-y"</span><span class="token punctuation">,</span> <span class="token string">"agentation-mcp"</span><span class="token punctuation">,</span> <span class="token string">"server"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<blockquote>
+<p><strong>Note</strong>: Gemini CLI hook events use <code>BeforeTool</code> and <code>AfterAgent</code>.
+<code>ExitPlanMode</code> is a Claude Code-only hook.</p>
+</blockquote>
+<blockquote>
+<p><a href="https://developers.googleblog.com/tailor-gemini-cli-to-your-workflow-with-hooks/" target="_blank" rel="ugc nofollow noopener">Hooks Official Guide</a></p>
+</blockquote>
+<h3>4.4 OpenCode</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Automatic setup</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/setup-opencode.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Added to opencode.json:</span>
+</span><span class="code-line"><span class="token comment"># "@plannotator/opencode@latest" plugin</span>
+</span><span class="code-line"><span class="token comment"># "@oh-my-opencode/opencode@latest" plugin (omx)</span>
+</span></code></pre>
+<p>OpenCode slash commands:</p>
+<ul>
+<li><code>/jeo-plan</code> — plan with ralph + plannotator</li>
+<li><code>/jeo-exec</code> — execute with team/bmad</li>
+<li><code>/jeo-annotate</code> — start agentation watch loop (annotate; <code>/jeo-agentui</code> is a deprecated alias)</li>
+<li><code>/jeo-cleanup</code> — worktree cleanup</li>
+</ul>
+<p><strong>plannotator integration</strong> (MANDATORY blocking loop):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Write plan.md then run PLAN gate (no &amp;) — receive feedback in same turn</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/plannotator-plan-loop.sh plan.md /tmp/plannotator_feedback.txt <span class="token number">3</span>
+</span><span class="code-line"><span class="token comment"># - Must wait until approve/feedback is received</span>
+</span><span class="code-line"><span class="token comment"># - Auto-restart on session exit (up to 3 times)</span>
+</span><span class="code-line"><span class="token comment"># - After 3 exits, confirm with user whether to abort or resume</span>
+</span><span class="code-line"><span class="token comment"># - exit 32 if localhost bind unavailable (replace with manual gate in TTY)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Branch based on result</span>
+</span><span class="code-line"><span class="token comment"># approved=true  → enter EXECUTE</span>
+</span><span class="code-line"><span class="token comment"># not approved   → apply feedback, revise plan.md → repeat above</span>
+</span></code></pre>
+<p><strong>agentation MCP config</strong> (<code>opencode.json</code>):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcp"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"agentation"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"local"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"npx"</span><span class="token punctuation">,</span> <span class="token string">"-y"</span><span class="token punctuation">,</span> <span class="token string">"agentation-mcp"</span><span class="token punctuation">,</span> <span class="token string">"server"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>5. Memory &amp; State</h2>
+<p>JEO stores state at the following paths:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">{worktree}/.omc/state/jeo-state.json   # JEO execution state
+</span><span class="code-line">{worktree}/.omc/plans/jeo-plan.md      # Approved plan
+</span><span class="code-line">{worktree}/.omc/logs/jeo-*.log         # Execution logs
+</span></code></pre>
+<p><strong>State file structure:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mode"</span><span class="token operator">:</span> <span class="token string">"jeo"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"phase"</span><span class="token operator">:</span> <span class="token string">"plan|execute|verify|verify_ui|cleanup|done"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"session_id"</span><span class="token operator">:</span> <span class="token string">"&lt;uuid&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"task"</span><span class="token operator">:</span> <span class="token string">"current task description"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_approved"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_gate_status"</span><span class="token operator">:</span> <span class="token string">"pending|approved|feedback_required|infrastructure_blocked|manual_approved"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_current_hash"</span><span class="token operator">:</span> <span class="token string">"&lt;sha256 or null&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"last_reviewed_plan_hash"</span><span class="token operator">:</span> <span class="token string">"&lt;sha256 or null&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"last_reviewed_plan_at"</span><span class="token operator">:</span> <span class="token string">"2026-02-24T00:00:00Z"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"plan_review_method"</span><span class="token operator">:</span> <span class="token string">"plannotator|manual|null"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"team_available"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"retry_count"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"last_error"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"checkpoint"</span><span class="token operator">:</span> <span class="token string">"plan|execute|verify|verify_ui|cleanup"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"created_at"</span><span class="token operator">:</span> <span class="token string">"2026-02-24T00:00:00Z"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"updated_at"</span><span class="token operator">:</span> <span class="token string">"2026-02-24T00:00:00Z"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"agentation"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"active"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"session_id"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"keyword_used"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submit_gate_status"</span><span class="token operator">:</span> <span class="token string">"idle|waiting_for_submit|submitted"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submit_signal"</span><span class="token operator">:</span> <span class="token string">"claude-user-prompt-submit|codex-notify|gemini-manual|null"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submit_received_at"</span><span class="token operator">:</span> <span class="token string">"2026-02-24T00:00:00Z"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"submitted_annotation_count"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"started_at"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"timeout_seconds"</span><span class="token operator">:</span> <span class="token number">120</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"annotations"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"total"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"acknowledged"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"resolved"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"dismissed"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token property">"pending"</span><span class="token operator">:</span> <span class="token number">0</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"completed_at"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"exit_reason"</span><span class="token operator">:</span> <span class="token null keyword">null</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<blockquote>
+<p><strong>agentation fields</strong>: <code>active</code> — whether the watch loop is running (used as hook guard), <code>session_id</code> — for resuming,
+<code>submit_gate_status</code> — prevents processing draft annotations before submit/onSubmit, <code>submit_signal</code> — which platform opened the gate,
+<code>submit_received_at</code> / <code>submitted_annotation_count</code> — audit trail for the submitted batch, <code>exit_reason</code> — <code>"all_resolved"</code> | <code>"timeout"</code> | <code>"user_cancelled"</code> | <code>"error"</code></p>
+<p><strong>dismissed annotations</strong>: When a user dismisses an annotation in the agentation UI (status becomes <code>"dismissed"</code>),
+the agent should skip code changes for that annotation, increment <code>annotations.dismissed</code>, and continue to the next pending annotation.
+Dismissed annotations are counted but not acted upon. The watch loop exits normally when <code>pending == 0</code> (resolved + dismissed covers all).</p>
+<p><strong><code>plan_review_method</code></strong>: set to <code>"plannotator"</code> when approved via UI, <code>"manual"</code> when approved via TTY fallback gate.</p>
+<p><strong><code>cleanup_completed</code></strong>: set to <code>true</code> by <code>worktree-cleanup.sh</code> after successful worktree prune.</p>
+</blockquote>
+<blockquote>
+<p><strong>Error recovery fields</strong>:</p>
+<ul>
+<li><code>retry_count</code> — number of retries after an error. Increments +1 on each pre-flight failure. Ask user to confirm if <code>&gt;= 3</code>.</li>
+<li><code>last_error</code> — most recent error message. Used to identify the cause on restart.</li>
+<li><code>checkpoint</code> — last phase that was started. Resume from this phase on restart (<code>plan|execute|verify|cleanup</code>).</li>
+</ul>
+</blockquote>
+<p><strong>Checkpoint-based resume flow:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check checkpoint on restart</span>
+</span><span class="code-line">python3 <span class="token parameter variable">-c</span> <span class="token string">"
+</span></span><span class="code-line"><span class="token string">import json, os, subprocess
+</span></span><span class="code-line"><span class="token string">try:
+</span></span><span class="code-line"><span class="token string">    root = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], stderr=subprocess.DEVNULL).decode().strip()
+</span></span><span class="code-line"><span class="token string">except:
+</span></span><span class="code-line"><span class="token string">    root = os.getcwd()
+</span></span><span class="code-line"><span class="token string">f = os.path.join(root, '.omc/state/jeo-state.json')
+</span></span><span class="code-line"><span class="token string">if os.path.exists(f):
+</span></span><span class="code-line"><span class="token string">    d=json.load(open(f))
+</span></span><span class="code-line"><span class="token string">    cp=d.get('checkpoint')
+</span></span><span class="code-line"><span class="token string">    err=d.get('last_error')
+</span></span><span class="code-line"><span class="token string">    rc=d.get('retry_count',0)
+</span></span><span class="code-line"><span class="token string">    print(f'Resume from: {cp or <span class="token entity" title="\&quot;">\"</span>beginning<span class="token entity" title="\&quot;">\"</span>}')
+</span></span><span class="code-line"><span class="token string">    if err: print(f'Previous error ({rc} time(s)): {err}')
+</span></span><span class="code-line"><span class="token string">    if rc &gt;= 3: print('⚠️ Retry count exceeded 3 — user confirmation required')
+</span></span><span class="code-line"><span class="token string">"</span>
+</span></code></pre>
+<p>Restore after restart:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check status and resume</span>
+</span><span class="code-line"><span class="token function">bash</span> scripts/check-status.sh <span class="token parameter variable">--resume</span>
+</span></code></pre>
+<hr>
+<h2>6. Recommended Workflow</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Step 1: Install (once)
+</span><span class="code-line">bash scripts/install.sh --all
+</span><span class="code-line">bash scripts/check-status.sh
+</span><span class="code-line">
+</span><span class="code-line"># Step 2: Start work
+</span><span class="code-line">jeo "&lt;task description&gt;"           # Activate with keyword
+</span><span class="code-line"># Or in Claude: Shift+Tab×2 → plan mode
+</span><span class="code-line">
+</span><span class="code-line"># Step 3: Review plan with plannotator
+</span><span class="code-line"># Approve or Send Feedback in browser UI
+</span><span class="code-line">
+</span><span class="code-line"># Step 4: Automatic execution
+</span><span class="code-line"># team or bmad handles the work
+</span><span class="code-line">
+</span><span class="code-line"># Step 5: Cleanup after completion
+</span><span class="code-line">bash scripts/worktree-cleanup.sh
+</span></code></pre>
+<hr>
+<h2>7. Best Practices</h2>
+<ol>
+<li><strong>Plan first</strong>: always review the plan with ralph+plannotator before executing (catches wrong approaches early)</li>
+<li><strong>Team first</strong>: omc team mode is most efficient in Claude Code</li>
+<li><strong>bmad fallback</strong>: use BMAD in environments without team (Codex, Gemini)</li>
+<li><strong>Worktree cleanup</strong>: run <code>worktree-cleanup.sh</code> immediately after work completes (prevents branch pollution)</li>
+<li><strong>State persistence</strong>: use <code>.omc/state/jeo-state.json</code> to maintain state across sessions</li>
+<li><strong>annotate</strong>: use the <code>annotate</code> keyword to run the agentation watch loop for complex UI changes (precise code changes via CSS selector). <code>agentui</code> is a backward-compatible alias.</li>
+</ol>
+<hr>
+<h2>8. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>plannotator not running</td>
+<td>JEO first auto-runs <code>bash scripts/ensure-plannotator.sh</code>; if it still fails, run <code>bash .agent-skills/plannotator/scripts/check-status.sh</code></td>
+</tr>
+<tr>
+<td>plannotator not opening in Claude Code</td>
+<td>plannotator is hook-only. Do NOT call it via MCP or CLI. Use <code>EnterPlanMode</code> → write plan → <code>ExitPlanMode</code>; the hook fires automatically. Verify hook is set: <code>cat ~/.claude/settings.json | python3 -c "import sys,json;h=json.load(sys.stdin).get('hooks',{});print(h.get('PermissionRequest','missing'))"</code></td>
+</tr>
+<tr>
+<td>plannotator feedback not received</td>
+<td>Remove <code>&amp;</code> background execution → run blocking, then check <code>/tmp/plannotator_feedback.txt</code> (Codex/Gemini/OpenCode only)</td>
+</tr>
+<tr>
+<td>Same plan is repeatedly re-reviewed in Codex</td>
+<td>Compare <code>last_reviewed_plan_hash</code> in <code>jeo-state.json</code> with the current <code>plan.md</code> hash. If they match and <code>plan_gate_status</code> is terminal, do not re-run</td>
+</tr>
+<tr>
+<td>Codex startup failure (<code>invalid type: map, expected a string</code>)</td>
+<td>Re-run <code>bash scripts/setup-codex.sh</code> and confirm <code>developer_instructions</code> in <code>~/.codex/config.toml</code> is a top-level string</td>
+</tr>
+<tr>
+<td>Gemini feedback loop missing</td>
+<td>Add blocking direct call instruction to <code>~/.gemini/GEMINI.md</code></td>
+</tr>
+<tr>
+<td>worktree conflict</td>
+<td><code>git worktree prune &amp;&amp; git worktree list</code></td>
+</tr>
+<tr>
+<td>team mode not working</td>
+<td>JEO requires team mode in Claude Code. Run <code>bash scripts/setup-claude.sh</code>, restart Claude Code, and verify <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code> before retrying</td>
+</tr>
+<tr>
+<td>omc install failed</td>
+<td>Run <code>/omc:omc-doctor</code></td>
+</tr>
+<tr>
+<td>agent-browser error</td>
+<td>Check <code>agent-browser --version</code></td>
+</tr>
+<tr>
+<td>annotate (agentation) not opening</td>
+<td>Check <code>curl http://localhost:4747/health</code> and <code>curl http://localhost:4747/sessions</code>. JEO waits for explicit submit/onSubmit before polling <code>/pending</code></td>
+</tr>
+<tr>
+<td>annotation not reflected in code</td>
+<td>Confirm <code>summary</code> field is present when calling <code>agentation_resolve_annotation</code></td>
+</tr>
+<tr>
+<td><code>agentui</code> keyword not activating</td>
+<td>Use the <code>annotate</code> keyword (new). <code>agentui</code> is a deprecated alias but still works.</td>
+</tr>
+<tr>
+<td>MCP tool not registered (Codex/Gemini)</td>
+<td>Re-run <code>bash scripts/setup-codex.sh</code> / <code>setup-gemini.sh</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>9. References</h2>
+<ul>
+<li><a href="https://github.com/Yeachan-Heo/oh-my-claudecode" target="_blank" rel="ugc nofollow noopener">oh-my-claudecode</a> — Claude Code multi-agent</li>
+<li><a href="https://plannotator.ai" target="_blank" rel="ugc nofollow noopener">plannotator</a> — visual plan/diff review</li>
+<li><a href="https://github.com/bmad-dev/BMAD-METHOD" target="_blank" rel="ugc nofollow noopener">BMAD Method</a> — structured AI development workflow</li>
+<li><a href="https://agentskills.io/specification" target="_blank" rel="ugc nofollow noopener">Agent Skills Spec</a> — skill format specification</li>
+<li><a href="https://github.com/benjitaylor/agentation" target="_blank" rel="ugc nofollow noopener">agentation</a> — UI annotation → agent code fix integration (<code>annotate</code>; <code>agentui</code> backward compatible)</li>
+</ul></div>

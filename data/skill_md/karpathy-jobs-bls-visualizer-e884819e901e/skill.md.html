@@ -1,0 +1,324 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>karpathy/jobs — BLS Job Market Visualizer</h1>
+<blockquote>
+<p>Skill by <a href="https://ara.so" target="_blank" rel="ugc nofollow noopener">ara.so</a> — Daily 2026 Skills collection.</p>
+</blockquote>
+<p>A research tool for visually exploring Bureau of Labor Statistics <a href="https://www.bls.gov/ooh/" target="_blank" rel="ugc nofollow noopener">Occupational Outlook Handbook</a> data across 342 occupations. The interactive treemap colors rectangles by employment size (area) and any chosen metric (color): BLS growth outlook, median pay, education requirements, or LLM-scored AI exposure. The pipeline is fully forkable — write a new prompt, re-run scoring, get a new color layer.</p>
+<p><strong>Live demo:</strong> <a href="https://karpathy.ai/jobs/" target="_blank" rel="ugc nofollow noopener">karpathy.ai/jobs</a></p>
+<hr>
+<h2>Installation &amp; Setup</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Clone the repo</span>
+</span><span class="code-line"><span class="token function">git</span> clone https://github.com/karpathy/jobs
+</span><span class="code-line"><span class="token builtin class-name">cd</span> <span class="token function">jobs</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h1>Install dependencies (uses uv)</h1>
+<p>uv sync
+uv run playwright install chromium</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">Create a `.env` file with your OpenRouter API key (required only for LLM scoring):
+</span><span class="code-line">
+</span><span class="code-line">```bash
+</span><span class="code-line">OPENROUTER_API_KEY=your_openrouter_key_here
+</span></code></pre>
+<hr>
+<h2>Full Pipeline — Key Commands</h2>
+<p>Run these in order for a complete fresh build:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Scrape BLS pages (non-headless Playwright; BLS blocks bots)</span>
+</span><span class="code-line"><span class="token comment">#    Results cached in html/ — only needed once</span>
+</span><span class="code-line">uv run python scrape.py
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Convert raw HTML → clean Markdown in pages/</span>
+</span><span class="code-line">uv run python process.py
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Extract structured fields → occupations.csv</span>
+</span><span class="code-line">uv run python make_csv.py
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 4. Score AI exposure via LLM (uses OpenRouter API, saves scores.json)</span>
+</span><span class="code-line">uv run python score.py
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 5. Merge CSV + scores → site/data.json for the frontend</span>
+</span><span class="code-line">uv run python build_site_data.py
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 6. Serve the visualization locally</span>
+</span><span class="code-line"><span class="token builtin class-name">cd</span> site <span class="token operator">&amp;&amp;</span> python <span class="token parameter variable">-m</span> http.server <span class="token number">8000</span>
+</span><span class="code-line"><span class="token comment"># Open http://localhost:8000</span>
+</span></code></pre>
+<hr>
+<h2>Key Files Reference</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>occupations.json</code></td>
+<td>Master list of 342 occupations (title, URL, category, slug)</td>
+</tr>
+<tr>
+<td><code>occupations.csv</code></td>
+<td>Summary stats: pay, education, job count, growth projections</td>
+</tr>
+<tr>
+<td><code>scores.json</code></td>
+<td>AI exposure scores (0–10) + rationales for all 342 occupations</td>
+</tr>
+<tr>
+<td><code>prompt.md</code></td>
+<td>All data in one ~45K-token file for pasting into an LLM</td>
+</tr>
+<tr>
+<td><code>html/</code></td>
+<td>Raw HTML pages from BLS (~40MB, source of truth)</td>
+</tr>
+<tr>
+<td><code>pages/</code></td>
+<td>Clean Markdown versions of each occupation page</td>
+</tr>
+<tr>
+<td><code>site/index.html</code></td>
+<td>The treemap visualization (single HTML file)</td>
+</tr>
+<tr>
+<td><code>site/data.json</code></td>
+<td>Compact merged data consumed by the frontend</td>
+</tr>
+<tr>
+<td><code>score.py</code></td>
+<td>LLM scoring pipeline — fork this to write custom prompts</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Writing a Custom LLM Scoring Layer</h2>
+<p>The most powerful feature: write any scoring prompt, run <code>score.py</code>, get a new treemap color layer.</p>
+<h3>1. Edit the prompt in <code>score.py</code></h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># score.py (simplified structure)</span>
+</span><span class="code-line">SYSTEM_PROMPT <span class="token operator">=</span> <span class="token triple-quoted-string string">"""
+</span></span><span class="code-line"><span class="token triple-quoted-string string">You are evaluating occupations for exposure to humanoid robotics over the next 10 years.
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">Score each occupation from 0 to 10:
+</span></span><span class="code-line"><span class="token triple-quoted-string string">- 0 = no meaningful exposure (e.g., requires fine social judgment, non-physical)
+</span></span><span class="code-line"><span class="token triple-quoted-string string">- 5 = moderate exposure (some tasks automatable, but humans still central)
+</span></span><span class="code-line"><span class="token triple-quoted-string string">- 10 = high exposure (repetitive physical tasks, predictable environments)
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">Consider: physical task complexity, environment predictability, dexterity requirements,
+</span></span><span class="code-line"><span class="token triple-quoted-string string">cost of robot vs human, regulatory barriers.
+</span></span><span class="code-line"><span class="token triple-quoted-string string">
+</span></span><span class="code-line"><span class="token triple-quoted-string string">Respond ONLY with JSON: {"score": &lt;int 0-10&gt;, "rationale": "&lt;1-2 sentences&gt;"}
+</span></span><span class="code-line"><span class="token triple-quoted-string string">"""</span>
+</span></code></pre>
+<h3>2. Run the scoring pipeline</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># The pipeline reads each occupation's Markdown from pages/,</span>
+</span><span class="code-line"><span class="token comment"># sends it to the LLM, and writes results to scores.json</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># scores.json structure:</span>
+</span><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token string">"software-developers"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"rationale"</span><span class="token punctuation">:</span> <span class="token string">"Software development is digital and cognitive; humanoid robots provide no advantage."</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token string">"construction-laborers"</span><span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">7</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"rationale"</span><span class="token punctuation">:</span> <span class="token string">"Physical, repetitive outdoor tasks are targets for humanoid robotics, though unstructured environments remain challenging."</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token operator">//</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span> <span class="token number">342</span> occupations total
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>3. Rebuild site data</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">uv run python build_site_data.py
+</span><span class="code-line"><span class="token builtin class-name">cd</span> site <span class="token operator">&amp;&amp;</span> python <span class="token parameter variable">-m</span> http.server <span class="token number">8000</span>
+</span></code></pre>
+<hr>
+<h2>Data Structures</h2>
+<h3><code>occupations.json</code> entry</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Software Developers"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"url"</span><span class="token operator">:</span> <span class="token string">"https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"category"</span><span class="token operator">:</span> <span class="token string">"Computer and Information Technology"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"slug"</span><span class="token operator">:</span> <span class="token string">"software-developers"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3><code>occupations.csv</code> columns</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">slug, title, category, median_pay, education, job_count, growth_percent, growth_outlook
+</span></code></pre>
+<p>Example row:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">software-developers, Software Developers, Computer and Information Technology,
+</span><span class="code-line">130160, Bachelor's degree, 1847900, 17, Much faster than average
+</span></code></pre>
+<h3><code>site/data.json</code> entry (merged frontend data)</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"slug"</span><span class="token operator">:</span> <span class="token string">"software-developers"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"title"</span><span class="token operator">:</span> <span class="token string">"Software Developers"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"category"</span><span class="token operator">:</span> <span class="token string">"Computer and Information Technology"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"median_pay"</span><span class="token operator">:</span> <span class="token number">130160</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"education"</span><span class="token operator">:</span> <span class="token string">"Bachelor's degree"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"job_count"</span><span class="token operator">:</span> <span class="token number">1847900</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"growth_percent"</span><span class="token operator">:</span> <span class="token number">17</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"growth_outlook"</span><span class="token operator">:</span> <span class="token string">"Much faster than average"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"ai_score"</span><span class="token operator">:</span> <span class="token number">9</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"ai_rationale"</span><span class="token operator">:</span> <span class="token string">"AI is deeply transforming software development workflows..."</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Frontend Treemap (<code>site/index.html</code>)</h2>
+<p>The visualization is a single self-contained HTML file using D3.js.</p>
+<h3>Color layers (toggle in UI)</h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BLS Outlook</td>
+<td>BLS projected growth category (green = fast growth)</td>
+</tr>
+<tr>
+<td>Median Pay</td>
+<td>Annual median wage (color gradient)</td>
+</tr>
+<tr>
+<td>Education</td>
+<td>Minimum education required</td>
+</tr>
+<tr>
+<td>Digital AI Exposure</td>
+<td>LLM-scored 0–10 AI impact estimate</td>
+</tr>
+</tbody>
+</table>
+<h3>Adding a new color layer to the frontend</h3>
+<pre class="language-html"><code class="language-html code-highlight"><span class="code-line"><span class="token comment">&lt;!-- In site/index.html, find the layer toggle buttons --&gt;</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">setLayer</span><span class="token punctuation">(</span><span class="token string">'ai_score'</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">&gt;</span></span>Digital AI Exposure<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">&lt;!-- Add your new layer button --&gt;</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value javascript language-javascript"><span class="token function">setLayer</span><span class="token punctuation">(</span><span class="token string">'robotics_score'</span><span class="token punctuation">)</span></span><span class="token punctuation">"</span></span></span><span class="token punctuation">&gt;</span></span>Humanoid Robotics<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// In the colorScale function, add a case for your new field:</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">getColor</span><span class="token punctuation">(</span><span class="token parameter">d<span class="token punctuation">,</span> layer</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>layer <span class="token operator">===</span> <span class="token string">'robotics_score'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// scores 0-10, blue = low exposure, red = high</span>
+</span><span class="code-line">    <span class="token keyword control-flow">return</span> d3<span class="token punctuation">.</span><span class="token method function property-access">interpolateRdYlBu</span><span class="token punctuation">(</span><span class="token number">1</span> <span class="token operator">-</span> d<span class="token punctuation">.</span><span class="token property-access">robotics_score</span> <span class="token operator">/</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token comment">// ... existing cases</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Then update <code>build_site_data.py</code> to include your new score field in <code>data.json</code>.</p>
+<hr>
+<h2>Generating the LLM-Ready Prompt File</h2>
+<p>Package all 342 occupations + aggregate stats into a single file for LLM chat:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">uv run python make_prompt.py
+</span><span class="code-line"><span class="token comment"># Produces prompt.md (~45K tokens)</span>
+</span><span class="code-line"><span class="token comment"># Paste into Claude, GPT-4, Gemini, etc. for data-grounded conversation</span>
+</span></code></pre>
+<hr>
+<h2>Scraping Notes</h2>
+<p>The BLS blocks automated bots, so <code>scrape.py</code> uses <strong>non-headless</strong> Playwright (real visible browser window):</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># scrape.py key behavior</span>
+</span><span class="code-line">browser <span class="token operator">=</span> <span class="token keyword">await</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>headless<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>  <span class="token comment"># Must be visible</span>
+</span><span class="code-line"><span class="token comment"># Pages saved to html/&lt;slug&gt;.html</span>
+</span><span class="code-line"><span class="token comment"># Already-scraped pages are skipped (cached)</span>
+</span></code></pre>
+<p>If scraping fails or is rate-limited:</p>
+<ul>
+<li>The <code>html/</code> directory already contains cached pages in the repo</li>
+<li>You can skip scraping entirely and run from <code>process.py</code> onward</li>
+<li>If re-scraping, add delays between requests to avoid blocks</li>
+</ul>
+<hr>
+<h2>Common Patterns</h2>
+<h3>Re-score only missing occupations</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> json<span class="token punctuation">,</span> os
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"scores.json"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> f<span class="token punctuation">:</span>
+</span><span class="code-line">    existing <span class="token operator">=</span> json<span class="token punctuation">.</span>load<span class="token punctuation">(</span>f<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"occupations.json"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> f<span class="token punctuation">:</span>
+</span><span class="code-line">    all_occupations <span class="token operator">=</span> json<span class="token punctuation">.</span>load<span class="token punctuation">(</span>f<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Find gaps</span>
+</span><span class="code-line">missing <span class="token operator">=</span> <span class="token punctuation">[</span>o <span class="token keyword">for</span> o <span class="token keyword">in</span> all_occupations <span class="token keyword">if</span> o<span class="token punctuation">[</span><span class="token string">"slug"</span><span class="token punctuation">]</span> <span class="token keyword">not</span> <span class="token keyword">in</span> existing<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Missing scores: </span><span class="token interpolation"><span class="token punctuation">{</span><span class="token builtin">len</span><span class="token punctuation">(</span>missing<span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token comment"># Then run score.py with a filter for missing slugs</span>
+</span></code></pre>
+<h3>Parse a single occupation page manually</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> parse_detail <span class="token keyword">import</span> parse_occupation_page
+</span><span class="code-line"><span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+</span><span class="code-line">
+</span><span class="code-line">html <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"html/software-developers.html"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>read_text<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">data <span class="token operator">=</span> parse_occupation_page<span class="token punctuation">(</span>html<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>data<span class="token punctuation">[</span><span class="token string">"median_pay"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>     <span class="token comment"># e.g. 130160</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>data<span class="token punctuation">[</span><span class="token string">"job_count"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>      <span class="token comment"># e.g. 1847900</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>data<span class="token punctuation">[</span><span class="token string">"growth_outlook"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token comment"># e.g. "Much faster than average"</span>
+</span></code></pre>
+<h3>Load and query occupations.csv</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> pandas <span class="token keyword">as</span> pd
+</span><span class="code-line">
+</span><span class="code-line">df <span class="token operator">=</span> pd<span class="token punctuation">.</span>read_csv<span class="token punctuation">(</span><span class="token string">"occupations.csv"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Top 10 highest paying occupations</span>
+</span><span class="code-line">top_pay <span class="token operator">=</span> df<span class="token punctuation">.</span>nlargest<span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token string">"median_pay"</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token punctuation">[</span><span class="token string">"title"</span><span class="token punctuation">,</span> <span class="token string">"median_pay"</span><span class="token punctuation">,</span> <span class="token string">"growth_outlook"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>top_pay<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Filter: fast growth + high pay</span>
+</span><span class="code-line">high_value <span class="token operator">=</span> df<span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>df<span class="token punctuation">[</span><span class="token string">"growth_percent"</span><span class="token punctuation">]</span> <span class="token operator">&gt;</span> <span class="token number">10</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>df<span class="token punctuation">[</span><span class="token string">"median_pay"</span><span class="token punctuation">]</span> <span class="token operator">&gt;</span> <span class="token number">80000</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">]</span><span class="token punctuation">.</span>sort_values<span class="token punctuation">(</span><span class="token string">"median_pay"</span><span class="token punctuation">,</span> ascending<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Combine CSV with AI scores for analysis</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> pandas <span class="token keyword">as</span> pd<span class="token punctuation">,</span> json
+</span><span class="code-line">
+</span><span class="code-line">df <span class="token operator">=</span> pd<span class="token punctuation">.</span>read_csv<span class="token punctuation">(</span><span class="token string">"occupations.csv"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"scores.json"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> f<span class="token punctuation">:</span>
+</span><span class="code-line">    scores <span class="token operator">=</span> json<span class="token punctuation">.</span>load<span class="token punctuation">(</span>f<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">df<span class="token punctuation">[</span><span class="token string">"ai_score"</span><span class="token punctuation">]</span> <span class="token operator">=</span> df<span class="token punctuation">[</span><span class="token string">"slug"</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token builtin">map</span><span class="token punctuation">(</span><span class="token keyword">lambda</span> s<span class="token punctuation">:</span> scores<span class="token punctuation">.</span>get<span class="token punctuation">(</span>s<span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"score"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">df<span class="token punctuation">[</span><span class="token string">"ai_rationale"</span><span class="token punctuation">]</span> <span class="token operator">=</span> df<span class="token punctuation">[</span><span class="token string">"slug"</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token builtin">map</span><span class="token punctuation">(</span><span class="token keyword">lambda</span> s<span class="token punctuation">:</span> scores<span class="token punctuation">.</span>get<span class="token punctuation">(</span>s<span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"rationale"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># High AI exposure, high pay — reshaping, not disappearing</span>
+</span><span class="code-line">high_exposure_high_pay <span class="token operator">=</span> df<span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>df<span class="token punctuation">[</span><span class="token string">"ai_score"</span><span class="token punctuation">]</span> <span class="token operator">&gt;=</span> <span class="token number">8</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>df<span class="token punctuation">[</span><span class="token string">"median_pay"</span><span class="token punctuation">]</span> <span class="token operator">&gt;</span> <span class="token number">100000</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token punctuation">[</span><span class="token string">"title"</span><span class="token punctuation">,</span> <span class="token string">"median_pay"</span><span class="token punctuation">,</span> <span class="token string">"ai_score"</span><span class="token punctuation">,</span> <span class="token string">"growth_outlook"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>high_exposure_high_pay<span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Troubleshooting</h2>
+<p><strong><code>playwright install</code> fails</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">uv run playwright <span class="token function">install</span> --with-deps chromium
+</span></code></pre>
+<p><strong>BLS scraping blocked / returns empty pages</strong></p>
+<ul>
+<li>Ensure <code>headless=False</code> in <code>scrape.py</code> (already the default)</li>
+<li>Add manual delays; do not run in CI</li>
+<li>The cached <code>html/</code> directory in the repo can be used directly</li>
+</ul>
+<p><strong><code>score.py</code> OpenRouter errors</strong></p>
+<ul>
+<li>Verify <code>OPENROUTER_API_KEY</code> is set in <code>.env</code></li>
+<li>Check your OpenRouter account has credits</li>
+<li>Default model is Gemini Flash — change <code>model</code> in <code>score.py</code> for a different LLM</li>
+</ul>
+<p><strong><code>site/data.json</code> not updating after re-scoring</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Always rebuild site data after changing scores.json</span>
+</span><span class="code-line">uv run python build_site_data.py
+</span></code></pre>
+<p><strong>Treemap shows blank / no data</strong></p>
+<ul>
+<li>Confirm <code>site/data.json</code> exists and is valid JSON</li>
+<li>Serve with <code>python -m http.server</code> (not <code>file://</code> — CORS blocks local JSON fetch)</li>
+<li>Check browser console for fetch errors</li>
+</ul>
+<hr>
+<h2>Important Caveats (from the project)</h2>
+<ul>
+<li><strong>AI Exposure ≠ job disappearance.</strong> A score of 9/10 means AI is <em>transforming</em> the work, not eliminating demand. Software developers score 9/10 but demand is growing.</li>
+<li><strong>Scores are rough LLM estimates</strong> (Gemini Flash via OpenRouter), not rigorous economic predictions.</li>
+<li>The tool does <strong>not</strong> account for demand elasticity, latent demand, regulatory barriers, or social preferences for human workers.</li>
+<li>This is a <strong>development/research tool</strong>, not an economic publication.</li>
+</ul></div>

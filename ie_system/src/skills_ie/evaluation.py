@@ -16,8 +16,11 @@ from typing import Any, Dict, List
 from .config import IEConfig
 from .state import load_json, save_json_atomic, utc_now_iso
 
+# 自动评估负责对齐 ground truth；
+# 人工评估负责记录人工判断并汇总字段质量。
 
 def _normalize_values(values: Any) -> set[str]:
+    """把字段值列表规范化为小写字符串集合。"""
     if not isinstance(values, list):
         return set()
     return {
@@ -235,6 +238,7 @@ def compare_extraction_variants(
     enhanced_results: List[Dict[str, Any]],
     eval_path: Path,
 ) -> Dict[str, Any]:
+    """比较 baseline 与 enhanced 两个抽取变体。"""
     baseline_report = evaluate_extraction(baseline_results, eval_path)
     enhanced_report = evaluate_extraction(enhanced_results, eval_path)
 
@@ -278,6 +282,7 @@ def compare_extraction_variants(
 
 
 def print_variant_comparison(report: Dict[str, Any]) -> None:
+    """打印抽取变体对比摘要。"""
     baseline = report["baseline"]["overall"]
     enhanced = report["enhanced"]["overall"]
     delta = report["overall_delta"]
@@ -330,6 +335,7 @@ def print_variant_comparison(report: Dict[str, Any]) -> None:
 
 
 def render_variant_comparison_markdown(report: Dict[str, Any], title: str = "IE variant comparison report") -> str:
+    """将变体比较结果渲染为 Markdown。"""
     lines: List[str] = []
     lines.append(f"# {title}")
     lines.append("")
@@ -409,6 +415,7 @@ def render_variant_comparison_markdown(report: Dict[str, Any], title: str = "IE 
 
 
 def save_text_atomic(path: Path, text: str) -> None:
+    """以原子方式保存文本报告。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         "w",

@@ -1,0 +1,193 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Salesforce Developer</h1>
+<h2>Core Workflow</h2>
+<ol>
+<li><strong>Analyze requirements</strong> - Understand business needs, data model, governor limits, scalability</li>
+<li><strong>Design solution</strong> - Choose declarative vs programmatic, plan bulkification, design integrations</li>
+<li><strong>Implement</strong> - Write Apex classes, LWC components, SOQL queries with best practices</li>
+<li><strong>Validate governor limits</strong> - Verify SOQL/DML counts, heap size, and CPU time stay within platform limits before proceeding</li>
+<li><strong>Test thoroughly</strong> - Write test classes with 90%+ coverage, test bulk scenarios (200-record batches)</li>
+<li><strong>Deploy</strong> - Use Salesforce DX, scratch orgs, CI/CD for metadata deployment</li>
+</ol>
+<h2>Reference Guide</h2>
+<p>Load detailed guidance based on context:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Reference</th>
+<th>Load When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apex Development</td>
+<td><code>references/apex-development.md</code></td>
+<td>Classes, triggers, async patterns, batch processing</td>
+</tr>
+<tr>
+<td>Lightning Web Components</td>
+<td><code>references/lightning-web-components.md</code></td>
+<td>LWC framework, component design, events, wire service</td>
+</tr>
+<tr>
+<td>SOQL/SOSL</td>
+<td><code>references/soql-sosl.md</code></td>
+<td>Query optimization, relationships, governor limits</td>
+</tr>
+<tr>
+<td>Integration Patterns</td>
+<td><code>references/integration-patterns.md</code></td>
+<td>REST/SOAP APIs, platform events, external services</td>
+</tr>
+<tr>
+<td>Deployment &amp; DevOps</td>
+<td><code>references/deployment-devops.md</code></td>
+<td>Salesforce DX, CI/CD, scratch orgs, metadata API</td>
+</tr>
+</tbody>
+</table>
+<h2>Constraints</h2>
+<h3>MUST DO</h3>
+<ul>
+<li>Bulkify Apex code — collect IDs/records before loops, query/DML outside loops</li>
+<li>Write test classes with minimum 90% code coverage, including bulk scenarios</li>
+<li>Use selective SOQL queries with indexed fields; leverage relationship queries</li>
+<li>Use appropriate async processing (batch, queueable, future) for long-running work</li>
+<li>Implement proper error handling and logging; use <code>Database.update(scope, false)</code> for partial success</li>
+<li>Use Salesforce DX for source-driven development and metadata deployment</li>
+</ul>
+<h3>MUST NOT DO</h3>
+<ul>
+<li>Execute SOQL/DML inside loops (governor limit violation — see bulkified trigger pattern below)</li>
+<li>Hard-code IDs or credentials in code</li>
+<li>Create recursive triggers without safeguards</li>
+<li>Skip field-level security and sharing rules checks</li>
+<li>Use deprecated Salesforce APIs or components</li>
+</ul>
+<h2>Code Patterns</h2>
+<h3>Bulkified Trigger (Correct Pattern)</h3>
+<pre class="language-apex"><code class="language-apex code-highlight"><span class="code-line"><span class="token comment">// CORRECT: collect IDs, query once outside the loop</span>
+</span><span class="code-line"><span class="token keyword">trigger</span> <span class="token trigger class-name">AccountTrigger</span> <span class="token keyword">on</span> <span class="token class-name">Account</span> <span class="token punctuation">(</span><span class="token keyword">before</span> <span class="token keyword">insert</span><span class="token punctuation">,</span> <span class="token keyword">before</span> <span class="token keyword">update</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    AccountTriggerHandler<span class="token punctuation">.</span><span class="token function">handleBeforeInsert</span><span class="token punctuation">(</span><span class="token keyword">Trigger</span><span class="token punctuation">.</span><span class="token keyword">new</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">AccountTriggerHandler</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">handleBeforeInsert</span><span class="token punctuation">(</span><span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Account<span class="token punctuation">&gt;</span></span> newAccounts<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name"><span class="token keyword">Set</span><span class="token punctuation">&lt;</span>Id<span class="token punctuation">&gt;</span></span> parentIds <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name"><span class="token keyword">Set</span><span class="token punctuation">&lt;</span>Id<span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">Account</span> acc <span class="token operator">:</span> newAccounts<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token punctuation">(</span>acc<span class="token punctuation">.</span>ParentId <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> parentIds<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>acc<span class="token punctuation">.</span>ParentId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token class-name"><span class="token keyword">Map</span><span class="token punctuation">&lt;</span>Id<span class="token punctuation">,</span> Account<span class="token punctuation">&gt;</span></span> parentMap <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name"><span class="token keyword">Map</span><span class="token punctuation">&lt;</span>Id<span class="token punctuation">,</span> Account<span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token sql language-sql"><span class="token punctuation">[</span><span class="token keyword">SELECT</span> Id<span class="token punctuation">,</span> Name <span class="token keyword">FROM</span> Account <span class="token keyword">WHERE</span> Id <span class="token operator">IN</span> :parentIds<span class="token punctuation">]</span></span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">Account</span> acc <span class="token operator">:</span> newAccounts<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">if</span> <span class="token punctuation">(</span>acc<span class="token punctuation">.</span>ParentId <span class="token operator">!=</span> <span class="token keyword">null</span> <span class="token operator">&amp;&amp;</span> parentMap<span class="token punctuation">.</span><span class="token function">containsKey</span><span class="token punctuation">(</span>acc<span class="token punctuation">.</span>ParentId<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                acc<span class="token punctuation">.</span>Description <span class="token operator">=</span> <span class="token string">'Child of: '</span> <span class="token operator">+</span> parentMap<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>acc<span class="token punctuation">.</span>ParentId<span class="token punctuation">)</span><span class="token punctuation">.</span>Name<span class="token punctuation">;</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-apex"><code class="language-apex code-highlight"><span class="code-line"><span class="token comment">// INCORRECT: SOQL inside loop — governor limit violation</span>
+</span><span class="code-line"><span class="token keyword">trigger</span> <span class="token trigger class-name">AccountTrigger</span> <span class="token keyword">on</span> <span class="token class-name">Account</span> <span class="token punctuation">(</span><span class="token keyword">before</span> <span class="token keyword">insert</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">Account</span> acc <span class="token operator">:</span> <span class="token keyword">Trigger</span><span class="token punctuation">.</span><span class="token keyword">new</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Account</span> parent <span class="token operator">=</span> <span class="token sql language-sql"><span class="token punctuation">[</span><span class="token keyword">SELECT</span> Id<span class="token punctuation">,</span> Name <span class="token keyword">FROM</span> Account <span class="token keyword">WHERE</span> Id <span class="token operator">=</span> :acc<span class="token punctuation">.</span>ParentId<span class="token punctuation">]</span></span><span class="token punctuation">;</span> <span class="token comment">// BAD</span>
+</span><span class="code-line">        acc<span class="token punctuation">.</span>Description <span class="token operator">=</span> <span class="token string">'Child of: '</span> <span class="token operator">+</span> parent<span class="token punctuation">.</span>Name<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Batch Apex</h3>
+<pre class="language-apex"><code class="language-apex code-highlight"><span class="code-line"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">ContactBatchUpdate</span> <span class="token keyword">implements</span> <span class="token class-name">Database<span class="token punctuation">.</span>Batchable<span class="token punctuation">&lt;</span><span class="token keyword">SObject</span><span class="token punctuation">&gt;</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">public</span> <span class="token class-name">Database<span class="token punctuation">.</span>QueryLocator</span> <span class="token function">start</span><span class="token punctuation">(</span><span class="token class-name">Database<span class="token punctuation">.</span>BatchableContext</span> bc<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> Database<span class="token punctuation">.</span><span class="token function">getQueryLocator</span><span class="token punctuation">(</span><span class="token sql language-sql"><span class="token punctuation">[</span><span class="token keyword">SELECT</span> Id<span class="token punctuation">,</span> Email <span class="token keyword">FROM</span> Contact <span class="token keyword">WHERE</span> Email <span class="token operator">=</span> <span class="token boolean">null</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">execute</span><span class="token punctuation">(</span><span class="token class-name">Database<span class="token punctuation">.</span>BatchableContext</span> bc<span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Contact<span class="token punctuation">&gt;</span></span> scope<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">Contact</span> c <span class="token operator">:</span> scope<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            c<span class="token punctuation">.</span>Email <span class="token operator">=</span> <span class="token string">'unknown@example.com'</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        Database<span class="token punctuation">.</span><span class="token keyword">update</span><span class="token punctuation">(</span>scope<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// partial success allowed</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">finish</span><span class="token punctuation">(</span><span class="token class-name">Database<span class="token punctuation">.</span>BatchableContext</span> bc<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Send notification or chain next batch</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token comment">// Execute: Database.executeBatch(new ContactBatchUpdate(), 200);</span>
+</span></code></pre>
+<h3>Test Class</h3>
+<pre class="language-apex"><code class="language-apex code-highlight"><span class="code-line"><span class="token annotation punctuation">@IsTest</span>
+</span><span class="code-line"><span class="token keyword">private</span> <span class="token keyword">class</span> <span class="token class-name">AccountTriggerHandlerTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token annotation punctuation">@TestSetup</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">makeData</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Account</span> parent <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Account</span><span class="token punctuation">(</span>Name <span class="token operator">=</span> <span class="token string">'Parent Co'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">insert</span> parent<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token class-name">Account</span> child <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Account</span><span class="token punctuation">(</span>Name <span class="token operator">=</span> <span class="token string">'Child Co'</span><span class="token punctuation">,</span> ParentId <span class="token operator">=</span> parent<span class="token punctuation">.</span>Id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">insert</span> child<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@IsTest</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">testBulkInsert</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Account</span> parent <span class="token operator">=</span> <span class="token sql language-sql"><span class="token punctuation">[</span><span class="token keyword">SELECT</span> Id <span class="token keyword">FROM</span> Account <span class="token keyword">WHERE</span> Name <span class="token operator">=</span> <span class="token string">'Parent Co'</span> <span class="token keyword">LIMIT</span> <span class="token number">1</span><span class="token punctuation">]</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Account<span class="token punctuation">&gt;</span></span> children <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Account<span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">Integer</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> <span class="token number">200</span><span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            children<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Account</span><span class="token punctuation">(</span>Name <span class="token operator">=</span> <span class="token string">'Child '</span> <span class="token operator">+</span> i<span class="token punctuation">,</span> ParentId <span class="token operator">=</span> parent<span class="token punctuation">.</span>Id<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        Test<span class="token punctuation">.</span><span class="token function">startTest</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">insert</span> children<span class="token punctuation">;</span>
+</span><span class="code-line">        Test<span class="token punctuation">.</span><span class="token function">stopTest</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Account<span class="token punctuation">&gt;</span></span> updated <span class="token operator">=</span> <span class="token sql language-sql"><span class="token punctuation">[</span><span class="token keyword">SELECT</span> Description <span class="token keyword">FROM</span> Account <span class="token keyword">WHERE</span> ParentId <span class="token operator">=</span> :parent<span class="token punctuation">.</span>Id<span class="token punctuation">]</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">System</span><span class="token punctuation">.</span><span class="token function">assert</span><span class="token punctuation">(</span><span class="token operator">!</span>updated<span class="token punctuation">.</span><span class="token function">isEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'Children should have descriptions set'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">System</span><span class="token punctuation">.</span><span class="token function">assert</span><span class="token punctuation">(</span>updated<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>Description<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'Child of:'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'Description format mismatch'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>SOQL Best Practices</h3>
+<pre class="language-apex"><code class="language-apex code-highlight"><span class="code-line"><span class="token comment">// Selective query — use indexed fields in WHERE clause</span>
+</span><span class="code-line"><span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Opportunity<span class="token punctuation">&gt;</span></span> opps <span class="token operator">=</span> <span class="token sql language-sql"><span class="token punctuation">[</span>
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">SELECT</span> Id<span class="token punctuation">,</span> Name<span class="token punctuation">,</span> Amount<span class="token punctuation">,</span> StageName
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">FROM</span> Opportunity
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">WHERE</span> AccountId <span class="token operator">IN</span> :accountIds      <span class="token comment">// indexed field</span>
+</span></span><span class="code-line"><span class="token sql language-sql">      <span class="token operator">AND</span> CloseDate <span class="token operator">&gt;=</span> :<span class="token keyword">Date</span><span class="token punctuation">.</span>today<span class="token punctuation">(</span><span class="token punctuation">)</span>    <span class="token comment">// indexed field</span>
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> CloseDate <span class="token keyword">ASC</span>
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">LIMIT</span> <span class="token number">200</span>
+</span></span><span class="code-line"><span class="token sql language-sql"><span class="token punctuation">]</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Relationship query to avoid extra round-trips</span>
+</span><span class="code-line"><span class="token class-name"><span class="token keyword">List</span><span class="token punctuation">&lt;</span>Account<span class="token punctuation">&gt;</span></span> accounts <span class="token operator">=</span> <span class="token sql language-sql"><span class="token punctuation">[</span>
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">SELECT</span> Id<span class="token punctuation">,</span> Name<span class="token punctuation">,</span>
+</span></span><span class="code-line"><span class="token sql language-sql">           <span class="token punctuation">(</span><span class="token keyword">SELECT</span> Id<span class="token punctuation">,</span> LastName<span class="token punctuation">,</span> Email <span class="token keyword">FROM</span> Contacts <span class="token keyword">WHERE</span> Email <span class="token operator">!=</span> <span class="token boolean">null</span><span class="token punctuation">)</span>
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">FROM</span> Account
+</span></span><span class="code-line"><span class="token sql language-sql">    <span class="token keyword">WHERE</span> Id <span class="token operator">IN</span> :accountIds
+</span></span><span class="code-line"><span class="token sql language-sql"><span class="token punctuation">]</span></span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Lightning Web Component (Counter Example)</h3>
+<pre class="language-html"><code class="language-html code-highlight"><span class="code-line"><span class="token comment">&lt;!-- counterComponent.html --&gt;</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>template</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>lightning-card</span> <span class="token attr-name">title</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Counter<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>slds-p-around_medium<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">&gt;</span></span>Count: {count}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>lightning-button</span> <span class="token attr-name">label</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Increment<span class="token punctuation">"</span></span> <span class="token special-attr"><span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token value javascript language-javascript"><span class="token punctuation">{</span>handleIncrement<span class="token punctuation">}</span></span></span></span><span class="token punctuation">&gt;</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>lightning-button</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>lightning-card</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>template</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// counterComponent.js</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> <span class="token maybe-class-name">LightningElement</span><span class="token punctuation">,</span> track <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'lwc'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword module">export</span> <span class="token keyword module">default</span> <span class="token keyword">class</span> <span class="token class-name">CounterComponent</span> <span class="token keyword">extends</span> <span class="token class-name">LightningElement</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    @track count <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">handleIncrement</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token property-access">count</span> <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<pre class="language-xml"><code class="language-xml code-highlight"><span class="code-line"><span class="token comment">&lt;!-- counterComponent.js-meta.xml --&gt;</span>
+</span><span class="code-line"><span class="token prolog">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>LightningComponentBundle</span> <span class="token attr-name">xmlns</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://soap.sforce.com/2006/04/metadata<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>apiVersion</span><span class="token punctuation">&gt;</span></span>59.0<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>apiVersion</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>isExposed</span><span class="token punctuation">&gt;</span></span>true<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>isExposed</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>targets</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>target</span><span class="token punctuation">&gt;</span></span>lightning__AppPage<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>target</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>target</span><span class="token punctuation">&gt;</span></span>lightning__RecordPage<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>target</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>targets</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>LightningComponentBundle</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<p><a href="https://jeffallan.github.io/claude-skills/skills/platform/salesforce-developer/" target="_blank" rel="ugc nofollow noopener">Documentation</a></p></div>

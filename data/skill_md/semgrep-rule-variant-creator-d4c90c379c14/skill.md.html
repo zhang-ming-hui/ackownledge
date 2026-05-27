@@ -1,0 +1,243 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Semgrep Rule Variant Creator</h1>
+<p>Port existing Semgrep rules to new target languages with proper applicability analysis and test-driven validation.</p>
+<h2>When to Use</h2>
+<p><strong>Ideal scenarios:</strong></p>
+<ul>
+<li>Porting an existing Semgrep rule to one or more target languages</li>
+<li>Creating language-specific variants of a universal vulnerability pattern</li>
+<li>Expanding rule coverage across a polyglot codebase</li>
+<li>Translating rules between languages with equivalent constructs</li>
+</ul>
+<h2>When NOT to Use</h2>
+<p>Do NOT use this skill for:</p>
+<ul>
+<li>Creating a new Semgrep rule from scratch (use <code>semgrep-rule-creator</code> instead)</li>
+<li>Running existing rules against code</li>
+<li>Languages where the vulnerability pattern fundamentally doesn't apply</li>
+<li>Minor syntax variations within the same language</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Input Specification</h2>
+<p>This skill requires:</p>
+<ol>
+<li><strong>Existing Semgrep rule</strong> - YAML file path or YAML rule content</li>
+<li><strong>Target languages</strong> - One or more languages to port to (e.g., "Golang and Java")</li>
+</ol>
+<h2>Output Specification</h2>
+<p>For each applicable target language, produces:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">&lt;original-rule-id&gt;-&lt;language&gt;/
+</span><span class="code-line">├── &lt;original-rule-id&gt;-&lt;language&gt;.yaml     # Ported Semgrep rule
+</span><span class="code-line">└── &lt;original-rule-id&gt;-&lt;language&gt;.&lt;ext&gt;    # Test file with annotations
+</span></code></pre>
+<p>Example output for porting <code>sql-injection</code> to Go and Java:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">sql-injection-golang/
+</span><span class="code-line">├── sql-injection-golang.yaml
+</span><span class="code-line">└── sql-injection-golang.go
+</span><span class="code-line">
+</span><span class="code-line">sql-injection-java/
+</span><span class="code-line">├── sql-injection-java.yaml
+</span><span class="code-line">└── sql-injection-java.java
+</span></code></pre>
+<h2>Rationalizations to Reject</h2>
+<p>When porting Semgrep rules, reject these common shortcuts:</p>
+<table>
+<thead>
+<tr>
+<th>Rationalization</th>
+<th>Why It Fails</th>
+<th>Correct Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Pattern structure is identical"</td>
+<td>Different ASTs across languages</td>
+<td>Always dump AST for target language</td>
+</tr>
+<tr>
+<td>"Same vulnerability, same detection"</td>
+<td>Data flow differs between languages</td>
+<td>Analyze target language idioms</td>
+</tr>
+<tr>
+<td>"Rule doesn't need tests since original worked"</td>
+<td>Language edge cases differ</td>
+<td>Write NEW test cases for target</td>
+</tr>
+<tr>
+<td>"Skip applicability - it obviously applies"</td>
+<td>Some patterns are language-specific</td>
+<td>Complete applicability analysis first</td>
+</tr>
+<tr>
+<td>"I'll create all variants then test"</td>
+<td>Errors compound, hard to debug</td>
+<td>Complete full cycle per language</td>
+</tr>
+<tr>
+<td>"Library equivalent is close enough"</td>
+<td>Surface similarity hides differences</td>
+<td>Verify API semantics match</td>
+</tr>
+<tr>
+<td>"Just translate the syntax 1:1"</td>
+<td>Languages have different idioms</td>
+<td>Research target language patterns</td>
+</tr>
+</tbody>
+</table>
+<h2>Strictness Level</h2>
+<p>This workflow is <strong>strict</strong> - do not skip steps:</p>
+<ul>
+<li><strong>Applicability analysis is mandatory</strong>: Don't assume patterns translate</li>
+<li><strong>Each language is independent</strong>: Complete full cycle before moving to next</li>
+<li><strong>Test-first for each variant</strong>: Never write a rule without test cases</li>
+<li><strong>100% test pass required</strong>: "Most tests pass" is not acceptable</li>
+</ul>
+<h2>Overview</h2>
+<p>This skill guides the creation of language-specific variants of existing Semgrep rules. Each target language goes through an independent 4-phase cycle:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">FOR EACH target language:
+</span><span class="code-line">  Phase 1: Applicability Analysis → Verdict
+</span><span class="code-line">  Phase 2: Test Creation (Test-First)
+</span><span class="code-line">  Phase 3: Rule Creation
+</span><span class="code-line">  Phase 4: Validation
+</span><span class="code-line">  (Complete full cycle before moving to next language)
+</span></code></pre>
+<h2>Foundational Knowledge</h2>
+<p><strong>The <code>semgrep-rule-creator</code> skill is the authoritative reference for Semgrep rule creation fundamentals.</strong> While this skill focuses on porting existing rules to new languages, the core principles of writing quality rules remain the same.</p>
+<p>Consult <code>semgrep-rule-creator</code> for guidance on:</p>
+<ul>
+<li><strong>When to use taint mode vs pattern matching</strong> - Choosing the right approach for the vulnerability type</li>
+<li><strong>Test-first methodology</strong> - Why tests come before rules and how to write effective test cases</li>
+<li><strong>Anti-patterns to avoid</strong> - Common mistakes like overly broad or overly specific patterns</li>
+<li><strong>Iterating until tests pass</strong> - The validation loop and debugging techniques</li>
+<li><strong>Rule optimization</strong> - Removing redundant patterns after tests pass</li>
+</ul>
+<p>When porting a rule, you're applying these same principles in a new language context. If uncertain about rule structure or approach, refer to <code>semgrep-rule-creator</code> first.</p>
+<h2>Four-Phase Workflow</h2>
+<h3>Phase 1: Applicability Analysis</h3>
+<p>Before porting, determine if the pattern applies to the target language.</p>
+<p><strong>Analysis criteria:</strong></p>
+<ol>
+<li>Does the vulnerability class exist in the target language?</li>
+<li>Does an equivalent construct exist (function, pattern, library)?</li>
+<li>Are the semantics similar enough for meaningful detection?</li>
+</ol>
+<p><strong>Verdict options:</strong></p>
+<ul>
+<li><code>APPLICABLE</code> → Proceed with variant creation</li>
+<li><code>APPLICABLE_WITH_ADAPTATION</code> → Proceed but significant changes needed</li>
+<li><code>NOT_APPLICABLE</code> → Skip this language, document why</li>
+</ul>
+<p>See <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/%7BbaseDir%7D/references/applicability-analysis.md" target="_blank" rel="ugc nofollow noopener">applicability-analysis.md</a> for detailed guidance.</p>
+<h3>Phase 2: Test Creation (Test-First)</h3>
+<p><strong>Always write tests before the rule.</strong></p>
+<p>Create test file with target language idioms:</p>
+<ul>
+<li>Minimum 2 vulnerable cases (<code>ruleid:</code>)</li>
+<li>Minimum 2 safe cases (<code>ok:</code>)</li>
+<li>Include language-specific edge cases</li>
+</ul>
+<pre class="language-go"><code class="language-go code-highlight"><span class="code-line"><span class="token comment">// ruleid: sql-injection-golang</span>
+</span><span class="code-line">db<span class="token punctuation">.</span><span class="token function">Query</span><span class="token punctuation">(</span><span class="token string">"SELECT * FROM users WHERE id = "</span> <span class="token operator">+</span> userInput<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ok: sql-injection-golang</span>
+</span><span class="code-line">db<span class="token punctuation">.</span><span class="token function">Query</span><span class="token punctuation">(</span><span class="token string">"SELECT * FROM users WHERE id = ?"</span><span class="token punctuation">,</span> userInput<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Phase 3: Rule Creation</h3>
+<ol>
+<li><strong>Analyze AST</strong>: <code>semgrep --dump-ast -l &lt;lang&gt; test-file</code></li>
+<li><strong>Translate patterns</strong> to target language syntax</li>
+<li><strong>Update metadata</strong>: language key, message, rule ID</li>
+<li><strong>Adapt for idioms</strong>: Handle language-specific constructs</li>
+</ol>
+<p>See <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/%7BbaseDir%7D/references/language-syntax-guide.md" target="_blank" rel="ugc nofollow noopener">language-syntax-guide.md</a> for translation guidance.</p>
+<h3>Phase 4: Validation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Validate YAML</span>
+</span><span class="code-line">semgrep <span class="token parameter variable">--validate</span> <span class="token parameter variable">--config</span> rule.yaml
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run tests</span>
+</span><span class="code-line">semgrep <span class="token parameter variable">--test</span> <span class="token parameter variable">--config</span> rule.yaml test-file
+</span></code></pre>
+<p><strong>Checkpoint</strong>: Output MUST show <code>All tests passed</code>.</p>
+<p>For taint rule debugging:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">semgrep --dataflow-traces <span class="token parameter variable">-f</span> rule.yaml test-file
+</span></code></pre>
+<p>See <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/%7BbaseDir%7D/references/workflow.md" target="_blank" rel="ugc nofollow noopener">workflow.md</a> for detailed workflow and troubleshooting.</p>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Run tests</td>
+<td><code>semgrep --test --config rule.yaml test-file</code></td>
+</tr>
+<tr>
+<td>Validate YAML</td>
+<td><code>semgrep --validate --config rule.yaml</code></td>
+</tr>
+<tr>
+<td>Dump AST</td>
+<td><code>semgrep --dump-ast -l &lt;lang&gt; &lt;file&gt;</code></td>
+</tr>
+<tr>
+<td>Debug taint flow</td>
+<td><code>semgrep --dataflow-traces -f rule.yaml file</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Key Differences from Rule Creation</h2>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>semgrep-rule-creator</th>
+<th>This skill</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Input</td>
+<td>Bug pattern description</td>
+<td>Existing rule + target languages</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>Single rule+test</td>
+<td>Multiple rule+test directories</td>
+</tr>
+<tr>
+<td>Workflow</td>
+<td>Single creation cycle</td>
+<td>Independent cycle per language</td>
+</tr>
+<tr>
+<td>Phase 1</td>
+<td>Problem analysis</td>
+<td>Applicability analysis per language</td>
+</tr>
+<tr>
+<td>Library research</td>
+<td>Always relevant</td>
+<td>Optional (when original uses libraries)</td>
+</tr>
+</tbody>
+</table>
+<h2>Documentation</h2>
+<p><strong>REQUIRED</strong>: Before porting rules, read relevant Semgrep documentation:</p>
+<ul>
+<li><a href="https://semgrep.dev/docs/writing-rules/rule-syntax" target="_blank" rel="ugc nofollow noopener">Rule Syntax</a> - YAML structure and operators</li>
+<li><a href="https://semgrep.dev/docs/writing-rules/pattern-syntax" target="_blank" rel="ugc nofollow noopener">Pattern Syntax</a> - Pattern matching and metavariables</li>
+<li><a href="https://semgrep.dev/docs/writing-rules/pattern-examples" target="_blank" rel="ugc nofollow noopener">Pattern Examples</a> - Per-language pattern references</li>
+<li><a href="https://semgrep.dev/docs/writing-rules/testing-rules" target="_blank" rel="ugc nofollow noopener">Testing Rules</a> - Testing annotations</li>
+<li><a href="https://appsec.guide/docs/static-analysis/semgrep/advanced/" target="_blank" rel="ugc nofollow noopener">Trail of Bits Testing Handbook</a> - Advanced patterns</li>
+</ul>
+<h2>Next Steps</h2>
+<ul>
+<li>For applicability analysis guidance, see <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/%7BbaseDir%7D/references/applicability-analysis.md" target="_blank" rel="ugc nofollow noopener">applicability-analysis.md</a></li>
+<li>For language translation guidance, see <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/%7BbaseDir%7D/references/language-syntax-guide.md" target="_blank" rel="ugc nofollow noopener">language-syntax-guide.md</a></li>
+<li>For detailed workflow and examples, see <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/%7BbaseDir%7D/references/workflow.md" target="_blank" rel="ugc nofollow noopener">workflow.md</a></li>
+</ul></div>

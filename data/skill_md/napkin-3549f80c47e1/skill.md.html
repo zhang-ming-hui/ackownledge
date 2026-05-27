@@ -1,0 +1,128 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Napkin — Visual Whiteboard for Copilot CLI</h1>
+<p>Napkin gives users a browser-based whiteboard where they can draw, sketch, and add sticky notes to think through ideas visually. The agent reads back the whiteboard contents (via a PNG snapshot and optional JSON data) and responds conversationally with analysis, suggestions, and next steps.</p>
+<p>The target audience is lawyers, PMs, and business stakeholders — not software developers. Keep everything approachable and jargon-free.</p>
+<hr>
+<h2>Activation</h2>
+<p>When the user invokes this skill — saying things like "let's napkin," "open a napkin," "start a whiteboard," or using the slash command — do the following:</p>
+<ol>
+<li><strong>Copy the bundled HTML template</strong> from the skill assets to the user's Desktop.
+<ul>
+<li>The template lives at <code>assets/napkin.html</code> relative to this SKILL.md file.</li>
+<li>Copy it to <code>~/Desktop/napkin.html</code>.</li>
+<li>If <code>~/Desktop/napkin.html</code> already exists, ask the user whether they want to open the existing one or start fresh before overwriting.</li>
+</ul>
+</li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol start="2">
+<li>
+<p><strong>Open it in the default browser:</strong></p>
+<ul>
+<li>macOS: <code>open ~/Desktop/napkin.html</code></li>
+<li>Linux: <code>xdg-open ~/Desktop/napkin.html</code></li>
+<li>Windows: <code>start ~/Desktop/napkin.html</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Tell the user what to do next.</strong> Say something warm and simple:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Your napkin is open in your browser!
+</span><span class="code-line">
+</span><span class="code-line">Draw, sketch, or add sticky notes — whatever helps you think through your idea.
+</span><span class="code-line">
+</span><span class="code-line">When you're ready for my input, click the green "Share with Copilot" button on the whiteboard, then come back here and say "check the napkin."
+</span></code></pre>
+</li>
+</ol>
+<hr>
+<h2>Reading the Napkin</h2>
+<p>When the user says "check the napkin," "look at the napkin," "what do you think," "read my napkin," or anything similar, follow these steps:</p>
+<h3>Step 1 — Read the PNG snapshot (primary)</h3>
+<p>Look for a PNG file called <code>napkin-snapshot.png</code>. Check these locations in order (the browser saves it to the user's default download folder, which varies):</p>
+<ol>
+<li><code>~/Downloads/napkin-snapshot.png</code></li>
+<li><code>~/Desktop/napkin-snapshot.png</code></li>
+</ol>
+<p>Use the <code>view</code> tool to read the PNG. This sends the image as base64-encoded data to the model, which can visually interpret it. The PNG is the <strong>primary</strong> way the agent understands what the user drew — it captures freehand sketches, arrows, spatial layout, annotations, circled or crossed-out items, and anything else on the canvas.</p>
+<p>If the PNG is not found in either location, do NOT silently skip it. Instead, tell the user:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">I don't see a snapshot from your napkin yet. Here's what to do:
+</span><span class="code-line">
+</span><span class="code-line">1. Go to your whiteboard in the browser
+</span><span class="code-line">2. Click the green "Share with Copilot" button
+</span><span class="code-line">3. Come back here and say "check the napkin" again
+</span><span class="code-line">
+</span><span class="code-line">The button saves a screenshot that I can look at.
+</span></code></pre>
+<h3>Step 2 — Read the clipboard for structured JSON (supplementary)</h3>
+<p>Also try to grab structured JSON data from the system clipboard. The whiteboard copies this automatically alongside the PNG.</p>
+<ul>
+<li>macOS: <code>pbpaste</code></li>
+<li>Linux: <code>xclip -selection clipboard -o</code></li>
+<li>Windows: <code>powershell -command "Get-Clipboard"</code></li>
+</ul>
+<p>The JSON contains the exact text content of sticky notes and text labels, their positions, and their colors. This supplements the PNG by giving you precise text that might be hard to read from a screenshot.</p>
+<p>If the clipboard doesn't contain JSON data, that's fine — the PNG alone gives the model plenty to work with. Do not treat a missing clipboard as an error.</p>
+<h3>Step 3 — Interpret both sources together</h3>
+<p>Synthesize the visual snapshot and the structured text into a coherent understanding of what the user is thinking or planning:</p>
+<ul>
+<li><strong>From the PNG:</strong> Describe what you see — sketches, diagrams, flowcharts, groupings, arrows, spatial layout, annotations, circled items, crossed-out items, emphasis marks.</li>
+<li><strong>From the JSON:</strong> Read the exact text content of sticky notes and labels, noting their positions and colors.</li>
+<li><strong>Combine both</strong> into a single, conversational interpretation.</li>
+</ul>
+<h3>Step 4 — Respond conversationally</h3>
+<p>Do not dump raw data or a technical summary. Respond as a collaborator who looked at someone's whiteboard sketch. Examples:</p>
+<ul>
+<li>"I can see you've sketched out a three-stage process — it looks like you're thinking about [X] flowing into [Y] and then [Z]. The sticky note in the corner says '[text]' — is that a concern you want me to address?"</li>
+<li>"It looks like you've grouped these four ideas together on the left side and separated them from the two items on the right. Are you thinking of these as two different categories?"</li>
+<li>"I see you drew arrows connecting [A] to [B] to [C] — is this the workflow you're envisioning?"</li>
+</ul>
+<h3>Step 5 — Ask what's next</h3>
+<p>Always end by offering a next step:</p>
+<ul>
+<li>"Want me to build on this?"</li>
+<li>"Should I turn this into a structured document?"</li>
+<li>"Want me to add my suggestions to the napkin?"</li>
+</ul>
+<hr>
+<h2>Responding on the Napkin</h2>
+<p>When the user wants the agent to add content back to the whiteboard:</p>
+<ul>
+<li>The agent <strong>cannot</strong> directly modify the HTML file's canvas state — that's managed by JavaScript running in the browser.</li>
+<li>Instead, offer practical alternatives:
+<ul>
+<li>Provide the response right here in the CLI, and suggest the user add it to the napkin manually.</li>
+<li>Offer to create a separate document (markdown, memo, checklist, etc.) based on what was interpreted from the napkin.</li>
+<li>If it makes sense, create an updated copy of <code>napkin.html</code> with pre-loaded content.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>Tone and Style</h2>
+<ul>
+<li>Use the same approachable, non-technical tone as the noob-mode skill.</li>
+<li>Never use developer jargon without explaining it in plain English.</li>
+<li>Treat the napkin as a creative, collaborative space — not a formal input mechanism.</li>
+<li>Be encouraging about the user's sketches regardless of artistic quality.</li>
+<li>Frame responses as "building on your thinking," not "analyzing your input."</li>
+</ul>
+<hr>
+<h2>Error Handling</h2>
+<p><strong>PNG snapshot not found:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">I don't see a snapshot from your napkin yet. Here's what to do:
+</span><span class="code-line">
+</span><span class="code-line">1. Go to your whiteboard in the browser
+</span><span class="code-line">2. Click the green "Share with Copilot" button
+</span><span class="code-line">3. Come back here and say "check the napkin" again
+</span><span class="code-line">
+</span><span class="code-line">The button saves a screenshot that I can look at.
+</span></code></pre>
+<p><strong>Whiteboard file doesn't exist on Desktop:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">It looks like we haven't started a napkin yet. Want me to open one for you?
+</span></code></pre>
+<hr>
+<h2>Important Notes</h2>
+<ul>
+<li>The PNG interpretation is the <strong>primary</strong> channel. Multimodal models can read and interpret the base64 image data returned by the <code>view</code> tool.</li>
+<li>The JSON clipboard data is <strong>supplementary</strong> — it provides precise text but does not capture freehand drawings.</li>
+<li>Always check for the PNG first. If it isn't found, prompt the user to click "Share with Copilot."</li>
+<li>If the clipboard doesn't have JSON data, proceed with the PNG alone.</li>
+<li>The HTML template is located at <code>assets/napkin.html</code> relative to this SKILL.md file.</li>
+<li>If the noob-mode skill is also active, use its risk indicator format (green/yellow/red) when requesting file or bash permissions.</li>
+</ul></div>

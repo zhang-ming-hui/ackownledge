@@ -1,0 +1,669 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Dependency Updater</h1>
+<p>Smart dependency management for any language with automatic detection and safe updates.</p>
+<hr>
+<h2>Quick Start</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">update my dependencies
+</span></code></pre>
+<p>The skill auto-detects your project type and handles the rest.</p>
+<hr>
+<h2>Triggers</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Update dependencies</td>
+<td>"update dependencies", "update deps"</td>
+</tr>
+<tr>
+<td>Check outdated</td>
+<td>"check for outdated packages"</td>
+</tr>
+<tr>
+<td>Fix dependency issues</td>
+<td>"fix my dependency problems"</td>
+</tr>
+<tr>
+<td>Security audit</td>
+<td>"audit dependencies for vulnerabilities"</td>
+</tr>
+<tr>
+<td>Diagnose deps</td>
+<td>"diagnose dependency issues"</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Supported Languages</h2>
+<table>
+<thead>
+<tr>
+<th>Language</th>
+<th>Package File</th>
+<th>Update Tool</th>
+<th>Audit Tool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Node.js</strong></td>
+<td>package.json</td>
+<td><code>taze</code></td>
+<td><code>npm audit</code></td>
+</tr>
+<tr>
+<td><strong>Python</strong></td>
+<td>requirements.txt, pyproject.toml</td>
+<td><code>pip-review</code></td>
+<td><code>safety</code>, <code>pip-audit</code></td>
+</tr>
+<tr>
+<td><strong>Go</strong></td>
+<td>go.mod</td>
+<td><code>go get -u</code></td>
+<td><code>govulncheck</code></td>
+</tr>
+<tr>
+<td><strong>Rust</strong></td>
+<td>Cargo.toml</td>
+<td><code>cargo update</code></td>
+<td><code>cargo audit</code></td>
+</tr>
+<tr>
+<td><strong>Ruby</strong></td>
+<td>Gemfile</td>
+<td><code>bundle update</code></td>
+<td><code>bundle audit</code></td>
+</tr>
+<tr>
+<td><strong>Java</strong></td>
+<td>pom.xml, build.gradle</td>
+<td><code>mvn versions:*</code></td>
+<td><code>mvn dependency:*</code></td>
+</tr>
+<tr>
+<td><strong>.NET</strong></td>
+<td>*.csproj</td>
+<td><code>dotnet outdated</code></td>
+<td><code>dotnet list package --vulnerable</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Update Type</th>
+<th>Version Change</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Fixed</strong></td>
+<td>No <code>^</code> or <code>~</code></td>
+<td>Skip (intentionally pinned)</td>
+</tr>
+<tr>
+<td><strong>PATCH</strong></td>
+<td><code>x.y.z</code> → <code>x.y.Z</code></td>
+<td>Auto-apply</td>
+</tr>
+<tr>
+<td><strong>MINOR</strong></td>
+<td><code>x.y.z</code> → <code>x.Y.0</code></td>
+<td>Auto-apply</td>
+</tr>
+<tr>
+<td><strong>MAJOR</strong></td>
+<td><code>x.y.z</code> → <code>X.0.0</code></td>
+<td>Prompt user individually</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Workflow</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">User Request
+</span><span class="code-line">    │
+</span><span class="code-line">    ▼
+</span><span class="code-line">┌─────────────────────────────────────────────────────┐
+</span><span class="code-line">│ Step 1: DETECT PROJECT TYPE                         │
+</span><span class="code-line">│ • Scan for package files (package.json, go.mod...) │
+</span><span class="code-line">│ • Identify package manager                          │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│ Step 2: CHECK PREREQUISITES                         │
+</span><span class="code-line">│ • Verify required tools are installed               │
+</span><span class="code-line">│ • Suggest installation if missing                   │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│ Step 3: SCAN FOR UPDATES                            │
+</span><span class="code-line">│ • Run language-specific outdated check              │
+</span><span class="code-line">│ • Categorize: MAJOR / MINOR / PATCH / Fixed         │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│ Step 4: AUTO-APPLY SAFE UPDATES                     │
+</span><span class="code-line">│ • Apply MINOR and PATCH automatically               │
+</span><span class="code-line">│ • Report what was updated                           │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│ Step 5: PROMPT FOR MAJOR UPDATES                    │
+</span><span class="code-line">│ • AskUserQuestion for each MAJOR update             │
+</span><span class="code-line">│ • Show current → new version                        │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│ Step 6: APPLY APPROVED MAJORS                       │
+</span><span class="code-line">│ • Update only approved packages                     │
+</span><span class="code-line">├─────────────────────────────────────────────────────┤
+</span><span class="code-line">│ Step 7: FINALIZE                                    │
+</span><span class="code-line">│ • Run install command                               │
+</span><span class="code-line">│ • Run security audit                                │
+</span><span class="code-line">└─────────────────────────────────────────────────────┘
+</span></code></pre>
+<hr>
+<h2>Commands by Language</h2>
+<h3>Node.js (npm/yarn/pnpm)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check prerequisites</span>
+</span><span class="code-line">scripts/check-tool.sh taze <span class="token string">"npm install -g taze"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Scan for updates</span>
+</span><span class="code-line">taze
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Apply minor/patch</span>
+</span><span class="code-line">taze minor <span class="token parameter variable">--write</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Apply specific majors</span>
+</span><span class="code-line">taze major <span class="token parameter variable">--write</span> <span class="token parameter variable">--include</span> pkg1,pkg2
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Monorepo support</span>
+</span><span class="code-line">taze <span class="token parameter variable">-r</span>  <span class="token comment"># recursive</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line"><span class="token function">npm</span> audit
+</span><span class="code-line"><span class="token function">npm</span> audit fix
+</span></code></pre>
+<h3>Python</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check outdated</span>
+</span><span class="code-line">pip list <span class="token parameter variable">--outdated</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update all (careful!)</span>
+</span><span class="code-line">pip-review <span class="token parameter variable">--auto</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update specific</span>
+</span><span class="code-line">pip <span class="token function">install</span> <span class="token parameter variable">--upgrade</span> package-name
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line">pip-audit
+</span><span class="code-line">safety check
+</span></code></pre>
+<h3>Go</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check outdated</span>
+</span><span class="code-line">go list <span class="token parameter variable">-m</span> <span class="token parameter variable">-u</span> all
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update all</span>
+</span><span class="code-line">go get <span class="token parameter variable">-u</span> ./<span class="token punctuation">..</span>.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Tidy up</span>
+</span><span class="code-line">go mod tidy
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line">govulncheck ./<span class="token punctuation">..</span>.
+</span></code></pre>
+<h3>Rust</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check outdated</span>
+</span><span class="code-line"><span class="token function">cargo</span> outdated
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update within semver</span>
+</span><span class="code-line"><span class="token function">cargo</span> update
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line"><span class="token function">cargo</span> audit
+</span></code></pre>
+<h3>Ruby</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check outdated</span>
+</span><span class="code-line">bundle outdated
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update all</span>
+</span><span class="code-line">bundle update
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update specific</span>
+</span><span class="code-line">bundle update <span class="token parameter variable">--conservative</span> gem-name
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line">bundle audit
+</span></code></pre>
+<h3>Java (Maven)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check outdated</span>
+</span><span class="code-line">mvn versions:display-dependency-updates
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update to latest</span>
+</span><span class="code-line">mvn versions:use-latest-releases
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line">mvn dependency:tree
+</span><span class="code-line">mvn dependency-check:check
+</span></code></pre>
+<h3>.NET</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check outdated</span>
+</span><span class="code-line">dotnet list package <span class="token parameter variable">--outdated</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update specific</span>
+</span><span class="code-line">dotnet <span class="token function">add</span> package PackageName
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Security</span>
+</span><span class="code-line">dotnet list package <span class="token parameter variable">--vulnerable</span>
+</span></code></pre>
+<hr>
+<h2>Diagnosis Mode</h2>
+<p>When dependencies are broken, run diagnosis:</p>
+<h3>Common Issues &amp; Fixes</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Symptoms</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Version Conflict</strong></td>
+<td>"Cannot resolve dependency tree"</td>
+<td>Clean install, use overrides/resolutions</td>
+</tr>
+<tr>
+<td><strong>Peer Dependency</strong></td>
+<td>"Peer dependency not satisfied"</td>
+<td>Install required peer version</td>
+</tr>
+<tr>
+<td><strong>Security Vuln</strong></td>
+<td><code>npm audit</code> shows issues</td>
+<td><code>npm audit fix</code> or manual update</td>
+</tr>
+<tr>
+<td><strong>Unused Deps</strong></td>
+<td>Bloated bundle</td>
+<td>Run <code>depcheck</code> (Node) or equivalent</td>
+</tr>
+<tr>
+<td><strong>Duplicate Deps</strong></td>
+<td>Multiple versions installed</td>
+<td>Run <code>npm dedupe</code> or equivalent</td>
+</tr>
+</tbody>
+</table>
+<h3>Emergency Fixes</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Node.js - Nuclear reset</span>
+</span><span class="code-line"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> node_modules package-lock.json
+</span><span class="code-line"><span class="token function">npm</span> cache clean <span class="token parameter variable">--force</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Python - Clean virtualenv</span>
+</span><span class="code-line"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> venv
+</span><span class="code-line">python <span class="token parameter variable">-m</span> venv venv
+</span><span class="code-line"><span class="token builtin class-name">source</span> venv/bin/activate
+</span><span class="code-line">pip <span class="token function">install</span> <span class="token parameter variable">-r</span> requirements.txt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Go - Reset modules</span>
+</span><span class="code-line"><span class="token function">rm</span> go.sum
+</span><span class="code-line">go mod tidy
+</span></code></pre>
+<hr>
+<h2>Security Audit</h2>
+<p>Run security checks for any project:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Node.js</span>
+</span><span class="code-line"><span class="token function">npm</span> audit
+</span><span class="code-line"><span class="token function">npm</span> audit <span class="token parameter variable">--json</span> <span class="token operator">|</span> jq <span class="token string">'.metadata.vulnerabilities'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Python</span>
+</span><span class="code-line">pip-audit
+</span><span class="code-line">safety check
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Go</span>
+</span><span class="code-line">govulncheck ./<span class="token punctuation">..</span>.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Rust</span>
+</span><span class="code-line"><span class="token function">cargo</span> audit
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Ruby</span>
+</span><span class="code-line">bundle audit
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># .NET</span>
+</span><span class="code-line">dotnet list package <span class="token parameter variable">--vulnerable</span>
+</span></code></pre>
+<h3>Severity Response</h3>
+<table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Critical</strong></td>
+<td>Fix immediately</td>
+</tr>
+<tr>
+<td><strong>High</strong></td>
+<td>Fix within 24h</td>
+</tr>
+<tr>
+<td><strong>Moderate</strong></td>
+<td>Fix within 1 week</td>
+</tr>
+<tr>
+<td><strong>Low</strong></td>
+<td>Fix in next release</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Anti-Patterns</h2>
+<table>
+<thead>
+<tr>
+<th>Avoid</th>
+<th>Why</th>
+<th>Instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Update fixed versions</td>
+<td>Intentionally pinned</td>
+<td>Skip them</td>
+</tr>
+<tr>
+<td>Auto-apply MAJOR</td>
+<td>Breaking changes</td>
+<td>Prompt user</td>
+</tr>
+<tr>
+<td>Batch MAJOR prompts</td>
+<td>Loses context</td>
+<td>Prompt individually</td>
+</tr>
+<tr>
+<td>Skip lock file</td>
+<td>Irreproducible builds</td>
+<td>Always commit lock files</td>
+</tr>
+<tr>
+<td>Ignore security alerts</td>
+<td>Vulnerabilities</td>
+<td>Address by severity</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Verification Checklist</h2>
+<p>After updates:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Updates scanned without errors</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> MINOR/PATCH auto-applied</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> MAJOR updates prompted individually</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Fixed versions untouched</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Lock file updated</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Install command ran</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Security audit passed (or issues noted)</li>
+</ul>
+<hr>
+<p>The skill auto-detects project type by scanning for package files:</p>
+<table>
+<thead>
+<tr>
+<th>File Found</th>
+<th>Language</th>
+<th>Package Manager</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>package.json</code></td>
+<td>Node.js</td>
+<td>npm/yarn/pnpm</td>
+</tr>
+<tr>
+<td><code>requirements.txt</code></td>
+<td>Python</td>
+<td>pip</td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code></td>
+<td>Python</td>
+<td>pip/poetry</td>
+</tr>
+<tr>
+<td><code>Pipfile</code></td>
+<td>Python</td>
+<td>pipenv</td>
+</tr>
+<tr>
+<td><code>go.mod</code></td>
+<td>Go</td>
+<td>go modules</td>
+</tr>
+<tr>
+<td><code>Cargo.toml</code></td>
+<td>Rust</td>
+<td>cargo</td>
+</tr>
+<tr>
+<td><code>Gemfile</code></td>
+<td>Ruby</td>
+<td>bundler</td>
+</tr>
+<tr>
+<td><code>pom.xml</code></td>
+<td>Java</td>
+<td>Maven</td>
+</tr>
+<tr>
+<td><code>build.gradle</code></td>
+<td>Java/Kotlin</td>
+<td>Gradle</td>
+</tr>
+<tr>
+<td><code>*.csproj</code></td>
+<td>.NET</td>
+<td>dotnet</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Detection order matters for monorepos:</strong></p>
+<ol>
+<li>Check current directory first</li>
+<li>Then check for workspace/monorepo patterns</li>
+<li>Offer to run recursively if applicable</li>
+</ol>
+<h3>Prerequisites</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Install taze globally (recommended)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-g</span> taze
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or use npx</span>
+</span><span class="code-line">npx taze
+</span></code></pre>
+<h3>Smart Update Flow</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Scan all updates</span>
+</span><span class="code-line">taze
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Apply safe updates (minor + patch)</span>
+</span><span class="code-line">taze minor <span class="token parameter variable">--write</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. For each major, prompt user:</span>
+</span><span class="code-line"><span class="token comment">#    "Update @types/node from ^20.0.0 to ^22.0.0?"</span>
+</span><span class="code-line"><span class="token comment">#    If yes, add to approved list</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 4. Apply approved majors</span>
+</span><span class="code-line">taze major <span class="token parameter variable">--write</span> <span class="token parameter variable">--include</span> approved-pkg1,approved-pkg2
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 5. Install</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span>  <span class="token comment"># or pnpm install / yarn</span>
+</span></code></pre>
+<h3>Auto-Approve List</h3>
+<p>Some packages have frequent major bumps but are backward-compatible:</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lucide-react</code></td>
+<td>Icon library, majors are additive</td>
+</tr>
+<tr>
+<td><code>@types/*</code></td>
+<td>Type definitions, usually safe</td>
+</tr>
+</tbody>
+</table>
+<h3>Semantic Versioning</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">MAJOR.MINOR.PATCH (e.g., 2.3.1)
+</span><span class="code-line">
+</span><span class="code-line">MAJOR: Breaking changes - requires code changes
+</span><span class="code-line">MINOR: New features - backward compatible
+</span><span class="code-line">PATCH: Bug fixes - backward compatible
+</span></code></pre>
+<h3>Range Specifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Specifier</th>
+<th>Meaning</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>^1.2.3</code></td>
+<td>Minor + Patch OK</td>
+<td><code>&gt;=1.2.3 &lt;2.0.0</code></td>
+</tr>
+<tr>
+<td><code>~1.2.3</code></td>
+<td>Patch only</td>
+<td><code>&gt;=1.2.3 &lt;1.3.0</code></td>
+</tr>
+<tr>
+<td><code>1.2.3</code></td>
+<td>Exact (fixed)</td>
+<td>Only <code>1.2.3</code></td>
+</tr>
+<tr>
+<td><code>&gt;=1.2.3</code></td>
+<td>At least</td>
+<td>Any <code>&gt;=1.2.3</code></td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>Any</td>
+<td>Latest (dangerous)</td>
+</tr>
+</tbody>
+</table>
+<h3>Recommended Strategy</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"dependencies"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"critical-lib"</span><span class="token operator">:</span> <span class="token string">"1.2.3"</span><span class="token punctuation">,</span>      <span class="token comment">// Exact for critical</span>
+</span><span class="code-line">    <span class="token property">"stable-lib"</span><span class="token operator">:</span> <span class="token string">"~1.2.3"</span><span class="token punctuation">,</span>       <span class="token comment">// Patch only for stable</span>
+</span><span class="code-line">    <span class="token property">"modern-lib"</span><span class="token operator">:</span> <span class="token string">"^1.2.3"</span>        <span class="token comment">// Minor OK for active</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Node.js Conflicts</h3>
+<p><strong>Diagnosis:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">ls</span> package-name      <span class="token comment"># See dependency tree</span>
+</span><span class="code-line"><span class="token function">npm</span> explain package-name <span class="token comment"># Why installed</span>
+</span><span class="code-line"><span class="token function">yarn</span> why package-name    <span class="token comment"># Yarn equivalent</span>
+</span></code></pre>
+<p><strong>Resolution with overrides:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token comment">// package.json</span>
+</span><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"overrides"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"lodash"</span><span class="token operator">:</span> <span class="token string">"^4.18.0"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Resolution with resolutions (Yarn):</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"resolutions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"lodash"</span><span class="token operator">:</span> <span class="token string">"^4.18.0"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Python Conflicts</h3>
+<p><strong>Diagnosis:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip check
+</span><span class="code-line">pipdeptree <span class="token parameter variable">-p</span> package-name
+</span></code></pre>
+<p><strong>Resolution:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Use virtual environment</span>
+</span><span class="code-line">python <span class="token parameter variable">-m</span> venv venv
+</span><span class="code-line"><span class="token builtin class-name">source</span> venv/bin/activate
+</span><span class="code-line">pip <span class="token function">install</span> <span class="token parameter variable">-r</span> requirements.txt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or use constraints</span>
+</span><span class="code-line">pip <span class="token function">install</span> <span class="token parameter variable">-c</span> constraints.txt <span class="token parameter variable">-r</span> requirements.txt
+</span></code></pre>
+<hr>
+<h2>Script Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/check-tool.sh</code></td>
+<td>Verify tool is installed</td>
+</tr>
+<tr>
+<td><code>scripts/run-taze.sh</code></td>
+<td>Run taze with proper flags</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Related Tools</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Language</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/antfu-collective/taze" target="_blank" rel="ugc nofollow noopener">taze</a></td>
+<td>Node.js</td>
+<td>Smart dependency updates</td>
+</tr>
+<tr>
+<td><a href="https://github.com/raineorshine/npm-check-updates" target="_blank" rel="ugc nofollow noopener">npm-check-updates</a></td>
+<td>Node.js</td>
+<td>Alternative to taze</td>
+</tr>
+<tr>
+<td><a href="https://github.com/jgonggrijp/pip-review" target="_blank" rel="ugc nofollow noopener">pip-review</a></td>
+<td>Python</td>
+<td>Interactive pip updates</td>
+</tr>
+<tr>
+<td><a href="https://github.com/killercup/cargo-edit" target="_blank" rel="ugc nofollow noopener">cargo-edit</a></td>
+<td>Rust</td>
+<td>Cargo dependency management</td>
+</tr>
+<tr>
+<td><a href="https://github.com/rubysec/bundler-audit" target="_blank" rel="ugc nofollow noopener">bundler-audit</a></td>
+<td>Ruby</td>
+<td>Security auditing</td>
+</tr>
+</tbody>
+</table></div>

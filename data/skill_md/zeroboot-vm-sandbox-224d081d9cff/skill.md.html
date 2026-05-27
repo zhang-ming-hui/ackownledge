@@ -1,0 +1,271 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Zeroboot VM Sandbox</h1>
+<blockquote>
+<p>Skill by <a href="https://ara.so" target="_blank" rel="ugc nofollow noopener">ara.so</a> — Daily 2026 Skills collection.</p>
+</blockquote>
+<p>Zeroboot provides sub-millisecond KVM virtual machine sandboxes for AI agents using copy-on-write forking. Each sandbox is a real hardware-isolated VM (via Firecracker + KVM), not a container. A template VM is snapshotted once, then forked in ~0.8ms per execution using <code>mmap(MAP_PRIVATE)</code> CoW semantics.</p>
+<h2>How It Works</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Firecracker snapshot ──► mmap(MAP_PRIVATE) ──► KVM VM + restored CPU state
+</span><span class="code-line">                           (copy-on-write)          (~0.8ms)
+</span></code></pre>
+<ol>
+<li><strong>Template</strong>: Firecracker boots once, pre-loads your runtime, snapshots memory + CPU state</li>
+<li><strong>Fork (~0.8ms)</strong>: New KVM VM maps snapshot memory as CoW, restores CPU state</li>
+<li><strong>Isolation</strong>: Each fork is a separate KVM VM with hardware-enforced memory isolation</li>
+</ol>
+<h2>Installation</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Python SDK</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> zeroboot
+</span></code></pre>
+<h3>Node/TypeScript SDK</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @zeroboot/sdk
+</span><span class="code-line"><span class="token comment"># or</span>
+</span><span class="code-line"><span class="token function">pnpm</span> <span class="token function">add</span> @zeroboot/sdk
+</span></code></pre>
+<h2>Authentication</h2>
+<p>Set your API key as an environment variable:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">ZEROBOOT_API_KEY</span><span class="token operator">=</span><span class="token string">"zb_live_your_key_here"</span>
+</span></code></pre>
+<p>Never hardcode keys in source files.</p>
+<h2>Quick Start</h2>
+<h3>REST API (cURL)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> POST https://api.zeroboot.dev/v1/exec <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"Authorization: Bearer <span class="token variable">$ZEROBOOT_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-d</span> <span class="token string">'{"code":"import numpy as np; print(np.random.rand(3))"}'</span>
+</span></code></pre>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line"><span class="token keyword">from</span> zeroboot <span class="token keyword">import</span> Sandbox
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Initialize with API key from environment</span>
+</span><span class="code-line">sb <span class="token operator">=</span> Sandbox<span class="token punctuation">(</span>os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"ZEROBOOT_API_KEY"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run Python code</span>
+</span><span class="code-line">result <span class="token operator">=</span> sb<span class="token punctuation">.</span>run<span class="token punctuation">(</span><span class="token string">"print(1 + 1)"</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>  <span class="token comment"># "2"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run multi-line code</span>
+</span><span class="code-line">result <span class="token operator">=</span> sb<span class="token punctuation">.</span>run<span class="token punctuation">(</span><span class="token triple-quoted-string string">"""
+</span></span><span class="code-line"><span class="token triple-quoted-string string">import numpy as np
+</span></span><span class="code-line"><span class="token triple-quoted-string string">arr = np.arange(10)
+</span></span><span class="code-line"><span class="token triple-quoted-string string">print(arr.mean())
+</span></span><span class="code-line"><span class="token triple-quoted-string string">"""</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>TypeScript / Node.js</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Sandbox <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@zeroboot/sdk"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> apiKey <span class="token operator">=</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">ZEROBOOT_API_KEY</span><span class="token operator">!</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> sb <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Sandbox</span><span class="token punctuation">(</span>apiKey<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Run JavaScript/Node code</span>
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> sb<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span><span class="token string">"console.log(1 + 1)"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// "2"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Run async code</span>
+</span><span class="code-line"><span class="token keyword">const</span> output <span class="token operator">=</span> <span class="token keyword">await</span> sb<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">const data = [1, 2, 3, 4, 5];
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">const sum = data.reduce((a, b) =&gt; a + b, 0);
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">console.log(sum / data.length);
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string"></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>output<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Common Patterns</h2>
+<h3>AI Agent Code Execution Loop (Python)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line"><span class="token keyword">from</span> zeroboot <span class="token keyword">import</span> Sandbox
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">execute_agent_code</span><span class="token punctuation">(</span>code<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token triple-quoted-string string">"""Execute LLM-generated code in an isolated VM sandbox."""</span>
+</span><span class="code-line">    sb <span class="token operator">=</span> Sandbox<span class="token punctuation">(</span>os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"ZEROBOOT_API_KEY"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">try</span><span class="token punctuation">:</span>
+</span><span class="code-line">        result <span class="token operator">=</span> sb<span class="token punctuation">.</span>run<span class="token punctuation">(</span>code<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"success"</span><span class="token punctuation">:</span> <span class="token boolean">True</span><span class="token punctuation">,</span> <span class="token string">"output"</span><span class="token punctuation">:</span> result<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">{</span><span class="token string">"success"</span><span class="token punctuation">:</span> <span class="token boolean">False</span><span class="token punctuation">,</span> <span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Example: running agent-generated code safely</span>
+</span><span class="code-line">agent_code <span class="token operator">=</span> <span class="token triple-quoted-string string">"""
+</span></span><span class="code-line"><span class="token triple-quoted-string string">import json
+</span></span><span class="code-line"><span class="token triple-quoted-string string">data = {"agent": "result", "value": 42}
+</span></span><span class="code-line"><span class="token triple-quoted-string string">print(json.dumps(data))
+</span></span><span class="code-line"><span class="token triple-quoted-string string">"""</span>
+</span><span class="code-line">response <span class="token operator">=</span> execute_agent_code<span class="token punctuation">(</span>agent_code<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>response<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Concurrent Sandbox Execution (Python)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line"><span class="token keyword">import</span> asyncio
+</span><span class="code-line"><span class="token keyword">from</span> zeroboot <span class="token keyword">import</span> Sandbox
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">run_sandbox</span><span class="token punctuation">(</span>code<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> index<span class="token punctuation">:</span> <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+</span><span class="code-line">    sb <span class="token operator">=</span> Sandbox<span class="token punctuation">(</span>os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"ZEROBOOT_API_KEY"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    result <span class="token operator">=</span> <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>to_thread<span class="token punctuation">(</span>sb<span class="token punctuation">.</span>run<span class="token punctuation">,</span> code<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"[</span><span class="token interpolation"><span class="token punctuation">{</span>index<span class="token punctuation">}</span></span><span class="token string">] </span><span class="token interpolation"><span class="token punctuation">{</span>result<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">run_concurrent</span><span class="token punctuation">(</span>snippets<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    tasks <span class="token operator">=</span> <span class="token punctuation">[</span>run_sandbox<span class="token punctuation">(</span>code<span class="token punctuation">,</span> i<span class="token punctuation">)</span> <span class="token keyword">for</span> i<span class="token punctuation">,</span> code <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>snippets<span class="token punctuation">)</span><span class="token punctuation">]</span>
+</span><span class="code-line">    results <span class="token operator">=</span> <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>gather<span class="token punctuation">(</span><span class="token operator">*</span>tasks<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> results
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run 10 sandboxes concurrently</span>
+</span><span class="code-line">codes <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string-interpolation"><span class="token string">f"print(</span><span class="token interpolation"><span class="token punctuation">{</span>i<span class="token punctuation">}</span></span><span class="token string"> ** 2)"</span></span> <span class="token keyword">for</span> i <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
+</span><span class="code-line">outputs <span class="token operator">=</span> asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>run_concurrent<span class="token punctuation">(</span>codes<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">for</span> out <span class="token keyword">in</span> outputs<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span>out<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>TypeScript: Agent Tool Integration</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Sandbox <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@zeroboot/sdk"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">ExecutionResult</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  success<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>
+</span><span class="code-line">  output<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  error<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">runInSandbox</span><span class="token punctuation">(</span>code<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>ExecutionResult<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> sb <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Sandbox</span><span class="token punctuation">(</span>process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">ZEROBOOT_API_KEY</span><span class="token operator">!</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> output <span class="token operator">=</span> <span class="token keyword">await</span> sb<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span>code<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> output <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span> error<span class="token operator">:</span> <span class="token function">String</span><span class="token punctuation">(</span>err<span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Integrate as a tool for an LLM agent</span>
+</span><span class="code-line"><span class="token keyword">const</span> tool <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token string">"execute_code"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  description<span class="token operator">:</span> <span class="token string">"Run code in an isolated VM sandbox"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">execute</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> code <span class="token punctuation">}</span><span class="token operator">:</span> <span class="token punctuation">{</span> code<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">runInSandbox</span><span class="token punctuation">(</span>code<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>REST API with fetch (TypeScript)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> <span class="token constant">API_BASE</span> <span class="token operator">=</span> <span class="token string">"https://api.zeroboot.dev/v1"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">execCode</span><span class="token punctuation">(</span>code<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token constant">API_BASE</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/exec</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    method<span class="token operator">:</span> <span class="token string">"POST"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    headers<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      Authorization<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Bearer </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">ZEROBOOT_API_KEY</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    body<span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token punctuation">{</span> code <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>res<span class="token punctuation">.</span>ok<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> err <span class="token operator">=</span> <span class="token keyword">await</span> res<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Zeroboot error </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>res<span class="token punctuation">.</span>status<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>err<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> data<span class="token punctuation">.</span>output<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Health Check</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> https://api.zeroboot.dev/v1/health
+</span></code></pre>
+<h2>API Reference</h2>
+<h3><code>POST /v1/exec</code></h3>
+<p>Execute code in a fresh sandbox fork.</p>
+<p><strong>Request:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"code"</span><span class="token operator">:</span> <span class="token string">"print('hello')"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Headers:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Authorization: Bearer &lt;ZEROBOOT_API_KEY&gt;
+</span><span class="code-line">Content-Type: application/json
+</span></code></pre>
+<p><strong>Response:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"output"</span><span class="token operator">:</span> <span class="token string">"hello\n"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"duration_ms"</span><span class="token operator">:</span> <span class="token number">0.79</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Performance Characteristics</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spawn latency p50</td>
+<td>~0.79ms</td>
+</tr>
+<tr>
+<td>Spawn latency p99</td>
+<td>~1.74ms</td>
+</tr>
+<tr>
+<td>Memory per sandbox</td>
+<td>~265KB</td>
+</tr>
+<tr>
+<td>Fork + exec Python</td>
+<td>~8ms</td>
+</tr>
+<tr>
+<td>1000 concurrent forks</td>
+<td>~815ms</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Each sandbox is a real KVM VM — not a container or process jail</li>
+<li>Memory isolation is hardware-enforced (not software)</li>
+<li>CoW means only pages written by your code consume extra RAM</li>
+</ul>
+<h2>Self-Hosting / Deployment</h2>
+<p>See <a href="https://github.com/aradotso/trending-skills/blob/HEAD/skills/zeroboot-vm-sandbox/docs/DEPLOYMENT.md" target="_blank" rel="ugc nofollow noopener">docs/DEPLOYMENT.md</a> in the repo. Requirements:</p>
+<ul>
+<li>Linux host with KVM support (<code>/dev/kvm</code> accessible)</li>
+<li>Firecracker binary</li>
+<li>Rust 2021 edition toolchain</li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check KVM availability</span>
+</span><span class="code-line"><span class="token function">ls</span> /dev/kvm
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Clone and build</span>
+</span><span class="code-line"><span class="token function">git</span> clone https://github.com/adammiribyan/zeroboot
+</span><span class="code-line"><span class="token builtin class-name">cd</span> zeroboot
+</span><span class="code-line"><span class="token function">cargo</span> build <span class="token parameter variable">--release</span>
+</span></code></pre>
+<h2>Architecture Notes</h2>
+<ul>
+<li><strong>Snapshot layer</strong>: Firecracker VM boots once per runtime template, memory + vCPU state saved to disk</li>
+<li><strong>Fork layer</strong> (Rust): <code>mmap(MAP_PRIVATE)</code> on snapshot file → kernel handles CoW page faults per VM</li>
+<li><strong>Isolation</strong>: Each fork has its own KVM VM file descriptors, vCPU, and page table — fully hardware-separated</li>
+<li><strong>No shared kernel</strong>: Unlike containers, each sandbox runs its own kernel instance</li>
+</ul>
+<h2>Troubleshooting</h2>
+<p><strong><code>/dev/kvm not found</code> (self-hosted)</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Enable KVM kernel module</span>
+</span><span class="code-line"><span class="token function">sudo</span> modprobe kvm
+</span><span class="code-line"><span class="token function">sudo</span> modprobe kvm_intel  <span class="token comment"># or kvm_amd</span>
+</span></code></pre>
+<p><strong>API returns 401 Unauthorized</strong></p>
+<ul>
+<li>Verify <code>ZEROBOOT_API_KEY</code> is set and starts with <code>zb_live_</code></li>
+<li>Check the key is not expired in your dashboard</li>
+</ul>
+<p><strong>Timeout on execution</strong></p>
+<ul>
+<li>Default execution timeout is enforced server-side</li>
+<li>Break large computations into smaller chunks</li>
+<li>Avoid infinite loops or blocking I/O in sandbox code</li>
+</ul>
+<p><strong>High memory usage (self-hosted)</strong></p>
+<ul>
+<li>Each VM fork starts at ~265KB CoW overhead</li>
+<li>Pages are allocated on write — memory grows with sandbox activity</li>
+<li>Tune concurrent fork limits based on available RAM</li>
+</ul>
+<h2>Resources</h2>
+<ul>
+<li><a href="https://github.com/adammiribyan/zeroboot/blob/main/docs/API.md" target="_blank" rel="ugc nofollow noopener">API Reference</a></li>
+<li><a href="https://github.com/adammiribyan/zeroboot/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="ugc nofollow noopener">Architecture Docs</a></li>
+<li><a href="https://github.com/adammiribyan/zeroboot/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="ugc nofollow noopener">Deployment Guide</a></li>
+<li><a href="https://zeroboot.dev" target="_blank" rel="ugc nofollow noopener">Homepage</a></li>
+<li><a href="https://github.com/adammiribyan/zeroboot" target="_blank" rel="ugc nofollow noopener">GitHub</a></li>
+</ul></div>

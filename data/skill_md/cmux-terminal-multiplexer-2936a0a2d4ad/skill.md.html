@@ -1,0 +1,387 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>cmux — AI-Native Terminal Multiplexer</h1>
+<blockquote>
+<p>Skill by <a href="https://ara.so" target="_blank" rel="ugc nofollow noopener">ara.so</a> — Daily 2026 Skills collection</p>
+</blockquote>
+<p>cmux is a terminal multiplexer with a programmable socket API designed for AI coding agents. It provides full Playwright-equivalent browser automation, real-time terminal split management, sidebar status reporting, and agent team coordination — all via a simple CLI.</p>
+<hr>
+<h2>What cmux Does</h2>
+<ul>
+<li><strong>Terminal splits</strong> — create side-by-side or stacked panes, send commands, capture output</li>
+<li><strong>Browser automation</strong> — full headless Chromium with snapshot-based element refs (no CSS selectors)</li>
+<li><strong>Status sidebar</strong> — live progress bars, log messages, and icon badges visible to the user</li>
+<li><strong>Notifications</strong> — native OS notifications from agent workflows</li>
+<li><strong>Agent teams</strong> — coordinate parallel subagents, each with their own visible split</li>
+</ul>
+<hr>
+<h2>Orient Yourself</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux identify <span class="token parameter variable">--json</span>          <span class="token comment"># current window/workspace/pane/surface context</span>
+</span><span class="code-line">cmux list-panes               <span class="token comment"># all panes in current workspace</span>
+</span><span class="code-line">cmux list-pane-surfaces <span class="token parameter variable">--pane</span> pane:1  <span class="token comment"># surfaces within a pane</span>
+</span><span class="code-line">cmux list-workspaces          <span class="token comment"># all workspaces (tabs) in current window</span>
+</span></code></pre>
+<p>Environment variables set automatically:</p>
+<ul>
+<li><code>$CMUX_SURFACE_ID</code> — your current surface ref</li>
+<li><code>$CMUX_WORKSPACE_ID</code> — your current workspace ref</li>
+</ul>
+<p>Handles use short refs: <code>surface:N</code>, <code>pane:N</code>, <code>workspace:N</code>, <code>window:N</code>.</p>
+<hr>
+<h2>Terminal Splits</h2>
+<h3>Create splits</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux <span class="token parameter variable">--json</span> new-split right   <span class="token comment"># side-by-side (preferred for parallel work)</span>
+</span><span class="code-line">cmux <span class="token parameter variable">--json</span> new-split down    <span class="token comment"># stacked (good for logs)</span>
+</span></code></pre>
+<p>Always capture the returned <code>surface_ref</code>:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">WORKER</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split right <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Send commands and read output</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux send-surface <span class="token parameter variable">--surface</span> surface:22 <span class="token string">"npm run build<span class="token entity" title="\n">\n</span>"</span>
+</span><span class="code-line">cmux capture-pane <span class="token parameter variable">--surface</span> surface:22              <span class="token comment"># current screen</span>
+</span><span class="code-line">cmux capture-pane <span class="token parameter variable">--surface</span> surface:22 <span class="token parameter variable">--scrollback</span>  <span class="token comment"># with full history</span>
+</span><span class="code-line">
+</span><span class="code-line">cmux send-key-surface <span class="token parameter variable">--surface</span> surface:22 ctrl-c  <span class="token comment"># send key</span>
+</span><span class="code-line">cmux send-key-surface <span class="token parameter variable">--surface</span> surface:22 enter
+</span></code></pre>
+<p><strong>Golden rule: never steal focus.</strong> Always use <code>--surface</code> targeting.</p>
+<h3>Worker split pattern</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">WORKER</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split right <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line">cmux send-surface <span class="token parameter variable">--surface</span> <span class="token string">"<span class="token variable">$WORKER</span>"</span> <span class="token string">"make test 2&gt;&amp;1; echo EXIT_CODE=\<span class="token variable">$?</span><span class="token entity" title="\n">\n</span>"</span>
+</span><span class="code-line"><span class="token function">sleep</span> <span class="token number">3</span>
+</span><span class="code-line">cmux capture-pane <span class="token parameter variable">--surface</span> <span class="token string">"<span class="token variable">$WORKER</span>"</span>
+</span><span class="code-line">cmux close-surface <span class="token parameter variable">--surface</span> <span class="token string">"<span class="token variable">$WORKER</span>"</span>   <span class="token comment"># clean up when done</span>
+</span></code></pre>
+<h3>Pane management</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux focus-pane <span class="token parameter variable">--pane</span> pane:2
+</span><span class="code-line">cmux close-surface <span class="token parameter variable">--surface</span> surface:22
+</span><span class="code-line">cmux swap-pane <span class="token parameter variable">--pane</span> pane:1 --target-pane pane:2
+</span><span class="code-line">cmux move-surface <span class="token parameter variable">--surface</span> surface:7 <span class="token parameter variable">--pane</span> pane:2 <span class="token parameter variable">--focus</span> <span class="token boolean">true</span>
+</span><span class="code-line">cmux reorder-surface <span class="token parameter variable">--surface</span> surface:7 <span class="token parameter variable">--before</span> surface:3
+</span></code></pre>
+<hr>
+<h2>Browser Automation</h2>
+<p>cmux embeds a full headless Chromium engine with a Playwright-style API. No external Chrome required. Every command targets a browser surface by ref.</p>
+<h3>Workflow pattern</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">navigate → wait for load → snapshot --interactive → act with refs → re-snapshot
+</span></code></pre>
+<h3>Open and navigate</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux <span class="token parameter variable">--json</span> browser <span class="token function">open</span> https://example.com        <span class="token comment"># opens browser split, returns surface ref</span>
+</span><span class="code-line">cmux browser surface:23 goto https://other.com
+</span><span class="code-line">cmux browser surface:23 back
+</span><span class="code-line">cmux browser surface:23 forward
+</span><span class="code-line">cmux browser surface:23 reload
+</span><span class="code-line">cmux browser surface:23 get url
+</span><span class="code-line">cmux browser surface:23 get title
+</span></code></pre>
+<p>Capture the surface ref:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">BROWSER</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> browser <span class="token function">open</span> https://docs.example.com <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Snapshot and element refs</h3>
+<p>Instead of CSS selectors, snapshot to get stable element refs (<code>e1</code>, <code>e2</code>, ...):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 snapshot <span class="token parameter variable">--interactive</span>              <span class="token comment"># full interactive snapshot</span>
+</span><span class="code-line">cmux browser surface:23 snapshot <span class="token parameter variable">--interactive</span> <span class="token parameter variable">--compact</span>     <span class="token comment"># compact output</span>
+</span><span class="code-line">cmux browser surface:23 snapshot <span class="token parameter variable">--selector</span> <span class="token string">"form#login"</span> <span class="token parameter variable">--interactive</span>  <span class="token comment"># scoped</span>
+</span></code></pre>
+<p>Refs are invalidated after DOM mutations — always re-snapshot after navigation or clicks. Use <code>--snapshot-after</code> to auto-get a fresh snapshot:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux <span class="token parameter variable">--json</span> browser surface:23 click e1 --snapshot-after
+</span></code></pre>
+<h3>Interact with elements</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Click and hover</span>
+</span><span class="code-line">cmux browser surface:23 click e1
+</span><span class="code-line">cmux browser surface:23 dblclick e2
+</span><span class="code-line">cmux browser surface:23 hover e3
+</span><span class="code-line">cmux browser surface:23 focus e4
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Text input</span>
+</span><span class="code-line">cmux browser surface:23 fill e5 <span class="token string">"hello@example.com"</span>   <span class="token comment"># clear + type</span>
+</span><span class="code-line">cmux browser surface:23 fill e5 <span class="token string">""</span>                      <span class="token comment"># clear input</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token builtin class-name">type</span> e6 <span class="token string">"search query"</span>          <span class="token comment"># type without clearing</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Keys</span>
+</span><span class="code-line">cmux browser surface:23 press Enter
+</span><span class="code-line">cmux browser surface:23 press Tab
+</span><span class="code-line">cmux browser surface:23 keydown Shift
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Forms</span>
+</span><span class="code-line">cmux browser surface:23 check e7          <span class="token comment"># checkbox</span>
+</span><span class="code-line">cmux browser surface:23 uncheck e7
+</span><span class="code-line">cmux browser surface:23 <span class="token keyword">select</span> e8 <span class="token string">"option-value"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Scroll</span>
+</span><span class="code-line">cmux browser surface:23 scroll <span class="token parameter variable">--dy</span> <span class="token number">500</span>
+</span><span class="code-line">cmux browser surface:23 scroll <span class="token parameter variable">--selector</span> <span class="token string">".container"</span> <span class="token parameter variable">--dy</span> <span class="token number">300</span>
+</span><span class="code-line">cmux browser surface:23 scroll-into-view e9
+</span></code></pre>
+<h3>Wait for state</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 <span class="token function">wait</span> --load-state complete --timeout-ms <span class="token number">15000</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">wait</span> <span class="token parameter variable">--selector</span> <span class="token string">"#ready"</span> --timeout-ms <span class="token number">10000</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">wait</span> <span class="token parameter variable">--text</span> <span class="token string">"Success"</span> --timeout-ms <span class="token number">10000</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">wait</span> --url-contains <span class="token string">"/dashboard"</span> --timeout-ms <span class="token number">10000</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">wait</span> <span class="token parameter variable">--function</span> <span class="token string">"document.readyState === 'complete'"</span> --timeout-ms <span class="token number">10000</span>
+</span></code></pre>
+<h3>Read page content</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 get text body        <span class="token comment"># visible text</span>
+</span><span class="code-line">cmux browser surface:23 get html body        <span class="token comment"># raw HTML</span>
+</span><span class="code-line">cmux browser surface:23 get value <span class="token string">"#email"</span>   <span class="token comment"># input value</span>
+</span><span class="code-line">cmux browser surface:23 get attr <span class="token string">"#link"</span> <span class="token parameter variable">--attr</span> href
+</span><span class="code-line">cmux browser surface:23 get count <span class="token string">".items"</span>   <span class="token comment"># element count</span>
+</span><span class="code-line">cmux browser surface:23 get box <span class="token string">"#button"</span>    <span class="token comment"># bounding box</span>
+</span><span class="code-line">cmux browser surface:23 get styles <span class="token string">"#el"</span> <span class="token parameter variable">--property</span> color
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># State checks</span>
+</span><span class="code-line">cmux browser surface:23 is visible <span class="token string">"#modal"</span>
+</span><span class="code-line">cmux browser surface:23 is enabled <span class="token string">"#submit"</span>
+</span><span class="code-line">cmux browser surface:23 is checked <span class="token string">"#agree"</span>
+</span></code></pre>
+<h3>Locators (Playwright-style)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 <span class="token function">find</span> role button
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> text <span class="token string">"Sign In"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> label <span class="token string">"Email"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> placeholder <span class="token string">"Enter email"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> testid <span class="token string">"submit-btn"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> first <span class="token string">".item"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> last <span class="token string">".item"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token function">find</span> nth <span class="token string">".item"</span> <span class="token number">3</span>
+</span></code></pre>
+<h3>JavaScript evaluation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 <span class="token builtin class-name">eval</span> <span class="token string">"document.title"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelectorAll('.item').length"</span>
+</span><span class="code-line">cmux browser surface:23 <span class="token builtin class-name">eval</span> <span class="token string">"window.scrollTo(0, document.body.scrollHeight)"</span>
+</span></code></pre>
+<h3>Frames and dialogs</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 frame <span class="token string">"#iframe-selector"</span>   <span class="token comment"># switch to iframe</span>
+</span><span class="code-line">cmux browser surface:23 frame main                  <span class="token comment"># back to main frame</span>
+</span><span class="code-line">cmux browser surface:23 dialog accept
+</span><span class="code-line">cmux browser surface:23 dialog dismiss
+</span><span class="code-line">cmux browser surface:23 dialog accept <span class="token string">"prompt text"</span>
+</span></code></pre>
+<h3>Cookies, storage, and state</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Cookies</span>
+</span><span class="code-line">cmux browser surface:23 cookies get
+</span><span class="code-line">cmux browser surface:23 cookies <span class="token builtin class-name">set</span> session_token <span class="token string">"abc123"</span>
+</span><span class="code-line">cmux browser surface:23 cookies <span class="token function">clear</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Local/session storage</span>
+</span><span class="code-line">cmux browser surface:23 storage <span class="token builtin class-name">local</span> get
+</span><span class="code-line">cmux browser surface:23 storage <span class="token builtin class-name">local</span> <span class="token builtin class-name">set</span> myKey <span class="token string">"myValue"</span>
+</span><span class="code-line">cmux browser surface:23 storage session <span class="token function">clear</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Save/restore full browser state (cookies + storage + tabs)</span>
+</span><span class="code-line">cmux browser surface:23 state save ./auth-state.json
+</span><span class="code-line">cmux browser surface:23 state load ./auth-state.json
+</span></code></pre>
+<h3>Authentication flow</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">BROWSER</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> browser <span class="token function">open</span> https://app.example.com/login <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> <span class="token function">wait</span> --load-state complete --timeout-ms <span class="token number">15000</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> snapshot <span class="token parameter variable">--interactive</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> fill e1 <span class="token string">"user@example.com"</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> fill e2 <span class="token string">"my-password"</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> click e3
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> <span class="token function">wait</span> --url-contains <span class="token string">"/dashboard"</span> --timeout-ms <span class="token number">20000</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Save auth for reuse</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> state save ./auth-state.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Reuse in a new surface</span>
+</span><span class="code-line"><span class="token assign-left variable">BROWSER2</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> browser <span class="token function">open</span> https://app.example.com <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER2</span> state load ./auth-state.json
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER2</span> goto https://app.example.com/dashboard
+</span></code></pre>
+<h3>Diagnostics</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 console list     <span class="token comment"># JS console output</span>
+</span><span class="code-line">cmux browser surface:23 console <span class="token function">clear</span>
+</span><span class="code-line">cmux browser surface:23 errors list      <span class="token comment"># JS errors</span>
+</span><span class="code-line">cmux browser surface:23 errors <span class="token function">clear</span>
+</span><span class="code-line">cmux browser surface:23 highlight <span class="token string">"#el"</span>  <span class="token comment"># visual highlight</span>
+</span><span class="code-line">cmux browser surface:23 screenshot       <span class="token comment"># capture screenshot</span>
+</span></code></pre>
+<h3>Script and style injection</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux browser surface:23 addscript <span class="token string">"console.log('injected')"</span>
+</span><span class="code-line">cmux browser surface:23 addstyle <span class="token string">"body { background: red; }"</span>
+</span><span class="code-line">cmux browser surface:23 addinitscript <span class="token string">"window.__injected = true"</span>  <span class="token comment"># runs on every nav</span>
+</span></code></pre>
+<hr>
+<h2>Sidebar Status and Progress</h2>
+<p>Show live status to the user without interrupting their flow:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux set-status agent <span class="token string">"working"</span> <span class="token parameter variable">--icon</span> hammer <span class="token parameter variable">--color</span> <span class="token string">"#ff9500"</span>
+</span><span class="code-line">cmux set-status agent <span class="token string">"done"</span> <span class="token parameter variable">--icon</span> checkmark <span class="token parameter variable">--color</span> <span class="token string">"#34c759"</span>
+</span><span class="code-line">cmux clear-status agent
+</span><span class="code-line">
+</span><span class="code-line">cmux set-progress <span class="token number">0.3</span> <span class="token parameter variable">--label</span> <span class="token string">"Running tests..."</span>
+</span><span class="code-line">cmux set-progress <span class="token number">1.0</span> <span class="token parameter variable">--label</span> <span class="token string">"Complete"</span>
+</span><span class="code-line">cmux clear-progress
+</span><span class="code-line">
+</span><span class="code-line">cmux log <span class="token string">"Starting build"</span>
+</span><span class="code-line">cmux log <span class="token parameter variable">--level</span> success <span class="token string">"All tests passed"</span>
+</span><span class="code-line">cmux log <span class="token parameter variable">--level</span> error <span class="token parameter variable">--source</span> build <span class="token string">"Compilation failed"</span>
+</span></code></pre>
+<hr>
+<h2>Notifications</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux notify <span class="token parameter variable">--title</span> <span class="token string">"Task Complete"</span> <span class="token parameter variable">--body</span> <span class="token string">"All tests passing"</span>
+</span><span class="code-line">cmux notify <span class="token parameter variable">--title</span> <span class="token string">"Need Input"</span> <span class="token parameter variable">--subtitle</span> <span class="token string">"Permission"</span> <span class="token parameter variable">--body</span> <span class="token string">"Approve deployment?"</span>
+</span></code></pre>
+<hr>
+<h2>Agent Teams with cmux</h2>
+<p>Use cmux splits to give each agent teammate a visible workspace. Coordinate via <code>SendMessage</code> and task lists — never via reading each other's terminal output.</p>
+<h3>The pattern</h3>
+<ol>
+<li>Create splits for each teammate</li>
+<li>Spawn teammates via Agent tool — pass each their cmux surface ref</li>
+<li>Teammates run commands in their split via <code>cmux send-surface</code></li>
+<li>Teammates report status via <code>cmux set-status</code> and <code>cmux log</code></li>
+<li>User sees all work side-by-side</li>
+</ol>
+<h3>Example: 3-agent team</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create visible splits for each teammate</span>
+</span><span class="code-line"><span class="token assign-left variable">SPLIT_1</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split right <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">SPLIT_2</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split down <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">SPLIT_3</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split down <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span></code></pre>
+<p>Then in each teammate's prompt:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">You have a cmux terminal split at surface:42.
+</span><span class="code-line">Run commands:  cmux send-surface --surface surface:42 "command\n"
+</span><span class="code-line">Read output:   cmux capture-pane --surface surface:42
+</span><span class="code-line">Set status:    cmux set-status myagent "working" --icon hammer
+</span><span class="code-line">Log progress:  cmux log "message"
+</span><span class="code-line">Never steal focus — always use --surface targeting.
+</span></code></pre>
+<h3>Mixed layout: terminals + browsers</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">BUILD</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split right <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">DOCS</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> browser <span class="token function">open</span> https://docs.example.com <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token assign-left variable">TEST</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split down <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Key rules</h3>
+<ul>
+<li><strong>Never spawn <code>claude -p</code> in splits</strong> — use the Agent tool with <code>team_name</code> instead</li>
+<li><strong>Create splits before spawning teammates</strong> — pass refs in their prompts</li>
+<li><strong>One split per teammate</strong> — each owns their visible workspace</li>
+<li><strong>Coordinate via SendMessage</strong>, not by reading each other's terminal output</li>
+<li><strong>Clean up</strong>: <code>cmux close-surface --surface &lt;ref&gt;</code> when done</li>
+</ul>
+<hr>
+<h2>Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where am I?</td>
+<td><code>cmux identify --json</code></td>
+</tr>
+<tr>
+<td>Split right</td>
+<td><code>cmux --json new-split right</code></td>
+</tr>
+<tr>
+<td>Split down</td>
+<td><code>cmux --json new-split down</code></td>
+</tr>
+<tr>
+<td>Send command</td>
+<td><code>cmux send-surface --surface &lt;ref&gt; "cmd\n"</code></td>
+</tr>
+<tr>
+<td>Read output</td>
+<td><code>cmux capture-pane --surface &lt;ref&gt;</code></td>
+</tr>
+<tr>
+<td>Open browser</td>
+<td><code>cmux --json browser open &lt;url&gt;</code></td>
+</tr>
+<tr>
+<td>Page snapshot</td>
+<td><code>cmux browser &lt;ref&gt; snapshot --interactive</code></td>
+</tr>
+<tr>
+<td>Click element</td>
+<td><code>cmux browser &lt;ref&gt; click e1</code></td>
+</tr>
+<tr>
+<td>Fill input</td>
+<td><code>cmux browser &lt;ref&gt; fill e1 "text"</code></td>
+</tr>
+<tr>
+<td>Wait for load</td>
+<td><code>cmux browser &lt;ref&gt; wait --load-state complete --timeout-ms 15000</code></td>
+</tr>
+<tr>
+<td>Read page text</td>
+<td><code>cmux browser &lt;ref&gt; get text body</code></td>
+</tr>
+<tr>
+<td>Evaluate JS</td>
+<td><code>cmux browser &lt;ref&gt; eval "expression"</code></td>
+</tr>
+<tr>
+<td>Find by role</td>
+<td><code>cmux browser &lt;ref&gt; find role button</code></td>
+</tr>
+<tr>
+<td>Save auth</td>
+<td><code>cmux browser &lt;ref&gt; state save ./auth.json</code></td>
+</tr>
+<tr>
+<td>Load auth</td>
+<td><code>cmux browser &lt;ref&gt; state load ./auth.json</code></td>
+</tr>
+<tr>
+<td>Set status</td>
+<td><code>cmux set-status &lt;key&gt; "text" --icon &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>Progress bar</td>
+<td><code>cmux set-progress 0.5 --label "Working..."</code></td>
+</tr>
+<tr>
+<td>Log message</td>
+<td><code>cmux log "message"</code></td>
+</tr>
+<tr>
+<td>Notify</td>
+<td><code>cmux notify --title "T" --body "B"</code></td>
+</tr>
+<tr>
+<td>Close split</td>
+<td><code>cmux close-surface --surface &lt;ref&gt;</code></td>
+</tr>
+<tr>
+<td>Screenshot</td>
+<td><code>cmux browser &lt;ref&gt; screenshot</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Common Patterns</h2>
+<h3>Run build in background split, tail logs</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">LOG</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> new-split down <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line">cmux send-surface <span class="token parameter variable">--surface</span> <span class="token string">"<span class="token variable">$LOG</span>"</span> <span class="token string">"cargo build --release 2&gt;&amp;1 | tee /tmp/build.log<span class="token entity" title="\n">\n</span>"</span>
+</span><span class="code-line"><span class="token comment"># ... do other work ...</span>
+</span><span class="code-line">cmux capture-pane <span class="token parameter variable">--surface</span> <span class="token string">"<span class="token variable">$LOG</span>"</span> <span class="token parameter variable">--scrollback</span> <span class="token operator">|</span> <span class="token function">tail</span> <span class="token parameter variable">-20</span>
+</span></code></pre>
+<h3>QA test flow</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">BROWSER</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>cmux <span class="token parameter variable">--json</span> browser <span class="token function">open</span> https://myapp.vercel.app <span class="token operator">|</span> python3 <span class="token parameter variable">-c</span> "import sys,json<span class="token punctuation">;</span> print<span class="token punctuation">(</span>json.load<span class="token punctuation">(</span>sys.stdin<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'surface_ref'</span><span class="token punctuation">]</span><span class="token variable">)</span></span>"<span class="token punctuation">)</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> <span class="token function">wait</span> --load-state complete --timeout-ms <span class="token number">15000</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> snapshot <span class="token parameter variable">--interactive</span>
+</span><span class="code-line"><span class="token comment"># Interact using e1, e2, e3 refs...</span>
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> screenshot
+</span><span class="code-line">cmux browser <span class="token variable">$BROWSER</span> errors list
+</span><span class="code-line">cmux close-surface <span class="token parameter variable">--surface</span> <span class="token variable">$BROWSER</span>
+</span></code></pre>
+<h3>Status-driven long task</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">cmux set-status task <span class="token string">"starting"</span> <span class="token parameter variable">--icon</span> clock <span class="token parameter variable">--color</span> <span class="token string">"#ff9500"</span>
+</span><span class="code-line">cmux set-progress <span class="token number">0.0</span> <span class="token parameter variable">--label</span> <span class="token string">"Initializing..."</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ... step 1 ...</span>
+</span><span class="code-line">cmux set-progress <span class="token number">0.33</span> <span class="token parameter variable">--label</span> <span class="token string">"Building..."</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ... step 2 ...</span>
+</span><span class="code-line">cmux set-progress <span class="token number">0.66</span> <span class="token parameter variable">--label</span> <span class="token string">"Testing..."</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ... step 3 ...</span>
+</span><span class="code-line">cmux set-progress <span class="token number">1.0</span> <span class="token parameter variable">--label</span> <span class="token string">"Done"</span>
+</span><span class="code-line">cmux set-status task <span class="token string">"complete"</span> <span class="token parameter variable">--icon</span> checkmark <span class="token parameter variable">--color</span> <span class="token string">"#34c759"</span>
+</span><span class="code-line">cmux clear-progress
+</span><span class="code-line">cmux notify <span class="token parameter variable">--title</span> <span class="token string">"Task complete"</span> <span class="token parameter variable">--body</span> <span class="token string">"All steps passed"</span>
+</span></code></pre></div>

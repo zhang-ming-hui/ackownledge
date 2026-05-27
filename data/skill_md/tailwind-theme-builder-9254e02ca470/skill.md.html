@@ -1,0 +1,417 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Tailwind Theme Builder</h1>
+<p>Set up a fully themed Tailwind v4 + shadcn/ui project with dark mode. Produces configured CSS, theme provider, and working component library.</p>
+<h2>Architecture: The Four-Step Pattern</h2>
+<p>Tailwind v4 requires a specific architecture for CSS variable-based theming. This pattern is <strong>mandatory</strong> -- skipping or modifying steps breaks the theme.</p>
+<h3>How It Works</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">CSS Variable Definition --&gt; @theme inline Mapping --&gt; Tailwind Utility Class
+</span><span class="code-line">--background           --&gt; --color-background     --&gt; bg-background
+</span><span class="code-line">(with hsl() wrapper)      (references variable)     (generated class)
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Dark mode switching:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">ThemeProvider toggles .dark class on &lt;html&gt;
+</span><span class="code-line">  --&gt; CSS variables update automatically (.dark overrides :root)
+</span><span class="code-line">  --&gt; Tailwind utilities reference updated variables
+</span><span class="code-line">  --&gt; UI updates without re-render
+</span></code></pre>
+<h3>Best Practices</h3>
+<ul>
+<li><strong>Semantic names:</strong> Use <code>--primary</code> not <code>--blue-500</code></li>
+<li><strong>Foreground pairing:</strong> Every background colour needs a foreground (<code>--primary</code> + <code>--primary-foreground</code>)</li>
+<li><strong>WCAG contrast:</strong> Normal text 4.5:1, large text 3:1, UI components 3:1</li>
+<li><strong>Chart colours:</strong> Use separate variables with <code>@theme inline</code> mapping, reference via <code>var(--chart-1)</code> in style props</li>
+</ul>
+<hr>
+<h2>Workflow</h2>
+<h3>Step 1: Install Dependencies</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">pnpm</span> <span class="token function">add</span> tailwindcss @tailwindcss/vite
+</span><span class="code-line"><span class="token function">pnpm</span> <span class="token function">add</span> <span class="token parameter variable">-D</span> @types/node tw-animate-css
+</span><span class="code-line"><span class="token function">pnpm</span> dlx shadcn@latest init
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Delete v3 config if it exists</span>
+</span><span class="code-line"><span class="token function">rm</span> <span class="token parameter variable">-f</span> tailwind.config.ts
+</span></code></pre>
+<h3>Step 2: Configure Vite</h3>
+<p>Copy <code>assets/vite.config.ts</code> or add the Tailwind plugin:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> defineConfig <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'vite'</span>
+</span><span class="code-line"><span class="token keyword">import</span> react <span class="token keyword">from</span> <span class="token string">'@vitejs/plugin-react'</span>
+</span><span class="code-line"><span class="token keyword">import</span> tailwindcss <span class="token keyword">from</span> <span class="token string">'@tailwindcss/vite'</span>
+</span><span class="code-line"><span class="token keyword">import</span> path <span class="token keyword">from</span> <span class="token string">'path'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineConfig</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  plugins<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">react</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">tailwindcss</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  resolve<span class="token operator">:</span> <span class="token punctuation">{</span> alias<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token string-property property">'@'</span><span class="token operator">:</span> path<span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span>__dirname<span class="token punctuation">,</span> <span class="token string">'./src'</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Step 3: Four-Step CSS Architecture (Mandatory)</h3>
+<p>This exact order is required. Skipping steps breaks the theme.</p>
+<p><strong>src/index.css:</strong></p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token atrule"><span class="token rule">@import</span> <span class="token string">"tailwindcss"</span><span class="token punctuation">;</span></span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@import</span> <span class="token string">"tw-animate-css"</span><span class="token punctuation">;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">/* 1. Define CSS variables at root (NOT inside @layer base) */</span>
+</span><span class="code-line"><span class="token selector"><span class="token pseudo-class">:root</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token variable">--background</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--foreground</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">222.2</span> <span class="token number">84</span><span class="token unit">%</span> <span class="token number">4.9</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--primary</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">221.2</span> <span class="token number">83.2</span><span class="token unit">%</span> <span class="token number">53.3</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--primary-foreground</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">210</span> <span class="token number">40</span><span class="token unit">%</span> <span class="token number">98</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token comment">/* ... all semantic tokens */</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token selector"><span class="token class">.dark</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token variable">--background</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">222.2</span> <span class="token number">84</span><span class="token unit">%</span> <span class="token number">4.9</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--foreground</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">210</span> <span class="token number">40</span><span class="token unit">%</span> <span class="token number">98</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--primary</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">217.2</span> <span class="token number">91.2</span><span class="token unit">%</span> <span class="token number">59.8</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--primary-foreground</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">222.2</span> <span class="token number">47.4</span><span class="token unit">%</span> <span class="token number">11.2</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">/* 2. Map variables to Tailwind utilities */</span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@theme</span> inline</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token variable">--color-background</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--background</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--foreground</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--primary</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token variable">--color-primary-foreground</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--primary-foreground</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">/* 3. Apply base styles (NO hsl() wrapper here) */</span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@layer</span> base</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token selector">body</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">background-color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--background</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token property">color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--foreground</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Result:</strong> <code>bg-background</code>, <code>text-primary</code> etc. work automatically. Dark mode switches via <code>.dark</code> class -- no <code>dark:</code> variants needed for semantic colours.</p>
+<h3>Step 4: Set Up Dark Mode</h3>
+<p>Copy <code>assets/theme-provider.tsx</code> to your components directory, then wrap your app:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> ThemeProvider <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@/components/theme-provider'</span>
+</span><span class="code-line">
+</span><span class="code-line">ReactDOM<span class="token punctuation">.</span><span class="token function">createRoot</span><span class="token punctuation">(</span>document<span class="token punctuation">.</span><span class="token function">getElementById</span><span class="token punctuation">(</span><span class="token string">'root'</span><span class="token punctuation">)</span><span class="token operator">!</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token operator">&lt;</span>ThemeProvider defaultTheme<span class="token operator">=</span><span class="token string">"dark"</span> storageKey<span class="token operator">=</span><span class="token string">"vite-ui-theme"</span><span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>App <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token operator">&lt;</span><span class="token operator">/</span>ThemeProvider<span class="token operator">&gt;</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<p>Add a theme toggle -- install the dropdown menu then use the ModeToggle component below:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">pnpm</span> dlx shadcn@latest <span class="token function">add</span> dropdown-menu
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// src/components/mode-toggle.tsx</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Moon<span class="token punctuation">,</span> Sun <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"lucide-react"</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Button <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@/components/ui/button"</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  DropdownMenu<span class="token punctuation">,</span>
+</span><span class="code-line">  DropdownMenuContent<span class="token punctuation">,</span>
+</span><span class="code-line">  DropdownMenuItem<span class="token punctuation">,</span>
+</span><span class="code-line">  DropdownMenuTrigger<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@/components/ui/dropdown-menu"</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useTheme <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@/components/theme-provider"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">ModeToggle</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> setTheme <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useTheme</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>DropdownMenu<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>DropdownMenuTrigger asChild<span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>Button variant<span class="token operator">=</span><span class="token string">"outline"</span> size<span class="token operator">=</span><span class="token string">"icon"</span><span class="token operator">&gt;</span>
+</span><span class="code-line">          <span class="token operator">&lt;</span>Sun className<span class="token operator">=</span><span class="token string">"h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">          <span class="token operator">&lt;</span>Moon className<span class="token operator">=</span><span class="token string">"absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">          <span class="token operator">&lt;</span>span className<span class="token operator">=</span><span class="token string">"sr-only"</span><span class="token operator">&gt;</span>Toggle theme<span class="token operator">&lt;</span><span class="token operator">/</span>span<span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span><span class="token operator">/</span>Button<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span><span class="token operator">/</span>DropdownMenuTrigger<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>DropdownMenuContent align<span class="token operator">=</span><span class="token string">"end"</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>DropdownMenuItem onClick<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">setTheme</span><span class="token punctuation">(</span><span class="token string">"light"</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>Light<span class="token operator">&lt;</span><span class="token operator">/</span>DropdownMenuItem<span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>DropdownMenuItem onClick<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">setTheme</span><span class="token punctuation">(</span><span class="token string">"dark"</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>Dark<span class="token operator">&lt;</span><span class="token operator">/</span>DropdownMenuItem<span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>DropdownMenuItem onClick<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">setTheme</span><span class="token punctuation">(</span><span class="token string">"system"</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>System<span class="token operator">&lt;</span><span class="token operator">/</span>DropdownMenuItem<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span><span class="token operator">/</span>DropdownMenuContent<span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>DropdownMenu<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Step 5: Configure components.json</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"tailwind"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"config"</span><span class="token operator">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"css"</span><span class="token operator">:</span> <span class="token string">"src/index.css"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"baseColor"</span><span class="token operator">:</span> <span class="token string">"slate"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"cssVariables"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><code>"config": ""</code> is critical -- v4 doesn't use tailwind.config.ts.</p>
+<hr>
+<h2>Critical Rules</h2>
+<p><strong>Always:</strong></p>
+<ul>
+<li>Wrap colours with <code>hsl()</code> in <code>:root</code>/<code>.dark</code></li>
+<li>Use <code>@theme inline</code> to map all CSS variables</li>
+<li>Use <code>@tailwindcss/vite</code> plugin (NOT PostCSS)</li>
+<li>Delete <code>tailwind.config.ts</code> if it exists</li>
+</ul>
+<p><strong>Never:</strong></p>
+<ul>
+<li>Put <code>:root</code>/<code>.dark</code> inside <code>@layer base</code></li>
+<li>Use <code>.dark { @theme { } }</code> (v4 doesn't support nested @theme)</li>
+<li>Double-wrap: <code>hsl(var(--background))</code></li>
+<li>Use <code>@apply</code> with <code>@layer base</code> classes (use <code>@utility</code> instead)</li>
+</ul>
+<hr>
+<h2>All 18 Gotchas</h2>
+<h3>Quick Diagnosis</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Variables ignored / theme broken</td>
+<td><code>:root</code> inside <code>@layer base</code></td>
+<td>Move <code>:root</code> and <code>.dark</code> to root level</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Dark mode colours not switching</td>
+<td><code>.dark { @theme { } }</code></td>
+<td>Use CSS variables + single <code>@theme inline</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Colours all black/white</td>
+<td>Double <code>hsl()</code> wrapping</td>
+<td>Use <code>var(--background)</code> not <code>hsl(var(...))</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>bg-primary</code> not generated</td>
+<td>Colours in <code>tailwind.config.ts</code></td>
+<td>Delete config, use <code>@theme inline</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>bg-background</code> class missing</td>
+<td>No <code>@theme inline</code> block</td>
+<td>Add <code>@theme inline</code> mapping variables</td>
+</tr>
+<tr>
+<td>6</td>
+<td>shadcn components break</td>
+<td><code>components.json</code> has config path</td>
+<td>Set <code>"config": ""</code> (empty string)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Tailwind not processing</td>
+<td>Using PostCSS plugin</td>
+<td>Switch to <code>@tailwindcss/vite</code> plugin</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>@/</code> imports fail</td>
+<td>Missing path aliases</td>
+<td>Add <code>paths</code> to <code>tsconfig.app.json</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td>Redundant <code>dark:</code> variants</td>
+<td>Using <code>dark:bg-primary-dark</code></td>
+<td>Just use <code>bg-primary</code> -- variables handle it</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Hardcoded colours everywhere</td>
+<td>Using <code>bg-blue-600 dark:bg-blue-400</code></td>
+<td>Use semantic tokens: <code>bg-primary</code></td>
+</tr>
+<tr>
+<td>11</td>
+<td>Class merging bugs</td>
+<td>String concatenation for classes</td>
+<td>Use <code>cn()</code> from <code>@/lib/utils</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td>Radix Select crashes</td>
+<td>Empty string value <code>value=""</code></td>
+<td>Use <code>value="placeholder"</code></td>
+</tr>
+<tr>
+<td>13</td>
+<td>Wrong Tailwind version</td>
+<td>Installed <code>tailwindcss@^3</code></td>
+<td>Install <code>tailwindcss@^4.1.0</code> + <code>@tailwindcss/vite</code></td>
+</tr>
+<tr>
+<td>14</td>
+<td>Missing peer deps</td>
+<td>Only installed <code>tailwindcss</code></td>
+<td>Also install <code>clsx</code>, <code>tailwind-merge</code>, <code>@types/node</code></td>
+</tr>
+<tr>
+<td>15</td>
+<td>Broken in dark mode</td>
+<td>Only tested light mode</td>
+<td>Test light, dark, system, and toggle transitions</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Fails WCAG contrast</td>
+<td>Looks fine visually</td>
+<td>Check ratios: 4.5:1 normal text, 3:1 large/UI</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Build fails on animation import</td>
+<td>Using <code>tailwindcss-animate</code> (deprecated)</td>
+<td>Use <code>tw-animate-css</code> or native CSS animations</td>
+</tr>
+<tr>
+<td>18</td>
+<td>CSS priority issues</td>
+<td>Duplicate <code>@layer base</code> after shadcn init</td>
+<td>Merge into single <code>@layer base</code> block</td>
+</tr>
+</tbody>
+</table>
+<h3>Gotcha Details with Code Examples</h3>
+<p><strong>#1 -- :root inside @layer base</strong></p>
+<p>Tailwind v4 strips CSS outside <code>@theme</code>/<code>@layer</code>, but <code>:root</code> must be at root level to persist. This is the most common setup failure.</p>
+<p>WRONG:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token atrule"><span class="token rule">@layer</span> base</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token selector"><span class="token pseudo-class">:root</span></span> <span class="token punctuation">{</span> <span class="token variable">--background</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>CORRECT:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token selector"><span class="token pseudo-class">:root</span></span> <span class="token punctuation">{</span> <span class="token variable">--background</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@layer</span> base</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token selector">body</span> <span class="token punctuation">{</span> <span class="token property">background-color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--background</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>#2 -- Nested @theme</strong></p>
+<p>Tailwind v4 does not support <code>@theme</code> inside selectors. Use CSS variables in <code>:root</code>/<code>.dark</code> with a single <code>@theme inline</code> block.</p>
+<p>WRONG:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token atrule"><span class="token rule">@theme</span></span> <span class="token punctuation">{</span> <span class="token variable">--color-primary</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">0</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token selector"><span class="token class">.dark</span></span> <span class="token punctuation">{</span> <span class="token atrule"><span class="token rule">@theme</span></span> <span class="token punctuation">{</span> <span class="token variable">--color-primary</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p>CORRECT:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token selector"><span class="token pseudo-class">:root</span></span> <span class="token punctuation">{</span> <span class="token variable">--primary</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">0</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token selector"><span class="token class">.dark</span></span> <span class="token punctuation">{</span> <span class="token variable">--primary</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@theme</span> inline</span> <span class="token punctuation">{</span> <span class="token variable">--color-primary</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--primary</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>#3 -- Double hsl() wrapping</strong></p>
+<p>Variables already contain <code>hsl()</code>. Double-wrapping creates <code>hsl(hsl(...))</code>.</p>
+<p>WRONG: <code>background-color: hsl(var(--background));</code>
+CORRECT: <code>background-color: var(--background);</code></p>
+<p><strong>#4 -- Colours in tailwind.config.ts</strong></p>
+<p>Tailwind v4 completely ignores <code>theme.extend.colors</code> in config files. Delete the file or leave it empty. Set <code>"config": ""</code> in <code>components.json</code>.</p>
+<p><strong>#5 -- Missing @theme inline</strong></p>
+<p>Without <code>@theme inline</code>, Tailwind has no knowledge of your CSS variables. Utility classes like <code>bg-background</code> simply won't be generated.</p>
+<p>WRONG:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token selector"><span class="token pseudo-class">:root</span></span> <span class="token punctuation">{</span> <span class="token variable">--background</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token comment">/* No @theme inline block -- bg-background won't exist */</span>
+</span></code></pre>
+<p>CORRECT:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token selector"><span class="token pseudo-class">:root</span></span> <span class="token punctuation">{</span> <span class="token variable">--background</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token number">0</span> <span class="token number">0</span><span class="token unit">%</span> <span class="token number">100</span><span class="token unit">%</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@theme</span> inline</span> <span class="token punctuation">{</span> <span class="token variable">--color-background</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--background</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>#7 -- PostCSS vs Vite plugin</strong></p>
+<p>WRONG:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineConfig</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  css<span class="token operator">:</span> <span class="token punctuation">{</span> postcss<span class="token operator">:</span> <span class="token string">'./postcss.config.js'</span> <span class="token punctuation">}</span>  <span class="token comment">// Old v3 way</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>CORRECT:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> tailwindcss <span class="token keyword">from</span> <span class="token string">'@tailwindcss/vite'</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token function">defineConfig</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  plugins<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">react</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">tailwindcss</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span>  <span class="token comment">// v4 way</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>#8 -- Path aliases</strong></p>
+<p>Add to <code>tsconfig.app.json</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"compilerOptions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"baseUrl"</span><span class="token operator">:</span> <span class="token string">"."</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"paths"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"@/*"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"./src/*"</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>#11 -- cn() utility for class merging</strong></p>
+<p>WRONG: <code>className={`base ${isActive &amp;&amp; 'active'}`}</code>
+CORRECT: <code>className={cn("base", isActive &amp;&amp; "active")}</code></p>
+<p><code>cn()</code> from <code>@/lib/utils</code> properly merges and deduplicates Tailwind classes.</p>
+<p><strong>#12 -- Radix Select empty value</strong></p>
+<p>Radix UI Select does not allow empty string values. Use <code>value="placeholder"</code> instead of <code>value=""</code>.</p>
+<p><strong>#14 -- Required dependencies</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"dependencies"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"tailwindcss"</span><span class="token operator">:</span> <span class="token string">"^4.1.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"@tailwindcss/vite"</span><span class="token operator">:</span> <span class="token string">"^4.1.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"clsx"</span><span class="token operator">:</span> <span class="token string">"^2.1.1"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"tailwind-merge"</span><span class="token operator">:</span> <span class="token string">"^3.3.1"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"devDependencies"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"@types/node"</span><span class="token operator">:</span> <span class="token string">"^24.0.0"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>#17 -- tw-animate-css</strong></p>
+<p><code>tailwindcss-animate</code> is deprecated in Tailwind v4. shadcn/ui docs may still reference it. Causes build failures and import errors. Use <code>tw-animate-css</code> or <code>@tailwindcss/motion</code> instead.</p>
+<p><strong>#18 -- Duplicate @layer base after shadcn init</strong></p>
+<p><code>shadcn init</code> adds its own <code>@layer base</code> block. Check <code>src/index.css</code> immediately after running init and merge any duplicate blocks into one.</p>
+<p>WRONG:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token atrule"><span class="token rule">@layer</span> base</span> <span class="token punctuation">{</span> <span class="token selector">body</span> <span class="token punctuation">{</span> <span class="token property">background-color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--background</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token atrule"><span class="token rule">@layer</span> base</span> <span class="token punctuation">{</span> <span class="token selector">*</span> <span class="token punctuation">{</span> <span class="token property">border-color</span><span class="token punctuation">:</span> <span class="token function">hsl</span><span class="token punctuation">(</span><span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--border</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>  <span class="token comment">/* duplicate from shadcn */</span>
+</span></code></pre>
+<p>CORRECT:</p>
+<pre class="language-css"><code class="language-css code-highlight"><span class="code-line"><span class="token atrule"><span class="token rule">@layer</span> base</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token selector">*</span> <span class="token punctuation">{</span> <span class="token property">border-color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--border</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token selector">body</span> <span class="token punctuation">{</span> <span class="token property">background-color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--background</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token property">color</span><span class="token punctuation">:</span> <span class="token function">var</span><span class="token punctuation">(</span><span class="token variable">--foreground</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Prevention Checklist</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> No <code>tailwind.config.ts</code> file (or it's empty)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>components.json</code> has <code>"config": ""</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All colors have <code>hsl()</code> wrapper in <code>:root</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>@theme inline</code> maps all variables</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>@layer base</code> doesn't wrap <code>:root</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Theme provider wraps app</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tested in light, dark, and system modes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All text has sufficient contrast</li>
+</ul>
+<hr>
+<h2>Dark Mode Testing Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Light mode displays correctly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dark mode displays correctly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> System mode respects OS setting</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Theme persists after page refresh</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Toggle component shows current state</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All text has proper contrast</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No flash of wrong theme on load</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Works in incognito mode (graceful fallback)</li>
+</ul>
+<hr>
+<h2>Asset Files</h2>
+<p>Copy from <code>assets/</code> directory:</p>
+<ul>
+<li><code>index.css</code> -- Complete CSS with all colour variables</li>
+<li><code>components.json</code> -- shadcn/ui v4 config</li>
+<li><code>vite.config.ts</code> -- Vite + Tailwind plugin</li>
+<li><code>theme-provider.tsx</code> -- Dark mode provider</li>
+<li><code>utils.ts</code> -- <code>cn()</code> utility</li>
+</ul>
+<h2>Reference Files</h2>
+<ul>
+<li><code>references/migration-guide.md</code> -- v3 to v4 migration</li>
+</ul>
+<h2>Official Documentation</h2>
+<ul>
+<li>shadcn/ui Tailwind v4 Guide: <a href="https://ui.shadcn.com/docs/tailwind-v4" target="_blank" rel="ugc nofollow noopener">https://ui.shadcn.com/docs/tailwind-v4</a></li>
+<li>shadcn/ui Dark Mode (Vite): <a href="https://ui.shadcn.com/docs/dark-mode/vite" target="_blank" rel="ugc nofollow noopener">https://ui.shadcn.com/docs/dark-mode/vite</a></li>
+<li>shadcn/ui Theming: <a href="https://ui.shadcn.com/docs/theming" target="_blank" rel="ugc nofollow noopener">https://ui.shadcn.com/docs/theming</a></li>
+<li>Tailwind v4 Docs: <a href="https://tailwindcss.com/docs" target="_blank" rel="ugc nofollow noopener">https://tailwindcss.com/docs</a></li>
+<li>Tailwind Dark Mode: <a href="https://tailwindcss.com/docs/dark-mode" target="_blank" rel="ugc nofollow noopener">https://tailwindcss.com/docs/dark-mode</a></li>
+</ul></div>

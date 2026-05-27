@@ -1,0 +1,354 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>ShellCheck Configuration and Static Analysis</h1>
+<p>Comprehensive guidance for configuring and using ShellCheck to improve shell script quality, catch common pitfalls, and enforce best practices through static code analysis.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Setting up linting for shell scripts in CI/CD pipelines</li>
+<li>Analyzing existing shell scripts for issues</li>
+<li>Understanding ShellCheck error codes and warnings</li>
+<li>Configuring ShellCheck for specific project requirements</li>
+<li>Integrating ShellCheck into development workflows</li>
+<li>Suppressing false positives and configuring rule sets</li>
+<li>Enforcing consistent code quality standards</li>
+<li>Migrating scripts to meet quality gates</li>
+</ul>
+<h2>ShellCheck Fundamentals</h2>
+<h3>What is ShellCheck?</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>ShellCheck is a static analysis tool that analyzes shell scripts and detects problematic patterns. It supports:</p>
+<ul>
+<li>Bash, sh, dash, ksh, and other POSIX shells</li>
+<li>Over 100 different warnings and errors</li>
+<li>Configuration for target shell and flags</li>
+<li>Integration with editors and CI/CD systems</li>
+</ul>
+<h3>Installation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># macOS with Homebrew</span>
+</span><span class="code-line">brew <span class="token function">install</span> <span class="token function">shellcheck</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Ubuntu/Debian</span>
+</span><span class="code-line"><span class="token function">apt-get</span> <span class="token function">install</span> <span class="token function">shellcheck</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># From source</span>
+</span><span class="code-line"><span class="token function">git</span> clone https://github.com/koalaman/shellcheck.git
+</span><span class="code-line"><span class="token builtin class-name">cd</span> <span class="token function">shellcheck</span>
+</span><span class="code-line"><span class="token function">make</span> build
+</span><span class="code-line"><span class="token function">make</span> <span class="token function">install</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Verify installation</span>
+</span><span class="code-line"><span class="token function">shellcheck</span> <span class="token parameter variable">--version</span>
+</span></code></pre>
+<h2>Configuration Files</h2>
+<h3>.shellcheckrc (Project Level)</h3>
+<p>Create <code>.shellcheckrc</code> in your project root:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Specify target shell
+</span><span class="code-line">shell=bash
+</span><span class="code-line">
+</span><span class="code-line"># Enable optional checks
+</span><span class="code-line">enable=avoid-nullary-conditions
+</span><span class="code-line">enable=require-variable-braces
+</span><span class="code-line">
+</span><span class="code-line"># Disable specific warnings
+</span><span class="code-line">disable=SC1091
+</span><span class="code-line">disable=SC2086
+</span></code></pre>
+<h3>Environment Variables</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Set default shell target</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">SHELLCHECK_SHELL</span><span class="token operator">=</span>bash
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Enable strict mode</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">SHELLCHECK_STRICT</span><span class="token operator">=</span>true
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Specify configuration file location</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">SHELLCHECK_CONFIG</span><span class="token operator">=~</span>/.shellcheckrc
+</span></code></pre>
+<h2>Common ShellCheck Error Codes</h2>
+<h3>SC1000-1099: Parser Errors</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># SC1004: Backslash continuation not followed by newline</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> hello<span class="token punctuation">\</span>
+</span><span class="code-line">world  <span class="token comment"># Error - needs line continuation</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC1008: Invalid data for operator `=='</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token variable">$var</span> <span class="token operator">=</span>  <span class="token string">"value"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>  <span class="token comment"># Space before ==</span>
+</span><span class="code-line">    <span class="token boolean">true</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span></code></pre>
+<h3>SC2000-2099: Shell Issues</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># SC2009: Consider using pgrep or pidof instead of grep|grep</span>
+</span><span class="code-line"><span class="token function">ps</span> aux <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-v</span> <span class="token function">grep</span> <span class="token operator">|</span> <span class="token function">grep</span> myprocess  <span class="token comment"># Use pgrep instead</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2012: Use `ls` only for viewing. Use `find` for reliable output</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">file</span> <span class="token keyword">in</span> <span class="token variable"><span class="token variable">$(</span><span class="token function">ls</span> <span class="token parameter variable">-la</span><span class="token variable">)</span></span>  <span class="token comment"># Better: use find or globbing</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2015: Avoid using &amp;&amp; and || instead of if-then-else</span>
+</span><span class="code-line"><span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$file</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">echo</span> <span class="token string">"found"</span> <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">"not found"</span>  <span class="token comment"># Less clear</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2016: Expressions don't expand in single quotes</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">'$VAR'</span>  <span class="token comment"># Literal $VAR, not variable expansion</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2026: This word is non-standard. Set POSIXLY_CORRECT</span>
+</span><span class="code-line"><span class="token comment"># when using with scripts for other shells</span>
+</span></code></pre>
+<h3>SC2100-2199: Quoting Issues</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># SC2086: Double quote to prevent globbing and word splitting</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">i</span> <span class="token keyword">in</span> <span class="token variable">$list</span><span class="token punctuation">;</span> <span class="token keyword">do</span>  <span class="token comment"># Should be: for i in $list or for i in "$list"</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"<span class="token variable">$i</span>"</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2115: Literal tilde in path not expanded. Use $HOME instead</span>
+</span><span class="code-line">~/.bashrc  <span class="token comment"># In strings, use "$HOME/.bashrc"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2181: Check exit code directly with `if`, not indirectly in a list</span>
+</span><span class="code-line">some_command
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token variable">$?</span> <span class="token parameter variable">-eq</span> <span class="token number">0</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>  <span class="token comment"># Better: if some_command; then</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC2206: Quote to prevent word splitting or set IFS</span>
+</span><span class="code-line"><span class="token assign-left variable">array</span><span class="token operator">=</span><span class="token punctuation">(</span> <span class="token variable">$items</span> <span class="token punctuation">)</span>  <span class="token comment"># Should use: array=( $items )</span>
+</span></code></pre>
+<h3>SC3000-3999: POSIX Compliance Issues</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># SC3010: In POSIX sh, use 'case' instead of 'cond &amp;&amp; foo'</span>
+</span><span class="code-line"><span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token variable">$var</span> <span class="token operator">==</span> <span class="token string">"value"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> do_something  <span class="token comment"># Not POSIX</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SC3043: In POSIX sh, use 'local' is undefined</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function-name function">my_func</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token builtin class-name">local</span> <span class="token assign-left variable">var</span><span class="token operator">=</span>value  <span class="token comment"># Not POSIX in some shells</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Practical Configuration Examples</h2>
+<h3>Minimal Configuration (Strict POSIX)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line"><span class="token comment"># Configure for maximum portability</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">shellcheck</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--shell</span><span class="token operator">=</span>sh <span class="token punctuation">\</span>
+</span><span class="code-line">  --external-sources <span class="token punctuation">\</span>
+</span><span class="code-line">  --check-sourced <span class="token punctuation">\</span>
+</span><span class="code-line">  script.sh
+</span></code></pre>
+<h3>Development Configuration (Bash with Relaxed Rules)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line"><span class="token comment"># Configure for Bash development</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">shellcheck</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--shell</span><span class="token operator">=</span>bash <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--exclude</span><span class="token operator">=</span>SC1091,SC2119 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--enable</span><span class="token operator">=</span>all <span class="token punctuation">\</span>
+</span><span class="code-line">  script.sh
+</span></code></pre>
+<h3>CI/CD Integration Configuration</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line"><span class="token builtin class-name">set</span> <span class="token parameter variable">-Eeuo</span> pipefail
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Analyze all shell scripts and fail on issues</span>
+</span><span class="code-line"><span class="token function">find</span> <span class="token builtin class-name">.</span> <span class="token parameter variable">-type</span> f <span class="token parameter variable">-name</span> <span class="token string">"*.sh"</span> <span class="token operator">|</span> <span class="token keyword">while</span> <span class="token builtin class-name">read</span> <span class="token parameter variable">-r</span> script<span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"Checking: <span class="token variable">$script</span>"</span>
+</span><span class="code-line">    <span class="token function">shellcheck</span> <span class="token punctuation">\</span>
+</span><span class="code-line">        <span class="token parameter variable">--shell</span><span class="token operator">=</span>bash <span class="token punctuation">\</span>
+</span><span class="code-line">        <span class="token parameter variable">--format</span><span class="token operator">=</span>gcc <span class="token punctuation">\</span>
+</span><span class="code-line">        <span class="token parameter variable">--exclude</span><span class="token operator">=</span>SC1091 <span class="token punctuation">\</span>
+</span><span class="code-line">        <span class="token string">"<span class="token variable">$script</span>"</span> <span class="token operator">||</span> <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span></code></pre>
+<h3>.shellcheckrc for Project</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Shell dialect to analyze against
+</span><span class="code-line">shell=bash
+</span><span class="code-line">
+</span><span class="code-line"># Enable optional checks
+</span><span class="code-line">enable=avoid-nullary-conditions,require-variable-braces,check-unassigned-uppercase
+</span><span class="code-line">
+</span><span class="code-line"># Disable specific warnings
+</span><span class="code-line"># SC1091: Not following sourced files (many false positives)
+</span><span class="code-line">disable=SC1091
+</span><span class="code-line">
+</span><span class="code-line"># SC2119: Use function_name instead of function_name -- (arguments)
+</span><span class="code-line">disable=SC2119
+</span><span class="code-line">
+</span><span class="code-line"># External files to source for context
+</span><span class="code-line">external-sources=true
+</span></code></pre>
+<h2>Integration Patterns</h2>
+<h3>Pre-commit Hook Configuration</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line"><span class="token comment"># .git/hooks/pre-commit</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">#!/bin/bash</span>
+</span><span class="code-line"><span class="token builtin class-name">set</span> <span class="token parameter variable">-e</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Find all shell scripts changed in this commit</span>
+</span><span class="code-line"><span class="token function">git</span> <span class="token function">diff</span> <span class="token parameter variable">--cached</span> --name-only <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">'\.sh$'</span> <span class="token operator">|</span> <span class="token keyword">while</span> <span class="token builtin class-name">read</span> <span class="token parameter variable">-r</span> script<span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"Linting: <span class="token variable">$script</span>"</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token operator">!</span> <span class="token function">shellcheck</span> <span class="token string">"<span class="token variable">$script</span>"</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">        <span class="token builtin class-name">echo</span> <span class="token string">"ShellCheck failed on <span class="token variable">$script</span>"</span>
+</span><span class="code-line">        <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line">    <span class="token keyword">fi</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span></code></pre>
+<h3>GitHub Actions Workflow</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">name</span><span class="token punctuation">:</span> ShellCheck
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">on</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>push<span class="token punctuation">,</span> pull_request<span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">jobs</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">shellcheck</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">runs-on</span><span class="token punctuation">:</span> ubuntu<span class="token punctuation">-</span>latest
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/checkout@v3
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> Run ShellCheck
+</span><span class="code-line">        <span class="token key atrule">run</span><span class="token punctuation">:</span> <span class="token punctuation">|</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">          sudo apt-get install shellcheck
+</span></span><span class="code-line"><span class="token scalar string">          find . -type f -name "*.sh" -exec shellcheck {} \;</span>
+</span></code></pre>
+<h3>GitLab CI Pipeline</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">shellcheck</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">stage</span><span class="token punctuation">:</span> lint
+</span><span class="code-line">  <span class="token key atrule">image</span><span class="token punctuation">:</span> koalaman/shellcheck<span class="token punctuation">-</span>alpine
+</span><span class="code-line">  <span class="token key atrule">script</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> find . <span class="token punctuation">-</span>type f <span class="token punctuation">-</span>name "<span class="token important">*.sh"</span> <span class="token punctuation">-</span>exec shellcheck <span class="token punctuation">{</span><span class="token punctuation">}</span> \;
+</span><span class="code-line">  <span class="token key atrule">allow_failure</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span></code></pre>
+<h2>Handling ShellCheck Violations</h2>
+<h3>Suppressing Specific Warnings</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Disable warning for entire line</span>
+</span><span class="code-line"><span class="token comment"># shellcheck disable=SC2086</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">file</span> <span class="token keyword">in</span> <span class="token variable"><span class="token variable">$(</span><span class="token function">ls</span> <span class="token parameter variable">-la</span><span class="token variable">)</span></span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"<span class="token variable">$file</span>"</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Disable for entire script</span>
+</span><span class="code-line"><span class="token comment"># shellcheck disable=SC1091,SC2119</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Disable multiple warnings (format varies)</span>
+</span><span class="code-line"><span class="token function-name function">command_that_fails</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment"># shellcheck disable=SC2015</span>
+</span><span class="code-line">    <span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$1</span>"</span> <span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">echo</span> <span class="token string">"found"</span> <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">"not found"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Disable specific check for source directive</span>
+</span><span class="code-line"><span class="token comment"># shellcheck source=./helper.sh</span>
+</span><span class="code-line"><span class="token builtin class-name">source</span> helper.sh
+</span></code></pre>
+<h3>Common Violations and Fixes</h3>
+<h4>SC2086: Double quote to prevent word splitting</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Problem</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">i</span> <span class="token keyword">in</span> <span class="token variable">$list</span><span class="token punctuation">;</span> <span class="token keyword">do</span> <span class="token keyword">done</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Solution</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">i</span> <span class="token keyword">in</span> <span class="token variable">$list</span><span class="token punctuation">;</span> <span class="token keyword">do</span> <span class="token keyword">done</span>  <span class="token comment"># If $list is already quoted, or</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">i</span> <span class="token keyword">in</span> <span class="token string">"<span class="token variable">${list<span class="token punctuation">[</span>@<span class="token punctuation">]</span>}</span>"</span><span class="token punctuation">;</span> <span class="token keyword">do</span> <span class="token keyword">done</span>  <span class="token comment"># If list is an array</span>
+</span></code></pre>
+<h4>SC2181: Check exit code directly</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Problem</span>
+</span><span class="code-line">some_command
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token variable">$?</span> <span class="token parameter variable">-eq</span> <span class="token number">0</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"success"</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Solution</span>
+</span><span class="code-line"><span class="token keyword">if</span> some_command<span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"success"</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span></code></pre>
+<h4>SC2015: Use if-then instead of &amp;&amp; ||</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Problem</span>
+</span><span class="code-line"><span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$file</span>"</span> <span class="token punctuation">]</span> <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">echo</span> <span class="token string">"exists"</span> <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">"not found"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Solution - clearer intent</span>
+</span><span class="code-line"><span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$file</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"exists"</span>
+</span><span class="code-line"><span class="token keyword">else</span>
+</span><span class="code-line">    <span class="token builtin class-name">echo</span> <span class="token string">"not found"</span>
+</span><span class="code-line"><span class="token keyword">fi</span>
+</span></code></pre>
+<h4>SC2016: Expressions don't expand in single quotes</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Problem</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">'Variable value: $VAR'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Solution</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"Variable value: <span class="token variable">$VAR</span>"</span>
+</span></code></pre>
+<h4>SC2009: Use pgrep instead of grep</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Problem</span>
+</span><span class="code-line"><span class="token function">ps</span> aux <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-v</span> <span class="token function">grep</span> <span class="token operator">|</span> <span class="token function">grep</span> myprocess
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Solution</span>
+</span><span class="code-line">pgrep <span class="token parameter variable">-f</span> myprocess
+</span></code></pre>
+<h2>Performance Optimization</h2>
+<h3>Checking Multiple Files</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Sequential checking</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token for-or-select variable">script</span> <span class="token keyword">in</span> *.sh<span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">    <span class="token function">shellcheck</span> <span class="token string">"<span class="token variable">$script</span>"</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Parallel checking (faster)</span>
+</span><span class="code-line"><span class="token function">find</span> <span class="token builtin class-name">.</span> <span class="token parameter variable">-name</span> <span class="token string">"*.sh"</span> <span class="token parameter variable">-print0</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+</span><span class="code-line">    <span class="token function">xargs</span> <span class="token parameter variable">-0</span> <span class="token parameter variable">-P</span> <span class="token number">4</span> <span class="token parameter variable">-n</span> <span class="token number">1</span> <span class="token function">shellcheck</span>
+</span></code></pre>
+<h3>Caching Results</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token shebang important">#!/bin/bash</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token assign-left variable">CACHE_DIR</span><span class="token operator">=</span><span class="token string">".shellcheck_cache"</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token string">"<span class="token variable">$CACHE_DIR</span>"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function-name function">check_script</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token builtin class-name">local</span> <span class="token assign-left variable">script</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$1</span>"</span>
+</span><span class="code-line">    <span class="token builtin class-name">local</span> <span class="token builtin class-name">hash</span>
+</span><span class="code-line">    <span class="token builtin class-name">local</span> cache_file
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token assign-left variable">hash</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>sha256sum <span class="token string">"<span class="token variable">$script</span>"</span> <span class="token operator">|</span> <span class="token function">cut</span> -d<span class="token string">' '</span> <span class="token parameter variable">-f1</span><span class="token variable">)</span></span>
+</span><span class="code-line">    <span class="token assign-left variable">cache_file</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$CACHE_DIR</span>/<span class="token variable">$hash</span>"</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$cache_file</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token function">shellcheck</span> <span class="token string">"<span class="token variable">$script</span>"</span> <span class="token operator">&gt;</span> <span class="token string">"<span class="token variable">$cache_file</span>"</span> <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+</span><span class="code-line">            <span class="token function">touch</span> <span class="token string">"<span class="token variable">$cache_file</span>.ok"</span>
+</span><span class="code-line">        <span class="token keyword">else</span>
+</span><span class="code-line">            <span class="token builtin class-name">return</span> <span class="token number">1</span>
+</span><span class="code-line">        <span class="token keyword">fi</span>
+</span><span class="code-line">    <span class="token keyword">fi</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token punctuation">[</span><span class="token punctuation">[</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$cache_file</span>.ok"</span> <span class="token punctuation">]</span><span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">find</span> <span class="token builtin class-name">.</span> <span class="token parameter variable">-name</span> <span class="token string">"*.sh"</span> <span class="token operator">|</span> <span class="token keyword">while</span> <span class="token builtin class-name">read</span> <span class="token parameter variable">-r</span> script<span class="token punctuation">;</span> <span class="token keyword">do</span>
+</span><span class="code-line">    check_script <span class="token string">"<span class="token variable">$script</span>"</span> <span class="token operator">||</span> <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+</span><span class="code-line"><span class="token keyword">done</span>
+</span></code></pre>
+<h2>Output Formats</h2>
+<h3>Default Format</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">shellcheck</span> script.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Output:</span>
+</span><span class="code-line"><span class="token comment"># script.sh:1:3: warning: foo is referenced but not assigned. [SC2154]</span>
+</span></code></pre>
+<h3>GCC Format (for CI/CD)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">shellcheck</span> <span class="token parameter variable">--format</span><span class="token operator">=</span>gcc script.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Output:</span>
+</span><span class="code-line"><span class="token comment"># script.sh:1:3: warning: foo is referenced but not assigned.</span>
+</span></code></pre>
+<h3>JSON Format (for parsing)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">shellcheck</span> <span class="token parameter variable">--format</span><span class="token operator">=</span>json script.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Output:</span>
+</span><span class="code-line"><span class="token comment"># [{"file": "script.sh", "line": 1, "column": 3, "level": "warning", "code": 2154, "message": "..."}]</span>
+</span></code></pre>
+<h3>Quiet Format</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">shellcheck</span> <span class="token parameter variable">--format</span><span class="token operator">=</span>quiet script.sh
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Returns non-zero if issues found, no output otherwise</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Run ShellCheck in CI/CD</strong> - Catch issues before merging</li>
+<li><strong>Configure for your target shell</strong> - Don't analyze bash as sh</li>
+<li><strong>Document exclusions</strong> - Explain why violations are suppressed</li>
+<li><strong>Address violations</strong> - Don't just disable warnings</li>
+<li><strong>Enable strict mode</strong> - Use <code>--enable=all</code> with careful exclusions</li>
+<li><strong>Update regularly</strong> - Keep ShellCheck current for new checks</li>
+<li><strong>Use pre-commit hooks</strong> - Catch issues locally before pushing</li>
+<li><strong>Integrate with editors</strong> - Get real-time feedback during development</li>
+</ol></div>

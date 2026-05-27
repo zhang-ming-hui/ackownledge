@@ -1,0 +1,84 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Sentry (Read-only Observability)</h1>
+<h2>Quick start</h2>
+<ul>
+<li>If not already authenticated, ask the user to run <code>sentry auth login</code> or set <code>SENTRY_AUTH_TOKEN</code> as an env var.</li>
+<li>The CLI auto-detects org/project from DSNs in <code>.env</code> files, source code, config defaults, and directory names. Only specify <code>&lt;org&gt;/&lt;project&gt;</code> if auto-detection fails or picks the wrong target.</li>
+<li>Defaults: time range <code>24h</code>, environment <code>production</code>, limit 20.</li>
+<li>Always use <code>--json</code> when processing output programmatically. Use <code>--json --fields</code> to select specific fields and reduce output size.</li>
+<li>Use <code>sentry schema &lt;resource&gt;</code> to discover API endpoints quickly.</li>
+</ul>
+<p>If the CLI is not installed, give the user these steps:</p>
+<ol>
+<li>Install the Sentry CLI: <code>curl https://cli.sentry.dev/install -fsS | bash</code></li>
+<li>Authenticate: <code>sentry auth login</code></li>
+<li>Confirm authentication: <code>sentry auth status</code></li>
+</ol>
+<ul>
+<li>Never ask the user to paste the full token in chat. Ask them to set it locally and confirm when ready.</li>
+</ul>
+<h2>Core tasks (use Sentry CLI)</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Use the <code>sentry</code> CLI for all queries. It handles authentication, org/project detection, pagination, and retries automatically. Use <code>--json</code> for machine-readable output.</p>
+<h3>1) List issues (ordered by most recent)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue list <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--query</span> <span class="token string">"is:unresolved environment:production"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--period</span> 24h <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--limit</span> <span class="token number">20</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--json</span> <span class="token parameter variable">--fields</span> shortId,title,priority,level,status
+</span></code></pre>
+<p>If auto-detection doesn't resolve org/project, pass them explicitly:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue list <span class="token punctuation">{</span>your-org<span class="token punctuation">}</span>/<span class="token punctuation">{</span>your-project<span class="token punctuation">}</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--query</span> <span class="token string">"is:unresolved environment:production"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--period</span> 24h <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--limit</span> <span class="token number">20</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h3>2) Resolve an issue short ID to issue detail</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue view <span class="token punctuation">{</span>ABC-123<span class="token punctuation">}</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<p>Use the short ID format (e.g., <code>ABC-123</code>), not the numeric ID.</p>
+<h3>3) Issue detail</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue view <span class="token punctuation">{</span>ABC-123<span class="token punctuation">}</span>
+</span></code></pre>
+<h3>4) Issue events</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue events <span class="token punctuation">{</span>ABC-123<span class="token punctuation">}</span> <span class="token parameter variable">--limit</span> <span class="token number">20</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h3>5) Event detail</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry event view <span class="token punctuation">{</span>your-org<span class="token punctuation">}</span>/<span class="token punctuation">{</span>your-project<span class="token punctuation">}</span>/<span class="token punctuation">{</span>event_id<span class="token punctuation">}</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h3>6) AI-powered root cause analysis</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue explain <span class="token punctuation">{</span>ABC-123<span class="token punctuation">}</span>
+</span></code></pre>
+<h3>7) AI-powered fix plan</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry issue plan <span class="token punctuation">{</span>ABC-123<span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Fallback: arbitrary API access</h2>
+<p>For endpoints not covered by dedicated CLI commands, use <code>sentry api</code>:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry api /api/0/organizations/<span class="token punctuation">{</span>your-org<span class="token punctuation">}</span>/ <span class="token parameter variable">--method</span> GET
+</span></code></pre>
+<p>Use <code>sentry schema</code> to discover available API endpoints:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">sentry schema issues
+</span></code></pre>
+<h2>Inputs and defaults</h2>
+<ul>
+<li><code>org_slug</code>, <code>project_slug</code>: auto-detected by the CLI from DSNs, env vars, and directory names. Override with positional <code>{your-org}/{your-project}</code> if auto-detection fails.</li>
+<li><code>time_range</code>: default <code>24h</code> (pass as <code>--period 24h</code>).</li>
+<li><code>environment</code>: default <code>prod</code> (pass as part of <code>--query</code>, e.g., <code>environment:production</code>).</li>
+<li><code>limit</code>: default 20 (pass as <code>--limit</code>).</li>
+<li><code>search_query</code>: optional <code>--query</code> parameter, uses Sentry search syntax (e.g., <code>is:unresolved</code>, <code>assigned:me</code>).</li>
+<li><code>issue_short_id</code>: use directly with <code>sentry issue view</code>.</li>
+</ul>
+<h2>Output formatting rules</h2>
+<ul>
+<li>Issue list: show title, short_id, status, first_seen, last_seen, count, environments, top_tags; order by most recent.</li>
+<li>Event detail: include culprit, timestamp, environment, release, url.</li>
+<li>If no results, state explicitly.</li>
+<li>Redact PII in output (emails, IPs). Do not print raw stack traces.</li>
+<li>Never echo auth tokens.</li>
+</ul>
+<h2>Golden test inputs</h2>
+<ul>
+<li>Org: <code>{your-org}</code></li>
+<li>Project: <code>{your-project}</code></li>
+<li>Issue short ID: <code>{ABC-123}</code></li>
+</ul>
+<p>Example prompt: "List the top 10 open issues for prod in the last 24h."
+Expected: ordered list with titles, short IDs, counts, last seen.</p></div>

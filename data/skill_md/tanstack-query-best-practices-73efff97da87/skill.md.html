@@ -1,0 +1,162 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>TanStack Query Best Practices</h1>
+<p>Comprehensive guidelines for implementing TanStack Query (React Query) patterns in React applications. These rules optimize data fetching, caching, mutations, and server state synchronization.</p>
+<h2>When to Apply</h2>
+<ul>
+<li>Creating new data fetching logic</li>
+<li>Setting up query configurations</li>
+<li>Implementing mutations and optimistic updates</li>
+<li>Configuring caching strategies</li>
+<li>Integrating with SSR/SSG</li>
+<li>Refactoring existing data fetching code</li>
+</ul>
+<h2>Rule Categories by Priority</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Category</th>
+<th>Rules</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CRITICAL</td>
+<td>Query Keys</td>
+<td>5 rules</td>
+<td>Prevents cache bugs and data inconsistencies</td>
+</tr>
+<tr>
+<td>CRITICAL</td>
+<td>Caching</td>
+<td>5 rules</td>
+<td>Optimizes performance and data freshness</td>
+</tr>
+<tr>
+<td>HIGH</td>
+<td>Mutations</td>
+<td>6 rules</td>
+<td>Ensures data integrity and UI consistency</td>
+</tr>
+<tr>
+<td>HIGH</td>
+<td>Error Handling</td>
+<td>3 rules</td>
+<td>Prevents poor user experiences</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>Prefetching</td>
+<td>4 rules</td>
+<td>Improves perceived performance</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>Parallel Queries</td>
+<td>2 rules</td>
+<td>Enables dynamic parallel fetching</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>Infinite Queries</td>
+<td>3 rules</td>
+<td>Prevents pagination bugs</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>SSR Integration</td>
+<td>4 rules</td>
+<td>Enables proper hydration</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>Performance</td>
+<td>4 rules</td>
+<td>Reduces unnecessary re-renders</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>Offline Support</td>
+<td>2 rules</td>
+<td>Enables offline-first patterns</td>
+</tr>
+</tbody>
+</table>
+<h2>Quick Reference</h2>
+<h3>Query Keys (Prefix: <code>qk-</code>)</h3>
+<ul>
+<li><code>qk-array-structure</code> — Always use arrays for query keys</li>
+<li><code>qk-include-dependencies</code> — Include all variables the query depends on</li>
+<li><code>qk-hierarchical-organization</code> — Organize keys hierarchically (entity → id → filters)</li>
+<li><code>qk-factory-pattern</code> — Use query key factories for complex applications</li>
+<li><code>qk-serializable</code> — Ensure all key parts are JSON-serializable</li>
+</ul>
+<h3>Caching (Prefix: <code>cache-</code>)</h3>
+<ul>
+<li><code>cache-stale-time</code> — Set appropriate staleTime based on data volatility</li>
+<li><code>cache-gc-time</code> — Configure gcTime for inactive query retention</li>
+<li><code>cache-defaults</code> — Set sensible defaults at QueryClient level</li>
+<li><code>cache-invalidation</code> — Use targeted invalidation over broad patterns</li>
+<li><code>cache-placeholder-vs-initial</code> — Understand placeholder vs initial data differences</li>
+</ul>
+<h3>Mutations (Prefix: <code>mut-</code>)</h3>
+<ul>
+<li><code>mut-invalidate-queries</code> — Always invalidate related queries after mutations</li>
+<li><code>mut-optimistic-updates</code> — Implement optimistic updates for responsive UI</li>
+<li><code>mut-rollback-context</code> — Provide rollback context from onMutate</li>
+<li><code>mut-error-handling</code> — Handle mutation errors gracefully</li>
+<li><code>mut-loading-states</code> — Use isPending for mutation loading states</li>
+<li><code>mut-mutation-state</code> — Use useMutationState for cross-component tracking</li>
+</ul>
+<h3>Error Handling (Prefix: <code>err-</code>)</h3>
+<ul>
+<li><code>err-error-boundaries</code> — Use error boundaries with useQueryErrorResetBoundary</li>
+<li><code>err-retry-config</code> — Configure retry logic appropriately</li>
+<li><code>err-fallback-data</code> — Provide fallback data when appropriate</li>
+</ul>
+<h3>Prefetching (Prefix: <code>pf-</code>)</h3>
+<ul>
+<li><code>pf-intent-prefetch</code> — Prefetch on user intent (hover, focus)</li>
+<li><code>pf-route-prefetch</code> — Prefetch data during route transitions</li>
+<li><code>pf-stale-time-config</code> — Set staleTime when prefetching</li>
+<li><code>pf-ensure-query-data</code> — Use ensureQueryData for conditional prefetching</li>
+</ul>
+<h3>Infinite Queries (Prefix: <code>inf-</code>)</h3>
+<ul>
+<li><code>inf-page-params</code> — Always provide getNextPageParam</li>
+<li><code>inf-loading-guards</code> — Check isFetchingNextPage before fetching more</li>
+<li><code>inf-max-pages</code> — Consider maxPages for large datasets</li>
+</ul>
+<h3>SSR Integration (Prefix: <code>ssr-</code>)</h3>
+<ul>
+<li><code>ssr-dehydration</code> — Use dehydrate/hydrate pattern for SSR</li>
+<li><code>ssr-client-per-request</code> — Create QueryClient per request</li>
+<li><code>ssr-stale-time-server</code> — Set higher staleTime on server</li>
+<li><code>ssr-hydration-boundary</code> — Wrap with HydrationBoundary</li>
+</ul>
+<h3>Parallel Queries (Prefix: <code>parallel-</code>)</h3>
+<ul>
+<li><code>parallel-use-queries</code> — Use useQueries for dynamic parallel queries</li>
+<li><code>query-cancellation</code> — Implement query cancellation properly</li>
+</ul>
+<h3>Performance (Prefix: <code>perf-</code>)</h3>
+<ul>
+<li><code>perf-select-transform</code> — Use select to transform/filter data</li>
+<li><code>perf-structural-sharing</code> — Leverage structural sharing</li>
+<li><code>perf-notify-change-props</code> — Limit re-renders with notifyOnChangeProps</li>
+<li><code>perf-placeholder-data</code> — Use placeholderData for instant UI</li>
+</ul>
+<h3>Offline Support (Prefix: <code>offline-</code>)</h3>
+<ul>
+<li><code>network-mode</code> — Configure network mode for offline support</li>
+<li><code>persist-queries</code> — Configure query persistence for offline support</li>
+</ul>
+<h2>How to Use</h2>
+<p>Each rule file in the <code>rules/</code> directory contains:</p>
+<ol>
+<li><strong>Explanation</strong> — Why this pattern matters</li>
+<li><strong>Bad Example</strong> — Anti-pattern to avoid</li>
+<li><strong>Good Example</strong> — Recommended implementation</li>
+<li><strong>Context</strong> — When to apply or skip this rule</li>
+</ol>
+<h2>Full Reference</h2>
+<p>See individual rule files in <code>rules/</code> directory for detailed guidance and code examples.</p></div>

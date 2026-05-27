@@ -1,0 +1,649 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Firebase Genkit</h1>
+<h2>When to use this skill</h2>
+<ul>
+<li><strong>AI workflow orchestration</strong>: Building multi-step AI pipelines with type-safe inputs/outputs</li>
+<li><strong>Flow-based APIs</strong>: Wrapping LLM calls into deployable HTTP endpoints</li>
+<li><strong>Tool calling / agents</strong>: Equipping models with custom tools and implementing agentic loops</li>
+<li><strong>RAG pipelines</strong>: Retrieval-augmented generation with vector databases (Pinecone, pgvector, Firestore, Chroma, etc.)</li>
+<li><strong>Multi-agent systems</strong>: Coordinating multiple specialized AI agents</li>
+<li><strong>Streaming responses</strong>: Real-time token-by-token output for chat or long-form content</li>
+<li><strong>Firebase/Cloud Run deployment</strong>: Deploying AI functions to Google Cloud</li>
+<li><strong>Prompt management</strong>: Managing prompts as versioned <code>.prompt</code> files with Dotprompt</li>
+</ul>
+<hr>
+<h2>Installation &amp; Setup</h2>
+<h3>Step 1: Install the Genkit CLI</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># npm (recommended for JavaScript/TypeScript)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-g</span> genkit-cli
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># macOS/Linux binary</span>
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-sL</span> cli.genkit.dev <span class="token operator">|</span> <span class="token function">bash</span>
+</span></code></pre>
+<h3>Step 2: Create a TypeScript project</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> my-genkit-app <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">cd</span> my-genkit-app
+</span><span class="code-line"><span class="token function">npm</span> init <span class="token parameter variable">-y</span>
+</span><span class="code-line"><span class="token function">npm</span> pkg <span class="token builtin class-name">set</span> <span class="token assign-left variable">type</span><span class="token operator">=</span>module
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> <span class="token parameter variable">-D</span> typescript tsx
+</span><span class="code-line">npx tsc <span class="token parameter variable">--init</span>
+</span><span class="code-line"><span class="token function">mkdir</span> src <span class="token operator">&amp;&amp;</span> <span class="token function">touch</span> src/index.ts
+</span></code></pre>
+<h3>Step 3: Install Genkit core and a model plugin</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Core + Google AI (Gemini) — free tier, no credit card required</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> genkit @genkit-ai/google-genai
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or: Vertex AI (requires GCP project)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> genkit @genkit-ai/vertexai
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or: OpenAI</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> genkit genkitx-openai
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or: Anthropic (Claude)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> genkit genkitx-anthropic
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or: Ollama (local models)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> genkit genkitx-ollama
+</span></code></pre>
+<h3>Step 4: Configure API Key</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Google AI (Gemini)</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">GEMINI_API_KEY</span><span class="token operator">=</span>your_key_here
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># OpenAI</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">OPENAI_API_KEY</span><span class="token operator">=</span>your_key_here
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Anthropic</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">ANTHROPIC_API_KEY</span><span class="token operator">=</span>your_key_here
+</span></code></pre>
+<hr>
+<h2>Core Concepts</h2>
+<h3>Initializing Genkit</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> googleAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/google-genai'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> genkit <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> ai <span class="token operator">=</span> <span class="token function">genkit</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  plugins<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">googleAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  model<span class="token operator">:</span> googleAI<span class="token punctuation">.</span><span class="token function">model</span><span class="token punctuation">(</span><span class="token string">'gemini-2.5-flash'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token comment">// default model</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Defining Flows</h3>
+<p>Flows are the core primitive: type-safe, observable, deployable AI functions.</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> genkit<span class="token punctuation">,</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> googleAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/google-genai'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> ai <span class="token operator">=</span> <span class="token function">genkit</span><span class="token punctuation">(</span><span class="token punctuation">{</span> plugins<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">googleAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Input/output schemas with Zod</span>
+</span><span class="code-line"><span class="token keyword">const</span> SummaryInputSchema <span class="token operator">=</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">'Text to summarize'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  maxWords<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">optional</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">default</span><span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> SummaryOutputSchema <span class="token operator">=</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  summary<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  keyPoints<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> summarizeFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'summarizeFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> SummaryInputSchema<span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> SummaryOutputSchema<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> text<span class="token punctuation">,</span> maxWords <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> output <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      model<span class="token operator">:</span> googleAI<span class="token punctuation">.</span><span class="token function">model</span><span class="token punctuation">(</span><span class="token string">'gemini-2.5-flash'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Summarize the following text in at most </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>maxWords<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> words and extract key points:\n\n</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>text<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">      output<span class="token operator">:</span> <span class="token punctuation">{</span> schema<span class="token operator">:</span> SummaryOutputSchema <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>output<span class="token punctuation">)</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'No output generated'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> output<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Call the flow</span>
+</span><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">summarizeFlow</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token string">'Long article content here...'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  maxWords<span class="token operator">:</span> <span class="token number">50</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>summary<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Generating Content</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Simple text generation</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  model<span class="token operator">:</span> googleAI<span class="token punctuation">.</span><span class="token function">model</span><span class="token punctuation">(</span><span class="token string">'gemini-2.5-flash'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  prompt<span class="token operator">:</span> <span class="token string">'Explain quantum computing in one sentence.'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Structured output</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> output <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  prompt<span class="token operator">:</span> <span class="token string">'List 3 programming languages with their use cases'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  output<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    schema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      languages<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        name<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        useCase<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// With system prompt</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> text<span class="token operator">:</span> response <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  system<span class="token operator">:</span> <span class="token string">'You are a senior TypeScript engineer. Be concise.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  prompt<span class="token operator">:</span> <span class="token string">'What is the difference between interface and type in TypeScript?'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Multimodal (image + text)</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> text<span class="token operator">:</span> description <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  prompt<span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> text<span class="token operator">:</span> <span class="token string">'What is in this image?'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> media<span class="token operator">:</span> <span class="token punctuation">{</span> url<span class="token operator">:</span> <span class="token string">'https://example.com/image.jpg'</span><span class="token punctuation">,</span> contentType<span class="token operator">:</span> <span class="token string">'image/jpeg'</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Streaming Flows</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> streamingFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'streamingFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> topic<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    streamSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>        <span class="token comment">// type of each chunk</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> full<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> topic <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> sendChunk <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> stream<span class="token punctuation">,</span> response <span class="token punctuation">}</span> <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">generateStream</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Write a detailed essay about </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>topic<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">.</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">for</span> <span class="token keyword">await</span> <span class="token punctuation">(</span><span class="token keyword">const</span> chunk <span class="token keyword">of</span> stream<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token function">sendChunk</span><span class="token punctuation">(</span>chunk<span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>         <span class="token comment">// stream each token to client</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> full<span class="token operator">:</span> text <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Client-side consumption</span>
+</span><span class="code-line"><span class="token keyword">const</span> stream <span class="token operator">=</span> streamingFlow<span class="token punctuation">.</span><span class="token function">stream</span><span class="token punctuation">(</span><span class="token punctuation">{</span> topic<span class="token operator">:</span> <span class="token string">'AI ethics'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">for</span> <span class="token keyword">await</span> <span class="token punctuation">(</span><span class="token keyword">const</span> chunk <span class="token keyword">of</span> stream<span class="token punctuation">.</span>stream<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  process<span class="token punctuation">.</span>stdout<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>chunk<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">const</span> finalOutput <span class="token operator">=</span> <span class="token keyword">await</span> stream<span class="token punctuation">.</span>output<span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Tool Calling (Agents)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Define tools</span>
+</span><span class="code-line"><span class="token keyword">const</span> getWeatherTool <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineTool</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'getWeather'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    description<span class="token operator">:</span> <span class="token string">'Get current weather for a city'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> city<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> temp<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> condition<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> city <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Call real weather API</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> temp<span class="token operator">:</span> <span class="token number">22</span><span class="token punctuation">,</span> condition<span class="token operator">:</span> <span class="token string">'sunny'</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> searchWebTool <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineTool</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'searchWeb'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    description<span class="token operator">:</span> <span class="token string">'Search the web for information'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> query<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> query <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Call search API</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Search results for: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>query<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Agent flow with tools</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> agentFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'agentFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> question<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> question <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> question<span class="token punctuation">,</span>
+</span><span class="code-line">      tools<span class="token operator">:</span> <span class="token punctuation">[</span>getWeatherTool<span class="token punctuation">,</span> searchWebTool<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      returnToolRequests<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token comment">// auto-execute tools</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> text<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Prompts with Dotprompt</h3>
+<p>Manage prompts as versioned <code>.prompt</code> files:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># src/prompts/summarize.prompt
+</span><span class="code-line">---
+</span><span class="code-line">model: googleai/gemini-2.5-flash
+</span><span class="code-line">input:
+</span><span class="code-line">  schema:
+</span><span class="code-line">    text: string
+</span><span class="code-line">    style?: string
+</span><span class="code-line">output:
+</span><span class="code-line">  schema:
+</span><span class="code-line">    summary: string
+</span><span class="code-line">    sentiment: string
+</span><span class="code-line">---
+</span><span class="code-line">Summarize the following text in a {{style, default: "professional"}} tone:
+</span><span class="code-line">
+</span><span class="code-line">{{text}}
+</span><span class="code-line">
+</span><span class="code-line">Return JSON with summary and sentiment (positive/negative/neutral).
+</span></code></pre>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Load and use dotprompt</span>
+</span><span class="code-line"><span class="token keyword">const</span> summarizePrompt <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">prompt</span><span class="token punctuation">(</span><span class="token string">'summarize'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> output <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">summarizePrompt</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token string">'Article content here...'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  style<span class="token operator">:</span> <span class="token string">'casual'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>RAG — Retrieval-Augmented Generation</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> devLocalVectorstore <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/dev-local-vectorstore'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> textEmbedding004 <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/google-genai'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> ai <span class="token operator">=</span> <span class="token function">genkit</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  plugins<span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token function">googleAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">devLocalVectorstore</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">      indexName<span class="token operator">:</span> <span class="token string">'documents'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      embedder<span class="token operator">:</span> textEmbedding004<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Index documents</span>
+</span><span class="code-line"><span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">index</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  indexer<span class="token operator">:</span> <span class="token function">devLocalVectorstoreIndexer</span><span class="token punctuation">(</span><span class="token string">'documents'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  docs<span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> content<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> text<span class="token operator">:</span> <span class="token string">'Document 1 content...'</span> <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">,</span> metadata<span class="token operator">:</span> <span class="token punctuation">{</span> source<span class="token operator">:</span> <span class="token string">'doc1'</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> content<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> text<span class="token operator">:</span> <span class="token string">'Document 2 content...'</span> <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">,</span> metadata<span class="token operator">:</span> <span class="token punctuation">{</span> source<span class="token operator">:</span> <span class="token string">'doc2'</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// RAG flow</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> ragFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'ragFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> question<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> question <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Retrieve relevant documents</span>
+</span><span class="code-line">    <span class="token keyword">const</span> docs <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">retrieve</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      retriever<span class="token operator">:</span> <span class="token function">devLocalVectorstoreRetriever</span><span class="token punctuation">(</span><span class="token string">'documents'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      query<span class="token operator">:</span> question<span class="token punctuation">,</span>
+</span><span class="code-line">      options<span class="token operator">:</span> <span class="token punctuation">{</span> k<span class="token operator">:</span> <span class="token number">3</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Generate answer grounded in retrieved docs</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      system<span class="token operator">:</span> <span class="token string">'Answer questions using only the provided context.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> question<span class="token punctuation">,</span>
+</span><span class="code-line">      docs<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> text<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Chat Sessions</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> chatFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'chatFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> message<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> sessionId<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> message<span class="token punctuation">,</span> sessionId <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> session <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">loadSession</span><span class="token punctuation">(</span>sessionId<span class="token punctuation">)</span> <span class="token operator">??</span> ai<span class="token punctuation">.</span><span class="token function">createSession</span><span class="token punctuation">(</span><span class="token punctuation">{</span> sessionId <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> chat <span class="token operator">=</span> session<span class="token punctuation">.</span><span class="token function">chat</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      system<span class="token operator">:</span> <span class="token string">'You are a helpful assistant.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> chat<span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> text<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Multi-Agent Systems</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Specialist agents</span>
+</span><span class="code-line"><span class="token keyword">const</span> researchAgent <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'researchAgent'</span><span class="token punctuation">,</span> inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span>query<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      system<span class="token operator">:</span> <span class="token string">'You are a research expert. Gather facts and cite sources.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> query<span class="token punctuation">,</span>
+</span><span class="code-line">      tools<span class="token operator">:</span> <span class="token punctuation">[</span>searchWebTool<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> text<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> writerAgent <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'writerAgent'</span><span class="token punctuation">,</span> inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span>brief<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      system<span class="token operator">:</span> <span class="token string">'You are a professional writer. Write clear, engaging content.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> brief<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> text<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Orchestrator delegates to specialists</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> contentPipelineFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'contentPipelineFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> topic<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> topic <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> research <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">researchAgent</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Research: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>topic<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> article <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">writerAgent</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Write an article based on: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>research<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> article<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<hr>
+<h2>Developer Tools</h2>
+<h3>CLI Commands</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Start Developer UI + connect to your app</span>
+</span><span class="code-line">genkit start -- npx tsx <span class="token parameter variable">--watch</span> src/index.ts
+</span><span class="code-line">genkit start <span class="token parameter variable">-o</span> -- npx tsx src/index.ts    <span class="token comment"># auto-open browser</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run a specific flow from CLI</span>
+</span><span class="code-line">genkit flow:run summarizeFlow <span class="token string">'{"text": "Hello world", "maxWords": 10}'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run with streaming output</span>
+</span><span class="code-line">genkit flow:run streamingFlow <span class="token string">'{"topic": "AI"}'</span> <span class="token parameter variable">-s</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Evaluate a flow</span>
+</span><span class="code-line">genkit eval:flow ragFlow <span class="token parameter variable">--input</span> eval-inputs.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># View all commands</span>
+</span><span class="code-line">genkit <span class="token parameter variable">--help</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Disable analytics telemetry</span>
+</span><span class="code-line">genkit config <span class="token builtin class-name">set</span> analyticsOptOut <span class="token boolean">true</span>
+</span></code></pre>
+<h3>Developer UI</h3>
+<p>The Developer UI runs at <strong><a href="http://localhost:4000" target="_blank" rel="ugc nofollow noopener">http://localhost:4000</a></strong> and provides:</p>
+<ul>
+<li><strong>Flow runner</strong>: Execute flows with custom JSON inputs</li>
+<li><strong>Trace inspector</strong>: Visualize each step (generate, embed, retrieve, tool calls)</li>
+<li><strong>Prompt playground</strong>: Test prompts interactively</li>
+<li><strong>Model tester</strong>: Compare outputs across different models</li>
+<li><strong>Evaluator</strong>: Run evaluation datasets against flows</li>
+</ul>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Add npm script for convenience</span>
+</span><span class="code-line"><span class="token comment"># package.json</span>
+</span><span class="code-line"><span class="token string">"scripts"</span><span class="token builtin class-name">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token string">"genkit:dev"</span><span class="token builtin class-name">:</span> <span class="token string">"genkit start -- npx tsx --watch src/index.ts"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">npm</span> run genkit:dev
+</span></code></pre>
+<hr>
+<h2>Deployment</h2>
+<h3>Firebase Cloud Functions</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> onCallGenkit <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'firebase-functions/https'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> defineSecret <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'firebase-functions/params'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> apiKey <span class="token operator">=</span> <span class="token function">defineSecret</span><span class="token punctuation">(</span><span class="token string">'GOOGLE_AI_API_KEY'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> summarize <span class="token operator">=</span> <span class="token function">onCallGenkit</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> secrets<span class="token operator">:</span> <span class="token punctuation">[</span>apiKey<span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  summarizeFlow
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">firebase deploy <span class="token parameter variable">--only</span> functions
+</span></code></pre>
+<h3>Express.js Server</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> express <span class="token keyword">from</span> <span class="token string">'express'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> expressHandler <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit/express'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token function">express</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">use</span><span class="token punctuation">(</span>express<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">'/summarize'</span><span class="token punctuation">,</span> <span class="token function">expressHandler</span><span class="token punctuation">(</span>summarizeFlow<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string">'/chat'</span><span class="token punctuation">,</span> <span class="token function">expressHandler</span><span class="token punctuation">(</span>chatFlow<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">listen</span><span class="token punctuation">(</span><span class="token number">3000</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Server running on port 3000'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Cloud Run</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Build and deploy</span>
+</span><span class="code-line">gcloud run deploy genkit-app <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--source</span> <span class="token builtin class-name">.</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--region</span> us-central1 <span class="token punctuation">\</span>
+</span><span class="code-line">  --set-env-vars <span class="token assign-left variable">GEMINI_API_KEY</span><span class="token operator">=</span><span class="token variable">$GEMINI_API_KEY</span>
+</span></code></pre>
+<hr>
+<h2>Supported Plugins</h2>
+<h3>Model Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Plugin</th>
+<th>Package</th>
+<th>Models</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google AI</td>
+<td><code>@genkit-ai/google-genai</code></td>
+<td>Gemini 2.5 Flash/Pro</td>
+</tr>
+<tr>
+<td>Vertex AI</td>
+<td><code>@genkit-ai/vertexai</code></td>
+<td>Gemini, Imagen, Claude</td>
+</tr>
+<tr>
+<td>OpenAI</td>
+<td><code>genkitx-openai</code></td>
+<td>GPT-4o, o1, etc.</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td><code>genkitx-anthropic</code></td>
+<td>Claude 3.5/3</td>
+</tr>
+<tr>
+<td>AWS Bedrock</td>
+<td><code>genkitx-aws-bedrock</code></td>
+<td>Claude, Titan, etc.</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td><code>genkitx-ollama</code></td>
+<td>Local models</td>
+</tr>
+<tr>
+<td>DeepSeek</td>
+<td><code>genkitx-deepseek</code></td>
+<td>DeepSeek-R1</td>
+</tr>
+<tr>
+<td>xAI (Grok)</td>
+<td><code>genkitx-xai</code></td>
+<td>Grok models</td>
+</tr>
+</tbody>
+</table>
+<h3>Vector Databases</h3>
+<table>
+<thead>
+<tr>
+<th>Plugin</th>
+<th>Package</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dev Local (testing)</td>
+<td><code>@genkit-ai/dev-local-vectorstore</code></td>
+</tr>
+<tr>
+<td>Pinecone</td>
+<td><code>genkitx-pinecone</code></td>
+</tr>
+<tr>
+<td>pgvector</td>
+<td><code>genkitx-pgvector</code></td>
+</tr>
+<tr>
+<td>Chroma</td>
+<td><code>genkitx-chroma</code></td>
+</tr>
+<tr>
+<td>Cloud Firestore</td>
+<td><code>@genkit-ai/firebase</code></td>
+</tr>
+<tr>
+<td>LanceDB</td>
+<td><code>genkitx-lancedb</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Always define input/output schemas</strong> — Use Zod objects for Dev UI labeled fields and API safety</li>
+<li><strong>Use flows for all AI logic</strong> — Even simple calls; flows give you tracing and deployment for free</li>
+<li><strong>Store API keys in environment variables</strong> — Never hardcode; use Firebase Secrets for production</li>
+<li><strong>Use <code>ai.run()</code> to trace custom steps</strong> — Wrap non-Genkit code in <code>ai.run()</code> for trace visibility</li>
+<li><strong>Stream long-form content</strong> — Use <code>defineFlow</code> with <code>streamSchema</code> + <code>sendChunk</code> for better UX</li>
+<li><strong>Separate concerns with agents</strong> — Specialized subflows &gt; one monolithic flow</li>
+<li><strong>Use Dotprompt for team prompts</strong> — <code>.prompt</code> files enable versioning, review, and reuse</li>
+</ol>
+<h2>Constraints</h2>
+<h3>Must Do</h3>
+<ul>
+<li>Define schemas for all flow inputs and outputs</li>
+<li>Handle <code>null</code> output from <code>generate()</code> — throw meaningful errors</li>
+<li>Set <code>GENKIT_ENV=dev</code> when running flows separately from the dev server</li>
+<li>Use <code>onCallGenkit</code> (not raw Cloud Functions) when deploying to Firebase</li>
+</ul>
+<h3>Must Not Do</h3>
+<ul>
+<li>Never hardcode API keys in source code</li>
+<li>Do not use <code>generate()</code> outside a flow if you need tracing/observability</li>
+<li>Do not call <code>genkit start</code> without a command — always pass <code>-- &lt;your-run-command&gt;</code></li>
+<li>Avoid blocking the event loop in tool handlers — use <code>async/await</code></li>
+</ul>
+<hr>
+<h2>References</h2>
+<ul>
+<li><a href="https://genkit.dev/docs/overview/" target="_blank" rel="ugc nofollow noopener">Official Docs</a></li>
+<li><a href="https://genkit.dev/docs/get-started/" target="_blank" rel="ugc nofollow noopener">Get Started Guide</a></li>
+<li><a href="https://genkit.dev/docs/devtools/" target="_blank" rel="ugc nofollow noopener">Developer Tools</a></li>
+<li><a href="https://genkit.dev/docs/flows/" target="_blank" rel="ugc nofollow noopener">Flows Reference</a></li>
+<li><a href="https://genkit.dev/docs/tool-calling/" target="_blank" rel="ugc nofollow noopener">Tool Calling</a></li>
+<li><a href="https://genkit.dev/docs/rag/" target="_blank" rel="ugc nofollow noopener">RAG Guide</a></li>
+<li><a href="https://genkit.dev/docs/multi-agent/" target="_blank" rel="ugc nofollow noopener">Multi-Agent Systems</a></li>
+<li><a href="https://genkit.dev/docs/dotprompt/" target="_blank" rel="ugc nofollow noopener">Dotprompt</a></li>
+<li><a href="https://github.com/firebase/genkit" target="_blank" rel="ugc nofollow noopener">GitHub Repository</a></li>
+<li><a href="https://genkit.dev/docs/api-references/" target="_blank" rel="ugc nofollow noopener">API References</a></li>
+</ul>
+<h2>Examples</h2>
+<h3>Example 1: Minimal Flow</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> googleAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/google-genai'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> genkit<span class="token punctuation">,</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> ai <span class="token operator">=</span> <span class="token function">genkit</span><span class="token punctuation">(</span><span class="token punctuation">{</span> plugins<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">googleAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> helloFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'helloFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> name <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Say hello to </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> in a creative way.</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> text<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Run it</span>
+</span><span class="code-line"><span class="token keyword">const</span> greeting <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">helloFlow</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'World'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>greeting<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Example 2: Full RAG + Agent Pipeline</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> googleAI<span class="token punctuation">,</span> textEmbedding004 <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/google-genai'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> devLocalVectorstore <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/dev-local-vectorstore'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> genkit<span class="token punctuation">,</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> ai <span class="token operator">=</span> <span class="token function">genkit</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  plugins<span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token function">googleAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">devLocalVectorstore</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">{</span> indexName<span class="token operator">:</span> <span class="token string">'kb'</span><span class="token punctuation">,</span> embedder<span class="token operator">:</span> textEmbedding004 <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Index knowledge base documents</span>
+</span><span class="code-line"><span class="token keyword">const</span> indexKnowledgeBase <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'indexKB'</span><span class="token punctuation">,</span> inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span>texts<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">index</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      indexer<span class="token operator">:</span> <span class="token function">devLocalVectorstoreIndexer</span><span class="token punctuation">(</span><span class="token string">'kb'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      docs<span class="token operator">:</span> texts<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span>text <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> content<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> text <span class="token punctuation">}</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Answer questions using RAG</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> answerFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'answerFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> question<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> answer<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> sources<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">number</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> question <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> docs <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">retrieve</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      retriever<span class="token operator">:</span> <span class="token function">devLocalVectorstoreRetriever</span><span class="token punctuation">(</span><span class="token string">'kb'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      query<span class="token operator">:</span> question<span class="token punctuation">,</span>
+</span><span class="code-line">      options<span class="token operator">:</span> <span class="token punctuation">{</span> k<span class="token operator">:</span> <span class="token number">5</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> text <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      system<span class="token operator">:</span> <span class="token string">'Answer only from the provided context. If unsure, say so.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      prompt<span class="token operator">:</span> question<span class="token punctuation">,</span>
+</span><span class="code-line">      docs<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> answer<span class="token operator">:</span> text<span class="token punctuation">,</span> sources<span class="token operator">:</span> docs<span class="token punctuation">.</span>length <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Example 3: Multi-Model Comparison</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> googleAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'@genkit-ai/google-genai'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> openAI <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkitx-openai'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> genkit<span class="token punctuation">,</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'genkit'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> ai <span class="token operator">=</span> <span class="token function">genkit</span><span class="token punctuation">(</span><span class="token punctuation">{</span> plugins<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token function">googleAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">openAI</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">const</span> compareModelsFlow <span class="token operator">=</span> ai<span class="token punctuation">.</span><span class="token function">defineFlow</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span>
+</span><span class="code-line">    name<span class="token operator">:</span> <span class="token string">'compareModelsFlow'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    inputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> prompt<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    outputSchema<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span> gemini<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> gpt4o<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> prompt <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">[</span>geminiResult<span class="token punctuation">,</span> gptResult<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+</span><span class="code-line">      ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span> model<span class="token operator">:</span> googleAI<span class="token punctuation">.</span><span class="token function">model</span><span class="token punctuation">(</span><span class="token string">'gemini-2.5-flash'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> prompt <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      ai<span class="token punctuation">.</span><span class="token function">generate</span><span class="token punctuation">(</span><span class="token punctuation">{</span> model<span class="token operator">:</span> <span class="token string">'openai/gpt-4o'</span><span class="token punctuation">,</span> prompt <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      gemini<span class="token operator">:</span> geminiResult<span class="token punctuation">.</span>text<span class="token punctuation">,</span>
+</span><span class="code-line">      gpt4o<span class="token operator">:</span> gptResult<span class="token punctuation">.</span>text<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre></div>

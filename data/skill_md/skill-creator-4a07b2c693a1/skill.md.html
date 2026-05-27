@@ -1,0 +1,322 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Skill Creator Guide</h1>
+<p>This guide helps you create effective skills for Apollo GraphQL and GraphQL development following the <a href="https://agentskills.io/specification" target="_blank" rel="ugc nofollow noopener">Agent Skills specification</a>.</p>
+<h2>What is a Skill?</h2>
+<p>A skill is a directory containing instructions that extend an AI agent's capabilities with specialized knowledge, workflows, or tool integrations. Skills activate automatically when agents detect relevant tasks.</p>
+<h2>Directory Structure</h2>
+<p>A skill requires at minimum a <code>SKILL.md</code> file:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">skill-name/
+</span><span class="code-line">├── SKILL.md              # Required - main instructions
+</span><span class="code-line">├── references/           # Optional - detailed documentation
+</span><span class="code-line">│   ├── topic-a.md
+</span><span class="code-line">│   └── topic-b.md
+</span><span class="code-line">├── scripts/              # Optional - executable helpers
+</span><span class="code-line">│   └── validate.sh
+</span><span class="code-line">├── templates/            # Optional - config/code templates
+</span><span class="code-line">│   └── config.yaml
+</span><span class="code-line">└── assets/               # Optional - static resources (images, schemas, data files)
+</span></code></pre>
+<h2>SKILL.md Format</h2>
+<h3>Frontmatter (Required)</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token punctuation">---</span>
+</span><span class="code-line"><span class="token key atrule">name</span><span class="token punctuation">:</span> skill<span class="token punctuation">-</span>name
+</span><span class="code-line"><span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token punctuation">&gt;</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">  A clear description of what this skill does and when to use it.
+</span></span><span class="code-line"><span class="token scalar string">  Include trigger conditions: (1) first condition, (2) second condition.</span>
+</span><span class="code-line"><span class="token key atrule">license</span><span class="token punctuation">:</span> MIT
+</span><span class="code-line"><span class="token key atrule">compatibility</span><span class="token punctuation">:</span> Works with Claude Code and similar AI coding assistants.
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">author</span><span class="token punctuation">:</span> your<span class="token punctuation">-</span>org
+</span><span class="code-line">  <span class="token key atrule">version</span><span class="token punctuation">:</span> <span class="token string">"1.0.0"</span>
+</span><span class="code-line"><span class="token key atrule">allowed-tools</span><span class="token punctuation">:</span> Read Write Edit Glob Grep
+</span><span class="code-line"><span class="token punctuation">---</span>
+</span></code></pre>
+<h3>Frontmatter Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Yes</td>
+<td>Lowercase, hyphens only. Must match directory name. Max 64 chars.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Yes</td>
+<td>What the skill does and when to use it. Max 1024 chars.</td>
+</tr>
+<tr>
+<td><code>license</code></td>
+<td>No</td>
+<td>License name (e.g., MIT, Apache-2.0).</td>
+</tr>
+<tr>
+<td><code>compatibility</code></td>
+<td>No</td>
+<td>Environment requirements. Max 500 chars.</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>No</td>
+<td>Key-value pairs for author, version, etc.</td>
+</tr>
+<tr>
+<td><code>allowed-tools</code></td>
+<td>No</td>
+<td>Space-delimited list of pre-approved tools. Do not include <code>Bash(curl:*)</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3>Name Rules</h3>
+<ul>
+<li>Use lowercase letters, numbers, and hyphens only</li>
+<li>Do not start or end with a hyphen</li>
+<li>Do not use consecutive hyphens (<code>--</code>)</li>
+<li>Must match the parent directory name</li>
+</ul>
+<p>Good: <code>apollo-client</code>, <code>graphql-schema</code>, <code>rover</code>
+Bad: <code>Apollo-Client</code>, <code>-apollo</code>, <code>apollo--client</code></p>
+<h3>Description Best Practices</h3>
+<p>Write descriptions that help agents identify when to activate the skill:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># Good - specific triggers and use cases</span>
+</span><span class="code-line"><span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token punctuation">&gt;</span><span class="token scalar string">
+</span></span><span class="code-line"><span class="token scalar string">  Guide for designing GraphQL schemas following industry best practices. Use this skill when:
+</span></span><span class="code-line"><span class="token scalar string">  (1) designing a new GraphQL schema or API,
+</span></span><span class="code-line"><span class="token scalar string">  (2) reviewing existing schema for improvements,
+</span></span><span class="code-line"><span class="token scalar string">  (3) deciding on type structures or nullability,
+</span></span><span class="code-line"><span class="token scalar string">  (4) implementing pagination or error patterns.</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Bad - vague and unhelpful</span>
+</span><span class="code-line"><span class="token key atrule">description</span><span class="token punctuation">:</span> Helps with GraphQL stuff.
+</span></code></pre>
+<h2>Body Content</h2>
+<p>The markdown body contains instructions the agent follows. Structure it for clarity:</p>
+<h3>Recommended Sections</h3>
+<ol>
+<li><strong>Overview</strong> - Brief explanation of the skill's purpose</li>
+<li><strong>Process</strong> - Step-by-step workflow (use checkboxes for multi-step processes)</li>
+<li><strong>Quick Reference</strong> - Common patterns and syntax</li>
+<li><strong>Security</strong> - Risks, mitigations, and validation (if the skill touches anything security-sensitive)</li>
+<li><strong>Reference Files</strong> - Links to detailed documentation</li>
+<li><strong>Key Rules</strong> - Important guidelines organized by topic</li>
+<li><strong>Ground Rules</strong> - Critical do's and don'ts</li>
+</ol>
+<h3>Example Structure</h3>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Skill Title</span>
+</span><span class="code-line">
+</span><span class="code-line">Brief overview of what this skill helps with.
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Process</span>
+</span><span class="code-line">
+</span><span class="code-line">Follow this process when working on [task]:
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Step 1: Research and understand requirements
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Step 2: Implement the solution
+</span><span class="code-line"><span class="token list punctuation">-</span> [ ] Step 3: Validate the result
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Quick Reference</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Common Pattern</span>
+</span><span class="code-line">
+</span><span class="code-line">\`\`\`graphql
+</span><span class="code-line">type Example {
+</span><span class="code-line">  id: ID!
+</span><span class="code-line">  name: String
+</span><span class="code-line">}
+</span><span class="code-line">\`\`\`
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Security</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token blockquote punctuation">&gt;</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Risk: [brief description of what can go wrong].</span><span class="token punctuation">**</span></span>
+</span><span class="code-line"><span class="token blockquote punctuation">&gt;</span> [What the user MUST do to prevent it.]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> ALWAYS [secure default behavior]
+</span><span class="code-line"><span class="token list punctuation">-</span> NEVER [dangerous configuration] in production
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Reference Files</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token url">[<span class="token content">Topic A</span>](<span class="token url">references/topic-a.md</span>)</span> - Detailed guide for topic A
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token url">[<span class="token content">Topic B</span>](<span class="token url">references/topic-b.md</span>)</span> - Detailed guide for topic B
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Key Rules</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Category One</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> Rule about this category
+</span><span class="code-line"><span class="token list punctuation">-</span> Another rule
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Category Two</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> Rule about this category
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Ground Rules</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> ALWAYS do this important thing
+</span><span class="code-line"><span class="token list punctuation">-</span> NEVER do this problematic thing
+</span><span class="code-line"><span class="token list punctuation">-</span> PREFER this approach over that approach
+</span></code></pre>
+<h2>Security-Sensitive Content</h2>
+<p>When a skill generates configuration, code, or guidance that could cause security issues if misused, the skill MUST make those risks explicit and visible to the LLM. An LLM cannot infer security implications from context alone — it needs clearly labeled signals.</p>
+<h3>When does a skill need security guidance?</h3>
+<p>If any of these apply, the skill is security-sensitive:</p>
+<ul>
+<li>Generates config that controls access to data (caching, auth, CORS, permissions)</li>
+<li>Handles secrets, credentials, or tokens</li>
+<li>Produces code that runs with elevated privileges</li>
+<li>Controls what data is shared, public, or exposed to users</li>
+<li>Configures network bindings, endpoints, or external access</li>
+</ul>
+<h3>How to surface security in a skill</h3>
+<ol>
+<li>
+<p><strong>Dedicated Security section</strong> in SKILL.md or a reference file, labeled <code>## Security</code>. Not "Private data" or "Customization" — use the word "Security" so the LLM recognizes the category.</p>
+</li>
+<li>
+<p><strong>Explicit warnings at the point of risk</strong> — place security guidance next to the config or code that creates the risk, not in a separate file the LLM may not load:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Response caching scope</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token blockquote punctuation">&gt;</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Security: data leakage risk.</span><span class="token punctuation">**</span></span> All cached data is PUBLIC by default.
+</span><span class="code-line"><span class="token blockquote punctuation">&gt;</span> User-specific fields MUST use <span class="token code-snippet code keyword">`scope: PRIVATE`</span> with a <span class="token code-snippet code keyword">`private_id`</span>
+</span><span class="code-line"><span class="token blockquote punctuation">&gt;</span> configured, or they will be shared across all users.
+</span></code></pre>
+</li>
+<li>
+<p><strong>Validation checklist items</strong> — every security-sensitive feature must have corresponding checks in the validation checklist. Group them under a <code>## Security</code> heading.</p>
+</li>
+<li>
+<p><strong>Ground rules</strong> — add ALWAYS/NEVER rules for security-critical behavior. These are the strongest signal to the LLM.</p>
+</li>
+<li>
+<p><strong>Require the data model</strong> — if correct security configuration depends on understanding the user's data model (e.g., which fields are user-specific), the skill must instruct the LLM to ask the user before generating config. Do not let the LLM guess.</p>
+</li>
+</ol>
+<h3>Anti-patterns</h3>
+<ul>
+<li>Describing a security-sensitive default (like "public by default") without labeling it as a security concern</li>
+<li>Placing security guidance only in reference files that load on demand — the SKILL.md itself must contain the key warnings</li>
+<li>Using soft language ("you may want to consider") for hard security requirements — use "MUST" and "NEVER"</li>
+<li>Assuming the LLM understands which fields in a schema are private — require explicit user input</li>
+</ul>
+<h2>Progressive Disclosure</h2>
+<p>Structure skills to minimize context usage:</p>
+<ol>
+<li><strong>Metadata</strong> (~100 tokens): <code>name</code> and <code>description</code> load at startup for all skills</li>
+<li><strong>Instructions</strong> (&lt; 5000 tokens): Full <code>SKILL.md</code> loads when skill activates</li>
+<li><strong>References</strong> (as needed): Files in <code>references/</code> load only when required</li>
+</ol>
+<p>Keep <code>SKILL.md</code> under 500 lines. Move detailed documentation to reference files.</p>
+<h2>Reference Files</h2>
+<p>Use <code>references/</code> for detailed documentation:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">references/
+</span><span class="code-line">├── setup.md          # Installation and configuration
+</span><span class="code-line">├── patterns.md       # Common patterns and examples
+</span><span class="code-line">├── troubleshooting.md # Error solutions
+</span><span class="code-line">└── api.md            # API reference
+</span></code></pre>
+<p>Reference files should be:</p>
+<ul>
+<li>Focused on a single topic</li>
+<li>Self-contained (readable without other files)</li>
+<li>Under 300 lines each</li>
+</ul>
+<p>Link to references from <code>SKILL.md</code>:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Reference Files</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token url">[<span class="token content">Setup</span>](<span class="token url">references/setup.md</span>)</span> - Installation and configuration
+</span><span class="code-line"><span class="token list punctuation">-</span> <span class="token url">[<span class="token content">Patterns</span>](<span class="token url">references/patterns.md</span>)</span> - Common patterns and examples
+</span></code></pre>
+<h2>Scripts</h2>
+<p>Use <code>scripts/</code> for executable helpers agents can run:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">scripts/
+</span><span class="code-line">├── validate.sh       # Validation commands
+</span><span class="code-line">├── setup.py          # Setup automation
+</span><span class="code-line">└── check-version.sh  # Version checking
+</span></code></pre>
+<p>Scripts should be self-contained, include error handling, and have a usage comment at the top. Pre-approve them in <code>allowed-tools</code> (e.g., <code>Bash(./scripts/validate.sh:*)</code>).</p>
+<h2>Templates</h2>
+<p>Use <code>templates/</code> for config files, boilerplate, or starter code:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">templates/
+</span><span class="code-line">├── config.yaml       # Default configuration
+</span><span class="code-line">├── config-v2.yaml    # Version-specific variant
+</span><span class="code-line">└── example-app/      # Starter project
+</span></code></pre>
+<p>Templates are copied or adapted by the agent — not executed directly.</p>
+<h2>Writing Style</h2>
+<p>Follow the Apollo Voice for all skill content:</p>
+<h3>Tone</h3>
+<ul>
+<li>Approachable and helpful</li>
+<li>Opinionated and authoritative (prescribe the "happy path")</li>
+<li>Direct and action-oriented</li>
+</ul>
+<h3>Language</h3>
+<ul>
+<li>Use American English</li>
+<li>Keep language simple; avoid idioms</li>
+<li>Use present tense and active voice</li>
+<li>Use imperative verbs for instructions</li>
+</ul>
+<h3>Formatting</h3>
+<ul>
+<li>Use sentence casing for headings</li>
+<li>Use code font for symbols, commands, file paths, and URLs</li>
+<li>Use bold for UI elements users click</li>
+<li>Use hyphens (-) for unordered lists</li>
+</ul>
+<h3>Avoid</h3>
+<ul>
+<li>"Simply", "just", "easy" (can be condescending)</li>
+<li>Vague phrases like "click here"</li>
+<li>Semicolons (use periods instead)</li>
+<li>"We" unless clearly referring to Apollo</li>
+</ul>
+<h2>Reference Files</h2>
+<p>For Apollo GraphQL-specific guidance:</p>
+<ul>
+<li><a href="https://github.com/apollographql/skills/blob/HEAD/skills/skill-creator/references/apollo-skills.md" target="_blank" rel="ugc nofollow noopener">Apollo Skills</a> - Patterns and examples for Apollo GraphQL skills</li>
+</ul>
+<h2>Versioning</h2>
+<p>Use semantic versioning (<code>"X.Y.Z"</code>) for the <code>version</code> field in metadata:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">author</span><span class="token punctuation">:</span> apollographql
+</span><span class="code-line">  <span class="token key atrule">version</span><span class="token punctuation">:</span> <span class="token string">"1.0.0"</span>
+</span></code></pre>
+<ul>
+<li><strong>Major (X)</strong>: Breaking changes that alter how the skill behaves or activates (e.g., renamed triggers, removed sections, changed ground rules)</li>
+<li><strong>Minor (Y)</strong>: New content or capabilities that are backward-compatible (e.g., added reference files, new sections, expanded examples)</li>
+<li><strong>Patch (Z)</strong>: Small fixes that don't change behavior (e.g., typo corrections, wording tweaks, formatting fixes)</li>
+</ul>
+<p>Start new skills at <code>"1.0.0"</code>.</p>
+<h2>Checklist for New Skills</h2>
+<p>Before publishing a skill, verify:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>name</code> matches directory name and follows naming rules</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>description</code> clearly states what the skill does and when to use it</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>SKILL.md</code> is under 500 lines</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Reference files are focused and under 300 lines each</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Instructions are clear and actionable</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Code examples are correct and tested</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Ground rules use ALWAYS/NEVER/PREFER format</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Content follows Apollo Voice guidelines</li>
+</ul>
+<h2>Ground Rules</h2>
+<ul>
+<li>ALWAYS include trigger conditions in the description (use numbered list)</li>
+<li>ALWAYS use checkboxes for multi-step processes</li>
+<li>ALWAYS link to reference files for detailed documentation</li>
+<li>NEVER exceed 500 lines in SKILL.md</li>
+<li>NEVER use vague descriptions that don't help agents identify when to activate</li>
+<li>PREFER specific examples over abstract explanations</li>
+<li>PREFER opinionated guidance over listing multiple options</li>
+<li>USE <code>allowed-tools</code> to pre-approve tools the skill needs</li>
+<li>NEVER include <code>Bash(curl:*)</code> in <code>allowed-tools</code> as it grants unrestricted network access and enables <code>curl | sh</code> remote code execution patterns</li>
+<li>ALWAYS include a <code>## Security</code> section when the skill generates config or code that controls access, caching, auth, secrets, or data exposure</li>
+<li>NEVER bury security-critical guidance only in reference files — the key warnings must appear in SKILL.md where the LLM will always see them</li>
+<li>ALWAYS instruct the LLM to ask the user about their data model before generating security-sensitive config (e.g., which fields are user-specific, which data is public)</li>
+<li>USE explicit blockquote warnings (<code>&gt; **Security: ...**</code>) next to config or code that creates security risks</li>
+<li>ALWAYS add validation checklist items for every security-sensitive feature, grouped under a <code>## Security</code> heading</li>
+</ul></div>

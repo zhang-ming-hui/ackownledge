@@ -1,0 +1,39 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>1Password CLI</h1>
+<p>Follow the official CLI get-started steps. Don't guess install commands.</p>
+<h2>References</h2>
+<ul>
+<li><code>references/get-started.md</code> (install + app integration + sign-in flow)</li>
+<li><code>references/cli-examples.md</code> (real <code>op</code> examples)</li>
+</ul>
+<h2>Workflow</h2>
+<ol>
+<li>Check OS + shell.</li>
+<li>Verify CLI present: <code>op --version</code>.</li>
+<li>Confirm desktop app integration is enabled (per get-started) and the app is unlocked.</li>
+<li>REQUIRED: create a fresh tmux session for all <code>op</code> commands (no direct <code>op</code> calls outside tmux).</li>
+<li>Sign in / authorize inside tmux: <code>op signin</code> (expect app prompt).</li>
+<li>Verify access inside tmux: <code>op whoami</code> (must succeed before any secret read).</li>
+<li>If multiple accounts: use <code>--account</code> or <code>OP_ACCOUNT</code>.</li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>REQUIRED tmux session (tmux)</h2>
+<p>The shell tool uses a fresh TTY per command. To avoid re-prompts and failures, always run <code>op</code> inside a dedicated tmux session with a fresh socket/session name.</p>
+<p>Example (see <code>tmux</code> skill for socket conventions, do not reuse old session names):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token assign-left variable">SOCKET_DIR</span><span class="token operator">=</span><span class="token string">"<span class="token variable">${OPENCLAW_TMUX_SOCKET_DIR<span class="token operator">:-</span>${TMPDIR<span class="token operator">:-</span><span class="token operator">/</span>tmp}</span>/openclaw-tmux-sockets}"</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token string">"<span class="token variable">$SOCKET_DIR</span>"</span>
+</span><span class="code-line"><span class="token assign-left variable">SOCKET</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$SOCKET_DIR</span>/openclaw-op.sock"</span>
+</span><span class="code-line"><span class="token assign-left variable"><span class="token environment constant">SESSION</span></span><span class="token operator">=</span><span class="token string">"op-auth-<span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%Y%m%d-%H%M%S<span class="token variable">)</span></span>"</span>
+</span><span class="code-line">
+</span><span class="code-line">tmux <span class="token parameter variable">-S</span> <span class="token string">"<span class="token variable">$SOCKET</span>"</span> new <span class="token parameter variable">-d</span> <span class="token parameter variable">-s</span> <span class="token string">"<span class="token environment constant">$SESSION</span>"</span> <span class="token parameter variable">-n</span> shell
+</span><span class="code-line">tmux <span class="token parameter variable">-S</span> <span class="token string">"<span class="token variable">$SOCKET</span>"</span> send-keys <span class="token parameter variable">-t</span> <span class="token string">"<span class="token environment constant">$SESSION</span>"</span>:0.0 -- <span class="token string">"op signin --account my.1password.com"</span> Enter
+</span><span class="code-line">tmux <span class="token parameter variable">-S</span> <span class="token string">"<span class="token variable">$SOCKET</span>"</span> send-keys <span class="token parameter variable">-t</span> <span class="token string">"<span class="token environment constant">$SESSION</span>"</span>:0.0 -- <span class="token string">"op whoami"</span> Enter
+</span><span class="code-line">tmux <span class="token parameter variable">-S</span> <span class="token string">"<span class="token variable">$SOCKET</span>"</span> send-keys <span class="token parameter variable">-t</span> <span class="token string">"<span class="token environment constant">$SESSION</span>"</span>:0.0 -- <span class="token string">"op vault list"</span> Enter
+</span><span class="code-line">tmux <span class="token parameter variable">-S</span> <span class="token string">"<span class="token variable">$SOCKET</span>"</span> capture-pane <span class="token parameter variable">-p</span> <span class="token parameter variable">-J</span> <span class="token parameter variable">-t</span> <span class="token string">"<span class="token environment constant">$SESSION</span>"</span>:0.0 <span class="token parameter variable">-S</span> <span class="token parameter variable">-200</span>
+</span><span class="code-line">tmux <span class="token parameter variable">-S</span> <span class="token string">"<span class="token variable">$SOCKET</span>"</span> kill-session <span class="token parameter variable">-t</span> <span class="token string">"<span class="token environment constant">$SESSION</span>"</span>
+</span></code></pre>
+<h2>Guardrails</h2>
+<ul>
+<li>Never paste secrets into logs, chat, or code.</li>
+<li>Prefer <code>op run</code> / <code>op inject</code> over writing secrets to disk.</li>
+<li>If sign-in without app integration is needed, use <code>op account add</code>.</li>
+<li>If a command returns "account is not signed in", re-run <code>op signin</code> inside tmux and authorize in the app.</li>
+<li>Do not run <code>op</code> outside tmux; stop and ask if tmux is unavailable.</li>
+</ul></div>

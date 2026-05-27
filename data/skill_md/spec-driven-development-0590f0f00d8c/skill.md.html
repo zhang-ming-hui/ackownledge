@@ -1,0 +1,193 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Spec-Driven Development</h1>
+<h2>Overview</h2>
+<p>Write a structured specification before writing any code. The spec is the shared source of truth between you and the human engineer — it defines what we're building, why, and how we'll know it's done. Code without a spec is guessing.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Starting a new project or feature</li>
+<li>Requirements are ambiguous or incomplete</li>
+<li>The change touches multiple files or modules</li>
+<li>You're about to make an architectural decision</li>
+<li>The task would take more than 30 minutes to implement</li>
+</ul>
+<p><strong>When NOT to use:</strong> Single-line fixes, typo corrections, or changes where requirements are unambiguous and self-contained.</p>
+<h2>The Gated Workflow</h2>
+<p>Spec-driven development has four phases. Do not advance to the next phase until the current one is validated.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">SPECIFY ──→ PLAN ──→ TASKS ──→ IMPLEMENT
+</span><span class="code-line">   │          │        │          │
+</span><span class="code-line">   ▼          ▼        ▼          ▼
+</span><span class="code-line"> Human      Human    Human      Human
+</span><span class="code-line"> reviews    reviews  reviews    reviews
+</span></code></pre>
+<h3>Phase 1: Specify</h3>
+<p>Start with a high-level vision. Ask the human clarifying questions until requirements are concrete.</p>
+<p><strong>Surface assumptions immediately.</strong> Before writing any spec content, list what you're assuming:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">ASSUMPTIONS I'M MAKING:
+</span><span class="code-line">1. This is a web application (not native mobile)
+</span><span class="code-line">2. Authentication uses session-based cookies (not JWT)
+</span><span class="code-line">3. The database is PostgreSQL (based on existing Prisma schema)
+</span><span class="code-line">4. We're targeting modern browsers only (no IE11)
+</span><span class="code-line">→ Correct me now or I'll proceed with these.
+</span></code></pre>
+<p>Don't silently fill in ambiguous requirements. The spec's entire purpose is to surface misunderstandings <em>before</em> code gets written — assumptions are the most dangerous form of misunderstanding.</p>
+<p><strong>Write a spec document covering these six core areas:</strong></p>
+<ol>
+<li>
+<p><strong>Objective</strong> — What are we building and why? Who is the user? What does success look like?</p>
+</li>
+<li>
+<p><strong>Commands</strong> — Full executable commands with flags, not just tool names.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Build: npm run build
+</span><span class="code-line">Test: npm test -- --coverage
+</span><span class="code-line">Lint: npm run lint --fix
+</span><span class="code-line">Dev: npm run dev
+</span></code></pre>
+</li>
+<li>
+<p><strong>Project Structure</strong> — Where source code lives, where tests go, where docs belong.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">src/           → Application source code
+</span><span class="code-line">src/components → React components
+</span><span class="code-line">src/lib        → Shared utilities
+</span><span class="code-line">tests/         → Unit and integration tests
+</span><span class="code-line">e2e/           → End-to-end tests
+</span><span class="code-line">docs/          → Documentation
+</span></code></pre>
+</li>
+<li>
+<p><strong>Code Style</strong> — One real code snippet showing your style beats three paragraphs describing it. Include naming conventions, formatting rules, and examples of good output.</p>
+</li>
+<li>
+<p><strong>Testing Strategy</strong> — What framework, where tests live, coverage expectations, which test levels for which concerns.</p>
+</li>
+<li>
+<p><strong>Boundaries</strong> — Three-tier system:</p>
+<ul>
+<li><strong>Always do:</strong> Run tests before commits, follow naming conventions, validate inputs</li>
+<li><strong>Ask first:</strong> Database schema changes, adding dependencies, changing CI config</li>
+<li><strong>Never do:</strong> Commit secrets, edit vendor directories, remove failing tests without approval</li>
+</ul>
+</li>
+</ol>
+<p><strong>Spec template:</strong></p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Spec: [Project/Feature Name]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Objective</span>
+</span><span class="code-line">[What we're building and why. User stories or acceptance criteria.]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Tech Stack</span>
+</span><span class="code-line">[Framework, language, key dependencies with versions]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Commands</span>
+</span><span class="code-line">[Build, test, lint, dev — full commands]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Project Structure</span>
+</span><span class="code-line">[Directory layout with descriptions]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Code Style</span>
+</span><span class="code-line">[Example snippet + key conventions]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Testing Strategy</span>
+</span><span class="code-line">[Framework, test locations, coverage requirements, test levels]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Boundaries</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> Always: [...]
+</span><span class="code-line"><span class="token list punctuation">-</span> Ask first: [...]
+</span><span class="code-line"><span class="token list punctuation">-</span> Never: [...]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Success Criteria</span>
+</span><span class="code-line">[How we'll know this is done — specific, testable conditions]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Open Questions</span>
+</span><span class="code-line">[Anything unresolved that needs human input]
+</span></code></pre>
+<p><strong>Reframe instructions as success criteria.</strong> When receiving vague requirements, translate them into concrete conditions:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">REQUIREMENT: "Make the dashboard faster"
+</span><span class="code-line">
+</span><span class="code-line">REFRAMED SUCCESS CRITERIA:
+</span><span class="code-line">- Dashboard LCP &lt; 2.5s on 4G connection
+</span><span class="code-line">- Initial data load completes in &lt; 500ms
+</span><span class="code-line">- No layout shift during load (CLS &lt; 0.1)
+</span><span class="code-line">→ Are these the right targets?
+</span></code></pre>
+<p>This lets you loop, retry, and problem-solve toward a clear goal rather than guessing what "faster" means.</p>
+<h3>Phase 2: Plan</h3>
+<p>With the validated spec, generate a technical implementation plan:</p>
+<ol>
+<li>Identify the major components and their dependencies</li>
+<li>Determine the implementation order (what must be built first)</li>
+<li>Note risks and mitigation strategies</li>
+<li>Identify what can be built in parallel vs. what must be sequential</li>
+<li>Define verification checkpoints between phases</li>
+</ol>
+<p>The plan should be reviewable: the human should be able to read it and say "yes, that's the right approach" or "no, change X."</p>
+<h3>Phase 3: Tasks</h3>
+<p>Break the plan into discrete, implementable tasks:</p>
+<ul>
+<li>Each task should be completable in a single focused session</li>
+<li>Each task has explicit acceptance criteria</li>
+<li>Each task includes a verification step (test, build, manual check)</li>
+<li>Tasks are ordered by dependency, not by perceived importance</li>
+<li>No task should require changing more than ~5 files</li>
+</ul>
+<p><strong>Task template:</strong></p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token list punctuation">-</span> [ ] Task: [Description]
+</span><span class="code-line">  <span class="token list punctuation">-</span> Acceptance: [What must be true when done]
+</span><span class="code-line">  <span class="token list punctuation">-</span> Verify: [How to confirm — test command, build, manual check]
+</span><span class="code-line">  <span class="token list punctuation">-</span> Files: [Which files will be touched]
+</span></code></pre>
+<h3>Phase 4: Implement</h3>
+<p>Execute tasks one at a time following <code>skills/incremental-implementation/SKILL.md</code> (<code>incremental-implementation</code>) and <code>skills/test-driven-development/SKILL.md</code> (<code>test-driven-development</code>). Use <code>skills/context-engineering/SKILL.md</code> (<code>context-engineering</code>) to load the right spec sections and source files at each step rather than flooding the agent with the entire spec.</p>
+<h2>Keeping the Spec Alive</h2>
+<p>The spec is a living document, not a one-time artifact:</p>
+<ul>
+<li><strong>Update when decisions change</strong> — If you discover the data model needs to change, update the spec first, then implement.</li>
+<li><strong>Update when scope changes</strong> — Features added or cut should be reflected in the spec.</li>
+<li><strong>Commit the spec</strong> — The spec belongs in version control alongside the code.</li>
+<li><strong>Reference the spec in PRs</strong> — Link back to the spec section that each PR implements.</li>
+</ul>
+<h2>Common Rationalizations</h2>
+<table>
+<thead>
+<tr>
+<th>Rationalization</th>
+<th>Reality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"This is simple, I don't need a spec"</td>
+<td>Simple tasks don't need <em>long</em> specs, but they still need acceptance criteria. A two-line spec is fine.</td>
+</tr>
+<tr>
+<td>"I'll write the spec after I code it"</td>
+<td>That's documentation, not specification. The spec's value is in forcing clarity <em>before</em> code.</td>
+</tr>
+<tr>
+<td>"The spec will slow us down"</td>
+<td>A 15-minute spec prevents hours of rework. Waterfall in 15 minutes beats debugging in 15 hours.</td>
+</tr>
+<tr>
+<td>"Requirements will change anyway"</td>
+<td>That's why the spec is a living document. An outdated spec is still better than no spec.</td>
+</tr>
+<tr>
+<td>"The user knows what they want"</td>
+<td>Even clear requests have implicit assumptions. The spec surfaces those assumptions.</td>
+</tr>
+</tbody>
+</table>
+<h2>Red Flags</h2>
+<ul>
+<li>Starting to write code without any written requirements</li>
+<li>Asking "should I just start building?" before clarifying what "done" means</li>
+<li>Implementing features not mentioned in any spec or task list</li>
+<li>Making architectural decisions without documenting them</li>
+<li>Skipping the spec because "it's obvious what to build"</li>
+</ul>
+<h2>Verification</h2>
+<p>Before proceeding to implementation, confirm:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> The spec covers all six core areas</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> The human has reviewed and approved the spec</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Success criteria are specific and testable</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Boundaries (Always/Ask First/Never) are defined</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> The spec is saved to a file in the repository</li>
+</ul></div>

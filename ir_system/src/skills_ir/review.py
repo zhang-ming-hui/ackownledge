@@ -1,3 +1,5 @@
+"""IR 运行快照与在线查询结果审查工具。"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,6 +12,7 @@ from .text import normalize_text
 
 
 def _failure_count(report: Dict[str, Any]) -> int:
+    """统计失败桶里的样本总数。"""
     failure_buckets = report.get("failure_buckets", {})
     return sum(len(items) for items in failure_buckets.values())
 
@@ -20,6 +23,7 @@ def _coverage_findings(
     metrics_by_type: Dict[str, Any],
     metrics: Dict[str, Any],
 ) -> List[str]:
+    """根据覆盖度和指标结构生成问题提示。"""
     findings: List[str] = []
     type_counts = {
         query_type: int(type_metrics.get("count", 0))
@@ -54,6 +58,7 @@ def build_live_benchmark_review(
     eval_names: Iterable[str] | None = None,
     top_k: int | None = None,
 ) -> Dict[str, Any]:
+    """实时运行一组 benchmark，并生成前端可消费摘要。"""
     eval_names = list(eval_names or [config.default_eval_set, "multilingual.json"])
     reports: List[Dict[str, Any]] = []
 
@@ -104,6 +109,7 @@ def review_query_results(
     results: List[Dict[str, Any]],
     eval_matches: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
+    """对单次查询结果做启发式审查。"""
     findings: List[Dict[str, str]] = []
     status = "ok"
 
@@ -208,6 +214,7 @@ def review_query_results(
 
 
 def review_runtime_snapshot(config: IRConfig) -> Dict[str, Any]:
+    """读取运行时产物并提炼当前系统状态。"""
     metrics_report = load_json(config.paths.metrics_report_file, default={})
     failure_buckets = load_json(config.paths.failure_buckets_file, default={})
     findings: List[str] = []

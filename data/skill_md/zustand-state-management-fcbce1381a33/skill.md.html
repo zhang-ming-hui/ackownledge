@@ -1,0 +1,351 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Zustand State Management</h1>
+<p><strong>Last Updated</strong>: 2026-01-21
+<strong>Latest Version</strong>: zustand@5.0.10 (released 2026-01-12)
+<strong>Dependencies</strong>: React 18-19, TypeScript 5+</p>
+<hr>
+<h2>Quick Start</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> zustand
+</span></code></pre>
+<p><strong>TypeScript Store</strong> (CRITICAL: use <code>create&lt;T&gt;()()</code> double parentheses):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> create <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand'</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>interface BearStore {
+bears: number
+increase: (by: number) =&gt; void
+}</p>
+<p>const useBearStore = create()((set) =&gt; ({
+bears: 0,
+increase: (by) =&gt; set((state) =&gt; ({ bears: state.bears + by })),
+}))</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">**Use in Components**:
+</span><span class="code-line">```tsx
+</span><span class="code-line">const bears = useBearStore((state) =&gt; state.bears)  // Only re-renders when bears changes
+</span><span class="code-line">const increase = useBearStore((state) =&gt; state.increase)
+</span></code></pre>
+<hr>
+<h2>Core Patterns</h2>
+<p><strong>Basic Store</strong> (JavaScript):</p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter"><span class="token keyword">set</span></span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">count</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">increment</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">state</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token literal-property property">count</span><span class="token operator">:</span> state<span class="token punctuation">.</span><span class="token property-access">count</span> <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>TypeScript Store</strong> (Recommended):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">CounterStore</span> <span class="token punctuation">{</span> count<span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span> <span class="token function-variable function">increment</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>CounterStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  count<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">increment</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> state<span class="token punctuation">.</span>count <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Persistent Store</strong> (survives page reloads):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> persist<span class="token punctuation">,</span> createJSONStorage <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>UserPreferences<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">persist</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> theme<span class="token operator">:</span> <span class="token string">'system'</span><span class="token punctuation">,</span> <span class="token function-variable function">setTheme</span><span class="token operator">:</span> <span class="token punctuation">(</span>theme<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> theme <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'user-preferences'</span><span class="token punctuation">,</span> storage<span class="token operator">:</span> <span class="token function">createJSONStorage</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> localStorage<span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Critical Rules</h2>
+<h3>Always Do</h3>
+<p>✅ Use <code>create&lt;T&gt;()()</code> (double parentheses) in TypeScript for middleware compatibility
+✅ Define separate interfaces for state and actions
+✅ Use selector functions to extract specific state slices
+✅ Use <code>set</code> with updater functions for derived state: <code>set((state) =&gt; ({ count: state.count + 1 }))</code>
+✅ Use unique names for persist middleware storage keys
+✅ Handle Next.js hydration with <code>hasHydrated</code> flag pattern
+✅ Use <code>useShallow</code> hook for selecting multiple values
+✅ Keep actions pure (no side effects except state updates)</p>
+<h3>Never Do</h3>
+<p>❌ Use <code>create&lt;T&gt;(...)</code> (single parentheses) in TypeScript - breaks middleware types
+❌ Mutate state directly: <code>set((state) =&gt; { state.count++; return state })</code> - use immutable updates
+❌ Create new objects in selectors: <code>useStore((state) =&gt; ({ a: state.a }))</code> - causes infinite renders
+❌ Use same storage name for multiple stores - causes data collisions
+❌ Access localStorage during SSR without hydration check
+❌ Use Zustand for server state - use TanStack Query instead
+❌ Export store instance directly - always export the hook</p>
+<hr>
+<h2>Known Issues Prevention</h2>
+<p>This skill prevents <strong>6</strong> documented issues:</p>
+<h3>Issue #1: Next.js Hydration Mismatch</h3>
+<p><strong>Error</strong>: <code>"Text content does not match server-rendered HTML"</code> or <code>"Hydration failed"</code></p>
+<p><strong>Source</strong>:</p>
+<ul>
+<li><a href="https://dev.to/abdulsamad/how-to-use-zustands-persist-middleware-in-nextjs-4lb5" target="_blank" rel="ugc nofollow noopener">DEV Community: Persist middleware in Next.js</a></li>
+<li>GitHub Discussions #2839</li>
+</ul>
+<p><strong>Why It Happens</strong>:
+Persist middleware reads from localStorage on client but not on server, causing state mismatch.</p>
+<p><strong>Prevention</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> create <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> persist <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">StoreWithHydration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  count<span class="token operator">:</span> <span class="token builtin">number</span>
+</span><span class="code-line">  _hasHydrated<span class="token operator">:</span> <span class="token builtin">boolean</span>
+</span><span class="code-line">  <span class="token function-variable function">setHasHydrated</span><span class="token operator">:</span> <span class="token punctuation">(</span>hydrated<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span>
+</span><span class="code-line">  <span class="token function-variable function">increase</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>StoreWithHydration<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">persist</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      count<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">      _hasHydrated<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token function-variable function">setHasHydrated</span><span class="token operator">:</span> <span class="token punctuation">(</span>hydrated<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> _hasHydrated<span class="token operator">:</span> hydrated <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token function-variable function">increase</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> state<span class="token punctuation">.</span>count <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      name<span class="token operator">:</span> <span class="token string">'my-store'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token function-variable function">onRehydrateStorage</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        state<span class="token operator">?.</span><span class="token function">setHasHydrated</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// In component</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">MyComponent</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> hasHydrated <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>_hasHydrated<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasHydrated<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token operator">&lt;</span>div<span class="token operator">&gt;</span>Loading<span class="token operator">...</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Now safe to render with persisted state</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token operator">&lt;</span>ActualContent <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Issue #2: TypeScript Double Parentheses Missing</h3>
+<p><strong>Error</strong>: Type inference fails, <code>StateCreator</code> types break with middleware</p>
+<p><strong>Source</strong>: <a href="https://zustand.docs.pmnd.rs/guides/typescript" target="_blank" rel="ugc nofollow noopener">Official Zustand TypeScript Guide</a></p>
+<p><strong>Why It Happens</strong>:
+The currying syntax <code>create&lt;T&gt;()()</code> is required for middleware to work with TypeScript inference.</p>
+<p><strong>Prevention</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// ❌ WRONG - Single parentheses</span>
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>MyStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// ...</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT - Double parentheses</span>
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>MyStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// ...</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Rule</strong>: Always use <code>create&lt;T&gt;()()</code> in TypeScript, even without middleware (future-proof).</p>
+<h3>Issue #3: Persist Middleware Import Error</h3>
+<p><strong>Error</strong>: <code>"Attempted import error: 'createJSONStorage' is not exported from 'zustand/middleware'"</code></p>
+<p><strong>Source</strong>: GitHub Discussion #2839</p>
+<p><strong>Why It Happens</strong>:
+Wrong import path or version mismatch between zustand and build tools.</p>
+<p><strong>Prevention</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// ✅ CORRECT imports for v5</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> create <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> persist<span class="token punctuation">,</span> createJSONStorage <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Verify versions</span>
+</span><span class="code-line"><span class="token comment">// zustand@5.0.9 includes createJSONStorage</span>
+</span><span class="code-line"><span class="token comment">// zustand@4.x uses different API</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Check your package.json</span>
+</span><span class="code-line"><span class="token comment">// "zustand": "^5.0.9"</span>
+</span></code></pre>
+<h3>Issue #4: Infinite Render Loop</h3>
+<p><strong>Error</strong>: Component re-renders infinitely, browser freezes</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Uncaught Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate.
+</span></code></pre>
+<p><strong>Source</strong>:</p>
+<ul>
+<li>GitHub Discussions #2642</li>
+<li><a href="https://github.com/pmndrs/zustand/issues/2863" target="_blank" rel="ugc nofollow noopener">Issue #2863</a></li>
+</ul>
+<p><strong>Why It Happens</strong>:
+Creating new object references in selectors causes Zustand to think state changed.</p>
+<p><strong>v5 Breaking Change</strong>: Zustand v5 made this error MORE explicit compared to v4. In v4, this behavior was "non-ideal" but could go unnoticed. In v5, you'll immediately see the "Maximum update depth exceeded" error.</p>
+<p><strong>Prevention</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useShallow <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/shallow'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ WRONG - Creates new object every time</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> bears<span class="token punctuation">,</span> fishes <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  bears<span class="token operator">:</span> state<span class="token punctuation">.</span>bears<span class="token punctuation">,</span>
+</span><span class="code-line">  fishes<span class="token operator">:</span> state<span class="token punctuation">.</span>fishes<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT Option 1 - Select primitives separately</span>
+</span><span class="code-line"><span class="token keyword">const</span> bears <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>bears<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> fishes <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>fishes<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ CORRECT Option 2 - Use useShallow hook for multiple values</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> bears<span class="token punctuation">,</span> fishes <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">useShallow</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> bears<span class="token operator">:</span> state<span class="token punctuation">.</span>bears<span class="token punctuation">,</span> fishes<span class="token operator">:</span> state<span class="token punctuation">.</span>fishes <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Issue #5: Slices Pattern TypeScript Complexity</h3>
+<p><strong>Error</strong>: <code>StateCreator</code> types fail to infer, complex middleware types break</p>
+<p><strong>Source</strong>: <a href="https://github.com/pmndrs/zustand/blob/main/docs/guides/slices-pattern.md" target="_blank" rel="ugc nofollow noopener">Official Slices Pattern Guide</a></p>
+<p><strong>Why It Happens</strong>:
+Combining multiple slices requires explicit type annotations for middleware compatibility.</p>
+<p><strong>Prevention</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> create<span class="token punctuation">,</span> StateCreator <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Define slice types</span>
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">BearSlice</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  bears<span class="token operator">:</span> <span class="token builtin">number</span>
+</span><span class="code-line">  <span class="token function-variable function">addBear</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">FishSlice</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  fishes<span class="token operator">:</span> <span class="token builtin">number</span>
+</span><span class="code-line">  <span class="token function-variable function">addFish</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Create slices with proper types</span>
+</span><span class="code-line"><span class="token keyword">const</span> createBearSlice<span class="token operator">:</span> StateCreator<span class="token operator">&lt;</span>
+</span><span class="code-line">  BearSlice <span class="token operator">&amp;</span> FishSlice<span class="token punctuation">,</span>  <span class="token comment">// Combined store type</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>                      <span class="token comment">// Middleware mutators (empty if none)</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>                      <span class="token comment">// Chained middleware (empty if none)</span>
+</span><span class="code-line">  BearSlice               <span class="token comment">// This slice's type</span>
+</span><span class="code-line"><span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  bears<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">addBear</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> bears<span class="token operator">:</span> state<span class="token punctuation">.</span>bears <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> createFishSlice<span class="token operator">:</span> StateCreator<span class="token operator">&lt;</span>
+</span><span class="code-line">  BearSlice <span class="token operator">&amp;</span> FishSlice<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  FishSlice
+</span><span class="code-line"><span class="token operator">&gt;</span> <span class="token operator">=</span> <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  fishes<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">addFish</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> fishes<span class="token operator">:</span> state<span class="token punctuation">.</span>fishes <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Combine slices</span>
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>BearSlice <span class="token operator">&amp;</span> FishSlice<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token operator">...</span>a<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token operator">...</span><span class="token function">createBearSlice</span><span class="token punctuation">(</span><span class="token operator">...</span>a<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token operator">...</span><span class="token function">createFishSlice</span><span class="token punctuation">(</span><span class="token operator">...</span>a<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Issue #6: Persist Middleware Race Condition (Fixed v5.0.10+)</h3>
+<p><strong>Error</strong>: Inconsistent state during concurrent rehydration attempts</p>
+<p><strong>Source</strong>:</p>
+<ul>
+<li><a href="https://github.com/pmndrs/zustand/pull/3336" target="_blank" rel="ugc nofollow noopener">GitHub PR #3336</a></li>
+<li><a href="https://github.com/pmndrs/zustand/releases/tag/v5.0.10" target="_blank" rel="ugc nofollow noopener">Release v5.0.10</a></li>
+</ul>
+<p><strong>Why It Happens</strong>:
+In Zustand v5.0.9 and earlier, concurrent calls to rehydrate during persist middleware initialization could cause a race condition where multiple hydration attempts would interfere with each other, leading to inconsistent state.</p>
+<p><strong>Prevention</strong>:
+Upgrade to Zustand v5.0.10 or later. No code changes needed - the fix is internal to the persist middleware.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> zustand@latest  <span class="token comment"># Ensure v5.0.10+</span>
+</span></code></pre>
+<p><strong>Note</strong>: This was fixed in v5.0.10 (January 2026). If you're using v5.0.9 or earlier and experiencing state inconsistencies with persist middleware, upgrade immediately.</p>
+<hr>
+<h2>Middleware</h2>
+<p><strong>Persist</strong> (localStorage):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> persist<span class="token punctuation">,</span> createJSONStorage <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>MyStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">persist</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token function-variable function">addItem</span><span class="token operator">:</span> <span class="token punctuation">(</span>item<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token operator">...</span>state<span class="token punctuation">.</span>data<span class="token punctuation">,</span> item<span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      name<span class="token operator">:</span> <span class="token string">'my-storage'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token function-variable function">partialize</span><span class="token operator">:</span> <span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> state<span class="token punctuation">.</span>data <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>  <span class="token comment">// Only persist 'data'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Devtools</strong> (Redux DevTools):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> devtools <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>CounterStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">devtools</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token function-variable function">increment</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> s<span class="token punctuation">.</span>count <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span> <span class="token string">'increment'</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'CounterStore'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>v4→v5 Migration Note</strong>: In Zustand v4, devtools was imported from <code>'zustand/middleware/devtools'</code>. In v5, use <code>'zustand/middleware'</code> (as shown above). If you see "Module not found: Can't resolve 'zustand/middleware/devtools'", update your import path.</p>
+<p><strong>Combining Middlewares</strong> (order matters):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>MyStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token function">devtools</span><span class="token punctuation">(</span><span class="token function">persist</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token comment">/* ... */</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'storage'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'MyStore'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Common Patterns</h2>
+<p><strong>Computed/Derived Values</strong> (in selector, not stored):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> count <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>items<span class="token punctuation">.</span>length<span class="token punctuation">)</span>  <span class="token comment">// Computed on read</span>
+</span></code></pre>
+<p><strong>Async Actions</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> useAsyncStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>AsyncStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  data<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  isLoading<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">fetchData</span><span class="token operator">:</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> isLoading<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'/api/data'</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> isLoading<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Resetting Store</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> initialState <span class="token operator">=</span> <span class="token punctuation">{</span> count<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">''</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>ResettableStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token operator">...</span>initialState<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">reset</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span>initialState<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Selector with Params</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> todo <span class="token operator">=</span> <span class="token function">useStore</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> state<span class="token punctuation">.</span>todos<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token punctuation">(</span>t<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> t<span class="token punctuation">.</span>id <span class="token operator">===</span> id<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Bundled Resources</h2>
+<p><strong>Templates</strong>: <code>basic-store.ts</code>, <code>typescript-store.ts</code>, <code>persist-store.ts</code>, <code>slices-pattern.ts</code>, <code>devtools-store.ts</code>, <code>nextjs-store.ts</code>, <code>computed-store.ts</code>, <code>async-actions-store.ts</code></p>
+<p><strong>References</strong>: <code>middleware-guide.md</code> (persist/devtools/immer/custom), <code>typescript-patterns.md</code> (type inference issues), <code>nextjs-hydration.md</code> (SSR/hydration), <code>migration-guide.md</code> (from Redux/Context/v4)</p>
+<p><strong>Scripts</strong>: <code>check-versions.sh</code> (version compatibility)</p>
+<hr>
+<h2>Advanced Topics</h2>
+<p><strong>Vanilla Store</strong> (Without React):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> createStore <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/vanilla'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> store <span class="token operator">=</span> <span class="token generic-function"><span class="token function">createStore</span><span class="token generic class-name"><span class="token operator">&lt;</span>CounterStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token function-variable function">increment</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> count<span class="token operator">:</span> s<span class="token punctuation">.</span>count <span class="token operator">+</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">const</span> unsubscribe <span class="token operator">=</span> store<span class="token punctuation">.</span><span class="token function">subscribe</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>state<span class="token punctuation">.</span>count<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">store<span class="token punctuation">.</span><span class="token function">getState</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">increment</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Custom Middleware</strong>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> logger<span class="token operator">:</span> <span class="token function-variable function">Logger</span> <span class="token operator">=</span> <span class="token punctuation">(</span>f<span class="token punctuation">,</span> name<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span>set<span class="token punctuation">,</span> get<span class="token punctuation">,</span> store<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> loggedSet<span class="token operator">:</span> <span class="token keyword">typeof</span> <span class="token function-variable function">set</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token operator">...</span>a<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token operator">...</span>a<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">[</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>name<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">]:</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token function">f</span><span class="token punctuation">(</span>loggedSet<span class="token punctuation">,</span> get<span class="token punctuation">,</span> store<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Immer Middleware</strong> (Mutable Updates):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> immer <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware/immer'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>TodoStore<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token function">immer</span><span class="token punctuation">(</span><span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  todos<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token function-variable function">addTodo</span><span class="token operator">:</span> <span class="token punctuation">(</span>text<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token function">set</span><span class="token punctuation">(</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span> state<span class="token punctuation">.</span>todos<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">{</span> id<span class="token operator">:</span> Date<span class="token punctuation">.</span><span class="token function">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> text <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>v5.0.3→v5.0.4 Migration Note</strong>: If upgrading from v5.0.3 to v5.0.4+ and immer middleware stops working, verify you're using the import path shown above (<code>zustand/middleware/immer</code>). Some users reported issues after the v5.0.4 update that were resolved by confirming the correct import.</p>
+<p><strong>Experimental SSR Safe Middleware</strong> (v5.0.9+):</p>
+<p><strong>Status</strong>: Experimental (API may change)</p>
+<p>Zustand v5.0.9 introduced experimental <code>unstable_ssrSafe</code> middleware for Next.js usage. This provides an alternative approach to the <code>_hasHydrated</code> pattern (see Issue #1).</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> unstable_ssrSafe <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'zustand/middleware'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> useStore <span class="token operator">=</span> <span class="token generic-function"><span class="token function">create</span><span class="token generic class-name"><span class="token operator">&lt;</span>Store<span class="token operator">&gt;</span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token function">unstable_ssrSafe</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token function">persist</span><span class="token punctuation">(</span>
+</span><span class="code-line">      <span class="token punctuation">(</span>set<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token comment">/* state */</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'my-store'</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Recommendation</strong>: Continue using the <code>_hasHydrated</code> pattern documented in Issue #1 until this API stabilizes. Monitor <a href="https://github.com/pmndrs/zustand/discussions/2740" target="_blank" rel="ugc nofollow noopener">Discussion #2740</a> for updates on when this becomes stable.</p>
+<hr>
+<h2>Official Documentation</h2>
+<ul>
+<li><strong>Zustand</strong>: <a href="https://zustand.docs.pmnd.rs/" target="_blank" rel="ugc nofollow noopener">https://zustand.docs.pmnd.rs/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/pmndrs/zustand" target="_blank" rel="ugc nofollow noopener">https://github.com/pmndrs/zustand</a></li>
+<li><strong>TypeScript Guide</strong>: <a href="https://zustand.docs.pmnd.rs/guides/typescript" target="_blank" rel="ugc nofollow noopener">https://zustand.docs.pmnd.rs/guides/typescript</a></li>
+<li><strong>Context7 Library ID</strong>: <code>/pmndrs/zustand</code></li>
+</ul></div>

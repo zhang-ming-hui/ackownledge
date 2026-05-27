@@ -1,0 +1,864 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>React Native Expo (0.76-0.82+ / SDK 52+)</h1>
+<p><strong>Status</strong>: Production Ready
+<strong>Last Updated</strong>: 2026-01-21
+<strong>Dependencies</strong>: Node.js 20.19.4+, Expo CLI, Xcode 16.1+ (iOS)
+<strong>Latest Versions</strong>: react-native@0.81.5, expo@~54.0.31, react@19.2.3</p>
+<hr>
+<h2>Quick Start (15 Minutes)</h2>
+<h3>1. Create New Expo Project (RN 0.76+)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create new Expo app with React Native 0.76+</span>
+</span><span class="code-line">npx create-expo-app@latest my-app
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin class-name">cd</span> my-app
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h1>Install latest dependencies</h1>
+<p>npx expo install react-native@latest expo@latest</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">**Why this matters:**
+</span><span class="code-line">- Expo SDK 52+ uses React Native 0.76+ with New Architecture enabled by default
+</span><span class="code-line">- New Architecture is **mandatory** in React Native 0.82+ (cannot be disabled)
+</span><span class="code-line">- Hermes is the only supported JavaScript engine (JSC removed from Expo Go)
+</span><span class="code-line">
+</span><span class="code-line">### 2. Verify New Architecture is Enabled
+</span><span class="code-line">
+</span><span class="code-line">```bash
+</span><span class="code-line"># Check if New Architecture is enabled (should be true by default)
+</span><span class="code-line">npx expo config --type introspect | grep newArchEnabled
+</span></code></pre>
+<p><strong>CRITICAL:</strong></p>
+<ul>
+<li>React Native 0.82+ <strong>requires</strong> New Architecture - legacy architecture completely removed</li>
+<li>If migrating from 0.75 or earlier, upgrade to 0.76-0.81 first to use the interop layer</li>
+<li>Never try to disable New Architecture in 0.82+ (build will fail)</li>
+</ul>
+<h3>3. Start Development Server</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Start Expo dev server</span>
+</span><span class="code-line">npx expo start
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Press 'i' for iOS simulator</span>
+</span><span class="code-line"><span class="token comment"># Press 'a' for Android emulator</span>
+</span><span class="code-line"><span class="token comment"># Press 'j' to open React Native DevTools (NOT Chrome debugger!)</span>
+</span></code></pre>
+<p><strong>CRITICAL:</strong></p>
+<ul>
+<li>Old Chrome debugger removed in 0.79 - use React Native DevTools instead</li>
+<li>Metro terminal no longer streams <code>console.log()</code> - use DevTools Console</li>
+<li>Keyboard shortcuts 'a'/'i' work in CLI, not Metro terminal</li>
+</ul>
+<hr>
+<h2>Critical Breaking Changes (Dec 2024+)</h2>
+<h3>🔴 New Architecture Mandatory (0.82+)</h3>
+<p><strong>SDK Timeline:</strong></p>
+<ul>
+<li><strong>Expo SDK 54</strong> (React Native 0.81): Last release supporting Legacy Architecture</li>
+<li><strong>Expo SDK 55</strong> (React Native 0.83): New Architecture mandatory, Legacy completely removed</li>
+</ul>
+<p><strong>What Changed:</strong></p>
+<ul>
+<li><strong>0.76-0.81 / SDK 52-54</strong>: New Architecture default, legacy frozen (no new features)</li>
+<li><strong>0.82+ / SDK 55+</strong>: Legacy Architecture <strong>completely removed</strong> from codebase</li>
+</ul>
+<p><strong>Impact:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># This will FAIL in 0.82+ / SDK 55+:</span>
+</span><span class="code-line"><span class="token comment"># gradle.properties (Android)</span>
+</span><span class="code-line"><span class="token assign-left variable">newArchEnabled</span><span class="token operator">=</span>false  <span class="token comment"># ❌ Ignored, build fails</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># iOS</span>
+</span><span class="code-line"><span class="token assign-left variable">RCT_NEW_ARCH_ENABLED</span><span class="token operator">=</span><span class="token number">0</span>  <span class="token comment"># ❌ Ignored, build fails</span>
+</span></code></pre>
+<p><strong>Migration Path:</strong></p>
+<ol>
+<li>Upgrade to 0.76-0.81 / SDK 54 first (if on 0.75 or earlier)</li>
+<li>Test with New Architecture enabled</li>
+<li>Fix incompatible dependencies (Redux, i18n, CodePush, Reanimated v3 → v4)</li>
+<li>Then upgrade to 0.82+ / SDK 55+</li>
+</ol>
+<p><strong>Source:</strong> <a href="https://expo.dev/changelog/sdk-54" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 Changelog</a></p>
+<h3>🔴 propTypes Removed (React 19 / RN 0.78+)</h3>
+<p><strong>What Changed:</strong>
+React 19 removed <code>propTypes</code> completely. No runtime validation, no warnings - silently ignored.</p>
+<p><strong>Before (Old Code):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> PropTypes <span class="token keyword">from</span> <span class="token string">'prop-types'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">MyComponent</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token punctuation">,</span> age <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token operator">&lt;</span>Text<span class="token operator">&gt;</span><span class="token punctuation">{</span>name<span class="token punctuation">}</span> <span class="token keyword">is</span> <span class="token punctuation">{</span>age<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">MyComponent<span class="token punctuation">.</span>propTypes <span class="token operator">=</span> <span class="token punctuation">{</span>  <span class="token comment">// ❌ Silently ignored in React 19</span>
+</span><span class="code-line">  name<span class="token operator">:</span> PropTypes<span class="token punctuation">.</span><span class="token builtin">string</span><span class="token punctuation">.</span>isRequired<span class="token punctuation">,</span>
+</span><span class="code-line">  age<span class="token operator">:</span> PropTypes<span class="token punctuation">.</span><span class="token builtin">number</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>After (Use TypeScript):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">MyComponentProps</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  age<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">MyComponent</span><span class="token punctuation">(</span><span class="token punctuation">{</span> name<span class="token punctuation">,</span> age <span class="token punctuation">}</span><span class="token operator">:</span> MyComponentProps<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token operator">&lt;</span>Text<span class="token operator">&gt;</span><span class="token punctuation">{</span>name<span class="token punctuation">}</span> <span class="token keyword">is</span> <span class="token punctuation">{</span>age<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Migration:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Use React 19 codemod to remove propTypes</span>
+</span><span class="code-line">npx @codemod/react-19 upgrade
+</span></code></pre>
+<h3>🔴 forwardRef Deprecated (React 19)</h3>
+<p><strong>What Changed:</strong>
+<code>forwardRef</code> no longer needed - pass <code>ref</code> as a regular prop.</p>
+<p><strong>Before (Old Code):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> forwardRef <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> MyInput <span class="token operator">=</span> <span class="token function">forwardRef</span><span class="token punctuation">(</span><span class="token punctuation">(</span>props<span class="token punctuation">,</span> ref<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>  <span class="token comment">// ❌ Deprecated</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token operator">&lt;</span>TextInput ref<span class="token operator">=</span><span class="token punctuation">{</span>ref<span class="token punctuation">}</span> <span class="token punctuation">{</span><span class="token operator">...</span>props<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>After (React 19):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">MyInput</span><span class="token punctuation">(</span><span class="token punctuation">{</span> ref<span class="token punctuation">,</span> <span class="token operator">...</span>props <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>  <span class="token comment">// ✅ ref is a regular prop</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token operator">&lt;</span>TextInput ref<span class="token operator">=</span><span class="token punctuation">{</span>ref<span class="token punctuation">}</span> <span class="token punctuation">{</span><span class="token operator">...</span>props<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>🔴 Swift iOS Template Default (0.77+)</h3>
+<p><strong>What Changed:</strong>
+New projects use Swift <code>AppDelegate.swift</code> instead of Objective-C <code>AppDelegate.mm</code>.</p>
+<p><strong>Old Structure:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">ios/MyApp/
+</span><span class="code-line">├── main.m              # ❌ Removed
+</span><span class="code-line">├── AppDelegate.h       # ❌ Removed
+</span><span class="code-line">└── AppDelegate.mm      # ❌ Removed
+</span></code></pre>
+<p><strong>New Structure:</strong></p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// ios/MyApp/AppDelegate.swift ✅</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">UIKit</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">React</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token attribute atrule">@main</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">AppDelegate</span><span class="token punctuation">:</span> <span class="token class-name">UIResponder</span><span class="token punctuation">,</span> <span class="token class-name">UIApplicationDelegate</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">func</span> <span class="token function-definition function">application</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> application<span class="token punctuation">:</span> <span class="token class-name">UIApplication</span><span class="token punctuation">,</span> <span class="token operator">...</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">Bool</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// App initialization</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token boolean">true</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Migration (0.76 → 0.77):</strong>
+When upgrading existing projects, you <strong>MUST</strong> add this line:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Add to AppDelegate.swift during migration</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">React</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token class-name">ReactCoreModules</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token class-name">RCTAppDependencyProvider</span><span class="token punctuation">.</span><span class="token function">sharedInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment">// ⚠️ CRITICAL: Must add this!</span>
+</span></code></pre>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/01/14/release-0.77" target="_blank" rel="ugc nofollow noopener">React Native 0.77 Release Notes</a></p>
+<h3>🔴 Metro Log Forwarding Removed (0.77+)</h3>
+<p><strong>What Changed:</strong>
+Metro terminal no longer streams <code>console.log()</code> output.</p>
+<p><strong>Before (0.76):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># console.log() appeared in Metro terminal</span>
+</span><span class="code-line">$ npx expo start
+</span><span class="code-line"><span class="token operator">&gt;</span> LOG  Hello from app<span class="token operator">!</span>  <span class="token comment"># ✅ Appeared here</span>
+</span></code></pre>
+<p><strong>After (0.77+):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># console.log() does NOT appear in Metro terminal</span>
+</span><span class="code-line">$ npx expo start
+</span><span class="code-line"><span class="token comment"># (no logs shown)  # ❌ Removed</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Workaround (temporary, will be removed):</span>
+</span><span class="code-line">$ npx expo start --client-logs  <span class="token comment"># Shows logs, deprecated</span>
+</span></code></pre>
+<p><strong>Solution:</strong>
+Use React Native DevTools Console instead (press 'j' in CLI).</p>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/01/14/release-0.77" target="_blank" rel="ugc nofollow noopener">React Native 0.77 Release Notes</a></p>
+<h3>🔴 Chrome Debugger Removed (0.79+)</h3>
+<p><strong>What Changed:</strong>
+Old Chrome debugger (<code>chrome://inspect</code>) removed. Use React Native DevTools instead.</p>
+<p><strong>Old Method (Removed):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># ❌ This no longer works:</span>
+</span><span class="code-line"><span class="token comment"># Open Dev Menu → "Debug" → Chrome DevTools opens</span>
+</span></code></pre>
+<p><strong>New Method (0.76+):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Press 'j' in CLI or Dev Menu → "Open React Native DevTools"</span>
+</span><span class="code-line"><span class="token comment"># ✅ Uses Chrome DevTools Protocol (CDP)</span>
+</span><span class="code-line"><span class="token comment"># ✅ Reliable breakpoints, watch values, stack inspection</span>
+</span><span class="code-line"><span class="token comment"># ✅ JS Console (replaces Metro logs)</span>
+</span></code></pre>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Third-party extensions not yet supported (Redux DevTools, etc.)</li>
+<li>Network inspector coming in 0.83 (late 2025)</li>
+</ul>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/04/release-0.79" target="_blank" rel="ugc nofollow noopener">React Native 0.79 Release Notes</a></p>
+<h3>🔴 JSC Engine Moved to Community (0.79+)</h3>
+<p><strong>What Changed:</strong>
+JavaScriptCore (JSC) first-party support removed from React Native 0.81+ core. Moved to community package.</p>
+<p><strong>Before (0.78):</strong></p>
+<ul>
+<li>Both Hermes and JSC bundled in React Native</li>
+<li>JSC available in Expo Go</li>
+</ul>
+<p><strong>After (0.79+ / React Native 0.81+ / SDK 54):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># JSC removed from React Native core</span>
+</span><span class="code-line"><span class="token comment"># If you still need JSC (rare):</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @react-native-community/javascriptcore
+</span></code></pre>
+<p><strong>Expo Go:</strong></p>
+<ul>
+<li>SDK 52+: JSC completely removed from Expo Go</li>
+<li>Hermes only supported</li>
+</ul>
+<p><strong>Note:</strong> JSC will eventually be removed entirely from React Native.</p>
+<p><strong>Source:</strong> <a href="https://expo.dev/changelog/sdk-54" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 Changelog</a></p>
+<h3>🔴 Deep Imports Deprecated (0.80+)</h3>
+<p><strong>What Changed:</strong>
+Importing from internal paths will break.</p>
+<p><strong>Before (Old Code):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// ❌ Deep imports deprecated</span>
+</span><span class="code-line"><span class="token keyword">import</span> Button <span class="token keyword">from</span> <span class="token string">'react-native/Libraries/Components/Button'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> Platform <span class="token keyword">from</span> <span class="token string">'react-native/Libraries/Utilities/Platform'</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>After:</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// ✅ Import only from 'react-native'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Button<span class="token punctuation">,</span> Platform <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react-native'</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/06/release-0.80" target="_blank" rel="ugc nofollow noopener">React Native 0.80 Release Notes</a></p>
+<h3>🔴 Android Edge-to-Edge Mandatory (SDK 54+)</h3>
+<p><strong>What Changed:</strong>
+Edge-to-edge display is <strong>enabled in all Android apps by default in SDK 54 and cannot be disabled</strong>.</p>
+<p><strong>Impact:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token comment">// app.json or app.config.js</span>
+</span><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"expo"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"android"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// This setting is now IGNORED - edge-to-edge always enabled</span>
+</span><span class="code-line">      <span class="token property">"edgeToEdgeEnabled"</span><span class="token operator">:</span> <span class="token boolean">false</span>  <span class="token comment">// ❌ No effect in SDK 54+</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>UI Impact:</strong>
+Content now extends behind system status bar and navigation bar. You must account for insets manually using <code>react-native-safe-area-context</code>.</p>
+<p><strong>Solution:</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> SafeAreaView <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react-native-safe-area-context'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">App</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>SafeAreaView style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> flex<span class="token operator">:</span> <span class="token number">1</span> <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token punctuation">{</span><span class="token comment">/* Content respects system bars */</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>SafeAreaView<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Source:</strong> <a href="https://expo.dev/changelog/sdk-54" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 Changelog</a></p>
+<hr>
+<h2>New Features (Post-Dec 2024)</h2>
+<h3>CSS Properties (0.77+ New Architecture Only)</h3>
+<p>React Native now supports many CSS properties previously only available on web:</p>
+<h4>1. <code>display: contents</code></h4>
+<p>Makes an element "invisible" but keeps its children in the layout:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> display<span class="token operator">:</span> <span class="token string">'contents'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token comment">/* This View disappears, but Text still renders */</span><span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token operator">&lt;</span>Text<span class="token operator">&gt;</span><span class="token constant">I</span>'m still here<span class="token operator">!</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span>
+</span><span class="code-line"><span class="token operator">&lt;</span><span class="token operator">/</span>View<span class="token operator">&gt;</span>
+</span></code></pre>
+<p><strong>Use case:</strong> Wrapper components that shouldn't affect layout.</p>
+<h4>2. <code>boxSizing</code></h4>
+<p>Control how width/height are calculated:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Default: padding/border inside box</span>
+</span><span class="code-line"><span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span>
+</span><span class="code-line">  boxSizing<span class="token operator">:</span> <span class="token string">'border-box'</span><span class="token punctuation">,</span>  <span class="token comment">// Default</span>
+</span><span class="code-line">  width<span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>
+</span><span class="code-line">  padding<span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+</span><span class="code-line">  borderWidth<span class="token operator">:</span> <span class="token number">2</span>
+</span><span class="code-line">  <span class="token comment">// Total width: 100 (padding/border inside)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Content-box: padding/border outside</span>
+</span><span class="code-line"><span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span>
+</span><span class="code-line">  boxSizing<span class="token operator">:</span> <span class="token string">'content-box'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  width<span class="token operator">:</span> <span class="token number">100</span><span class="token punctuation">,</span>
+</span><span class="code-line">  padding<span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+</span><span class="code-line">  borderWidth<span class="token operator">:</span> <span class="token number">2</span>
+</span><span class="code-line">  <span class="token comment">// Total width: 124 (100 + 20 padding + 4 border)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span></code></pre>
+<h4>3. <code>mixBlendMode</code> + <code>isolation</code></h4>
+<p>Blend layers like Photoshop:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> backgroundColor<span class="token operator">:</span> <span class="token string">'red'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span>
+</span><span class="code-line">    mixBlendMode<span class="token operator">:</span> <span class="token string">'multiply'</span><span class="token punctuation">,</span>  <span class="token comment">// 16 modes available</span>
+</span><span class="code-line">    backgroundColor<span class="token operator">:</span> <span class="token string">'blue'</span>
+</span><span class="code-line">    <span class="token comment">// Result: purple (red × blue)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line"><span class="token operator">&lt;</span><span class="token operator">/</span>View<span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Prevent unwanted blending:</span>
+</span><span class="code-line"><span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> isolation<span class="token operator">:</span> <span class="token string">'isolate'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">{</span><span class="token comment">/* Blending contained within this view */</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token operator">&lt;</span><span class="token operator">/</span>View<span class="token operator">&gt;</span>
+</span></code></pre>
+<p><strong>Available modes:</strong> <code>multiply</code>, <code>screen</code>, <code>overlay</code>, <code>darken</code>, <code>lighten</code>, <code>color-dodge</code>, <code>color-burn</code>, <code>hard-light</code>, <code>soft-light</code>, <code>difference</code>, <code>exclusion</code>, <code>hue</code>, <code>saturation</code>, <code>color</code>, <code>luminosity</code></p>
+<h4>4. <code>outline</code> Properties</h4>
+<p>Visual outline that doesn't affect layout (unlike <code>border</code>):</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token operator">&lt;</span>View style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span>
+</span><span class="code-line">  outlineWidth<span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line">  outlineStyle<span class="token operator">:</span> <span class="token string">'solid'</span><span class="token punctuation">,</span>      <span class="token comment">// solid | dashed | dotted</span>
+</span><span class="code-line">  outlineColor<span class="token operator">:</span> <span class="token string">'blue'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  outlineOffset<span class="token operator">:</span> <span class="token number">4</span><span class="token punctuation">,</span>           <span class="token comment">// Space between element and outline</span>
+</span><span class="code-line">  outlineSpread<span class="token operator">:</span> <span class="token number">2</span>            <span class="token comment">// Expand outline beyond offset</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span></code></pre>
+<p><strong>Key difference:</strong> Outline doesn't change element size or trigger layout recalculations.</p>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/01/14/release-0.77" target="_blank" rel="ugc nofollow noopener">React Native 0.77 Release Notes</a></p>
+<h3>Android XML Drawables (0.78+)</h3>
+<p>Use native Android vector drawables (XML) as Image sources:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Load XML drawable at build time</span>
+</span><span class="code-line"><span class="token keyword">import</span> MyIcon <span class="token keyword">from</span> <span class="token string">'./assets/my_icon.xml'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token operator">&lt;</span>Image
+</span><span class="code-line">  source<span class="token operator">=</span><span class="token punctuation">{</span>MyIcon<span class="token punctuation">}</span>
+</span><span class="code-line">  style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> width<span class="token operator">:</span> <span class="token number">40</span><span class="token punctuation">,</span> height<span class="token operator">:</span> <span class="token number">40</span> <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Or with require:</span>
+</span><span class="code-line"><span class="token operator">&lt;</span>Image
+</span><span class="code-line">  source<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">require</span><span class="token punctuation">(</span><span class="token string">'./assets/my_icon.xml'</span><span class="token punctuation">)</span><span class="token punctuation">}</span>
+</span><span class="code-line">  style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> width<span class="token operator">:</span> <span class="token number">40</span><span class="token punctuation">,</span> height<span class="token operator">:</span> <span class="token number">40</span> <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token operator">/</span><span class="token operator">&gt;</span>
+</span></code></pre>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Scalable vector graphics (resolution-independent)</li>
+<li>Smaller APK size vs PNG</li>
+<li>Off-thread decoding (better performance)</li>
+</ul>
+<p><strong>Constraints:</strong></p>
+<ul>
+<li>Build-time resources only (no network loading)</li>
+<li>Android only (iOS still uses SF Symbols or PNG)</li>
+</ul>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/02/release-0.78" target="_blank" rel="ugc nofollow noopener">React Native 0.78 Release Notes</a></p>
+<h3>React 19 New Hooks</h3>
+<h4>1. <code>useActionState</code> (replaces form patterns)</h4>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useActionState <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">MyForm</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>state<span class="token punctuation">,</span> submitAction<span class="token punctuation">,</span> isPending<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useActionState</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">async</span> <span class="token punctuation">(</span>prevState<span class="token punctuation">,</span> formData<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Async form submission</span>
+</span><span class="code-line">      <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> api<span class="token punctuation">.</span><span class="token function">submit</span><span class="token punctuation">(</span>formData<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">return</span> result<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> message<span class="token operator">:</span> <span class="token string">''</span> <span class="token punctuation">}</span>  <span class="token comment">// Initial state</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>form action<span class="token operator">=</span><span class="token punctuation">{</span>submitAction<span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>TextInput name<span class="token operator">=</span><span class="token string">"email"</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>Button disabled<span class="token operator">=</span><span class="token punctuation">{</span>isPending<span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token punctuation">{</span>isPending <span class="token operator">?</span> <span class="token string">'Submitting...'</span> <span class="token operator">:</span> <span class="token string">'Submit'</span><span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span><span class="token operator">/</span>Button<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token punctuation">{</span>state<span class="token punctuation">.</span>message <span class="token operator">&amp;&amp;</span> <span class="token operator">&lt;</span>Text<span class="token operator">&gt;</span><span class="token punctuation">{</span>state<span class="token punctuation">.</span>message<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>2. <code>useOptimistic</code> (optimistic UI updates)</h4>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useOptimistic <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">LikeButton</span><span class="token punctuation">(</span><span class="token punctuation">{</span> postId<span class="token punctuation">,</span> initialLikes <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>optimisticLikes<span class="token punctuation">,</span> addOptimisticLike<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useOptimistic</span><span class="token punctuation">(</span>
+</span><span class="code-line">    initialLikes<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>currentLikes<span class="token punctuation">,</span> amount<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> currentLikes <span class="token operator">+</span> amount
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">handleLike</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">addOptimisticLike</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Update UI immediately</span>
+</span><span class="code-line">    <span class="token keyword">await</span> api<span class="token punctuation">.</span><span class="token function">like</span><span class="token punctuation">(</span>postId<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// Then update server</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>Button onPress<span class="token operator">=</span><span class="token punctuation">{</span>handleLike<span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">      ❤️ <span class="token punctuation">{</span>optimisticLikes<span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>Button<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>3. <code>use</code> (read promises/contexts during render)</h4>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> use <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">UserProfile</span><span class="token punctuation">(</span><span class="token punctuation">{</span> userPromise <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token comment">// Read promise directly during render (suspends if pending)</span>
+</span><span class="code-line">  <span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token function">use</span><span class="token punctuation">(</span>userPromise<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token operator">&lt;</span>Text<span class="token operator">&gt;</span><span class="token punctuation">{</span>user<span class="token punctuation">.</span>name<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Source:</strong> <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide" target="_blank" rel="ugc nofollow noopener">React 19 Upgrade Guide</a></p>
+<h3>React Native DevTools (0.76+)</h3>
+<p><strong>Access:</strong></p>
+<ul>
+<li>Press <code>j</code> in CLI</li>
+<li>Or open Dev Menu → "Open React Native DevTools"</li>
+</ul>
+<p><strong>Features:</strong></p>
+<ul>
+<li>✅ Reliable breakpoints (unlike old Chrome debugger)</li>
+<li>✅ Watch values, call stack inspection</li>
+<li>✅ JS Console (replaces Metro logs)</li>
+<li>✅ Chrome DevTools Protocol (CDP) based</li>
+<li>⏳ Network inspector (coming in 0.83)</li>
+<li>❌ Third-party extensions not yet supported</li>
+</ul>
+<p><strong>Source:</strong> <a href="https://reactnative.dev/blog/2024/10/release-0.76#react-native-devtools" target="_blank" rel="ugc nofollow noopener">React Native DevTools Announcement</a></p>
+<hr>
+<h2>Known Issues Prevention</h2>
+<p>This skill prevents <strong>16</strong> documented issues:</p>
+<h3>Issue #1: propTypes Silently Ignored</h3>
+<p><strong>Error:</strong> No error - <code>propTypes</code> just doesn't work
+<strong>Source:</strong> <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide" target="_blank" rel="ugc nofollow noopener">React 19 Upgrade Guide</a>
+<strong>Why It Happens:</strong> React 19 removed runtime propTypes validation
+<strong>Prevention:</strong> Use TypeScript instead, run <code>npx @codemod/react-19 upgrade</code> to remove</p>
+<h3>Issue #2: forwardRef Deprecated Warning</h3>
+<p><strong>Error:</strong> <code>Warning: forwardRef is deprecated</code>
+<strong>Source:</strong> <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide" target="_blank" rel="ugc nofollow noopener">React 19 Upgrade Guide</a>
+<strong>Why It Happens:</strong> React 19 allows <code>ref</code> as a regular prop
+<strong>Prevention:</strong> Remove <code>forwardRef</code> wrapper, pass <code>ref</code> as prop directly</p>
+<h3>Issue #3: New Architecture Cannot Be Disabled (0.82+)</h3>
+<p><strong>Error:</strong> Build fails with <code>newArchEnabled=false</code>
+<strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/10/release-0.82" target="_blank" rel="ugc nofollow noopener">React Native 0.82 Release Notes</a>
+<strong>Why It Happens:</strong> Legacy architecture completely removed from codebase
+<strong>Prevention:</strong> Migrate to New Architecture before upgrading to 0.82+</p>
+<h3>Issue #4: "Fabric component descriptor not found"</h3>
+<p><strong>Error:</strong> <code>Fabric component descriptor provider not found for component</code>
+<strong>Source:</strong> <a href="https://reactnative.dev/docs/new-architecture-intro" target="_blank" rel="ugc nofollow noopener">New Architecture Migration Guide</a>
+<strong>Why It Happens:</strong> Component not compatible with New Architecture (Fabric)
+<strong>Prevention:</strong> Update library to New Architecture version, or use interop layer (0.76-0.81)</p>
+<h3>Issue #5: "TurboModule not registered"</h3>
+<p><strong>Error:</strong> <code>TurboModule '[ModuleName]' not found</code>
+<strong>Source:</strong> <a href="https://reactnative.dev/docs/new-architecture-intro" target="_blank" rel="ugc nofollow noopener">New Architecture Migration Guide</a>
+<strong>Why It Happens:</strong> Native module needs New Architecture support (TurboModules)
+<strong>Prevention:</strong> Update library to support TurboModules, or use interop layer (0.76-0.81)</p>
+<h3>Issue #6: Swift AppDelegate Missing RCTAppDependencyProvider</h3>
+<p><strong>Error:</strong> <code>RCTAppDependencyProvider not found</code>
+<strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/01/14/release-0.77" target="_blank" rel="ugc nofollow noopener">React Native 0.77 Release Notes</a>
+<strong>Why It Happens:</strong> When migrating from Objective-C to Swift template
+<strong>Prevention:</strong> Add <code>RCTAppDependencyProvider.sharedInstance()</code> to AppDelegate.swift</p>
+<h3>Issue #7: Metro Logs Not Appearing</h3>
+<p><strong>Error:</strong> <code>console.log()</code> doesn't show in terminal
+<strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/01/14/release-0.77" target="_blank" rel="ugc nofollow noopener">React Native 0.77 Release Notes</a>
+<strong>Why It Happens:</strong> Metro log forwarding removed in 0.77
+<strong>Prevention:</strong> Use React Native DevTools Console (press 'j'), or <code>--client-logs</code> flag (temporary)</p>
+<h3>Issue #8: Chrome Debugger Not Working</h3>
+<p><strong>Error:</strong> Chrome DevTools doesn't connect
+<strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/04/release-0.79" target="_blank" rel="ugc nofollow noopener">React Native 0.79 Release Notes</a>
+<strong>Why It Happens:</strong> Old Chrome debugger removed in 0.79
+<strong>Prevention:</strong> Use React Native DevTools instead (press 'j')</p>
+<h3>Issue #9: Deep Import Errors</h3>
+<p><strong>Error:</strong> <code>Module not found: react-native/Libraries/...</code>
+<strong>Source:</strong> <a href="https://reactnative.dev/blog/2025/06/release-0.80" target="_blank" rel="ugc nofollow noopener">React Native 0.80 Release Notes</a>
+<strong>Why It Happens:</strong> Internal paths deprecated, strict API enforced
+<strong>Prevention:</strong> Import only from <code>'react-native'</code>, not deep paths</p>
+<h3>Issue #10: Redux Store Crashes with New Architecture</h3>
+<p><strong>Error:</strong> App crashes on Redux store creation
+<strong>Source:</strong> <a href="https://redux-toolkit.js.org/usage/usage-guide" target="_blank" rel="ugc nofollow noopener">Redux Toolkit Migration Guide</a>
+<strong>Why It Happens:</strong> Old <code>redux</code> + <code>redux-thunk</code> incompatible with New Architecture
+<strong>Prevention:</strong> Use Redux Toolkit (<code>@reduxjs/toolkit</code>) instead</p>
+<h3>Issue #11: i18n-js Unreliable with New Architecture</h3>
+<p><strong>Error:</strong> Translations not updating, or app crashes
+<strong>Source:</strong> Community reports (GitHub issues)
+<strong>Why It Happens:</strong> <code>i18n-js</code> not fully compatible with New Architecture
+<strong>Prevention:</strong> Use <code>react-i18next</code> instead</p>
+<h3>Issue #12: CodePush Crashes on Android</h3>
+<p><strong>Error:</strong> Android crashes looking for bundle named <code>null</code>
+<strong>Source:</strong> <a href="https://github.com/microsoft/react-native-code-push/issues" target="_blank" rel="ugc nofollow noopener">CodePush GitHub Issues</a>
+<strong>Why It Happens:</strong> Known incompatibility with New Architecture
+<strong>Prevention:</strong> Avoid CodePush with New Architecture, or wait for official support</p>
+<h3>Issue #13: expo-file-system Legacy API Removed (SDK 55+)</h3>
+<p><strong>Error:</strong> <code>Module not found: expo-file-system/legacy</code>
+<strong>Source:</strong> <a href="https://expo.dev/changelog/sdk-54" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 Changelog</a>, <a href="https://github.com/expo/expo/issues/39056" target="_blank" rel="ugc nofollow noopener">GitHub Issue #39056</a>
+<strong>Why It Happens:</strong> Legacy API removed in SDK 55, must migrate to new File/Directory class API
+<strong>Prevention:</strong> Migrate to new API before upgrading to SDK 55</p>
+<p><strong>Migration Timeline:</strong></p>
+<ul>
+<li>SDK 53 and earlier: Legacy API at <code>expo-file-system</code></li>
+<li>SDK 54: Legacy API at <code>expo-file-system/legacy</code>, new API at <code>expo-file-system</code> (default)</li>
+<li>SDK 55: Legacy API removed completely</li>
+</ul>
+<p><strong>Old Code (SDK 54 with legacy import):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> FileSystem <span class="token keyword">from</span> <span class="token string">'expo-file-system/legacy'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">await</span> FileSystem<span class="token punctuation">.</span><span class="token function">writeAsStringAsync</span><span class="token punctuation">(</span>uri<span class="token punctuation">,</span> content<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>New Code (SDK 54+ new API):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> File <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'expo-file-system'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> file <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">File</span><span class="token punctuation">(</span>uri<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">await</span> file<span class="token punctuation">.</span><span class="token function">writeString</span><span class="token punctuation">(</span>content<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Issue #14: expo-av Removed (SDK 55+)</h3>
+<p><strong>Error:</strong> <code>Module not found: expo-av</code>
+<strong>Source:</strong> <a href="https://expo.dev/changelog/sdk-54" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 Changelog</a>, <a href="https://github.com/expo/expo-av" target="_blank" rel="ugc nofollow noopener">expo-av GitHub</a>
+<strong>Why It Happens:</strong> Package deprecated in SDK 53, removed in SDK 55
+<strong>Prevention:</strong> Migrate to expo-audio and expo-video before SDK 55</p>
+<p><strong>Migration Timeline:</strong></p>
+<ul>
+<li>SDK 52: <code>expo-video</code> introduced</li>
+<li>SDK 53: <code>expo-audio</code> introduced, <code>expo-av</code> deprecated</li>
+<li>SDK 54: Last release with <code>expo-av</code> (no patches)</li>
+<li>SDK 55: <code>expo-av</code> removed</li>
+</ul>
+<p><strong>Migration - Audio:</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// OLD: expo-av</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Audio <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'expo-av'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> sound <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> Audio<span class="token punctuation">.</span>Sound<span class="token punctuation">.</span><span class="token function">createAsync</span><span class="token punctuation">(</span><span class="token keyword">require</span><span class="token punctuation">(</span><span class="token string">'./audio.mp3'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">await</span> sound<span class="token punctuation">.</span><span class="token function">playAsync</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// NEW: expo-audio</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useAudioPlayer <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'expo-audio'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> player <span class="token operator">=</span> <span class="token function">useAudioPlayer</span><span class="token punctuation">(</span><span class="token keyword">require</span><span class="token punctuation">(</span><span class="token string">'./audio.mp3'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">player<span class="token punctuation">.</span><span class="token function">play</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Migration - Video:</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// OLD: expo-av</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> Video <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'expo-av'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token operator">&lt;</span>Video source<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">require</span><span class="token punctuation">(</span><span class="token string">'./video.mp4'</span><span class="token punctuation">)</span><span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// NEW: expo-video</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> VideoView <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'expo-video'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token operator">&lt;</span>VideoView source<span class="token operator">=</span><span class="token punctuation">{</span><span class="token keyword">require</span><span class="token punctuation">(</span><span class="token string">'./video.mp4'</span><span class="token punctuation">)</span><span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span></code></pre>
+<h3>Issue #15: Reanimated v4 Requires New Architecture</h3>
+<p><strong>Error:</strong> Build fails or crashes with Reanimated v4 on Legacy Architecture
+<strong>Source:</strong> <a href="https://github.com/expo/fyi/blob/main/expo-54-reanimated.md" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 FYI</a>
+<strong>Why It Happens:</strong> Reanimated v4 exclusively requires New Architecture
+<strong>Prevention:</strong> Use Reanimated v3 with Legacy Architecture, or migrate to New Architecture first</p>
+<p><strong>Version Matrix:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Reanimated Version</th>
+<th>Architecture Support</th>
+<th>Expo SDK</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v3</td>
+<td>Legacy + New Architecture</td>
+<td>SDK 52-54</td>
+</tr>
+<tr>
+<td>v4</td>
+<td>New Architecture ONLY</td>
+<td>SDK 54+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>NativeWind Incompatibility:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># NativeWind does not support Reanimated v4 yet (as of Jan 2026)</span>
+</span><span class="code-line"><span class="token comment"># If using NativeWind, must stay on Reanimated v3</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> react-native-reanimated@^3
+</span></code></pre>
+<p><strong>Migration to v4 (New Architecture only):</strong></p>
+<ol>
+<li>Install <code>react-native-worklets</code> (required for v4)</li>
+<li>Follow <a href="https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/" target="_blank" rel="ugc nofollow noopener">official Reanimated v3 → v4 migration guide</a></li>
+<li>Skip babel.config.js changes if using <code>babel-preset-expo</code> (auto-configured)</li>
+</ol>
+<h3>Issue #16: iOS Crashes on Launch with Hermes + New Architecture (SDK 54) - Community-sourced</h3>
+<p><strong>Error:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">hermes::vm::JSObject::putComputed_RJS
+</span><span class="code-line">hermes::vm::arrayPrototypePush
+</span></code></pre>
+<p><strong>Source:</strong> <a href="https://github.com/expo/expo/issues/41824" target="_blank" rel="ugc nofollow noopener">GitHub Issue #41824</a>, <a href="https://medium.com/@shanavascruise/new-architecture-by-default-hermes-ios-expo-updates-can-break-your-ios-builds-4e98d89a1648" target="_blank" rel="ugc nofollow noopener">Medium Post</a>
+<strong>Verified:</strong> Reproduction available
+<strong>Why It Happens:</strong> Expo Updates requires explicit <code>:hermes_enabled</code> flag in Podfile when using New Architecture on iOS
+<strong>Prevention:</strong> Add explicit Hermes flag to ios/Podfile</p>
+<p><strong>Conditions:</strong></p>
+<ul>
+<li>Expo SDK 54</li>
+<li>New Architecture enabled</li>
+<li>Hermes enabled (default)</li>
+<li>Using <code>expo-updates</code></li>
+<li>iOS only (Android unaffected)</li>
+</ul>
+<p><strong>Workaround:</strong></p>
+<pre class="language-ruby"><code class="language-ruby code-highlight"><span class="code-line"><span class="token comment"># ios/Podfile</span>
+</span><span class="code-line">use_frameworks<span class="token operator">!</span> <span class="token symbol">:linkage</span> <span class="token operator">=&gt;</span> <span class="token symbol">:static</span>
+</span><span class="code-line"><span class="token constant">ENV</span><span class="token punctuation">[</span><span class="token string-literal"><span class="token string">'HERMES_ENABLED'</span></span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string-literal"><span class="token string">'1'</span></span>  <span class="token comment"># ⚠️ CRITICAL: Must be explicit with New Arch + expo-updates</span>
+</span></code></pre>
+<p><strong>Note:</strong> This is a community-sourced finding with reproduction repository, not yet officially documented in Expo changelog.</p>
+<hr>
+<h2>Migration Guide: 0.72-0.75 → 0.82+</h2>
+<h3>Step 1: Upgrade to Interop Layer First (0.76-0.81)</h3>
+<p><strong>Why:</strong> Can't skip directly to 0.82 if using legacy architecture - you'll lose the interop layer.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check current version</span>
+</span><span class="code-line">npx react-native <span class="token parameter variable">--version</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Upgrade to 0.81 first (last version with interop layer)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> react-native@0.81
+</span><span class="code-line">npx expo <span class="token function">install</span> <span class="token parameter variable">--fix</span>
+</span></code></pre>
+<h3>Step 2: Enable New Architecture (if not already)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Android (gradle.properties)</span>
+</span><span class="code-line"><span class="token assign-left variable">newArchEnabled</span><span class="token operator">=</span>true
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># iOS</span>
+</span><span class="code-line"><span class="token assign-left variable">RCT_NEW_ARCH_ENABLED</span><span class="token operator">=</span><span class="token number">1</span> bundle <span class="token builtin class-name">exec</span> pod <span class="token function">install</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Rebuild</span>
+</span><span class="code-line"><span class="token function">npm</span> run ios
+</span><span class="code-line"><span class="token function">npm</span> run android
+</span></code></pre>
+<h3>Step 3: Fix Incompatible Dependencies</h3>
+<p><strong>Common incompatibilities:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Replace Redux with Redux Toolkit</span>
+</span><span class="code-line"><span class="token function">npm</span> uninstall redux redux-thunk
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @reduxjs/toolkit react-redux
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Replace i18n-js with react-i18next</span>
+</span><span class="code-line"><span class="token function">npm</span> uninstall i18n-js
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> react-i18next i18next
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Update React Navigation (if old version)</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @react-navigation/native@latest
+</span></code></pre>
+<h3>Step 4: Test Thoroughly</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run on both platforms</span>
+</span><span class="code-line"><span class="token function">npm</span> run ios
+</span><span class="code-line"><span class="token function">npm</span> run android
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Test all features:</span>
+</span><span class="code-line"><span class="token comment"># - Navigation</span>
+</span><span class="code-line"><span class="token comment"># - State management (Redux)</span>
+</span><span class="code-line"><span class="token comment"># - API calls</span>
+</span><span class="code-line"><span class="token comment"># - Deep linking</span>
+</span><span class="code-line"><span class="token comment"># - Push notifications</span>
+</span></code></pre>
+<h3>Step 5: Migrate to React 19 (if upgrading to 0.78+)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run React 19 codemod</span>
+</span><span class="code-line">npx @codemod/react-19 upgrade
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Manually verify:</span>
+</span><span class="code-line"><span class="token comment"># - Remove all propTypes declarations</span>
+</span><span class="code-line"><span class="token comment"># - Remove forwardRef wrappers</span>
+</span><span class="code-line"><span class="token comment"># - Update to new hooks (useActionState, useOptimistic)</span>
+</span></code></pre>
+<h3>Step 6: Upgrade to 0.82+</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Only after testing with New Architecture enabled!</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> react-native@0.82
+</span><span class="code-line">npx expo <span class="token function">install</span> <span class="token parameter variable">--fix</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Rebuild</span>
+</span><span class="code-line"><span class="token function">npm</span> run ios
+</span><span class="code-line"><span class="token function">npm</span> run android
+</span></code></pre>
+<h3>Step 7: Migrate iOS to Swift (if new project)</h3>
+<p>New projects (0.77+) use Swift by default. For existing projects:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Follow upgrade helper</span>
+</span><span class="code-line"><span class="token comment"># https://react-native-community.github.io/upgrade-helper/</span>
+</span><span class="code-line"><span class="token comment"># Select: 0.76 → 0.77</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># CRITICAL: Add this line to AppDelegate.swift</span>
+</span><span class="code-line">RCTAppDependencyProvider.sharedInstance<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<hr>
+<h2>Common Patterns</h2>
+<h3>Pattern 1: Conditional Rendering with New Hooks</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> useActionState <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">LoginForm</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>state<span class="token punctuation">,</span> loginAction<span class="token punctuation">,</span> isPending<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useActionState</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">async</span> <span class="token punctuation">(</span>prevState<span class="token punctuation">,</span> formData<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token keyword">await</span> api<span class="token punctuation">.</span><span class="token function">login</span><span class="token punctuation">(</span>formData<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> user <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span> error<span class="token operator">:</span> error<span class="token punctuation">.</span>message <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> success<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>View<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>form action<span class="token operator">=</span><span class="token punctuation">{</span>loginAction<span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>TextInput name<span class="token operator">=</span><span class="token string">"email"</span> placeholder<span class="token operator">=</span><span class="token string">"Email"</span> <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>TextInput name<span class="token operator">=</span><span class="token string">"password"</span> secureTextEntry <span class="token operator">/</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>Button disabled<span class="token operator">=</span><span class="token punctuation">{</span>isPending<span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">          <span class="token punctuation">{</span>isPending <span class="token operator">?</span> <span class="token string">'Logging in...'</span> <span class="token operator">:</span> <span class="token string">'Login'</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span><span class="token operator">/</span>Button<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span><span class="token operator">/</span>form<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token punctuation">{</span><span class="token operator">!</span>state<span class="token punctuation">.</span>success <span class="token operator">&amp;&amp;</span> state<span class="token punctuation">.</span>error <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token operator">&lt;</span>Text style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> color<span class="token operator">:</span> <span class="token string">'red'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">&gt;</span><span class="token punctuation">{</span>state<span class="token punctuation">.</span>error<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token punctuation">)</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>View<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>When to use:</strong> Form submission with loading/error states</p>
+<h3>Pattern 2: TypeScript Instead of propTypes</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Define prop types with TypeScript</span>
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">ButtonProps</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  title<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function-variable function">onPress</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span><span class="token punctuation">;</span>
+</span><span class="code-line">  disabled<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>
+</span><span class="code-line">  variant<span class="token operator">?</span><span class="token operator">:</span> <span class="token string">'primary'</span> <span class="token operator">|</span> <span class="token string">'secondary'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">Button</span><span class="token punctuation">(</span><span class="token punctuation">{</span> title<span class="token punctuation">,</span> onPress<span class="token punctuation">,</span> disabled <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">,</span> variant <span class="token operator">=</span> <span class="token string">'primary'</span> <span class="token punctuation">}</span><span class="token operator">:</span> ButtonProps<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>Pressable
+</span><span class="code-line">      onPress<span class="token operator">=</span><span class="token punctuation">{</span>onPress<span class="token punctuation">}</span>
+</span><span class="code-line">      disabled<span class="token operator">=</span><span class="token punctuation">{</span>disabled<span class="token punctuation">}</span>
+</span><span class="code-line">      style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">[</span>styles<span class="token punctuation">.</span>button<span class="token punctuation">,</span> styles<span class="token punctuation">[</span>variant<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>Text style<span class="token operator">=</span><span class="token punctuation">{</span>styles<span class="token punctuation">.</span>text<span class="token punctuation">}</span><span class="token operator">&gt;</span><span class="token punctuation">{</span>title<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>Pressable<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>When to use:</strong> Always (propTypes removed in React 19)</p>
+<h3>Pattern 3: New CSS for Visual Effects</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Glowing button with outline and blend mode</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">GlowButton</span><span class="token punctuation">(</span><span class="token punctuation">{</span> title<span class="token punctuation">,</span> onPress <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span>Pressable
+</span><span class="code-line">      onPress<span class="token operator">=</span><span class="token punctuation">{</span>onPress<span class="token punctuation">}</span>
+</span><span class="code-line">      style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span>
+</span><span class="code-line">        backgroundColor<span class="token operator">:</span> <span class="token string">'#3b82f6'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        padding<span class="token operator">:</span> <span class="token number">16</span><span class="token punctuation">,</span>
+</span><span class="code-line">        borderRadius<span class="token operator">:</span> <span class="token number">8</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token comment">// Outline doesn't affect layout</span>
+</span><span class="code-line">        outlineWidth<span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line">        outlineColor<span class="token operator">:</span> <span class="token string">'#60a5fa'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        outlineOffset<span class="token operator">:</span> <span class="token number">4</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token comment">// Blend with background</span>
+</span><span class="code-line">        mixBlendMode<span class="token operator">:</span> <span class="token string">'screen'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        isolation<span class="token operator">:</span> <span class="token string">'isolate'</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token operator">&gt;</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span>Text style<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> color<span class="token operator">:</span> <span class="token string">'white'</span><span class="token punctuation">,</span> fontWeight<span class="token operator">:</span> <span class="token string">'bold'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token punctuation">{</span>title<span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token operator">&lt;</span><span class="token operator">/</span>Text<span class="token operator">&gt;</span>
+</span><span class="code-line">    <span class="token operator">&lt;</span><span class="token operator">/</span>Pressable<span class="token operator">&gt;</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>When to use:</strong> Visual effects without affecting layout (New Architecture only)</p>
+<hr>
+<h2>Using Bundled Resources</h2>
+<h3>Scripts (scripts/)</h3>
+<p><strong>check-rn-version.sh</strong> - Detects React Native version and warns about architecture requirements</p>
+<p><strong>Example Usage:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./scripts/check-rn-version.sh
+</span><span class="code-line"><span class="token comment"># Output: ✅ React Native 0.82 - New Architecture mandatory</span>
+</span><span class="code-line"><span class="token comment"># Output: ⚠️ React Native 0.75 - Upgrade to 0.76+ recommended</span>
+</span></code></pre>
+<h3>References (references/)</h3>
+<p><strong>react-19-migration.md</strong> - Detailed React 19 breaking changes and migration steps</p>
+<p><strong>new-architecture-errors.md</strong> - Common build errors when enabling New Architecture</p>
+<p><strong>expo-sdk-52-breaking.md</strong> - Expo SDK 52+ specific breaking changes</p>
+<p><strong>When Claude should load these:</strong> When encountering migration errors, build failures, or detailed React 19 questions</p>
+<h3>Assets (assets/)</h3>
+<p><strong>new-arch-decision-tree.md</strong> - Decision tree for choosing React Native version</p>
+<p><strong>css-features-cheatsheet.md</strong> - Complete examples of new CSS properties</p>
+<hr>
+<h2>Expo SDK 52+ Specifics</h2>
+<h3>Breaking Changes</h3>
+<p><strong>JSC Removed from Expo Go:</strong></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token comment">// This no longer works in Expo Go (SDK 52+):</span>
+</span><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"jsEngine"</span><span class="token operator">:</span> <span class="token string">"jsc"</span>  <span class="token comment">// ❌ Ignored, Hermes only</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Google Maps Removed from Expo Go (SDK 53+):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Must use custom dev client for Google Maps</span>
+</span><span class="code-line">npx expo <span class="token function">install</span> expo-dev-client
+</span><span class="code-line">npx expo run:android
+</span></code></pre>
+<p><strong>Push Notifications Warning:</strong>
+Expo Go shows warnings for push notifications - use custom dev client for production testing.</p>
+<h3>New Features (SDK 52)</h3>
+<p><strong>expo/fetch (WinterCG-compliant):</strong></p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> fetch <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'expo/fetch'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Standards-compliant fetch for Workers/Edge runtimes</span>
+</span><span class="code-line"><span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'https://api.example.com/data'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>React Navigation v7:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @react-navigation/native@^7.0.0
+</span></code></pre>
+<hr>
+<h2>Official Documentation</h2>
+<ul>
+<li><strong>React Native</strong>: <a href="https://reactnative.dev" target="_blank" rel="ugc nofollow noopener">https://reactnative.dev</a></li>
+<li><strong>Expo</strong>: <a href="https://docs.expo.dev" target="_blank" rel="ugc nofollow noopener">https://docs.expo.dev</a></li>
+<li><strong>React 19</strong>: <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide" target="_blank" rel="ugc nofollow noopener">https://react.dev/blog/2024/04/25/react-19-upgrade-guide</a></li>
+<li><strong>New Architecture</strong>: <a href="https://reactnative.dev/docs/new-architecture-intro" target="_blank" rel="ugc nofollow noopener">https://reactnative.dev/docs/new-architecture-intro</a></li>
+<li><strong>Upgrade Helper</strong>: <a href="https://react-native-community.github.io/upgrade-helper/" target="_blank" rel="ugc nofollow noopener">https://react-native-community.github.io/upgrade-helper/</a></li>
+<li><strong>Context7 Library ID</strong>: /facebook/react-native</li>
+</ul>
+<hr>
+<h2>Package Versions (Verified 2026-01-21)</h2>
+<p><strong>Build Tool Requirements (SDK 54+):</strong></p>
+<ul>
+<li><strong>Xcode</strong>: Minimum 16.1, Xcode 16 recommended</li>
+<li><strong>Node.js</strong>: Minimum 20.19.4</li>
+<li><strong>iOS Deployment Target</strong>: iOS 15.1+</li>
+</ul>
+<p><strong>Source:</strong> <a href="https://expo.dev/changelog/sdk-54" target="_blank" rel="ugc nofollow noopener">Expo SDK 54 Changelog</a></p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"dependencies"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"react"</span><span class="token operator">:</span> <span class="token string">"^19.2.3"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"react-native"</span><span class="token operator">:</span> <span class="token string">"^0.81.5"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"expo"</span><span class="token operator">:</span> <span class="token string">"~54.0.31"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"@react-navigation/native"</span><span class="token operator">:</span> <span class="token string">"^7.0.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"@reduxjs/toolkit"</span><span class="token operator">:</span> <span class="token string">"^2.0.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"react-i18next"</span><span class="token operator">:</span> <span class="token string">"^15.0.0"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"devDependencies"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"@types/react"</span><span class="token operator">:</span> <span class="token string">"^19.0.0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"typescript"</span><span class="token operator">:</span> <span class="token string">"^5.7.0"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Troubleshooting</h2>
+<h3>Problem: Build fails with "Fabric component descriptor not found"</h3>
+<p><strong>Solution:</strong> Library not compatible with New Architecture. Check library docs for New Architecture support, or use interop layer (0.76-0.81 only).</p>
+<h3>Problem: "propTypes is not a function" error</h3>
+<p><strong>Solution:</strong> React 19 removed propTypes. Use TypeScript for type checking instead. Run <code>npx @codemod/react-19 upgrade</code>.</p>
+<h3>Problem: console.log() not showing in Metro terminal</h3>
+<p><strong>Solution:</strong> Metro log forwarding removed in 0.77. Use React Native DevTools Console (press 'j') or <code>npx expo start --client-logs</code> (temporary workaround).</p>
+<h3>Problem: Swift AppDelegate errors during iOS build</h3>
+<p><strong>Solution:</strong> Add <code>RCTAppDependencyProvider.sharedInstance()</code> to AppDelegate.swift. See Swift migration section.</p>
+<h3>Problem: Redux store crashes on startup</h3>
+<p><strong>Solution:</strong> Use Redux Toolkit instead of legacy <code>redux</code> + <code>redux-thunk</code>. Install <code>@reduxjs/toolkit</code>.</p>
+<h3>Problem: Can't disable New Architecture in 0.82+</h3>
+<p><strong>Solution:</strong> New Architecture is mandatory in 0.82+. If you need legacy, stay on 0.81 or earlier (not recommended).</p>
+<hr>
+<h2>Complete Setup Checklist</h2>
+<p>Use this checklist to verify your setup:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> React Native 0.76+ or Expo SDK 52+ installed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> New Architecture enabled (automatic in 0.82+)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Hermes engine enabled (default)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> React 19 migration complete (no propTypes, no forwardRef)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> TypeScript configured for type checking</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> React Native DevTools accessible (press 'j')</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No deep imports (<code>react-native/Libraries/*</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Redux Toolkit (not legacy redux)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> react-i18next (not i18n-js)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> iOS builds successfully (Swift template if new project)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Android builds successfully</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dev server runs without errors</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All navigation/state management working</li>
+</ul>
+<hr>
+<p><strong>Questions? Issues?</strong></p>
+<ol>
+<li>Check <code>references/new-architecture-errors.md</code> for build errors</li>
+<li>Check <code>references/react-19-migration.md</code> for React 19 issues</li>
+<li>Check official docs: <a href="https://reactnative.dev/docs/new-architecture-intro" target="_blank" rel="ugc nofollow noopener">https://reactnative.dev/docs/new-architecture-intro</a></li>
+<li>Ensure New Architecture is enabled (mandatory in 0.82+)</li>
+<li>Verify all dependencies support New Architecture</li>
+</ol>
+<hr>
+<p><strong>Knowledge Gap Filled:</strong> This skill covers React Native updates from December 2024+ that LLMs won't know about. Without this skill, Claude would suggest deprecated APIs, removed features, and outdated patterns.</p></div>

@@ -1,0 +1,152 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Update Command</h1>
+<blockquote>
+<p>If you see unfamiliar placeholders or need to check which tools are connected, see <a href="https://github.com/anthropics/knowledge-work-plugins/blob/HEAD/productivity/skills/update/../../CONNECTORS.md" target="_blank" rel="ugc nofollow noopener">CONNECTORS.md</a>.</p>
+</blockquote>
+<p>Keep your task list and memory current. Two modes:</p>
+<ul>
+<li><strong>Default:</strong> Sync tasks from external tools, triage stale items, check memory for gaps</li>
+<li><strong><code>--comprehensive</code>:</strong> Deep scan chat, email, calendar, docs — flag missed todos and suggest new memories</li>
+</ul>
+<h2>Usage</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">/productivity:update
+</span><span class="code-line">/productivity:update <span class="token parameter variable">--comprehensive</span>
+</span></code></pre>
+<h2>Default Mode</h2>
+<h3>1. Load Current State</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Read <code>TASKS.md</code> and <code>memory/</code> directory. If they don't exist, suggest <code>/productivity:start</code> first.</p>
+<h3>2. Sync Tasks from External Sources</h3>
+<p>Check for available task sources:</p>
+<ul>
+<li><strong>Project tracker</strong> (e.g. Asana, Linear, Jira) (if MCP available)</li>
+<li><strong>GitHub Issues</strong> (if in a repo): <code>gh issue list --assignee=@me</code></li>
+</ul>
+<p>If no sources are available, skip to Step 3.</p>
+<p><strong>Fetch tasks assigned to the user</strong> (open/in-progress). Compare against TASKS.md:</p>
+<table>
+<thead>
+<tr>
+<th>External task</th>
+<th>TASKS.md match?</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Found, not in TASKS.md</td>
+<td>No match</td>
+<td>Offer to add</td>
+</tr>
+<tr>
+<td>Found, already in TASKS.md</td>
+<td>Match by title (fuzzy)</td>
+<td>Skip</td>
+</tr>
+<tr>
+<td>In TASKS.md, not in external</td>
+<td>No match</td>
+<td>Flag as potentially stale</td>
+</tr>
+<tr>
+<td>Completed externally</td>
+<td>In Active section</td>
+<td>Offer to mark done</td>
+</tr>
+</tbody>
+</table>
+<p>Present diff and let user decide what to add/complete.</p>
+<h3>3. Triage Stale Items</h3>
+<p>Review Active tasks in TASKS.md and flag:</p>
+<ul>
+<li>Tasks with due dates in the past</li>
+<li>Tasks in Active for 30+ days</li>
+<li>Tasks with no context (no person, no project)</li>
+</ul>
+<p>Present each for triage: Mark done? Reschedule? Move to Someday?</p>
+<h3>4. Decode Tasks for Memory Gaps</h3>
+<p>For each task, attempt to decode all entities (people, projects, acronyms, tools, links):</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Task: "Send PSR to Todd re: Phoenix blockers"
+</span><span class="code-line">
+</span><span class="code-line">Decode:
+</span><span class="code-line">- PSR → ✓ Pipeline Status Report (in glossary)
+</span><span class="code-line">- Todd → ✓ Todd Martinez (in people/)
+</span><span class="code-line">- Phoenix → ? Not in memory
+</span></code></pre>
+<p>Track what's fully decoded vs. what has gaps.</p>
+<h3>5. Fill Gaps</h3>
+<p>Present unknown terms grouped:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">I found terms in your tasks I don't have context for:
+</span><span class="code-line">
+</span><span class="code-line">1. "Phoenix" (from: "Send PSR to Todd re: Phoenix blockers")
+</span><span class="code-line">   → What's Phoenix?
+</span><span class="code-line">
+</span><span class="code-line">2. "Maya" (from: "sync with Maya on API design")
+</span><span class="code-line">   → Who is Maya?
+</span></code></pre>
+<p>Add answers to the appropriate memory files (people/, projects/, glossary.md).</p>
+<h3>6. Capture Enrichment</h3>
+<p>Tasks often contain richer context than memory. Extract and update:</p>
+<ul>
+<li><strong>Links</strong> from tasks → add to project/people files</li>
+<li><strong>Status changes</strong> ("launch done") → update project status, demote from CLAUDE.md</li>
+<li><strong>Relationships</strong> ("Todd's sign-off on Maya's proposal") → cross-reference people</li>
+<li><strong>Deadlines</strong> → add to project files</li>
+</ul>
+<h3>7. Report</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Update complete:
+</span><span class="code-line">- Tasks: +3 from project tracker (e.g. Asana), 1 completed, 2 triaged
+</span><span class="code-line">- Memory: 2 gaps filled, 1 project enriched
+</span><span class="code-line">- All tasks decoded ✓
+</span></code></pre>
+<h2>Comprehensive Mode (<code>--comprehensive</code>)</h2>
+<p>Everything in Default Mode, plus a deep scan of recent activity.</p>
+<h3>Extra Step: Scan Activity Sources</h3>
+<p>Gather data from available MCP sources:</p>
+<ul>
+<li><strong>Chat:</strong> Search recent messages, read active channels</li>
+<li><strong>Email:</strong> Search sent messages</li>
+<li><strong>Documents:</strong> List recently touched docs</li>
+<li><strong>Calendar:</strong> List recent + upcoming events</li>
+</ul>
+<h3>Extra Step: Flag Missed Todos</h3>
+<p>Compare activity against TASKS.md. Surface action items that aren't tracked:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">## Possible Missing Tasks
+</span><span class="code-line">
+</span><span class="code-line">From your activity, these look like todos you haven't captured:
+</span><span class="code-line">
+</span><span class="code-line">1. From chat (Jan 18):
+</span><span class="code-line">   "I'll send the updated mockups by Friday"
+</span><span class="code-line">   → Add to TASKS.md?
+</span><span class="code-line">
+</span><span class="code-line">2. From meeting "Phoenix Standup" (Jan 17):
+</span><span class="code-line">   You have a recurring meeting but no Phoenix tasks active
+</span><span class="code-line">   → Anything needed here?
+</span><span class="code-line">
+</span><span class="code-line">3. From email (Jan 16):
+</span><span class="code-line">   "I'll review the API spec this week"
+</span><span class="code-line">   → Add to TASKS.md?
+</span></code></pre>
+<p>Let user pick which to add.</p>
+<h3>Extra Step: Suggest New Memories</h3>
+<p>Surface new entities not in memory:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">## New People (not in memory)
+</span><span class="code-line">| Name | Frequency | Context |
+</span><span class="code-line">|------|-----------|---------|
+</span><span class="code-line">| Maya Rodriguez | 12 mentions | design, UI reviews |
+</span><span class="code-line">| Alex K | 8 mentions | DMs about API |
+</span><span class="code-line">
+</span><span class="code-line">## New Projects/Topics
+</span><span class="code-line">| Name | Frequency | Context |
+</span><span class="code-line">|------|-----------|---------|
+</span><span class="code-line">| Starlight | 15 mentions | planning docs, product |
+</span><span class="code-line">
+</span><span class="code-line">## Suggested Cleanup
+</span><span class="code-line">- **Horizon project** — No mentions in 30 days. Mark completed?
+</span></code></pre>
+<p>Present grouped by confidence. High-confidence items offered to add directly; low-confidence items asked about.</p>
+<h2>Notes</h2>
+<ul>
+<li>Never auto-add tasks or memories without user confirmation</li>
+<li>External source links are preserved when available</li>
+<li>Fuzzy matching on task titles handles minor wording differences</li>
+<li>Safe to run frequently — only updates when there's new info</li>
+<li><code>--comprehensive</code> always runs interactively</li>
+</ul></div>

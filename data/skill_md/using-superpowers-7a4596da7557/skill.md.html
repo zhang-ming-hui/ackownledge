@@ -1,0 +1,122 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><p>IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.</p>
+<p>This is not negotiable. This is not optional. You cannot rationalize your way out of this.
+</p>
+<h2>Instruction Priority</h2>
+<p>Superpowers skills override default system prompt behavior, but <strong>user instructions always take precedence</strong>:</p>
+<ol>
+<li><strong>User's explicit instructions</strong> (CLAUDE.md, GEMINI.md, AGENTS.md, direct requests) — highest priority</li>
+<li><strong>Superpowers skills</strong> — override default system behavior where they conflict</li>
+<li><strong>Default system prompt</strong> — lowest priority</li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>If CLAUDE.md, GEMINI.md, or AGENTS.md says "don't use TDD" and a skill says "always use TDD," follow the user's instructions. The user is in control.</p>
+<h2>How to Access Skills</h2>
+<p><strong>In Claude Code:</strong> Use the <code>Skill</code> tool. When you invoke a skill, its content is loaded and presented to you—follow it directly. Never use the Read tool on skill files.</p>
+<p><strong>In Copilot CLI:</strong> Use the <code>skill</code> tool. Skills are auto-discovered from installed plugins. The <code>skill</code> tool works the same as Claude Code's <code>Skill</code> tool.</p>
+<p><strong>In Gemini CLI:</strong> Skills activate via the <code>activate_skill</code> tool. Gemini loads skill metadata at session start and activates the full content on demand.</p>
+<p><strong>In other environments:</strong> Check your platform's documentation for how skills are loaded.</p>
+<h2>Platform Adaptation</h2>
+<p>Skills use Claude Code tool names. Non-CC platforms: see <code>references/copilot-tools.md</code> (Copilot CLI), <code>references/codex-tools.md</code> (Codex) for tool equivalents. Gemini CLI users get the tool mapping loaded automatically via GEMINI.md.</p>
+<h1>Using Skills</h1>
+<h2>The Rule</h2>
+<p><strong>Invoke relevant or requested skills BEFORE any response or action.</strong> Even a 1% chance a skill might apply means that you should invoke the skill to check. If an invoked skill turns out to be wrong for the situation, you don't need to use it.</p>
+<pre class="language-dot"><code class="language-dot code-highlight"><span class="code-line"><span class="token keyword">digraph</span> <span class="token graph-name class-name">skill_flow</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token node">"User message received"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">doublecircle</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"About to EnterPlanMode?"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">doublecircle</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Already brainstormed?"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">diamond</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Invoke brainstorming skill"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">box</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Might any skill apply?"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">diamond</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Invoke Skill tool"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">box</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Announce: 'Using [skill] to [purpose]'"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">box</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Has checklist?"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">diamond</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Create TodoWrite todo per item"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">box</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Follow skill exactly"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">box</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Respond (including clarifications)"</span> <span class="token punctuation">[</span><span class="token attr-name">shape</span><span class="token operator">=</span><span class="token attr-value">doublecircle</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token node">"About to EnterPlanMode?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Already brainstormed?"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Already brainstormed?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Invoke brainstorming skill"</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"no"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Already brainstormed?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Might any skill apply?"</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"yes"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Invoke brainstorming skill"</span> <span class="token operator">-&gt;</span> <span class="token node">"Might any skill apply?"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token node">"User message received"</span> <span class="token operator">-&gt;</span> <span class="token node">"Might any skill apply?"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Might any skill apply?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Invoke Skill tool"</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"yes, even 1%"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Might any skill apply?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Respond (including clarifications)"</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"definitely not"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Invoke Skill tool"</span> <span class="token operator">-&gt;</span> <span class="token node">"Announce: 'Using [skill] to [purpose]'"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Announce: 'Using [skill] to [purpose]'"</span> <span class="token operator">-&gt;</span> <span class="token node">"Has checklist?"</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Has checklist?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Create TodoWrite todo per item"</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"yes"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Has checklist?"</span> <span class="token operator">-&gt;</span> <span class="token node">"Follow skill exactly"</span> <span class="token punctuation">[</span><span class="token attr-name">label</span><span class="token operator">=</span><span class="token attr-value">"no"</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token node">"Create TodoWrite todo per item"</span> <span class="token operator">-&gt;</span> <span class="token node">"Follow skill exactly"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Red Flags</h2>
+<p>These thoughts mean STOP—you're rationalizing:</p>
+<table>
+<thead>
+<tr>
+<th>Thought</th>
+<th>Reality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"This is just a simple question"</td>
+<td>Questions are tasks. Check for skills.</td>
+</tr>
+<tr>
+<td>"I need more context first"</td>
+<td>Skill check comes BEFORE clarifying questions.</td>
+</tr>
+<tr>
+<td>"Let me explore the codebase first"</td>
+<td>Skills tell you HOW to explore. Check first.</td>
+</tr>
+<tr>
+<td>"I can check git/files quickly"</td>
+<td>Files lack conversation context. Check for skills.</td>
+</tr>
+<tr>
+<td>"Let me gather information first"</td>
+<td>Skills tell you HOW to gather information.</td>
+</tr>
+<tr>
+<td>"This doesn't need a formal skill"</td>
+<td>If a skill exists, use it.</td>
+</tr>
+<tr>
+<td>"I remember this skill"</td>
+<td>Skills evolve. Read current version.</td>
+</tr>
+<tr>
+<td>"This doesn't count as a task"</td>
+<td>Action = task. Check for skills.</td>
+</tr>
+<tr>
+<td>"The skill is overkill"</td>
+<td>Simple things become complex. Use it.</td>
+</tr>
+<tr>
+<td>"I'll just do this one thing first"</td>
+<td>Check BEFORE doing anything.</td>
+</tr>
+<tr>
+<td>"This feels productive"</td>
+<td>Undisciplined action wastes time. Skills prevent this.</td>
+</tr>
+<tr>
+<td>"I know what that means"</td>
+<td>Knowing the concept ≠ using the skill. Invoke it.</td>
+</tr>
+</tbody>
+</table>
+<h2>Skill Priority</h2>
+<p>When multiple skills could apply, use this order:</p>
+<ol>
+<li><strong>Process skills first</strong> (brainstorming, debugging) - these determine HOW to approach the task</li>
+<li><strong>Implementation skills second</strong> (frontend-design, mcp-builder) - these guide execution</li>
+</ol>
+<p>"Let's build X" → brainstorming first, then implementation skills.
+"Fix this bug" → debugging first, then domain-specific skills.</p>
+<h2>Skill Types</h2>
+<p><strong>Rigid</strong> (TDD, debugging): Follow exactly. Don't adapt away discipline.</p>
+<p><strong>Flexible</strong> (patterns): Adapt principles to context.</p>
+<p>The skill itself tells you which.</p>
+<h2>User Instructions</h2>
+<p>Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.</p></div>

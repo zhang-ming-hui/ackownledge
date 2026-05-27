@@ -1,0 +1,133 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Semgrep Rule Creator</h1>
+<p>Create production-quality Semgrep rules with proper testing and validation.</p>
+<h2>When to Use</h2>
+<p><strong>Ideal scenarios:</strong></p>
+<ul>
+<li>Writing Semgrep rules for specific bug patterns</li>
+<li>Writing rules to detect security vulnerabilities in your codebase</li>
+<li>Writing taint mode rules for data flow vulnerabilities</li>
+<li>Writing rules to enforce coding standards</li>
+</ul>
+<h2>When NOT to Use</h2>
+<p>Do NOT use this skill for:</p>
+<ul>
+<li>Running existing Semgrep rulesets</li>
+<li>General static analysis without custom rules (use <code>static-analysis</code> skill)</li>
+</ul>
+<h2>Rationalizations to Reject</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>When writing Semgrep rules, reject these common shortcuts:</p>
+<ul>
+<li><strong>"The pattern looks complete"</strong> → Still run <code>semgrep --test --config &lt;rule-id&gt;.yaml &lt;rule-id&gt;.&lt;ext&gt;</code> to verify. Untested rules have hidden false positives/negatives.</li>
+<li><strong>"It matches the vulnerable case"</strong> → Matching vulnerabilities is half the job. Verify safe cases don't match (false positives break trust).</li>
+<li><strong>"Taint mode is overkill for this"</strong> → If data flows from user input to a dangerous sink, taint mode gives better precision than pattern matching.</li>
+<li><strong>"One test is enough"</strong> → Include edge cases: different coding styles, sanitized inputs, safe alternatives, and boundary conditions.</li>
+<li><strong>"I'll optimize the patterns first"</strong> → Write correct patterns first, optimize after all tests pass. Premature optimization causes regressions.</li>
+<li><strong>"The AST dump is too complex"</strong> → The AST reveals exactly how Semgrep sees code. Skipping it leads to patterns that miss syntactic variations.</li>
+</ul>
+<h2>Anti-Patterns</h2>
+<p><strong>Too broad</strong> - matches everything, useless for detection:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># BAD: Matches any function call</span>
+</span><span class="code-line"><span class="token key atrule">pattern</span><span class="token punctuation">:</span> $FUNC(<span class="token punctuation">...</span>)
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GOOD: Specific dangerous function</span>
+</span><span class="code-line"><span class="token key atrule">pattern</span><span class="token punctuation">:</span> eval(<span class="token punctuation">...</span>)
+</span></code></pre>
+<p><strong>Missing safe cases in tests</strong> - leads to undetected false positives:</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># BAD: Only tests vulnerable case</span>
+</span><span class="code-line"><span class="token comment"># ruleid: my-rule</span>
+</span><span class="code-line">dangerous<span class="token punctuation">(</span>user_input<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GOOD: Include safe cases to verify no false positives</span>
+</span><span class="code-line"><span class="token comment"># ruleid: my-rule</span>
+</span><span class="code-line">dangerous<span class="token punctuation">(</span>user_input<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ok: my-rule</span>
+</span><span class="code-line">dangerous<span class="token punctuation">(</span>sanitize<span class="token punctuation">(</span>user_input<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ok: my-rule</span>
+</span><span class="code-line">dangerous<span class="token punctuation">(</span><span class="token string">"hardcoded_safe_value"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Overly specific patterns</strong> - misses variations:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># BAD: Only matches exact format</span>
+</span><span class="code-line"><span class="token key atrule">pattern</span><span class="token punctuation">:</span> os.system("rm " + $VAR)
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># GOOD: Matches all os.system calls with taint tracking</span>
+</span><span class="code-line"><span class="token key atrule">mode</span><span class="token punctuation">:</span> taint
+</span><span class="code-line"><span class="token key atrule">pattern-sources</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">pattern</span><span class="token punctuation">:</span> input(<span class="token punctuation">...</span>)
+</span><span class="code-line"><span class="token key atrule">pattern-sinks</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">pattern</span><span class="token punctuation">:</span> os.system(<span class="token punctuation">...</span>)
+</span></code></pre>
+<h2>Strictness Level</h2>
+<p>This workflow is <strong>strict</strong> - do not skip steps:</p>
+<ul>
+<li><strong>Read documentation first</strong>: See <a href="#documentation" target="_blank" rel="ugc nofollow noopener">Documentation</a> before writing Semgrep rules</li>
+<li><strong>Test-first is mandatory</strong>: Never write a rule without tests</li>
+<li><strong>100% test pass is required</strong>: "Most tests pass" is not acceptable</li>
+<li><strong>Optimization comes last</strong>: Only simplify patterns after all tests pass</li>
+<li><strong>Avoid generic patterns</strong>: Rules must be specific, not match broad patterns</li>
+<li><strong>Prioritize taint mode</strong>: For data flow vulnerabilities</li>
+<li><strong>One YAML file - one Semgrep rule</strong>: Each YAML file must contain only one Semgrep rule; don't combine multiple rules in a single file</li>
+<li><strong>No generic rules</strong>: When targeting a specific language for Semgrep rules - avoid generic pattern matching (<code>languages: generic</code>)</li>
+<li><strong>Forbidden <code>todook</code> and <code>todoruleid</code> test annotations</strong>: <code>todoruleid: &lt;rule-id&gt;</code> and <code>todook: &lt;rule-id&gt;</code> annotations in tests files for future rule improvements are forbidden</li>
+</ul>
+<h2>Overview</h2>
+<p>This skill guides creation of Semgrep rules that detect security vulnerabilities and code patterns. Rules are created iteratively: analyze the problem, write tests first, analyze AST structure, write the rule, iterate until all tests pass, optimize the rule.</p>
+<p><strong>Approach selection:</strong></p>
+<ul>
+<li><strong>Taint mode</strong> (prioritize): Data flow issues where untrusted input reaches dangerous sinks</li>
+<li><strong>Pattern matching</strong>: Simple syntactic patterns without data flow requirements</li>
+</ul>
+<p><strong>Why prioritize taint mode?</strong> Pattern matching finds syntax but misses context. A pattern <code>eval($X)</code> matches both <code>eval(user_input)</code> (vulnerable) and <code>eval("safe_literal")</code> (safe). Taint mode tracks data flow, so it only alerts when untrusted data actually reaches the sink—dramatically reducing false positives for injection vulnerabilities.</p>
+<p><strong>Iterating between approaches:</strong> It's okay to experiment. If you start with taint mode and it's not working well (e.g., taint doesn't propagate as expected, too many false positives/negatives), switch to pattern matching. Conversely, if pattern matching produces too many false positives on safe cases, try taint mode instead. The goal is a working rule—not rigid adherence to one approach.</p>
+<p><strong>Output structure</strong> - exactly 2 files in a directory named after the rule-id:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">&lt;rule-id&gt;/
+</span><span class="code-line">├── &lt;rule-id&gt;.yaml     # Semgrep rule
+</span><span class="code-line">└── &lt;rule-id&gt;.&lt;ext&gt;    # Test file with ruleid/ok annotations
+</span></code></pre>
+<h2>Quick Start</h2>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">id</span><span class="token punctuation">:</span> insecure<span class="token punctuation">-</span>eval
+</span><span class="code-line">    <span class="token key atrule">languages</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>python<span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token key atrule">severity</span><span class="token punctuation">:</span> HIGH
+</span><span class="code-line">    <span class="token key atrule">message</span><span class="token punctuation">:</span> User input passed to eval() allows code execution
+</span><span class="code-line">    <span class="token key atrule">mode</span><span class="token punctuation">:</span> taint
+</span><span class="code-line">    <span class="token key atrule">pattern-sources</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">pattern</span><span class="token punctuation">:</span> request.args.get(<span class="token punctuation">...</span>)
+</span><span class="code-line">    <span class="token key atrule">pattern-sinks</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">pattern</span><span class="token punctuation">:</span> eval(<span class="token punctuation">...</span>)
+</span></code></pre>
+<p>Test file (<code>insecure-eval.py</code>):</p>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># ruleid: insecure-eval</span>
+</span><span class="code-line"><span class="token builtin">eval</span><span class="token punctuation">(</span>request<span class="token punctuation">.</span>args<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'code'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># ok: insecure-eval</span>
+</span><span class="code-line"><span class="token builtin">eval</span><span class="token punctuation">(</span><span class="token string">"print('safe')"</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p>Run tests (from rule directory): <code>semgrep --test --config &lt;rule-id&gt;.yaml &lt;rule-id&gt;.&lt;ext&gt;</code></p>
+<h2>Quick Reference</h2>
+<ul>
+<li>For commands, pattern operators, and taint mode syntax, see <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-creator/skills/semgrep-rule-creator/%7BbaseDir%7D/references/quick-reference.md" target="_blank" rel="ugc nofollow noopener">quick-reference.md</a>.</li>
+<li>For detailed workflow and examples, you MUST see <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/semgrep-rule-creator/skills/semgrep-rule-creator/%7BbaseDir%7D/references/workflow.md" target="_blank" rel="ugc nofollow noopener">workflow.md</a></li>
+</ul>
+<h2>Workflow</h2>
+<p>Copy this checklist and track progress:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Semgrep Rule Progress:
+</span><span class="code-line">- [ ] Step 1: Analyze the Problem
+</span><span class="code-line">- [ ] Step 2: Write Tests First
+</span><span class="code-line">- [ ] Step 3: Analyze AST structure
+</span><span class="code-line">- [ ] Step 4: Write the rule
+</span><span class="code-line">- [ ] Step 5: Iterate until all tests pass (semgrep --test)
+</span><span class="code-line">- [ ] Step 6: Optimize the rule (remove redundancies, re-test)
+</span><span class="code-line">- [ ] Step 7: Final Run
+</span></code></pre>
+<h2>Documentation</h2>
+<p><strong>REQUIRED</strong>: Before writing any rule, use WebFetch to read <strong>all</strong> of these 7 links with Semgrep documentation:</p>
+<ol>
+<li><a href="https://raw.githubusercontent.com/semgrep/semgrep-docs/refs/heads/main/docs/writing-rules/rule-syntax.md" target="_blank" rel="ugc nofollow noopener">Rule Syntax</a></li>
+<li><a href="https://raw.githubusercontent.com/semgrep/semgrep-docs/refs/heads/main/docs/writing-rules/pattern-syntax.mdx" target="_blank" rel="ugc nofollow noopener">Pattern Syntax</a></li>
+<li><a href="https://raw.githubusercontent.com/semgrep/semgrep-docs/refs/heads/main/docs/writing-rules/testing-rules.md" target="_blank" rel="ugc nofollow noopener">Testing Rules</a></li>
+<li><a href="https://raw.githubusercontent.com/semgrep/semgrep-docs/refs/heads/main/docs/writing-rules/data-flow/taint-mode/overview.md" target="_blank" rel="ugc nofollow noopener">Taint analysis</a></li>
+<li><a href="https://raw.githubusercontent.com/semgrep/semgrep-docs/refs/heads/main/docs/writing-rules/data-flow/taint-mode/advanced.md" target="_blank" rel="ugc nofollow noopener">Advanced techniques for taint analysis</a></li>
+<li><a href="https://raw.githubusercontent.com/semgrep/semgrep-docs/refs/heads/main/docs/writing-rules/data-flow/constant-propagation.md" target="_blank" rel="ugc nofollow noopener">Constant propagation</a></li>
+<li><a href="https://raw.githubusercontent.com/trailofbits/testing-handbook/refs/heads/main/content/docs/static-analysis/semgrep/10-advanced.md" target="_blank" rel="ugc nofollow noopener">Trail of Bits Testing Handbook - Semgrep chapter</a></li>
+</ol></div>

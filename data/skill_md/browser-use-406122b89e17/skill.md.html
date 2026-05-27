@@ -1,0 +1,207 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Browser Automation with browser-use CLI</h1>
+<p>The <code>browser-use</code> command provides fast, persistent browser automation. A background daemon keeps the browser open across commands, giving ~50ms latency per call.</p>
+<h2>Prerequisites</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use doctor    <span class="token comment"># Verify installation</span>
+</span></code></pre>
+<p>For setup details, see <a href="https://github.com/browser-use/browser-use/blob/main/browser_use/skill_cli/README.md" target="_blank" rel="ugc nofollow noopener">https://github.com/browser-use/browser-use/blob/main/browser_use/skill_cli/README.md</a></p>
+<h2>Core Workflow</h2>
+<ol>
+<li><strong>Navigate</strong>: <code>browser-use open &lt;url&gt;</code> — launches headless browser and opens page</li>
+<li><strong>Inspect</strong>: <code>browser-use state</code> — returns clickable elements with indices</li>
+<li><strong>Interact</strong>: use indices from state (<code>browser-use click 5</code>, <code>browser-use input 3 "text"</code>)</li>
+<li><strong>Verify</strong>: <code>browser-use state</code> or <code>browser-use screenshot</code> to confirm</li>
+<li><strong>Repeat</strong>: browser stays open between commands</li>
+</ol></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>If a command fails, run <code>browser-use close</code> first to clear any broken session, then retry.</p>
+<p>To use the user's existing Chrome (preserves logins/cookies): run <code>browser-use connect</code> first.
+To use a cloud browser instead: run <code>browser-use cloud connect</code> first.
+After either, commands work the same way.</p>
+<h3>If <code>browser-use connect</code> fails</h3>
+<p>When <code>browser-use connect</code> cannot find a running Chrome with remote debugging, prompt the user with two options:</p>
+<ol>
+<li><strong>Use their real Chrome browser</strong> — they need to enable remote debugging first:
+<ul>
+<li>Open <code>chrome://inspect/#remote-debugging</code> in Chrome, or relaunch Chrome with <code>--remote-debugging-port=9222</code></li>
+<li>Then retry <code>browser-use connect</code></li>
+</ul>
+</li>
+<li><strong>Use managed Chromium with their Chrome profile</strong> — no Chrome setup needed:
+<ul>
+<li>Run <code>browser-use profile list</code> to show available profiles</li>
+<li>Ask which profile they want, then use <code>browser-use --profile "ProfileName" open &lt;url&gt;</code></li>
+<li>This launches a separate Chromium instance with their profile data (cookies, logins, extensions)</li>
+</ul>
+</li>
+</ol>
+<p>Let the user choose — don't assume one path over the other.</p>
+<h2>Browser Modes</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use <span class="token function">open</span> <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span>                         <span class="token comment"># Default: headless Chromium (no setup needed)</span>
+</span><span class="code-line">browser-use <span class="token parameter variable">--headed</span> <span class="token function">open</span> <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span>                <span class="token comment"># Visible window (for debugging)</span>
+</span><span class="code-line">browser-use connect                            <span class="token comment"># Connect to user's Chrome (preserves logins/cookies)</span>
+</span><span class="code-line">browser-use cloud connect                      <span class="token comment"># Cloud browser (zero-config, requires API key)</span>
+</span><span class="code-line">browser-use <span class="token parameter variable">--profile</span> <span class="token string">"Default"</span> <span class="token function">open</span> <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span>     <span class="token comment"># Real Chrome with specific profile</span>
+</span></code></pre>
+<p>After <code>connect</code> or <code>cloud connect</code>, all subsequent commands go to that browser — no extra flags needed.</p>
+<h2>Commands</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Navigation</span>
+</span><span class="code-line">browser-use <span class="token function">open</span> <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span>                    <span class="token comment"># Navigate to URL</span>
+</span><span class="code-line">browser-use back                          <span class="token comment"># Go back in history</span>
+</span><span class="code-line">browser-use scroll down                   <span class="token comment"># Scroll down (--amount N for pixels)</span>
+</span><span class="code-line">browser-use scroll up                     <span class="token comment"># Scroll up</span>
+</span><span class="code-line">browser-use tab list                      <span class="token comment"># List all tabs</span>
+</span><span class="code-line">browser-use tab new <span class="token punctuation">[</span>url<span class="token punctuation">]</span>                 <span class="token comment"># Open a new tab (blank or with URL)</span>
+</span><span class="code-line">browser-use tab switch <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>            <span class="token comment"># Switch to tab by index</span>
+</span><span class="code-line">browser-use tab close <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span> <span class="token punctuation">[</span>index<span class="token punctuation">..</span>.<span class="token punctuation">]</span>  <span class="token comment"># Close one or more tabs</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Page State — always run state first to get element indices</span>
+</span><span class="code-line">browser-use state                         <span class="token comment"># URL, title, clickable elements with indices</span>
+</span><span class="code-line">browser-use screenshot <span class="token punctuation">[</span>path.png<span class="token punctuation">]</span>         <span class="token comment"># Screenshot (base64 if no path, --full for full page)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Interactions — use indices from state</span>
+</span><span class="code-line">browser-use click <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>                 <span class="token comment"># Click element by index</span>
+</span><span class="code-line">browser-use click <span class="token operator">&lt;</span>x<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>y<span class="token operator">&gt;</span>                 <span class="token comment"># Click at pixel coordinates</span>
+</span><span class="code-line">browser-use <span class="token builtin class-name">type</span> <span class="token string">"text"</span>                   <span class="token comment"># Type into focused element</span>
+</span><span class="code-line">browser-use input <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span> <span class="token string">"text"</span>          <span class="token comment"># Click element, clear existing text, then type</span>
+</span><span class="code-line">browser-use input <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span> <span class="token string">""</span>              <span class="token comment"># Clear a field without typing new text</span>
+</span><span class="code-line">browser-use keys <span class="token string">"Enter"</span>                  <span class="token comment"># Send keyboard keys (also "Control+a", etc.)</span>
+</span><span class="code-line">browser-use <span class="token keyword">select</span> <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span> <span class="token string">"option"</span>       <span class="token comment"># Select dropdown option</span>
+</span><span class="code-line">browser-use upload <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>path<span class="token operator">&gt;</span>         <span class="token comment"># Upload file to file input</span>
+</span><span class="code-line">browser-use hover <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>                 <span class="token comment"># Hover over element</span>
+</span><span class="code-line">browser-use dblclick <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>              <span class="token comment"># Double-click element</span>
+</span><span class="code-line">browser-use rightclick <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>            <span class="token comment"># Right-click element</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Data Extraction</span>
+</span><span class="code-line">browser-use <span class="token builtin class-name">eval</span> <span class="token string">"js code"</span>                <span class="token comment"># Execute JavaScript, return result</span>
+</span><span class="code-line">browser-use get title                     <span class="token comment"># Page title</span>
+</span><span class="code-line">browser-use get html <span class="token punctuation">[</span>--selector <span class="token string">"h1"</span><span class="token punctuation">]</span>    <span class="token comment"># Page HTML (or scoped to selector)</span>
+</span><span class="code-line">browser-use get text <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>              <span class="token comment"># Element text content</span>
+</span><span class="code-line">browser-use get value <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>             <span class="token comment"># Input/textarea value</span>
+</span><span class="code-line">browser-use get attributes <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>        <span class="token comment"># Element attributes</span>
+</span><span class="code-line">browser-use get bbox <span class="token operator">&lt;</span>index<span class="token operator">&gt;</span>              <span class="token comment"># Bounding box (x, y, width, height)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Wait</span>
+</span><span class="code-line">browser-use <span class="token function">wait</span> selector <span class="token string">"css"</span>           <span class="token comment"># Wait for element (--state visible|hidden|attached|detached, --timeout ms)</span>
+</span><span class="code-line">browser-use <span class="token function">wait</span> text <span class="token string">"text"</span>              <span class="token comment"># Wait for text to appear</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Cookies</span>
+</span><span class="code-line">browser-use cookies get <span class="token punctuation">[</span>--url <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span><span class="token punctuation">]</span>     <span class="token comment"># Get cookies (optionally filtered)</span>
+</span><span class="code-line">browser-use cookies <span class="token builtin class-name">set</span> <span class="token operator">&lt;</span>name<span class="token operator">&gt;</span> <span class="token operator">&lt;</span>value<span class="token operator">&gt;</span>    <span class="token comment"># Set cookie (--domain, --secure, --http-only, --same-site, --expires)</span>
+</span><span class="code-line">browser-use cookies <span class="token function">clear</span> <span class="token punctuation">[</span>--url <span class="token operator">&lt;</span>url<span class="token operator">&gt;</span><span class="token punctuation">]</span>   <span class="token comment"># Clear cookies</span>
+</span><span class="code-line">browser-use cookies <span class="token builtin class-name">export</span> <span class="token operator">&lt;</span>file<span class="token operator">&gt;</span>         <span class="token comment"># Export to JSON</span>
+</span><span class="code-line">browser-use cookies <span class="token function">import</span> <span class="token operator">&lt;</span>file<span class="token operator">&gt;</span>         <span class="token comment"># Import from JSON</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Session</span>
+</span><span class="code-line">browser-use close                         <span class="token comment"># Close browser and stop daemon</span>
+</span><span class="code-line">browser-use sessions                      <span class="token comment"># List active sessions</span>
+</span><span class="code-line">browser-use close <span class="token parameter variable">--all</span>                   <span class="token comment"># Close all sessions</span>
+</span></code></pre>
+<p>For advanced browser control (CDP, device emulation, tab activation), see <code>references/cdp-python.md</code>.</p>
+<h2>Cloud API</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use cloud connect                 <span class="token comment"># Provision cloud browser and connect (zero-config)</span>
+</span><span class="code-line">browser-use cloud login <span class="token operator">&lt;</span>api-key<span class="token operator">&gt;</span>         <span class="token comment"># Save API key (or set BROWSER_USE_API_KEY)</span>
+</span><span class="code-line">browser-use cloud <span class="token builtin class-name">logout</span>                  <span class="token comment"># Remove API key</span>
+</span><span class="code-line">browser-use cloud v2 GET /browsers        <span class="token comment"># REST passthrough (v2 or v3)</span>
+</span><span class="code-line">browser-use cloud v2 POST /tasks <span class="token string">'{"task":"...","url":"..."}'</span>
+</span><span class="code-line">browser-use cloud v2 poll <span class="token operator">&lt;</span>task-id<span class="token operator">&gt;</span>       <span class="token comment"># Poll task until done</span>
+</span><span class="code-line">browser-use cloud v2 <span class="token parameter variable">--help</span>               <span class="token comment"># Show API endpoints</span>
+</span></code></pre>
+<p><code>cloud connect</code> provisions a cloud browser with a persistent profile (auto-created on first use), connects via CDP, and prints a live URL. <code>browser-use close</code> disconnects AND stops the cloud browser. For custom browser settings (proxy, timeout, specific profile), use <code>cloud v2 POST /browsers</code> directly with the desired parameters.</p>
+<h3>Agent Self-Registration</h3>
+<p>Only use this if you don't already have an API key (check <code>browser-use doctor</code> to see if api_key is set). If already logged in, skip this entirely.</p>
+<ol>
+<li><code>browser-use cloud signup</code> — get a challenge</li>
+<li>Solve the challenge</li>
+<li><code>browser-use cloud signup --verify &lt;challenge-id&gt; &lt;answer&gt;</code> — verify and save API key</li>
+<li><code>browser-use cloud signup --claim</code> — generate URL for a human to claim the account</li>
+</ol>
+<h2>Tunnels</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use tunnel <span class="token operator">&lt;</span>port<span class="token operator">&gt;</span>                 <span class="token comment"># Start Cloudflare tunnel (idempotent)</span>
+</span><span class="code-line">browser-use tunnel list                   <span class="token comment"># Show active tunnels</span>
+</span><span class="code-line">browser-use tunnel stop <span class="token operator">&lt;</span>port<span class="token operator">&gt;</span>            <span class="token comment"># Stop tunnel</span>
+</span><span class="code-line">browser-use tunnel stop <span class="token parameter variable">--all</span>             <span class="token comment"># Stop all tunnels</span>
+</span></code></pre>
+<h2>Profile Management</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use profile list                  <span class="token comment"># List detected browsers and profiles</span>
+</span><span class="code-line">browser-use profile <span class="token function">sync</span> <span class="token parameter variable">--all</span>            <span class="token comment"># Sync profiles to cloud</span>
+</span><span class="code-line">browser-use profile update                <span class="token comment"># Download/update profile-use binary</span>
+</span></code></pre>
+<h2>Command Chaining</h2>
+<p>Commands can be chained with <code>&amp;&amp;</code>. The browser persists via the daemon, so chaining is safe and efficient.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use <span class="token function">open</span> https://example.com <span class="token operator">&amp;&amp;</span> browser-use state
+</span><span class="code-line">browser-use input <span class="token number">5</span> <span class="token string">"user@example.com"</span> <span class="token operator">&amp;&amp;</span> browser-use input <span class="token number">6</span> <span class="token string">"password"</span> <span class="token operator">&amp;&amp;</span> browser-use click <span class="token number">7</span>
+</span></code></pre>
+<p>Chain when you don't need intermediate output. Run separately when you need to parse <code>state</code> to discover indices first.</p>
+<h2>Common Workflows</h2>
+<h3>Authenticated Browsing</h3>
+<p>When a task requires an authenticated site (Gmail, GitHub, internal tools), use Chrome profiles:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use profile list                           <span class="token comment"># Check available profiles</span>
+</span><span class="code-line"><span class="token comment"># Ask the user which profile to use, then:</span>
+</span><span class="code-line">browser-use <span class="token parameter variable">--profile</span> <span class="token string">"Default"</span> <span class="token function">open</span> https://github.com  <span class="token comment"># Already logged in</span>
+</span></code></pre>
+<h3>Exposing Local Dev Servers</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use tunnel <span class="token number">3000</span>                            <span class="token comment"># → https://abc.trycloudflare.com</span>
+</span><span class="code-line">browser-use <span class="token function">open</span> https://abc.trycloudflare.com     <span class="token comment"># Browse the tunnel</span>
+</span></code></pre>
+<h2>Multiple Browsers</h2>
+<p>For subagent workflows or running multiple browsers in parallel, use <code>--session NAME</code>. Each session gets its own browser. See <code>references/multi-session.md</code>.</p>
+<h2>Configuration</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use config list                            <span class="token comment"># Show all config values</span>
+</span><span class="code-line">browser-use config <span class="token builtin class-name">set</span> cloud_connect_proxy jp      <span class="token comment"># Set a value</span>
+</span><span class="code-line">browser-use config get cloud_connect_proxy         <span class="token comment"># Get a value</span>
+</span><span class="code-line">browser-use config <span class="token builtin class-name">unset</span> cloud_connect_timeout     <span class="token comment"># Remove a value</span>
+</span><span class="code-line">browser-use doctor                                 <span class="token comment"># Shows config + diagnostics</span>
+</span><span class="code-line">browser-use setup                                  <span class="token comment"># Interactive post-install setup</span>
+</span></code></pre>
+<p>Config stored in <code>~/.browser-use/config.json</code>.</p>
+<h2>Global Options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--headed</code></td>
+<td>Show browser window</td>
+</tr>
+<tr>
+<td><code>--profile [NAME]</code></td>
+<td>Use real Chrome (bare <code>--profile</code> uses "Default")</td>
+</tr>
+<tr>
+<td><code>--cdp-url &lt;url&gt;</code></td>
+<td>Connect via CDP URL (<code>http://</code> or <code>ws://</code>)</td>
+</tr>
+<tr>
+<td><code>--session NAME</code></td>
+<td>Target a named session (default: "default")</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>Output as JSON</td>
+</tr>
+<tr>
+<td><code>--mcp</code></td>
+<td>Run as MCP server via stdin/stdout</td>
+</tr>
+</tbody>
+</table>
+<h2>Tips</h2>
+<ol>
+<li><strong>Always run <code>state</code> first</strong> to see available elements and their indices</li>
+<li><strong>Use <code>--headed</code> for debugging</strong> to see what the browser is doing</li>
+<li><strong>Sessions persist</strong> — browser stays open between commands</li>
+<li><strong>CLI aliases</strong>: <code>bu</code>, <code>browser</code>, and <code>browseruse</code> all work</li>
+<li><strong>If commands fail</strong>, run <code>browser-use close</code> first, then retry</li>
+</ol>
+<h2>Troubleshooting</h2>
+<ul>
+<li><strong>Browser won't start?</strong> <code>browser-use close</code> then <code>browser-use --headed open &lt;url&gt;</code></li>
+<li><strong>Element not found?</strong> <code>browser-use scroll down</code> then <code>browser-use state</code></li>
+<li><strong>Run diagnostics:</strong> <code>browser-use doctor</code></li>
+</ul>
+<h2>Cleanup</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">browser-use close                         <span class="token comment"># Close browser session</span>
+</span><span class="code-line">browser-use tunnel stop <span class="token parameter variable">--all</span>             <span class="token comment"># Stop tunnels (if any)</span>
+</span></code></pre></div>

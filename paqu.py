@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -296,7 +297,10 @@ def load_checkpoint() -> Dict:
 def save_checkpoint(data: Dict) -> None:
     payload = dict(data)
     if "records" in payload and isinstance(payload["records"], list):
-        payload["records"] = normalize_records(payload["records"])
+        payload["records"] = [
+            externalize_skill_md_assets(record)
+            for record in normalize_records(payload["records"])
+        ]
     Path(CHECKPOINT_FILE).parent.mkdir(parents=True, exist_ok=True)
     with open(CHECKPOINT_FILE, "w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)
@@ -433,6 +437,60 @@ def extract_skill_md_from_html_block(page_html: str) -> Dict[str, str]:
         "skill_md": text,
         "skill_md_source": "html_block" if text else "missing",
     }
+
+
+def extract_skill_md_with_selenium(detail_url: str, wait_seconds: float = 4.0) -> Dict[str, str]:
+    from selenium.webdriver.common.by import By
+
+    driver = create_driver(headless=True)
+    try:
+        driver.get(detail_url)
+        time.sleep(wait_seconds)
+
+        # Expand collapsed SKILL.md sections if the page exposes a Show more control.
+        for _ in range(3):
+            buttons = driver.find_elements(By.XPATH, "//button[contains(., 'Show more')]")
+            if not buttons:
+                break
+            clicked = False
+            for button in buttons:
+                try:
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                    time.sleep(0.2)
+                    driver.execute_script("arguments[0].click();", button)
+                    time.sleep(1.0)
+                    clicked = True
+                except Exception:
+                    continue
+            if not clicked:
+                break
+
+        containers = driver.find_elements(
+            By.XPATH,
+            "//span[normalize-space()='SKILL.md']/ancestor::div[1]/following-sibling::div[1]",
+        )
+        if not containers:
+            return {
+                "skill_md_html": "",
+                "skill_md_raw_text": "",
+                "skill_md": "",
+                "skill_md_source": "missing",
+            }
+
+        container = containers[0]
+        container_html = container.get_attribute("innerHTML") or ""
+        container_html = re.sub(r"(?is)<div class=\"relative\">.*?</div>", "", container_html)
+        container_html = re.sub(r"(?is)<button\b.*?</button>", "", container_html)
+        raw_text = strip_html_to_text(container_html)
+        text = normalize_text(raw_text)
+        return {
+            "skill_md_html": container_html,
+            "skill_md_raw_text": raw_text,
+            "skill_md": text,
+            "skill_md_source": "selenium_show_more" if text else "missing",
+        }
+    finally:
+        driver.quit()
 
 
 def _decode_next_payload_fragment(raw_fragment: str) -> str:
@@ -580,6 +638,16 @@ def parse_skill_detail(detail_url: str) -> Dict:
         skill_md_sections["skill_md_preview"] = block_skill_md["skill_md"]
         skill_md_sections["skill_md_rest"] = ""
         skill_md_sections["skill_md_source"] = block_skill_md["skill_md_source"]
+
+    if "Show more" in page_html:
+        selenium_skill_md = extract_skill_md_with_selenium(detail_url)
+        if selenium_skill_md.get("skill_md") and len(selenium_skill_md["skill_md"]) > len(skill_md_sections["skill_md"]):
+            skill_md_sections["skill_md_html"] = selenium_skill_md["skill_md_html"]
+            skill_md_sections["skill_md_raw_text"] = selenium_skill_md["skill_md_raw_text"]
+            skill_md_sections["skill_md"] = selenium_skill_md["skill_md"]
+            skill_md_sections["skill_md_preview"] = selenium_skill_md["skill_md"]
+            skill_md_sections["skill_md_rest"] = ""
+            skill_md_sections["skill_md_source"] = selenium_skill_md["skill_md_source"]
     repo_url = find_repo_url(page_html, owner, repo)
     category = infer_category(skill_name, repo, description or skill_md_sections["skill_md"])
     skill_id = hashlib.md5(detail_url.encode("utf-8")).hexdigest()[:12]
@@ -610,7 +678,7 @@ def parse_skill_detail(detail_url: str) -> Dict:
 def is_record_incomplete(record: Dict) -> bool:
     if not record.get("description"):
         return True
-    if not (record.get("skill_md") or record.get("skill_md_text_path")):
+    if not record.get("skill_md_text_path"):
         return True
     if not record.get("category"):
         return True
@@ -621,6 +689,54 @@ def is_record_incomplete(record: Dict) -> bool:
     if record.get("github_stars_num") is None:
         return True
     return False
+
+
+def reset_skill_md_storage() -> Dict[str, int]:
+    cleared_data_count = 0
+    cleared_checkpoint_count = 0
+
+    if SKILL_MD_DIR.exists():
+        shutil.rmtree(SKILL_MD_DIR)
+
+    skill_md_fields = [
+        "skill_md",
+        "skill_md_html",
+        "skill_md_raw_text",
+        "skill_md_preview",
+        "skill_md_rest",
+        "skill_md_html_path",
+        "skill_md_raw_text_path",
+        "skill_md_text_path",
+        "skill_md_source",
+    ]
+
+    if Path(OUTPUT_JSON).exists():
+        with open(OUTPUT_JSON, "r", encoding="utf-8") as file:
+            records = json.load(file)
+        for record in records:
+            if isinstance(record, dict):
+                for field in skill_md_fields:
+                    record.pop(field, None)
+        with open(OUTPUT_JSON, "w", encoding="utf-8") as file:
+            json.dump(records, file, ensure_ascii=False, indent=2)
+        cleared_data_count = len(records)
+
+    if Path(CHECKPOINT_FILE).exists():
+        checkpoint = load_checkpoint()
+        records = checkpoint.get("records", [])
+        for record in records:
+            if isinstance(record, dict):
+                for field in skill_md_fields:
+                    record.pop(field, None)
+        checkpoint["records"] = records
+        with open(CHECKPOINT_FILE, "w", encoding="utf-8") as file:
+            json.dump(checkpoint, file, ensure_ascii=False, indent=2)
+        cleared_checkpoint_count = len(records)
+
+    return {
+        "cleared_data_count": cleared_data_count,
+        "cleared_checkpoint_count": cleared_checkpoint_count,
+    }
 
 
 def merge_record_fields(existing: Dict, refreshed: Dict) -> Dict:
@@ -712,7 +828,21 @@ def _persist_records(
     save_checkpoint(checkpoint)
     return updated_records, updated_checkpoint_records
 
+"""
+从已有的 JSON 数据中找出缺失 skill_md_text_path 字段的记录，
+尝试从对应的 detail_url 抓取详细信息来填充，
+并持续保存进度（支持断点续跑）。
 
+flush_every 参数：
+    每处理多少条记录就持久化一次中间结果（包括原记录、检查点记录、失败 URL 列表等）。
+
+返回值：
+    包含统计信息的字典，具体键值如下：
+    - candidate_count: 实际候选处理的记录数。
+    - refreshed_count: 成功回填的记录数。
+    - failed_count: 处理失败的记录数。
+    - remaining_missing_skill_md_count: 最终数据里仍缺少 skill_md_text_path 的记录总数。
+"""
 def backfill_skill_md_records(
     limit: Optional[int] = None,
     sleep_seconds: float = 0.0,
@@ -731,7 +861,7 @@ def backfill_skill_md_records(
 
     checkpoint = load_checkpoint()
     checkpoint_records = checkpoint.get("records", [])
-    candidates = [record for record in records if not record.get("skill_md")]
+    candidates = [record for record in records if not record.get("skill_md_text_path")]
     if limit is not None:
         candidates = candidates[:limit]
 
@@ -794,7 +924,7 @@ def backfill_skill_md_records(
     )
 
     remaining_missing_skill_md_count = sum(
-        1 for record in updated_records if not record.get("skill_md")
+        1 for record in updated_records if not record.get("skill_md_text_path")
     )
     return {
         "candidate_count": len(candidates),
@@ -919,7 +1049,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=["sync", "backfill-skill-md", "crawl", "normalize-data", "refresh-data", "migrate-skill-md-storage"],
+        choices=["sync", "backfill-skill-md", "crawl", "normalize-data", "refresh-data", "migrate-skill-md-storage", "reset-skill-md"],
         default="sync",
         help="Operation to run",
     )
@@ -1059,6 +1189,8 @@ if __name__ == "__main__":
         print(json.dumps(normalize_existing_outputs(), ensure_ascii=False, indent=2))
     elif args.command == "migrate-skill-md-storage":
         print(json.dumps(migrate_skill_md_storage(), ensure_ascii=False, indent=2))
+    elif args.command == "reset-skill-md":
+        print(json.dumps(reset_skill_md_storage(), ensure_ascii=False, indent=2))
     elif args.command == "refresh-data":
         print(
             json.dumps(

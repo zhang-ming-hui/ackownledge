@@ -1,0 +1,748 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Kotlin Testing Patterns</h1>
+<p>Comprehensive Kotlin testing patterns for writing reliable, maintainable tests following TDD methodology with Kotest and MockK.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Writing new Kotlin functions or classes</li>
+<li>Adding test coverage to existing Kotlin code</li>
+<li>Implementing property-based tests</li>
+<li>Following TDD workflow in Kotlin projects</li>
+<li>Configuring Kover for code coverage</li>
+</ul>
+<h2>How It Works</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Identify target code</strong> — Find the function, class, or module to test</li>
+<li><strong>Write a Kotest spec</strong> — Choose a spec style (StringSpec, FunSpec, BehaviorSpec) matching the test scope</li>
+<li><strong>Mock dependencies</strong> — Use MockK to isolate the unit under test</li>
+<li><strong>Run tests (RED)</strong> — Verify the test fails with the expected error</li>
+<li><strong>Implement code (GREEN)</strong> — Write minimal code to pass the test</li>
+<li><strong>Refactor</strong> — Improve the implementation while keeping tests green</li>
+<li><strong>Check coverage</strong> — Run <code>./gradlew koverHtmlReport</code> and verify 80%+ coverage</li>
+</ol>
+<h2>Examples</h2>
+<p>The following sections contain detailed, runnable examples for each testing pattern:</p>
+<h3>Quick Reference</h3>
+<ul>
+<li><strong>Kotest specs</strong> — StringSpec, FunSpec, BehaviorSpec, DescribeSpec examples in <a href="#kotest-spec-styles" target="_blank" rel="ugc nofollow noopener">Kotest Spec Styles</a></li>
+<li><strong>Mocking</strong> — MockK setup, coroutine mocking, argument capture in <a href="#mockk" target="_blank" rel="ugc nofollow noopener">MockK</a></li>
+<li><strong>TDD walkthrough</strong> — Full RED/GREEN/REFACTOR cycle with EmailValidator in <a href="#tdd-workflow-for-kotlin" target="_blank" rel="ugc nofollow noopener">TDD Workflow for Kotlin</a></li>
+<li><strong>Coverage</strong> — Kover configuration and commands in <a href="#kover-coverage" target="_blank" rel="ugc nofollow noopener">Kover Coverage</a></li>
+<li><strong>Ktor testing</strong> — testApplication setup in <a href="#ktor-testapplication-testing" target="_blank" rel="ugc nofollow noopener">Ktor testApplication Testing</a></li>
+</ul>
+<h3>TDD Workflow for Kotlin</h3>
+<h4>The RED-GREEN-REFACTOR Cycle</h4>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">RED     -&gt; Write a failing test first
+</span><span class="code-line">GREEN   -&gt; Write minimal code to pass the test
+</span><span class="code-line">REFACTOR -&gt; Improve code while keeping tests green
+</span><span class="code-line">REPEAT  -&gt; Continue with next requirement
+</span></code></pre>
+<h4>Step-by-Step TDD in Kotlin</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token comment">// Step 1: Define the interface/signature</span>
+</span><span class="code-line"><span class="token comment">// EmailValidator.kt</span>
+</span><span class="code-line"><span class="token keyword">package</span> com<span class="token punctuation">.</span>example<span class="token punctuation">.</span>validator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">fun</span> <span class="token function">validateEmail</span><span class="token punctuation">(</span>email<span class="token operator">:</span> String<span class="token punctuation">)</span><span class="token operator">:</span> Result<span class="token operator">&lt;</span>String<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">TODO</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"not implemented"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Step 2: Write failing test (RED)</span>
+</span><span class="code-line"><span class="token comment">// EmailValidatorTest.kt</span>
+</span><span class="code-line"><span class="token keyword">package</span> com<span class="token punctuation">.</span>example<span class="token punctuation">.</span>validator
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>core<span class="token punctuation">.</span>spec<span class="token punctuation">.</span>style<span class="token punctuation">.</span>StringSpec
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>result<span class="token punctuation">.</span>shouldBeFailure
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>result<span class="token punctuation">.</span>shouldBeSuccess
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> EmailValidatorTest <span class="token operator">:</span> <span class="token function">StringSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string-literal singleline"><span class="token string">"valid email returns success"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">validateEmail</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"user@example.com"</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldBeSuccess</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"user@example.com"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token string-literal singleline"><span class="token string">"empty email returns failure"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">validateEmail</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">""</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldBeFailure</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token string-literal singleline"><span class="token string">"email without @ returns failure"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">validateEmail</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"userexample.com"</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldBeFailure</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Step 3: Run tests - verify FAIL</span>
+</span><span class="code-line"><span class="token comment">// $ ./gradlew test</span>
+</span><span class="code-line"><span class="token comment">// EmailValidatorTest &gt; valid email returns success FAILED</span>
+</span><span class="code-line"><span class="token comment">//   kotlin.NotImplementedError: An operation is not implemented</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Step 4: Implement minimal code (GREEN)</span>
+</span><span class="code-line"><span class="token keyword">fun</span> <span class="token function">validateEmail</span><span class="token punctuation">(</span>email<span class="token operator">:</span> String<span class="token punctuation">)</span><span class="token operator">:</span> Result<span class="token operator">&lt;</span>String<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>email<span class="token punctuation">.</span><span class="token function">isBlank</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> Result<span class="token punctuation">.</span><span class="token function">failure</span><span class="token punctuation">(</span><span class="token function">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"Email cannot be blank"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token char">'@'</span> <span class="token operator">!</span><span class="token keyword">in</span> email<span class="token punctuation">)</span> <span class="token keyword">return</span> Result<span class="token punctuation">.</span><span class="token function">failure</span><span class="token punctuation">(</span><span class="token function">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"Email must contain @"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> regex <span class="token operator">=</span> <span class="token function">Regex</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>regex<span class="token punctuation">.</span><span class="token function">matches</span><span class="token punctuation">(</span>email<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> Result<span class="token punctuation">.</span><span class="token function">failure</span><span class="token punctuation">(</span><span class="token function">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"Invalid email format"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Result<span class="token punctuation">.</span><span class="token function">success</span><span class="token punctuation">(</span>email<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Step 5: Run tests - verify PASS</span>
+</span><span class="code-line"><span class="token comment">// $ ./gradlew test</span>
+</span><span class="code-line"><span class="token comment">// EmailValidatorTest &gt; valid email returns success PASSED</span>
+</span><span class="code-line"><span class="token comment">// EmailValidatorTest &gt; empty email returns failure PASSED</span>
+</span><span class="code-line"><span class="token comment">// EmailValidatorTest &gt; email without @ returns failure PASSED</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Step 6: Refactor if needed, verify tests still pass</span>
+</span></code></pre>
+<h3>Kotest Spec Styles</h3>
+<h4>StringSpec (Simplest)</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> CalculatorTest <span class="token operator">:</span> <span class="token function">StringSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string-literal singleline"><span class="token string">"add two positive numbers"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        Calculator<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">)</span> shouldBe <span class="token number">5</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token string-literal singleline"><span class="token string">"add negative numbers"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        Calculator<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">2</span><span class="token punctuation">)</span> shouldBe <span class="token operator">-</span><span class="token number">3</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token string-literal singleline"><span class="token string">"add zero"</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">        Calculator<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span> shouldBe <span class="token number">5</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>FunSpec (JUnit-like)</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> UserServiceTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> repository <span class="token operator">=</span> mockk<span class="token operator">&lt;</span>UserRepository<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">UserService</span><span class="token punctuation">(</span>repository<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"getUser returns user when found"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">val</span> expected <span class="token operator">=</span> <span class="token function">User</span><span class="token punctuation">(</span>id <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">,</span> name <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        coEvery <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns expected
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">getUser</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        result shouldBe expected
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"getUser throws when not found"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        coEvery <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"999"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns <span class="token keyword">null</span>
+</span><span class="code-line">
+</span><span class="code-line">        shouldThrow<span class="token operator">&lt;</span>UserNotFoundException<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            service<span class="token punctuation">.</span><span class="token function">getUser</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"999"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>BehaviorSpec (BDD Style)</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> OrderServiceTest <span class="token operator">:</span> <span class="token function">BehaviorSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> repository <span class="token operator">=</span> mockk<span class="token operator">&lt;</span>OrderRepository<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> paymentService <span class="token operator">=</span> mockk<span class="token operator">&lt;</span>PaymentService<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">OrderService</span><span class="token punctuation">(</span>repository<span class="token punctuation">,</span> paymentService<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">Given</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"a valid order request"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">val</span> request <span class="token operator">=</span> <span class="token function">CreateOrderRequest</span><span class="token punctuation">(</span>
+</span><span class="code-line">            userId <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"user-1"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">            items <span class="token operator">=</span> <span class="token function">listOf</span><span class="token punctuation">(</span><span class="token function">OrderItem</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"product-1"</span></span><span class="token punctuation">,</span> quantity <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">When</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"the order is placed"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            coEvery <span class="token punctuation">{</span> paymentService<span class="token punctuation">.</span><span class="token function">charge</span><span class="token punctuation">(</span><span class="token function">any</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns PaymentResult<span class="token punctuation">.</span>Success
+</span><span class="code-line">            coEvery <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">save</span><span class="token punctuation">(</span><span class="token function">any</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> answers <span class="token punctuation">{</span> <span class="token function">firstArg</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">placeOrder</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token function">Then</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"it should return a confirmed order"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                result<span class="token punctuation">.</span>status shouldBe OrderStatus<span class="token punctuation">.</span>CONFIRMED
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token function">Then</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"it should charge payment"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">coVerify</span><span class="token punctuation">(</span>exactly <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> paymentService<span class="token punctuation">.</span><span class="token function">charge</span><span class="token punctuation">(</span><span class="token function">any</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">When</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"payment fails"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            coEvery <span class="token punctuation">{</span> paymentService<span class="token punctuation">.</span><span class="token function">charge</span><span class="token punctuation">(</span><span class="token function">any</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns PaymentResult<span class="token punctuation">.</span>Declined
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token function">Then</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"it should throw PaymentException"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                shouldThrow<span class="token operator">&lt;</span>PaymentException<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    service<span class="token punctuation">.</span><span class="token function">placeOrder</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>DescribeSpec (RSpec Style)</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> UserValidatorTest <span class="token operator">:</span> <span class="token function">DescribeSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">describe</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"validateUser"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">val</span> validator <span class="token operator">=</span> <span class="token function">UserValidator</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">context</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"with valid input"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">it</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"accepts a normal user"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">val</span> user <span class="token operator">=</span> <span class="token function">CreateUserRequest</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldBeValid</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">context</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"with invalid name"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">it</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"rejects blank name"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">val</span> user <span class="token operator">=</span> <span class="token function">CreateUserRequest</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">""</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldBeInvalid</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token function">it</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"rejects name exceeding max length"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token keyword">val</span> user <span class="token operator">=</span> <span class="token function">CreateUserRequest</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"A"</span></span><span class="token punctuation">.</span><span class="token function">repeat</span><span class="token punctuation">(</span><span class="token number">256</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                validator<span class="token punctuation">.</span><span class="token function">validate</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldBeInvalid</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Kotest Matchers</h3>
+<h4>Core Matchers</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>shouldBe
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>shouldNotBe
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>string<span class="token punctuation">.</span><span class="token operator">*</span>
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>collections<span class="token punctuation">.</span><span class="token operator">*</span>
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>nulls<span class="token punctuation">.</span><span class="token operator">*</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Equality</span>
+</span><span class="code-line">result shouldBe expected
+</span><span class="code-line">result shouldNotBe unexpected
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Strings</span>
+</span><span class="code-line">name shouldStartWith <span class="token string-literal singleline"><span class="token string">"Al"</span></span>
+</span><span class="code-line">name shouldEndWith <span class="token string-literal singleline"><span class="token string">"ice"</span></span>
+</span><span class="code-line">name shouldContain <span class="token string-literal singleline"><span class="token string">"lic"</span></span>
+</span><span class="code-line">name shouldMatch <span class="token function">Regex</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"[A-Z][a-z]+"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">name<span class="token punctuation">.</span><span class="token function">shouldBeBlank</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Collections</span>
+</span><span class="code-line">list shouldContain <span class="token string-literal singleline"><span class="token string">"item"</span></span>
+</span><span class="code-line">list shouldHaveSize <span class="token number">3</span>
+</span><span class="code-line">list<span class="token punctuation">.</span><span class="token function">shouldBeSorted</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">list<span class="token punctuation">.</span><span class="token function">shouldContainAll</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"a"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"b"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"c"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">list<span class="token punctuation">.</span><span class="token function">shouldBeEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Nulls</span>
+</span><span class="code-line">result<span class="token punctuation">.</span><span class="token function">shouldNotBeNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">result<span class="token punctuation">.</span><span class="token function">shouldBeNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Types</span>
+</span><span class="code-line">result<span class="token punctuation">.</span>shouldBeInstanceOf<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Numbers</span>
+</span><span class="code-line">count shouldBeGreaterThan <span class="token number">0</span>
+</span><span class="code-line">price shouldBeInRange <span class="token number">1.0</span><span class="token operator">..</span><span class="token number">100.0</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Exceptions</span>
+</span><span class="code-line">shouldThrow<span class="token operator">&lt;</span>IllegalArgumentException<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">validateAge</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">.</span>message shouldBe <span class="token string-literal singleline"><span class="token string">"Age must be positive"</span></span>
+</span><span class="code-line">
+</span><span class="code-line">shouldNotThrow<span class="token operator">&lt;</span>Exception<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">validateAge</span><span class="token punctuation">(</span><span class="token number">25</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>Custom Matchers</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">fun</span> <span class="token function">beActiveUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">object</span> <span class="token operator">:</span> Matcher<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">override</span> <span class="token keyword">fun</span> <span class="token function">test</span><span class="token punctuation">(</span>value<span class="token operator">:</span> User<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token function">MatcherResult</span><span class="token punctuation">(</span>
+</span><span class="code-line">        value<span class="token punctuation">.</span>isActive <span class="token operator">&amp;&amp;</span> value<span class="token punctuation">.</span>lastLogin <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">{</span> <span class="token string-literal singleline"><span class="token string">"User </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token expression">value<span class="token punctuation">.</span>id</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> should be active with a last login"</span></span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">{</span> <span class="token string-literal singleline"><span class="token string">"User </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token expression">value<span class="token punctuation">.</span>id</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> should not be active"</span></span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Usage</span>
+</span><span class="code-line">user should <span class="token function">beActiveUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>MockK</h3>
+<h4>Basic Mocking</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> UserServiceTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> repository <span class="token operator">=</span> mockk<span class="token operator">&lt;</span>UserRepository<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> logger <span class="token operator">=</span> mockk<span class="token operator">&lt;</span>Logger<span class="token operator">&gt;</span><span class="token punctuation">(</span>relaxed <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token comment">// Relaxed: returns defaults</span>
+</span><span class="code-line">    <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">UserService</span><span class="token punctuation">(</span>repository<span class="token punctuation">,</span> logger<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    beforeTest <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">clearMocks</span><span class="token punctuation">(</span>repository<span class="token punctuation">,</span> logger<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"findUser delegates to repository"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">val</span> expected <span class="token operator">=</span> <span class="token function">User</span><span class="token punctuation">(</span>id <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">,</span> name <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        every <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns expected
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">findUser</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        result shouldBe expected
+</span><span class="code-line">        <span class="token function">verify</span><span class="token punctuation">(</span>exactly <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"findUser returns null for unknown id"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        every <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token function">any</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns <span class="token keyword">null</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">findUser</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"unknown"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        result<span class="token punctuation">.</span><span class="token function">shouldBeNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>Coroutine Mocking</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> AsyncUserServiceTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> repository <span class="token operator">=</span> mockk<span class="token operator">&lt;</span>UserRepository<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">UserService</span><span class="token punctuation">(</span>repository<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"getUser suspending function"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        coEvery <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns <span class="token function">User</span><span class="token punctuation">(</span>id <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">,</span> name <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">getUser</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        result<span class="token punctuation">.</span>name shouldBe <span class="token string-literal singleline"><span class="token string">"Alice"</span></span>
+</span><span class="code-line">        coVerify <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"getUser with delay"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        coEvery <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span> <span class="token punctuation">}</span> coAnswers <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token function">delay</span><span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span> <span class="token comment">// Simulate async work</span>
+</span><span class="code-line">            <span class="token function">User</span><span class="token punctuation">(</span>id <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">,</span> name <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">getUser</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"1"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        result<span class="token punctuation">.</span>name shouldBe <span class="token string-literal singleline"><span class="token string">"Alice"</span></span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>Argument Capture</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"save captures the user argument"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> slot <span class="token operator">=</span> slot<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    coEvery <span class="token punctuation">{</span> repository<span class="token punctuation">.</span><span class="token function">save</span><span class="token punctuation">(</span><span class="token function">capture</span><span class="token punctuation">(</span>slot<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns Unit
+</span><span class="code-line">
+</span><span class="code-line">    service<span class="token punctuation">.</span><span class="token function">createUser</span><span class="token punctuation">(</span><span class="token function">CreateUserRequest</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    slot<span class="token punctuation">.</span>captured<span class="token punctuation">.</span>name shouldBe <span class="token string-literal singleline"><span class="token string">"Alice"</span></span>
+</span><span class="code-line">    slot<span class="token punctuation">.</span>captured<span class="token punctuation">.</span>email shouldBe <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span>
+</span><span class="code-line">    slot<span class="token punctuation">.</span>captured<span class="token punctuation">.</span>id<span class="token punctuation">.</span><span class="token function">shouldNotBeNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>Spy and Partial Mocking</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"spy on real object"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> realService <span class="token operator">=</span> <span class="token function">UserService</span><span class="token punctuation">(</span>repository<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">val</span> spy <span class="token operator">=</span> <span class="token function">spyk</span><span class="token punctuation">(</span>realService<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    every <span class="token punctuation">{</span> spy<span class="token punctuation">.</span><span class="token function">generateId</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> returns <span class="token string-literal singleline"><span class="token string">"fixed-id"</span></span>
+</span><span class="code-line">
+</span><span class="code-line">    spy<span class="token punctuation">.</span><span class="token function">createUser</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    verify <span class="token punctuation">{</span> spy<span class="token punctuation">.</span><span class="token function">generateId</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span> <span class="token comment">// Overridden</span>
+</span><span class="code-line">    <span class="token comment">// Other methods use real implementation</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Coroutine Testing</h3>
+<h4>runTest for Suspend Functions</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>test<span class="token punctuation">.</span>runTest
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> CoroutineServiceTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"concurrent fetches complete together"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        runTest <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">DataService</span><span class="token punctuation">(</span>testScope <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">val</span> result <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">fetchAllData</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            result<span class="token punctuation">.</span>users<span class="token punctuation">.</span><span class="token function">shouldNotBeEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            result<span class="token punctuation">.</span>products<span class="token punctuation">.</span><span class="token function">shouldNotBeEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"timeout after delay"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        runTest <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">SlowService</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            shouldThrow<span class="token operator">&lt;</span>TimeoutCancellationException<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">withTimeout</span><span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    service<span class="token punctuation">.</span><span class="token function">slowOperation</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// Takes &gt; 100ms</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>Testing Flows</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>matchers<span class="token punctuation">.</span>collections<span class="token punctuation">.</span>shouldContainInOrder
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>flow<span class="token punctuation">.</span>MutableSharedFlow
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>flow<span class="token punctuation">.</span>toList
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>launch
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>test<span class="token punctuation">.</span>advanceTimeBy
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>test<span class="token punctuation">.</span>runTest
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> FlowServiceTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"observeUsers emits updates"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        runTest <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">UserFlowService</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">val</span> emissions <span class="token operator">=</span> service<span class="token punctuation">.</span><span class="token function">observeUsers</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">.</span><span class="token function">take</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">.</span><span class="token function">toList</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            emissions shouldHaveSize <span class="token number">3</span>
+</span><span class="code-line">            emissions<span class="token punctuation">.</span><span class="token function">last</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">shouldNotBeEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"searchUsers debounces input"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        runTest <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">val</span> service <span class="token operator">=</span> <span class="token function">SearchService</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">val</span> queries <span class="token operator">=</span> MutableSharedFlow<span class="token operator">&lt;</span>String<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">val</span> results <span class="token operator">=</span> mutableListOf<span class="token operator">&lt;</span>List<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">val</span> job <span class="token operator">=</span> launch <span class="token punctuation">{</span>
+</span><span class="code-line">                service<span class="token punctuation">.</span><span class="token function">searchUsers</span><span class="token punctuation">(</span>queries<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">collect</span> <span class="token punctuation">{</span> results<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>it<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            queries<span class="token punctuation">.</span><span class="token function">emit</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"a"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            queries<span class="token punctuation">.</span><span class="token function">emit</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"ab"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            queries<span class="token punctuation">.</span><span class="token function">emit</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"abc"</span></span><span class="token punctuation">)</span> <span class="token comment">// Only this should trigger search</span>
+</span><span class="code-line">            <span class="token function">advanceTimeBy</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            results shouldHaveSize <span class="token number">1</span>
+</span><span class="code-line">            job<span class="token punctuation">.</span><span class="token function">cancel</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>TestDispatcher</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>test<span class="token punctuation">.</span>StandardTestDispatcher
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>coroutines<span class="token punctuation">.</span>test<span class="token punctuation">.</span>advanceUntilIdle
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> DispatcherTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"uses test dispatcher for controlled execution"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">val</span> dispatcher <span class="token operator">=</span> <span class="token function">StandardTestDispatcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">runTest</span><span class="token punctuation">(</span>dispatcher<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">var</span> completed <span class="token operator">=</span> <span class="token boolean">false</span>
+</span><span class="code-line">
+</span><span class="code-line">            launch <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">delay</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span>
+</span><span class="code-line">                completed <span class="token operator">=</span> <span class="token boolean">true</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            completed shouldBe <span class="token boolean">false</span>
+</span><span class="code-line">            <span class="token function">advanceTimeBy</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span>
+</span><span class="code-line">            completed shouldBe <span class="token boolean">true</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Property-Based Testing</h3>
+<h4>Kotest Property Testing</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>core<span class="token punctuation">.</span>spec<span class="token punctuation">.</span>style<span class="token punctuation">.</span>FunSpec
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>property<span class="token punctuation">.</span>Arb
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>property<span class="token punctuation">.</span>arbitrary<span class="token punctuation">.</span><span class="token operator">*</span>
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>property<span class="token punctuation">.</span>forAll
+</span><span class="code-line"><span class="token keyword">import</span> io<span class="token punctuation">.</span>kotest<span class="token punctuation">.</span>property<span class="token punctuation">.</span>checkAll
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>serialization<span class="token punctuation">.</span>json<span class="token punctuation">.</span>Json
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>serialization<span class="token punctuation">.</span>encodeToString
+</span><span class="code-line"><span class="token keyword">import</span> kotlinx<span class="token punctuation">.</span>serialization<span class="token punctuation">.</span>decodeFromString
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Note: The serialization roundtrip test below requires the User data class</span>
+</span><span class="code-line"><span class="token comment">// to be annotated with @Serializable (from kotlinx.serialization).</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> PropertyTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"string reverse is involutory"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        forAll<span class="token operator">&lt;</span>String<span class="token operator">&gt;</span> <span class="token punctuation">{</span> s <span class="token operator">-&gt;</span>
+</span><span class="code-line">            s<span class="token punctuation">.</span><span class="token function">reversed</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">reversed</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">==</span> s
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"list sort is idempotent"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">forAll</span><span class="token punctuation">(</span>Arb<span class="token punctuation">.</span><span class="token function">list</span><span class="token punctuation">(</span>Arb<span class="token punctuation">.</span><span class="token function">int</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> list <span class="token operator">-&gt;</span>
+</span><span class="code-line">            list<span class="token punctuation">.</span><span class="token function">sorted</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">==</span> list<span class="token punctuation">.</span><span class="token function">sorted</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">sorted</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"serialization roundtrip preserves data"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">checkAll</span><span class="token punctuation">(</span>Arb<span class="token punctuation">.</span><span class="token function">bind</span><span class="token punctuation">(</span>Arb<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token operator">..</span><span class="token number">50</span><span class="token punctuation">)</span><span class="token punctuation">,</span> Arb<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token operator">..</span><span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> name<span class="token punctuation">,</span> email <span class="token operator">-&gt;</span>
+</span><span class="code-line">            <span class="token function">User</span><span class="token punctuation">(</span>name <span class="token operator">=</span> name<span class="token punctuation">,</span> email <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$</span><span class="token expression">email</span></span><span class="token string">@test.com"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> user <span class="token operator">-&gt;</span>
+</span><span class="code-line">            <span class="token keyword">val</span> json <span class="token operator">=</span> Json<span class="token punctuation">.</span><span class="token function">encodeToString</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">val</span> decoded <span class="token operator">=</span> Json<span class="token punctuation">.</span>decodeFromString<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span><span class="token punctuation">(</span>json<span class="token punctuation">)</span>
+</span><span class="code-line">            decoded shouldBe user
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>Custom Generators</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">val</span> userArb<span class="token operator">:</span> Arb<span class="token operator">&lt;</span>User<span class="token operator">&gt;</span> <span class="token operator">=</span> Arb<span class="token punctuation">.</span><span class="token function">bind</span><span class="token punctuation">(</span>
+</span><span class="code-line">    Arb<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span>minSize <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">,</span> maxSize <span class="token operator">=</span> <span class="token number">50</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    Arb<span class="token punctuation">.</span><span class="token function">email</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    Arb<span class="token punctuation">.</span>enum<span class="token operator">&lt;</span>Role<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span> name<span class="token punctuation">,</span> email<span class="token punctuation">,</span> role <span class="token operator">-&gt;</span>
+</span><span class="code-line">    <span class="token function">User</span><span class="token punctuation">(</span>
+</span><span class="code-line">        id <span class="token operator">=</span> <span class="token function">UserId</span><span class="token punctuation">(</span>UUID<span class="token punctuation">.</span><span class="token function">randomUUID</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        name <span class="token operator">=</span> name<span class="token punctuation">,</span>
+</span><span class="code-line">        email <span class="token operator">=</span> <span class="token function">Email</span><span class="token punctuation">(</span>email<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        role <span class="token operator">=</span> role<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">val</span> moneyArb<span class="token operator">:</span> Arb<span class="token operator">&lt;</span>Money<span class="token operator">&gt;</span> <span class="token operator">=</span> Arb<span class="token punctuation">.</span><span class="token function">bind</span><span class="token punctuation">(</span>
+</span><span class="code-line">    Arb<span class="token punctuation">.</span><span class="token function">long</span><span class="token punctuation">(</span><span class="token number">1L</span><span class="token operator">..</span><span class="token number">1_000_000L</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    Arb<span class="token punctuation">.</span>enum<span class="token operator">&lt;</span>Currency<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token punctuation">{</span> amount<span class="token punctuation">,</span> currency <span class="token operator">-&gt;</span>
+</span><span class="code-line">    <span class="token function">Money</span><span class="token punctuation">(</span>amount<span class="token punctuation">,</span> currency<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Data-Driven Testing</h3>
+<h4>withData in Kotest</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> ParserTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">context</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"parsing valid dates"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">withData</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">"2026-01-15"</span></span> <span class="token keyword">to</span> <span class="token function">LocalDate</span><span class="token punctuation">(</span><span class="token number">2026</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">15</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">"2026-12-31"</span></span> <span class="token keyword">to</span> <span class="token function">LocalDate</span><span class="token punctuation">(</span><span class="token number">2026</span><span class="token punctuation">,</span> <span class="token number">12</span><span class="token punctuation">,</span> <span class="token number">31</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">"2000-01-01"</span></span> <span class="token keyword">to</span> <span class="token function">LocalDate</span><span class="token punctuation">(</span><span class="token number">2000</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">(</span>input<span class="token punctuation">,</span> expected<span class="token punctuation">)</span> <span class="token operator">-&gt;</span>
+</span><span class="code-line">            <span class="token function">parseDate</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span> shouldBe expected
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">context</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"rejecting invalid dates"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">withData</span><span class="token punctuation">(</span>
+</span><span class="code-line">            nameFn <span class="token operator">=</span> <span class="token punctuation">{</span> <span class="token string-literal singleline"><span class="token string">"rejects '</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">$</span><span class="token expression">it</span></span><span class="token string">'"</span></span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">"not-a-date"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">"2026-13-01"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">"2026-00-15"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-literal singleline"><span class="token string">""</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">)</span> <span class="token punctuation">{</span> input <span class="token operator">-&gt;</span>
+</span><span class="code-line">            shouldThrow<span class="token operator">&lt;</span>DateParseException<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">parseDate</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Test Lifecycle and Fixtures</h3>
+<h4>BeforeTest / AfterTest</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> DatabaseTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">lateinit</span> <span class="token keyword">var</span> db<span class="token operator">:</span> Database
+</span><span class="code-line">
+</span><span class="code-line">    beforeSpec <span class="token punctuation">{</span>
+</span><span class="code-line">        db <span class="token operator">=</span> Database<span class="token punctuation">.</span><span class="token function">connect</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"jdbc:h2:mem:test;DB_CLOSE_DELAY=-1"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token function">transaction</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            SchemaUtils<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>UsersTable<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    afterSpec <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">transaction</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            SchemaUtils<span class="token punctuation">.</span><span class="token function">drop</span><span class="token punctuation">(</span>UsersTable<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    beforeTest <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">transaction</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            UsersTable<span class="token punctuation">.</span><span class="token function">deleteAll</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"insert and retrieve user"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">transaction</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            UsersTable<span class="token punctuation">.</span><span class="token function">insert</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                it<span class="token punctuation">[</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"Alice"</span></span>
+</span><span class="code-line">                it<span class="token punctuation">[</span>email<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">val</span> users <span class="token operator">=</span> <span class="token function">transaction</span><span class="token punctuation">(</span>db<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            UsersTable<span class="token punctuation">.</span><span class="token function">selectAll</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">map</span> <span class="token punctuation">{</span> it<span class="token punctuation">[</span>UsersTable<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">        users shouldContain <span class="token string-literal singleline"><span class="token string">"Alice"</span></span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h4>Kotest Extensions</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token comment">// Reusable test extension</span>
+</span><span class="code-line"><span class="token keyword">class</span> DatabaseExtension <span class="token operator">:</span> BeforeSpecListener<span class="token punctuation">,</span> AfterSpecListener <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">lateinit</span> <span class="token keyword">var</span> db<span class="token operator">:</span> Database
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">override</span> <span class="token keyword">suspend</span> <span class="token keyword">fun</span> <span class="token function">beforeSpec</span><span class="token punctuation">(</span>spec<span class="token operator">:</span> Spec<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        db <span class="token operator">=</span> Database<span class="token punctuation">.</span><span class="token function">connect</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"jdbc:h2:mem:test;DB_CLOSE_DELAY=-1"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">override</span> <span class="token keyword">suspend</span> <span class="token keyword">fun</span> <span class="token function">afterSpec</span><span class="token punctuation">(</span>spec<span class="token operator">:</span> Spec<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// cleanup</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> UserRepositoryTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">val</span> dbExt <span class="token operator">=</span> <span class="token function">DatabaseExtension</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token function">register</span><span class="token punctuation">(</span>dbExt<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"save and find user"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">val</span> repo <span class="token operator">=</span> <span class="token function">UserRepository</span><span class="token punctuation">(</span>dbExt<span class="token punctuation">.</span>db<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token comment">// ...</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Kover Coverage</h3>
+<h4>Gradle Configuration</h4>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token comment">// build.gradle.kts</span>
+</span><span class="code-line">plugins <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">id</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"org.jetbrains.kotlinx.kover"</span></span><span class="token punctuation">)</span> version <span class="token string-literal singleline"><span class="token string">"0.9.7"</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">kover <span class="token punctuation">{</span>
+</span><span class="code-line">    reports <span class="token punctuation">{</span>
+</span><span class="code-line">        total <span class="token punctuation">{</span>
+</span><span class="code-line">            html <span class="token punctuation">{</span> onCheck <span class="token operator">=</span> <span class="token boolean">true</span> <span class="token punctuation">}</span>
+</span><span class="code-line">            xml <span class="token punctuation">{</span> onCheck <span class="token operator">=</span> <span class="token boolean">true</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        filters <span class="token punctuation">{</span>
+</span><span class="code-line">            excludes <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">classes</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"*.generated.*"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"*.config.*"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        verify <span class="token punctuation">{</span>
+</span><span class="code-line">            rule <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">minBound</span><span class="token punctuation">(</span><span class="token number">80</span><span class="token punctuation">)</span> <span class="token comment">// Fail build below 80% coverage</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h4>Coverage Commands</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run tests with coverage</span>
+</span><span class="code-line">./gradlew koverHtmlReport
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Verify coverage thresholds</span>
+</span><span class="code-line">./gradlew koverVerify
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># XML report for CI</span>
+</span><span class="code-line">./gradlew koverXmlReport
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># View HTML report (use the command for your OS)</span>
+</span><span class="code-line"><span class="token comment"># macOS:   open build/reports/kover/html/index.html</span>
+</span><span class="code-line"><span class="token comment"># Linux:   xdg-open build/reports/kover/html/index.html</span>
+</span><span class="code-line"><span class="token comment"># Windows: start build/reports/kover/html/index.html</span>
+</span></code></pre>
+<h4>Coverage Targets</h4>
+<table>
+<thead>
+<tr>
+<th>Code Type</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Critical business logic</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>Public APIs</td>
+<td>90%+</td>
+</tr>
+<tr>
+<td>General code</td>
+<td>80%+</td>
+</tr>
+<tr>
+<td>Generated / config code</td>
+<td>Exclude</td>
+</tr>
+</tbody>
+</table>
+<h3>Ktor testApplication Testing</h3>
+<pre class="language-kotlin"><code class="language-kotlin code-highlight"><span class="code-line"><span class="token keyword">class</span> ApiRoutesTest <span class="token operator">:</span> <span class="token function">FunSpec</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"GET /users returns list"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        testApplication <span class="token punctuation">{</span>
+</span><span class="code-line">            application <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">configureRouting</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token function">configureSerialization</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">val</span> response <span class="token operator">=</span> client<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"/users"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">            response<span class="token punctuation">.</span>status shouldBe HttpStatusCode<span class="token punctuation">.</span>OK
+</span><span class="code-line">            <span class="token keyword">val</span> users <span class="token operator">=</span> response<span class="token punctuation">.</span>body<span class="token operator">&lt;</span>List<span class="token operator">&lt;</span>UserResponse<span class="token operator">&gt;</span><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            users<span class="token punctuation">.</span><span class="token function">shouldNotBeEmpty</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">test</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"POST /users creates user"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        testApplication <span class="token punctuation">{</span>
+</span><span class="code-line">            application <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">configureRouting</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token function">configureSerialization</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            <span class="token keyword">val</span> response <span class="token operator">=</span> client<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"/users"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token function">contentType</span><span class="token punctuation">(</span>ContentType<span class="token punctuation">.</span>Application<span class="token punctuation">.</span>Json<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token function">setBody</span><span class="token punctuation">(</span><span class="token function">CreateUserRequest</span><span class="token punctuation">(</span><span class="token string-literal singleline"><span class="token string">"Alice"</span></span><span class="token punctuation">,</span> <span class="token string-literal singleline"><span class="token string">"alice@example.com"</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">            response<span class="token punctuation">.</span>status shouldBe HttpStatusCode<span class="token punctuation">.</span>Created
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Testing Commands</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run all tests</span>
+</span><span class="code-line">./gradlew <span class="token builtin class-name">test</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run specific test class</span>
+</span><span class="code-line">./gradlew <span class="token builtin class-name">test</span> <span class="token parameter variable">--tests</span> <span class="token string">"com.example.UserServiceTest"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run specific test</span>
+</span><span class="code-line">./gradlew <span class="token builtin class-name">test</span> <span class="token parameter variable">--tests</span> <span class="token string">"com.example.UserServiceTest.getUser returns user when found"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run with verbose output</span>
+</span><span class="code-line">./gradlew <span class="token builtin class-name">test</span> <span class="token parameter variable">--info</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run with coverage</span>
+</span><span class="code-line">./gradlew koverHtmlReport
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run detekt (static analysis)</span>
+</span><span class="code-line">./gradlew detekt
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run ktlint (formatting check)</span>
+</span><span class="code-line">./gradlew ktlintCheck
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Continuous testing</span>
+</span><span class="code-line">./gradlew <span class="token builtin class-name">test</span> <span class="token parameter variable">--continuous</span>
+</span></code></pre>
+<h3>Best Practices</h3>
+<p><strong>DO:</strong></p>
+<ul>
+<li>Write tests FIRST (TDD)</li>
+<li>Use Kotest's spec styles consistently across the project</li>
+<li>Use MockK's <code>coEvery</code>/<code>coVerify</code> for suspend functions</li>
+<li>Use <code>runTest</code> for coroutine testing</li>
+<li>Test behavior, not implementation</li>
+<li>Use property-based testing for pure functions</li>
+<li>Use <code>data class</code> test fixtures for clarity</li>
+</ul>
+<p><strong>DON'T:</strong></p>
+<ul>
+<li>Mix testing frameworks (pick Kotest and stick with it)</li>
+<li>Mock data classes (use real instances)</li>
+<li>Use <code>Thread.sleep()</code> in coroutine tests (use <code>advanceTimeBy</code>)</li>
+<li>Skip the RED phase in TDD</li>
+<li>Test private functions directly</li>
+<li>Ignore flaky tests</li>
+</ul>
+<h3>Integration with CI/CD</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># GitHub Actions example</span>
+</span><span class="code-line"><span class="token key atrule">test</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">runs-on</span><span class="token punctuation">:</span> ubuntu<span class="token punctuation">-</span>latest
+</span><span class="code-line">  <span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/checkout@v4
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/setup<span class="token punctuation">-</span>java@v4
+</span><span class="code-line">      <span class="token key atrule">with</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">distribution</span><span class="token punctuation">:</span> <span class="token string">'temurin'</span>
+</span><span class="code-line">        <span class="token key atrule">java-version</span><span class="token punctuation">:</span> <span class="token string">'21'</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> Run tests with coverage
+</span><span class="code-line">      <span class="token key atrule">run</span><span class="token punctuation">:</span> ./gradlew test koverXmlReport
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> Verify coverage
+</span><span class="code-line">      <span class="token key atrule">run</span><span class="token punctuation">:</span> ./gradlew koverVerify
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> Upload coverage
+</span><span class="code-line">      <span class="token key atrule">uses</span><span class="token punctuation">:</span> codecov/codecov<span class="token punctuation">-</span>action@v5
+</span><span class="code-line">      <span class="token key atrule">with</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">files</span><span class="token punctuation">:</span> build/reports/kover/report.xml
+</span><span class="code-line">        <span class="token key atrule">token</span><span class="token punctuation">:</span> $<span class="token punctuation">{</span><span class="token punctuation">{</span> secrets.CODECOV_TOKEN <span class="token punctuation">}</span><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Remember</strong>: Tests are documentation. They show how your Kotlin code is meant to be used. Use Kotest's expressive matchers to make tests readable and MockK for clean mocking of dependencies.</p></div>

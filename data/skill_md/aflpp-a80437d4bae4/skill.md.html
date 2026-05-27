@@ -1,0 +1,712 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>AFL++</h1>
+<p>AFL++ is a fork of the original AFL fuzzer that offers better fuzzing performance and more advanced features while maintaining stability. A major benefit over libFuzzer is that AFL++ has stable support for running fuzzing campaigns on multiple cores, making it ideal for large-scale fuzzing efforts.</p>
+<h2>When to Use</h2>
+<table>
+<thead>
+<tr>
+<th>Fuzzer</th>
+<th>Best For</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AFL++</td>
+<td>Multi-core fuzzing, diverse mutations, mature projects</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>libFuzzer</td>
+<td>Quick setup, single-threaded, simple harnesses</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>LibAFL</td>
+<td>Custom fuzzers, research, advanced use cases</td>
+<td>High</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Choose AFL++ when:</strong></p>
+<ul>
+<li>You need multi-core fuzzing to maximize throughput</li>
+<li>Your project can be compiled with Clang or GCC</li>
+<li>You want diverse mutation strategies and mature tooling</li>
+<li>libFuzzer has plateaued and you need more coverage</li>
+<li>You're fuzzing production codebases that benefit from parallel execution</li>
+</ul></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Quick Start</h2>
+<pre><code class="language-c++ code-highlight"><span class="code-line">extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+</span><span class="code-line">    // Call your code with fuzzer-provided data
+</span><span class="code-line">    check_buf((char*)data, size);
+</span><span class="code-line">    return 0;
+</span><span class="code-line">}
+</span></code></pre>
+<p>Compile and run:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Setup AFL++ wrapper script first (see Installation)</span>
+</span><span class="code-line">./afl++ <span class="token function">docker</span> afl-clang-fast++ <span class="token parameter variable">-DNO_MAIN</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span><span class="code-line"><span class="token function">mkdir</span> seeds <span class="token operator">&amp;&amp;</span> <span class="token builtin class-name">echo</span> <span class="token string">"aaaa"</span> <span class="token operator">&gt;</span> seeds/minimal_seed
+</span><span class="code-line">./afl++ <span class="token function">docker</span> afl-fuzz <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> out -- ./fuzz
+</span></code></pre>
+<h2>Installation</h2>
+<p>AFL++ has many dependencies including LLVM, Python, and Rust. We recommend using a current Debian or Ubuntu distribution for fuzzing with AFL++.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>When to Use</th>
+<th>Supported Compilers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ubuntu/Debian repos</td>
+<td>Recent Ubuntu, basic features only</td>
+<td>Ubuntu 23.10: Clang 14 &amp; GCC 13Debian 12: Clang 14 &amp; GCC 12</td>
+</tr>
+<tr>
+<td>Docker (from Docker Hub)</td>
+<td>Specific AFL++ version, Apple Silicon support</td>
+<td>As of 4.35c: Clang 19 &amp; GCC 11</td>
+</tr>
+<tr>
+<td>Docker (from source)</td>
+<td>Test unreleased features, apply patches</td>
+<td>Configurable in Dockerfile</td>
+</tr>
+<tr>
+<td>From source</td>
+<td>Avoid Docker, need specific patches</td>
+<td>Adjustable via <code>LLVM_CONFIG</code> env var</td>
+</tr>
+</tbody>
+</table>
+<h3>Ubuntu/Debian</h3>
+<p>Prior to installing afl++, check the clang version dependency of the packge with <code>apt-cache show afl++</code>, and install the matching <code>lld</code> version (e.g., <code>lld-17</code>).</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">apt</span> <span class="token function">install</span> afl++ lld-17
+</span></code></pre>
+<h3>Docker (from Docker Hub)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">docker</span> pull aflplusplus/aflplusplus:stable
+</span></code></pre>
+<h3>Docker (from source)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> clone <span class="token parameter variable">--depth</span> <span class="token number">1</span> <span class="token parameter variable">--branch</span> stable https://github.com/AFLplusplus/AFLplusplus
+</span><span class="code-line"><span class="token builtin class-name">cd</span> AFLplusplus
+</span><span class="code-line"><span class="token function">docker</span> build <span class="token parameter variable">-t</span> aflplusplus <span class="token builtin class-name">.</span>
+</span></code></pre>
+<h3>From source</h3>
+<p>Refer to the <a href="https://github.com/AFLplusplus/AFLplusplus/blob/stable/Dockerfile" target="_blank" rel="ugc nofollow noopener">Dockerfile</a> for Ubuntu version requirements and dependencies. Set <code>LLVM_CONFIG</code> to specify Clang version (e.g., <code>llvm-config-18</code>).</p>
+<h3>Wrapper Script Setup</h3>
+<p>Create a wrapper script to run AFL++ on host or Docker:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">cat</span> <span class="token operator">&lt;&lt;</span><span class="token string">'EOF'<span class="token bash punctuation"> <span class="token operator">&gt;</span> ./afl++</span>
+</span></span><span class="code-line"><span class="token string">#!/bin/sh
+</span></span><span class="code-line"><span class="token string">AFL_VERSION="${AFL_VERSION:-"stable"}"
+</span></span><span class="code-line"><span class="token string">case "$1" in
+</span></span><span class="code-line"><span class="token string">   host)
+</span></span><span class="code-line"><span class="token string">        shift
+</span></span><span class="code-line"><span class="token string">        bash -c "$*"
+</span></span><span class="code-line"><span class="token string">        ;;
+</span></span><span class="code-line"><span class="token string">    docker)
+</span></span><span class="code-line"><span class="token string">        shift
+</span></span><span class="code-line"><span class="token string">        /usr/bin/env docker run -ti \
+</span></span><span class="code-line"><span class="token string">            --privileged \
+</span></span><span class="code-line"><span class="token string">            -v ./:/src \
+</span></span><span class="code-line"><span class="token string">            --rm \
+</span></span><span class="code-line"><span class="token string">            --name afl_fuzzing \
+</span></span><span class="code-line"><span class="token string">            "aflplusplus/aflplusplus:$AFL_VERSION" \
+</span></span><span class="code-line"><span class="token string">            bash -c "cd /src &amp;&amp; bash -c \"$*\""
+</span></span><span class="code-line"><span class="token string">        ;;
+</span></span><span class="code-line"><span class="token string">    *)
+</span></span><span class="code-line"><span class="token string">        echo "Usage: $0 {host|docker}"
+</span></span><span class="code-line"><span class="token string">        exit 1
+</span></span><span class="code-line"><span class="token string">        ;;
+</span></span><span class="code-line"><span class="token string">esac
+</span></span><span class="code-line"><span class="token string">EOF</span>
+</span><span class="code-line"><span class="token function">chmod</span> +x ./afl++
+</span></code></pre>
+<p><strong>Security Warning:</strong> The <code>afl-system-config</code> and <code>afl-persistent-config</code> scripts require root privileges and disable OS security features. Do not fuzz on production systems or your development environment. Use a dedicated VM instead.</p>
+<h3>System Configuration</h3>
+<p>Run after each reboot for up to 15% more executions per second:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-system-config
+</span></code></pre>
+<p>For maximum performance, disable kernel security mitigations (requires grub bootloader, not supported in Docker):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token function">host</span> afl-persistent-config
+</span><span class="code-line"><span class="token function">update-grub</span>
+</span><span class="code-line"><span class="token function">reboot</span>
+</span><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-system-config
+</span></code></pre>
+<p>Verify with <code>cat /proc/cmdline</code> - output should include <code>mitigations=off</code>.</p>
+<h2>Writing a Harness</h2>
+<h3>Harness Structure</h3>
+<p>AFL++ supports libFuzzer-style harnesses:</p>
+<pre><code class="language-c++ code-highlight"><span class="code-line">#include &lt;stdint.h&gt;
+</span><span class="code-line">#include &lt;stddef.h&gt;
+</span><span class="code-line">
+</span><span class="code-line">extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+</span><span class="code-line">    // 1. Validate input size if needed
+</span><span class="code-line">    if (size &lt; MIN_SIZE || size &gt; MAX_SIZE) return 0;
+</span><span class="code-line">
+</span><span class="code-line">    // 2. Call target function with fuzz data
+</span><span class="code-line">    target_function(data, size);
+</span><span class="code-line">
+</span><span class="code-line">    // 3. Return 0 (non-zero reserved for future use)
+</span><span class="code-line">    return 0;
+</span><span class="code-line">}
+</span></code></pre>
+<h3>Harness Rules</h3>
+<table>
+<thead>
+<tr>
+<th>Do</th>
+<th>Don't</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reset global state between runs</td>
+<td>Rely on state from previous runs</td>
+</tr>
+<tr>
+<td>Handle edge cases gracefully</td>
+<td>Exit on invalid input</td>
+</tr>
+<tr>
+<td>Keep harness deterministic</td>
+<td>Use random number generators</td>
+</tr>
+<tr>
+<td>Free allocated memory</td>
+<td>Create memory leaks</td>
+</tr>
+<tr>
+<td>Validate input sizes</td>
+<td>Process unbounded input</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>See Also:</strong> For detailed harness writing techniques, patterns for handling complex inputs,
+and advanced strategies, see the <strong>fuzz-harness-writing</strong> technique skill.</p>
+</blockquote>
+<h2>Compilation</h2>
+<p>AFL++ offers multiple compilation modes with different trade-offs.</p>
+<h3>Compilation Mode Decision Tree</h3>
+<p>Choose your compilation mode:</p>
+<ul>
+<li><strong>LTO mode</strong> (<code>afl-clang-lto</code>): Best performance and instrumentation. Try this first.</li>
+<li><strong>LLVM mode</strong> (<code>afl-clang-fast</code>): Fall back if LTO fails to compile.</li>
+<li><strong>GCC plugin</strong> (<code>afl-gcc-fast</code>): For projects requiring GCC.</li>
+</ul>
+<h3>Basic Compilation (LLVM mode)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-clang-fast++ <span class="token parameter variable">-DNO_MAIN</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<h3>GCC Compilation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-g++-fast <span class="token parameter variable">-DNO_MAIN</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<p><strong>Important:</strong> GCC version must match the version used to compile the AFL++ GCC plugin.</p>
+<h3>With Sanitizers</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> <span class="token assign-left variable">AFL_USE_ASAN</span><span class="token operator">=</span><span class="token number">1</span> afl-clang-fast++ <span class="token parameter variable">-DNO_MAIN</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<blockquote>
+<p><strong>See Also:</strong> For detailed sanitizer configuration, common issues, and advanced flags,
+see the <strong>address-sanitizer</strong> and <strong>undefined-behavior-sanitizer</strong> technique skills.</p>
+</blockquote>
+<h3>Build Flags</h3>
+<p>Note that <code>-g</code> is not necessary, it is added by default by the AFL++ compilers.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-DNO_MAIN=1</code></td>
+<td>Skip main function when using libFuzzer harness</td>
+</tr>
+<tr>
+<td><code>-O2</code></td>
+<td>Production optimization level (recommended for fuzzing)</td>
+</tr>
+<tr>
+<td><code>-fsanitize=fuzzer</code></td>
+<td>Enable libFuzzer compatibility mode and adds the fuzzer runtime when linking executable</td>
+</tr>
+<tr>
+<td><code>-fsanitize=fuzzer-no-link</code></td>
+<td>Instrument without linking fuzzer runtime (for static libraries and object files)</td>
+</tr>
+</tbody>
+</table>
+<h2>Corpus Management</h2>
+<h3>Creating Initial Corpus</h3>
+<p>AFL++ requires at least one non-empty seed file:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> seeds
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"aaaa"</span> <span class="token operator">&gt;</span> seeds/minimal_seed
+</span></code></pre>
+<p>For real projects, gather representative inputs:</p>
+<ul>
+<li>Download example files for the format you're fuzzing</li>
+<li>Extract test cases from the project's test suite</li>
+<li>Use minimal valid inputs for your file format</li>
+</ul>
+<h3>Corpus Minimization</h3>
+<p>After a campaign, minimize the corpus to keep only unique coverage:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-cmin <span class="token parameter variable">-i</span> out/default/queue <span class="token parameter variable">-o</span> minimized_corpus -- ./fuzz
+</span></code></pre>
+<blockquote>
+<p><strong>See Also:</strong> For corpus creation strategies, dictionaries, and seed selection,
+see the <strong>fuzzing-corpus</strong> technique skill.</p>
+</blockquote>
+<h2>Running Campaigns</h2>
+<h3>Basic Run</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> out -- ./fuzz
+</span></code></pre>
+<h3>Setting Environment Variables</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> <span class="token assign-left variable">AFL_FAST_CAL</span><span class="token operator">=</span><span class="token number">1</span> afl-fuzz <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> out -- ./fuzz
+</span></code></pre>
+<h3>Interpreting Output</h3>
+<p>The AFL++ UI shows real-time fuzzing statistics:</p>
+<table>
+<thead>
+<tr>
+<th>Output</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>execs/sec</strong></td>
+<td>Execution speed - higher is better</td>
+</tr>
+<tr>
+<td><strong>cycles done</strong></td>
+<td>Number of queue passes completed</td>
+</tr>
+<tr>
+<td><strong>corpus count</strong></td>
+<td>Number of unique test cases in queue</td>
+</tr>
+<tr>
+<td><strong>saved crashes</strong></td>
+<td>Number of unique crashes found</td>
+</tr>
+<tr>
+<td><strong>stability</strong></td>
+<td>% of stable edges (should be near 100%)</td>
+</tr>
+</tbody>
+</table>
+<h3>Output Directory Structure</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">out/default/
+</span><span class="code-line">├── cmdline          # How was the SUT invoked?
+</span><span class="code-line">├── crashes/         # Inputs that crash the SUT
+</span><span class="code-line">│   └── id:000000,sig:06,src:000002,time:286,execs:13105,op:havoc,rep:4
+</span><span class="code-line">├── hangs/           # Inputs that hang the SUT
+</span><span class="code-line">├── queue/           # Test cases reproducing final fuzzer state
+</span><span class="code-line">│   ├── id:000000,time:0,execs:0,orig:minimal_seed
+</span><span class="code-line">│   └── id:000001,src:000000,time:0,execs:8,op:havoc,rep:6,+cov
+</span><span class="code-line">├── fuzzer_stats     # Campaign statistics
+</span><span class="code-line">└── plot_data        # Data for plotting
+</span></code></pre>
+<h3>Analyzing Results</h3>
+<p>View live campaign statistics:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-whatsup out
+</span></code></pre>
+<p>Create coverage plots:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">apt</span> <span class="token function">install</span> gnuplot
+</span><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-plot out/default out_graph/
+</span></code></pre>
+<h3>Re-executing Test Cases</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> ./fuzz out/default/crashes/<span class="token operator">&lt;</span>test_case<span class="token operator">&gt;</span>
+</span></code></pre>
+<h3>Fuzzer Options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-G 4000</code></td>
+<td>Maximum test input length (default: 1048576 bytes)</td>
+</tr>
+<tr>
+<td><code>-t 1000</code></td>
+<td>Timeout in milliseconds for each test case (default: 1000ms)</td>
+</tr>
+<tr>
+<td><code>-m 1000</code></td>
+<td>Memory limit in megabytes (default: 0 = unlimited)</td>
+</tr>
+<tr>
+<td><code>-x ./dict.dict</code></td>
+<td>Use dictionary file to guide mutations</td>
+</tr>
+</tbody>
+</table>
+<h2>Environment Variables That Matter</h2>
+<p>AFL++ has <a href="https://aflplus.plus/docs/env_variables/" target="_blank" rel="ugc nofollow noopener">many environment variables</a>, but most are niche. These are the ones that matter in practice.</p>
+<h3>Always Set These</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Every campaign should use tmpfs — SSDs will thank you, and it's faster</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_TMPDIR</span><span class="token operator">=</span>/dev/shm
+</span></code></pre>
+<p><code>AFL_TMPDIR</code> is a free performance win with no downsides — not setting it wears out your SSD and slows fuzzing.</p>
+<h3>Slow Targets</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Speeds up calibration ~2.5x — use when targets are slow (e.g., &gt;10 ms/exec)</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_FAST_CAL</span><span class="token operator">=</span><span class="token number">1</span>
+</span></code></pre>
+<p><code>AFL_FAST_CAL</code> reduces calibration time with negligible precision loss. Recommended specifically for slow targets where calibration would otherwise take a long time.</p>
+<h3>Multi-Core Campaigns</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># On the primary (-M) instance only — needed for afl-cmin, not for fuzzing itself</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_FINAL_SYNC</span><span class="token operator">=</span><span class="token number">1</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># On all instances — cache test cases in memory (default: 50 MB, good range: 50-250 MB)</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_TESTCACHE_SIZE</span><span class="token operator">=</span><span class="token number">100</span>
+</span></code></pre>
+<p><code>AFL_FINAL_SYNC</code> tells the primary instance to do a final import from all secondaries when stopping. This does not affect the fuzzing process itself — it only matters when you later run <code>afl-cmin</code> for corpus minimization, ensuring the primary's queue has the full combined corpus. <code>AFL_TESTCACHE_SIZE</code> caches test cases in memory to reduce disk I/O; the default is 50 MB and values between 50-250 MB work well for most campaigns.</p>
+<h3>CI/Automated Fuzzing</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Fail fast if fuzzing isn't finding anything</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_EXIT_ON_TIME</span><span class="token operator">=</span><span class="token number">3600</span>  <span class="token comment"># 1 hour with no new paths = stop</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or run until "done" (all queue entries processed)</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_EXIT_WHEN_DONE</span><span class="token operator">=</span><span class="token number">1</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Headless environments</span>
+</span><span class="code-line"><span class="token assign-left variable">AFL_NO_UI</span><span class="token operator">=</span><span class="token number">1</span>
+</span></code></pre>
+<p>Unbounded fuzzing in CI wastes resources. Set time limits or use exit conditions.</p>
+<h3>Variables to Avoid</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Why Skip It</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AFL_NO_ARITH</code></td>
+<td>Can hurt coverage on binary formats, but may be useful for text-based targets</td>
+</tr>
+<tr>
+<td><code>AFL_SHUFFLE_QUEUE</code></td>
+<td>Only for exotic setups, usually harmful</td>
+</tr>
+<tr>
+<td><code>AFL_DISABLE_TRIM</code></td>
+<td>Trimming is valuable, don't disable without reason</td>
+</tr>
+</tbody>
+</table>
+<h2>Multi-Core Fuzzing</h2>
+<p>AFL++ excels at multi-core fuzzing with two major advantages:</p>
+<ol>
+<li>More executions per second (scales linearly with physical cores)</li>
+<li>Asymmetrical fuzzing (e.g., one ASan job, rest without sanitizers)</li>
+</ol>
+<h3>Starting a Campaign</h3>
+<p>Start the primary fuzzer (in background):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-M</span> primary <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> state -- ./fuzz <span class="token operator"><span class="token file-descriptor important">1</span>&gt;</span>primary.log <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>primary.error <span class="token operator">&amp;</span>
+</span></code></pre>
+<p>Start secondary fuzzers (as many as you have cores):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-S</span> secondary01 <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> state -- ./fuzz <span class="token operator"><span class="token file-descriptor important">1</span>&gt;</span>secondary01.log <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>secondary01.error <span class="token operator">&amp;</span>
+</span><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-S</span> secondary02 <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> state -- ./fuzz <span class="token operator"><span class="token file-descriptor important">1</span>&gt;</span>secondary02.log <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>secondary02.error <span class="token operator">&amp;</span>
+</span></code></pre>
+<h3>Monitoring Multi-Core Campaigns</h3>
+<p>List all running jobs:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">jobs</span>
+</span></code></pre>
+<p>View live statistics (updates every second):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> <span class="token function">watch</span> <span class="token parameter variable">-n1</span> <span class="token parameter variable">--color</span> afl-whatsup state/
+</span></code></pre>
+<h3>Stopping All Fuzzers</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">kill</span> <span class="token variable"><span class="token variable">$(</span><span class="token function">jobs</span> <span class="token parameter variable">-p</span><span class="token variable">)</span></span>
+</span></code></pre>
+<h2>Coverage Analysis</h2>
+<p>AFL++ automatically tracks coverage through edge instrumentation. Coverage information is stored in <code>fuzzer_stats</code> and <code>plot_data</code>.</p>
+<h3>Measuring Coverage</h3>
+<p>Use <code>afl-plot</code> to visualize coverage over time:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-plot out/default out_graph/
+</span></code></pre>
+<h3>Improving Coverage</h3>
+<ul>
+<li>Use dictionaries for format-aware fuzzing</li>
+<li>Run longer campaigns (cycles_wo_finds indicates plateau)</li>
+<li>Try different mutation strategies with multi-core fuzzing</li>
+<li>Analyze coverage gaps and add targeted seed inputs</li>
+</ul>
+<blockquote>
+<p><strong>See Also:</strong> For detailed coverage analysis techniques, identifying coverage gaps,
+and systematic coverage improvement, see the <strong>coverage-analysis</strong> technique skill.</p>
+</blockquote>
+<h2>CMPLOG</h2>
+<p>CMPLOG/RedQueen is the best path constraint solving mechanism available in any fuzzer.
+To enable it, the fuzz target needs to be instrumented for it.
+Before building the fuzzing target set the environment variable:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> <span class="token assign-left variable">AFL_LLVM_CMPLOG</span><span class="token operator">=</span><span class="token number">1</span> <span class="token function">make</span>
+</span></code></pre>
+<p>No special action is needed for compiling and linking the harness.</p>
+<p>To run a fuzzer instance with a CMPLOG instrumented fuzzing target, add <code>-c0</code> to the command like arguments:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-c0</span> <span class="token parameter variable">-S</span> cmplog <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> state -- ./fuzz <span class="token operator"><span class="token file-descriptor important">1</span>&gt;</span>secondary02.log <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>secondary02.error <span class="token operator">&amp;</span>
+</span></code></pre>
+<h2>Sanitizer Integration</h2>
+<p>Sanitizers are essential for finding memory corruption bugs that don't cause immediate crashes.</p>
+<h3>AddressSanitizer (ASan)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> <span class="token assign-left variable">AFL_USE_ASAN</span><span class="token operator">=</span><span class="token number">1</span> afl-clang-fast++ <span class="token parameter variable">-DNO_MAIN</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<p><strong>Note:</strong> Memory limit (<code>-m</code>) is not supported with ASan due to 20TB virtual memory reservation.</p>
+<h3>UndefinedBehaviorSanitizer (UBSan)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> <span class="token assign-left variable">AFL_USE_UBSAN</span><span class="token operator">=</span><span class="token number">1</span> afl-clang-fast++ <span class="token parameter variable">-DNO_MAIN</span><span class="token operator">=</span><span class="token number">1</span> <span class="token parameter variable">-O2</span> <span class="token parameter variable">-fsanitize</span><span class="token operator">=</span>fuzzer,undefined harness.cc main.cc <span class="token parameter variable">-o</span> fuzz
+</span></code></pre>
+<h3>Common Sanitizer Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ASan slows fuzzing</td>
+<td>Use only 1 ASan job in multi-core setup</td>
+</tr>
+<tr>
+<td>Stack exhaustion</td>
+<td>Increase stack with <code>ASAN_OPTIONS=stack_size=...</code></td>
+</tr>
+<tr>
+<td>GCC version mismatch</td>
+<td>Ensure system GCC matches AFL++ plugin version</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>See Also:</strong> For comprehensive sanitizer configuration and troubleshooting,
+see the <strong>address-sanitizer</strong> technique skill.</p>
+</blockquote>
+<h2>Advanced Usage</h2>
+<h3>Tips and Tricks</h3>
+<table>
+<thead>
+<tr>
+<th>Tip</th>
+<th>Why It Helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Use LLVMFuzzerTestOneInput harnesses where possible</td>
+<td>If a fuzzing campaign has at least 85% stability then this is the most efficient fuzzing style. If not then try standard input or file input fuzzing</td>
+</tr>
+<tr>
+<td>Use dictionaries</td>
+<td>Helps fuzzer discover format-specific keywords and magic bytes</td>
+</tr>
+<tr>
+<td>Set realistic timeouts</td>
+<td>Prevents false positives from system load</td>
+</tr>
+<tr>
+<td>Limit input size</td>
+<td>Larger inputs don't necessarily explore more space</td>
+</tr>
+<tr>
+<td>Monitor stability</td>
+<td>Low stability indicates non-deterministic behavior</td>
+</tr>
+</tbody>
+</table>
+<h3>Standard Input Fuzzing</h3>
+<p>AFL++ can fuzz programs reading from stdin without a libFuzzer harness:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-clang-fast++ <span class="token parameter variable">-O2</span> main_stdin.c <span class="token parameter variable">-o</span> fuzz_stdin
+</span><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> out -- ./fuzz_stdin
+</span></code></pre>
+<p>This is slower than persistent mode but requires no harness code.</p>
+<h3>File Input Fuzzing</h3>
+<p>For programs that read files, use <code>@@</code> placeholder:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-clang-fast++ <span class="token parameter variable">-O2</span> main_file.c <span class="token parameter variable">-o</span> fuzz_file
+</span><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> out -- ./fuzz_file @@
+</span></code></pre>
+<p>For better performance, use <code>fmemopen</code> to create file descriptors from memory.</p>
+<h3>Argument Fuzzing</h3>
+<p>Fuzz command-line arguments using <code>argv-fuzz-inl.h</code>:</p>
+<pre><code class="language-c++ code-highlight"><span class="code-line">#include &lt;stdio.h&gt;
+</span><span class="code-line">#include &lt;stdlib.h&gt;
+</span><span class="code-line">#include &lt;string.h&gt;
+</span><span class="code-line">
+</span><span class="code-line">#ifdef __AFL_COMPILER
+</span><span class="code-line">#include "argv-fuzz-inl.h"
+</span><span class="code-line">#endif
+</span><span class="code-line">
+</span><span class="code-line">void check_buf(char *buf, size_t buf_len) {
+</span><span class="code-line">    if(buf_len &gt; 0 &amp;&amp; buf[0] == 'a') {
+</span><span class="code-line">        if(buf_len &gt; 1 &amp;&amp; buf[1] == 'b') {
+</span><span class="code-line">            if(buf_len &gt; 2 &amp;&amp; buf[2] == 'c') {
+</span><span class="code-line">                abort();
+</span><span class="code-line">            }
+</span><span class="code-line">        }
+</span><span class="code-line">    }
+</span><span class="code-line">}
+</span><span class="code-line">
+</span><span class="code-line">int main(int argc, char *argv[]) {
+</span><span class="code-line">#ifdef __AFL_COMPILER
+</span><span class="code-line">    AFL_INIT_ARGV();
+</span><span class="code-line">#endif
+</span><span class="code-line">
+</span><span class="code-line">    if (argc &lt; 2) {
+</span><span class="code-line">        fprintf(stderr, "Usage: %s &lt;input_string&gt;\n", argv[0]);
+</span><span class="code-line">        return 1;
+</span><span class="code-line">    }
+</span><span class="code-line">
+</span><span class="code-line">    char *input_buf = argv[1];
+</span><span class="code-line">    size_t len = strlen(input_buf);
+</span><span class="code-line">    check_buf(input_buf, len);
+</span><span class="code-line">    return 0;
+</span><span class="code-line">}
+</span></code></pre>
+<p>Download the header:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-O</span> https://raw.githubusercontent.com/AFLplusplus/AFLplusplus/stable/utils/argv_fuzzing/argv-fuzz-inl.h
+</span></code></pre>
+<p>Compile and run:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-clang-fast++ <span class="token parameter variable">-O2</span> main_arg.c <span class="token parameter variable">-o</span> fuzz_arg
+</span><span class="code-line">./afl++ <span class="token operator">&lt;</span>host/docker<span class="token operator">&gt;</span> afl-fuzz <span class="token parameter variable">-i</span> seeds <span class="token parameter variable">-o</span> out -- ./fuzz_arg
+</span></code></pre>
+<h3>Performance Tuning</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU core count</td>
+<td>Linear scaling with physical cores</td>
+</tr>
+<tr>
+<td>Persistent mode</td>
+<td>10-20x faster than fork server</td>
+</tr>
+<tr>
+<td><code>-G</code> input size limit</td>
+<td>Smaller = faster, but may miss bugs</td>
+</tr>
+<tr>
+<td>ASan ratio</td>
+<td>1 ASan job per 4-8 non-ASan jobs</td>
+</tr>
+</tbody>
+</table>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Low exec/sec (&lt;1k)</td>
+<td>Not using persistent mode</td>
+<td>Create a LLVMFuzzerTestOneInput style harness</td>
+</tr>
+<tr>
+<td>Low stability (&lt;85%)</td>
+<td>Non-deterministic code</td>
+<td>Fuzz a program via stdin or file inputs, or create such a harness</td>
+</tr>
+<tr>
+<td>GCC plugin error</td>
+<td>GCC version mismatch</td>
+<td>Ensure system GCC matches AFL++ build and install gcc-$GCC_VERSION-plugin-dev</td>
+</tr>
+<tr>
+<td>No crashes found</td>
+<td>Need sanitizers</td>
+<td>Recompile with <code>AFL_USE_ASAN=1</code></td>
+</tr>
+<tr>
+<td>Memory limit exceeded</td>
+<td>ASan uses 20TB virtual</td>
+<td>Remove <code>-m</code> flag when using ASan</td>
+</tr>
+<tr>
+<td>Docker performance loss</td>
+<td>Virtualization overhead</td>
+<td>Use bare metal or VM for production fuzzing</td>
+</tr>
+</tbody>
+</table>
+<h2>Related Skills</h2>
+<h3>Technique Skills</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>fuzz-harness-writing</strong></td>
+<td>Detailed guidance on writing effective harnesses</td>
+</tr>
+<tr>
+<td><strong>address-sanitizer</strong></td>
+<td>Memory error detection during fuzzing</td>
+</tr>
+<tr>
+<td><strong>undefined-behavior-sanitizer</strong></td>
+<td>Detect undefined behavior bugs</td>
+</tr>
+<tr>
+<td><strong>fuzzing-corpus</strong></td>
+<td>Building and managing seed corpora</td>
+</tr>
+<tr>
+<td><strong>fuzzing-dictionaries</strong></td>
+<td>Creating dictionaries for format-aware fuzzing</td>
+</tr>
+</tbody>
+</table>
+<h3>Related Fuzzers</h3>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>When to Consider</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>libfuzzer</strong></td>
+<td>Quick prototyping, single-threaded fuzzing is sufficient</td>
+</tr>
+<tr>
+<td><strong>libafl</strong></td>
+<td>Need custom mutators or research-grade features</td>
+</tr>
+</tbody>
+</table>
+<h2>Resources</h2>
+<h3>Key External Resources</h3>
+<p><strong><a href="https://github.com/AFLplusplus/AFLplusplus" target="_blank" rel="ugc nofollow noopener">AFL++ GitHub Repository</a></strong>
+Official repository with comprehensive documentation, examples, and issue tracker.</p>
+<p><strong><a href="https://raw.githubusercontent.com/AFLplusplus/AFLplusplus/refs/heads/stable/docs/fuzzing_in_depth.md" target="_blank" rel="ugc nofollow noopener">Fuzzing in Depth</a></strong>
+Advanced documentation by the AFL++ team covering instrumentation modes, optimization techniques, and advanced use cases.</p>
+<p><strong><a href="https://blog.ritsec.club/posts/afl-under-hood/" target="_blank" rel="ugc nofollow noopener">AFL++ Under The Hood</a></strong>
+Technical deep-dive into AFL++ internals, mutation strategies, and coverage tracking mechanisms.</p>
+<p><strong><a href="https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf" target="_blank" rel="ugc nofollow noopener">AFL++: Combining Incremental Steps of Fuzzing Research</a></strong>
+Research paper describing AFL++ architecture and performance improvements over original AFL.</p>
+<h3>Video Resources</h3>
+<ul>
+<li><a href="https://blog.trailofbits.com/2023/02/14/curl-audit-fuzzing-libcurl-command-line-interface/" target="_blank" rel="ugc nofollow noopener">Fuzzing cURL</a> - Trail of Bits blog post on using AFL++ argument fuzzing for cURL</li>
+<li><a href="https://www.youtube.com/playlist?list=PLhixgUqwRTjy0gMuT4C3bmjeZjuNQyqdx" target="_blank" rel="ugc nofollow noopener">Sudo Vulnerability Walkthrough</a> - LiveOverflow series on rediscovering CVE-2021-3156</li>
+<li><a href="https://www.youtube.com/watch?v=PJLWlmp8CDM" target="_blank" rel="ugc nofollow noopener">Rediscovery of libpng bug</a> - LiveOverflow video on finding CVE-2023-4863</li>
+</ul></div>

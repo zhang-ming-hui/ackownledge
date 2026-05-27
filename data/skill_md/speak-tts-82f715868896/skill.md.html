@@ -1,0 +1,636 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>speak - Talk to your Claude!</h1>
+<p>Give your agent the ability to speak to you real-time. Local text-to-speech, voice cloning, and audio generation on Apple Silicon.
+Give your agent the ability to speak to you real-time. Local TTS with voice cloning on Apple Silicon.</p>
+<h2>Prerequisites</h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Check</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apple Silicon Mac</td>
+<td><code>uname -m</code> → arm64</td>
+<td>Intel not supported</td>
+</tr>
+<tr>
+<td>macOS 12.0+</td>
+<td><code>sw_vers</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td>sox</td>
+<td><code>which sox</code></td>
+<td><code>brew install sox</code></td>
+</tr>
+<tr>
+<td>ffmpeg</td>
+<td><code>which ffmpeg</code></td>
+<td><code>brew install ffmpeg</code></td>
+</tr>
+<tr>
+<td>poppler (PDF)</td>
+<td><code>which pdftotext</code></td>
+<td><code>brew install poppler</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Input Sources</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text file</td>
+<td><code>speak article.txt</code></td>
+</tr>
+<tr>
+<td>Markdown</td>
+<td><code>speak doc.md</code></td>
+</tr>
+<tr>
+<td>Direct string</td>
+<td><code>speak "Hello"</code></td>
+</tr>
+<tr>
+<td>Clipboard</td>
+<td><code>pbpaste | speak</code></td>
+</tr>
+<tr>
+<td>Stdin</td>
+<td><code>cat file.txt | speak</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Web Articles</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">lynx</span> <span class="token parameter variable">-dump</span> <span class="token parameter variable">-nolist</span> <span class="token string">"https://example.com/article"</span> <span class="token operator">|</span> speak <span class="token parameter variable">--output</span> article.wav
+</span></code></pre>
+<h3>Converting Formats</h3>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Convert Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PDF</td>
+<td><code>pdftotext doc.pdf doc.txt</code></td>
+</tr>
+<tr>
+<td>DOCX</td>
+<td><code>textutil -convert txt doc.docx</code></td>
+</tr>
+<tr>
+<td>HTML</td>
+<td><code>pandoc -f html -t plain doc.html &gt; doc.txt</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Output Modes</h2>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Save for later</td>
+<td><code>speak text.txt --output file.wav</code></td>
+</tr>
+<tr>
+<td>Listen now (streaming)</td>
+<td><code>speak text.txt --stream</code></td>
+</tr>
+<tr>
+<td>Listen now (complete)</td>
+<td><code>speak text.txt --play</code></td>
+</tr>
+<tr>
+<td>Both</td>
+<td><code>speak text.txt --stream --output file.wav</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Default Behavior</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak article.txt          <span class="token comment"># → ~/Audio/speak/article.wav (no playback)</span>
+</span><span class="code-line">speak <span class="token string">"Hello"</span>              <span class="token comment"># → ~/Audio/speak/speak_&lt;timestamp&gt;.wav</span>
+</span></code></pre>
+<h2>Directory Auto-Creation</h2>
+<table>
+<thead>
+<tr>
+<th>Directory</th>
+<th>Auto-Created?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>~/Audio/speak/</code></td>
+<td>✓ Yes</td>
+</tr>
+<tr>
+<td><code>~/.chatter/voices/</code></td>
+<td>✗ No</td>
+</tr>
+<tr>
+<td>Custom directories</td>
+<td>✗ No</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Always create custom directories first:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/.chatter/voices/
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/Audio/custom/
+</span></code></pre>
+<h2>Voice Cloning</h2>
+<p>Voice cloning generates speech that matches your vocal characteristics (pitch, tone, cadence) from a short recording.</p>
+<h3>Quality Expectations</h3>
+<ul>
+<li>Output captures general voice characteristics but is <strong>not a perfect replica</strong></li>
+<li>Quality depends heavily on sample quality</li>
+<li>15-25 seconds is optimal (10s minimum, 30s maximum)</li>
+</ul>
+<h3>Recording Your Voice</h3>
+<p><strong>Using QuickTime:</strong></p>
+<ol>
+<li>Open QuickTime Player → File → New Audio Recording</li>
+<li>Record 20 seconds of clear speech</li>
+<li>File → Export As → Audio Only (.m4a)</li>
+<li>Convert to WAV (see below)</li>
+</ol>
+<p><strong>Using sox (command line):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># -d = use default microphone</span>
+</span><span class="code-line"><span class="token comment"># Recording starts immediately and stops after 25 seconds</span>
+</span><span class="code-line">sox <span class="token parameter variable">-d</span> <span class="token parameter variable">-r</span> <span class="token number">24000</span> <span class="token parameter variable">-c</span> <span class="token number">1</span> ~/.chatter/voices/my_voice.wav trim <span class="token number">0</span> <span class="token number">25</span>
+</span></code></pre>
+<h3>Converting to Required Format</h3>
+<p>Voice samples <strong>MUST</strong> be: WAV, 24000 Hz, mono, 10-30 seconds.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># From MP3</span>
+</span><span class="code-line">ffmpeg <span class="token parameter variable">-i</span> voice.mp3 <span class="token parameter variable">-ar</span> <span class="token number">24000</span> <span class="token parameter variable">-ac</span> <span class="token number">1</span> voice.wav
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># From M4A (QuickTime)</span>
+</span><span class="code-line">ffmpeg <span class="token parameter variable">-i</span> voice.m4a <span class="token parameter variable">-ar</span> <span class="token number">24000</span> <span class="token parameter variable">-ac</span> <span class="token number">1</span> voice.wav
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Trim to 25 seconds</span>
+</span><span class="code-line">ffmpeg <span class="token parameter variable">-i</span> long.wav <span class="token parameter variable">-t</span> <span class="token number">25</span> <span class="token parameter variable">-ar</span> <span class="token number">24000</span> <span class="token parameter variable">-ac</span> <span class="token number">1</span> trimmed.wav
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Check sample properties</span>
+</span><span class="code-line">ffprobe <span class="token parameter variable">-i</span> voice.wav <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-E</span> <span class="token string">"Duration|Stream"</span>
+</span><span class="code-line"><span class="token comment"># Should show: Duration ~15-25s, 24000 Hz, mono</span>
+</span></code></pre>
+<h3>Using Your Voice</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create directory</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/.chatter/voices/
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Move sample</span>
+</span><span class="code-line"><span class="token function">mv</span> voice.wav ~/.chatter/voices/my_voice.wav
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Test</span>
+</span><span class="code-line">speak <span class="token string">"Testing my voice"</span> <span class="token parameter variable">--voice</span> ~/.chatter/voices/my_voice.wav <span class="token parameter variable">--stream</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use for content</span>
+</span><span class="code-line">speak notes.txt <span class="token parameter variable">--voice</span> ~/.chatter/voices/my_voice.wav <span class="token parameter variable">--output</span> presentation.wav
+</span></code></pre>
+<p><strong>Path requirements:</strong></p>
+<ul>
+<li>✓ Works: <code>~/.chatter/voices/my_voice.wav</code> (tilde expanded by shell)</li>
+<li>✓ Works: <code>/Users/name/.chatter/voices/my_voice.wav</code></li>
+<li>✗ Fails: <code>my_voice.wav</code> (relative path)</li>
+<li>✗ Fails: <code>./voices/my_voice.wav</code> (relative path)</li>
+</ul>
+<h3>Voice Sample Tips</h3>
+<table>
+<thead>
+<tr>
+<th>Good Sample</th>
+<th>Bad Sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quiet room</td>
+<td>Background noise</td>
+</tr>
+<tr>
+<td>Natural pace</td>
+<td>Rushed or monotone</td>
+</tr>
+<tr>
+<td>Clear diction</td>
+<td>Mumbling</td>
+</tr>
+<tr>
+<td>Varied content</td>
+<td>Repetitive phrases</td>
+</tr>
+</tbody>
+</table>
+<h2>Default Voice</h2>
+<p>When <code>--voice</code> is omitted, a built-in default voice is used:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak <span class="token string">"Hello world"</span> <span class="token parameter variable">--stream</span>  <span class="token comment"># Uses default voice</span>
+</span></code></pre>
+<h2>Emotion Tags</h2>
+<p>Tags produce <strong>audible effects</strong> (actual sounds), not spoken words:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak <span class="token string">"[sigh] Monday again."</span> <span class="token parameter variable">--stream</span>
+</span><span class="code-line"><span class="token comment"># Output: (sigh sound) "Monday again."</span>
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[laugh]</code></td>
+<td>Laughter</td>
+</tr>
+<tr>
+<td><code>[chuckle]</code></td>
+<td>Light chuckle</td>
+</tr>
+<tr>
+<td><code>[sigh]</code></td>
+<td>Sighing</td>
+</tr>
+<tr>
+<td><code>[gasp]</code></td>
+<td>Gasping</td>
+</tr>
+<tr>
+<td><code>[groan]</code></td>
+<td>Groaning</td>
+</tr>
+<tr>
+<td><code>[clear throat]</code></td>
+<td>Throat clearing</td>
+</tr>
+<tr>
+<td><code>[cough]</code></td>
+<td>Coughing</td>
+</tr>
+<tr>
+<td><code>[crying]</code></td>
+<td>Crying</td>
+</tr>
+<tr>
+<td><code>[singing]</code></td>
+<td>Sung speech</td>
+</tr>
+</tbody>
+</table>
+<p><strong>NOT supported:</strong> <code>[pause]</code>, <code>[whisper]</code> (ignored)</p>
+<p><strong>For pauses:</strong> Use punctuation: <code>"Wait... let me think."</code></p>
+<h2>Batch Processing</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> ~/Audio/book/
+</span><span class="code-line">speak ch01.txt ch02.txt ch03.txt --output-dir ~/Audio/book/
+</span><span class="code-line"><span class="token comment"># Creates: ch01.wav, ch02.wav, ch03.wav</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With auto-chunking (for long files)</span>
+</span><span class="code-line">speak chapters/*.txt --output-dir ~/Audio/book/ --auto-chunk
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Skip completed files</span>
+</span><span class="code-line">speak chapters/*.txt --output-dir ~/Audio/book/ --skip-existing
+</span></code></pre>
+<h3>Auto-Chunk Behavior</h3>
+<p>When using <code>--auto-chunk</code> with batch processing:</p>
+<ol>
+<li>Each input file is chunked <strong>independently</strong></li>
+<li>Chunks are generated and <strong>automatically concatenated</strong> per file</li>
+<li>Final output: one <code>.wav</code> per input file (e.g., <code>ch01.wav</code>)</li>
+<li>Intermediate chunks deleted (unless <code>--keep-chunks</code>)</li>
+</ol>
+<p><strong>You don't need to manually concatenate chunks</strong> — only concatenate final chapter files.</p>
+<h2>Concatenating Audio</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Explicit order (recommended)</span>
+</span><span class="code-line">speak concat ch01.wav ch02.wav ch03.wav <span class="token parameter variable">--output</span> book.wav
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Glob pattern (REQUIRES zero-padded filenames)</span>
+</span><span class="code-line">speak concat audiobook/*.wav <span class="token parameter variable">--output</span> book.wav
+</span></code></pre>
+<h3>Zero-Padding Rules</h3>
+<p><strong>Critical for correct concatenation order:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Files</th>
+<th>Correct</th>
+<th>Wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1-9</td>
+<td><code>01</code>, <code>02</code>, ..., <code>09</code></td>
+<td><code>1</code>, <code>2</code>, ..., <code>9</code></td>
+</tr>
+<tr>
+<td>10-99</td>
+<td><code>01</code>, <code>02</code>, ..., <code>99</code></td>
+<td><code>1</code>, <code>10</code>, <code>2</code>, ...</td>
+</tr>
+<tr>
+<td>100+</td>
+<td><code>001</code>, <code>002</code>, ..., <code>999</code></td>
+<td><code>1</code>, <code>100</code>, <code>2</code>, ...</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why:</strong> Shell glob expansion sorts alphabetically. <code>1, 10, 2</code> vs <code>01, 02, 10</code>.</p>
+<h2>PDF to Audiobook (Complete Workflow)</h2>
+<h3>Step 1: Find Chapter Boundaries</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Preview table of contents</span>
+</span><span class="code-line">pdftotext <span class="token parameter variable">-f</span> <span class="token number">1</span> <span class="token parameter variable">-l</span> <span class="token number">5</span> textbook.pdf toc.txt
+</span><span class="code-line"><span class="token function">cat</span> toc.txt  <span class="token comment"># Note chapter page numbers</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or search for "Chapter" markers</span>
+</span><span class="code-line">pdftotext textbook.pdf - <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-n</span> <span class="token string">"Chapter"</span>
+</span></code></pre>
+<h3>Step 2: Extract Chapters (Zero-Padded!)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># For 100-page book with ~10 chapters</span>
+</span><span class="code-line">pdftotext <span class="token parameter variable">-f</span> <span class="token number">1</span> <span class="token parameter variable">-l</span> <span class="token number">12</span> <span class="token parameter variable">-layout</span> textbook.pdf ch01.txt
+</span><span class="code-line">pdftotext <span class="token parameter variable">-f</span> <span class="token number">13</span> <span class="token parameter variable">-l</span> <span class="token number">25</span> <span class="token parameter variable">-layout</span> textbook.pdf ch02.txt
+</span><span class="code-line">pdftotext <span class="token parameter variable">-f</span> <span class="token number">26</span> <span class="token parameter variable">-l</span> <span class="token number">38</span> <span class="token parameter variable">-layout</span> textbook.pdf ch03.txt
+</span><span class="code-line"><span class="token comment"># ... continue for all chapters</span>
+</span></code></pre>
+<h3>Step 3: Estimate Time</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak <span class="token parameter variable">--estimate</span> ch*.txt
+</span><span class="code-line"><span class="token comment"># Shows: total audio duration, generation time, storage needed</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Quick estimates:</span>
+</span><span class="code-line"><span class="token comment"># 1 page ≈ 2 min audio ≈ 1 min generation</span>
+</span><span class="code-line"><span class="token comment"># 100 pages ≈ 200 min audio ≈ 100 min generation ≈ 500 MB</span>
+</span></code></pre>
+<h3>Step 4: Generate Audio</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> audiobook/
+</span><span class="code-line">speak ch01.txt ch02.txt ch03.txt --output-dir audiobook/ --auto-chunk
+</span><span class="code-line"><span class="token comment"># Creates: audiobook/ch01.wav, audiobook/ch02.wav, audiobook/ch03.wav</span>
+</span></code></pre>
+<h3>Step 5: Concatenate</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak concat audiobook/ch01.wav audiobook/ch02.wav audiobook/ch03.wav <span class="token parameter variable">--output</span> complete_audiobook.wav
+</span><span class="code-line"><span class="token comment"># Or with glob (only if zero-padded):</span>
+</span><span class="code-line">speak concat audiobook/ch*.wav <span class="token parameter variable">--output</span> complete_audiobook.wav
+</span></code></pre>
+<h3>PDF Troubleshooting</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Empty/garbled text</td>
+<td>Scanned PDF — use OCR: <code>brew install tesseract</code></td>
+</tr>
+<tr>
+<td>Wrong encoding</td>
+<td>Try: <code>pdftotext -enc UTF-8 doc.pdf</code></td>
+</tr>
+<tr>
+<td>Check word count</td>
+<td><code>pdftotext doc.pdf - | wc -w</code> (should be &gt;100)</td>
+</tr>
+</tbody>
+</table>
+<h2>Multi-Voice Content</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> podcast/scripts podcast/wav
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"Welcome to the show."</span> <span class="token operator">&gt;</span> podcast/scripts/01_host.txt
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"Thanks for having me."</span> <span class="token operator">&gt;</span> podcast/scripts/02_guest.txt
+</span><span class="code-line">
+</span><span class="code-line">speak podcast/scripts/01_host.txt <span class="token parameter variable">--voice</span> ~/.chatter/voices/host.wav <span class="token parameter variable">--output</span> podcast/wav/01.wav
+</span><span class="code-line">speak podcast/scripts/02_guest.txt <span class="token parameter variable">--voice</span> ~/.chatter/voices/guest.wav <span class="token parameter variable">--output</span> podcast/wav/02.wav
+</span><span class="code-line">
+</span><span class="code-line">speak concat podcast/wav/01.wav podcast/wav/02.wav <span class="token parameter variable">--output</span> podcast.wav
+</span></code></pre>
+<h2>Options Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--stream</code></td>
+<td>Stream as it generates</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--play</code></td>
+<td>Play after complete</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--output &lt;path&gt;</code></td>
+<td>Output file</td>
+<td>~/Audio/speak/</td>
+</tr>
+<tr>
+<td><code>--output-dir &lt;dir&gt;</code></td>
+<td>Batch output directory</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>--voice &lt;path&gt;</code></td>
+<td>Voice sample (full path)</td>
+<td>default</td>
+</tr>
+<tr>
+<td><code>--timeout &lt;sec&gt;</code></td>
+<td>Timeout per file</td>
+<td>300</td>
+</tr>
+<tr>
+<td><code>--auto-chunk</code></td>
+<td>Split long documents</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--chunk-size &lt;n&gt;</code></td>
+<td>Chars per chunk</td>
+<td>6000</td>
+</tr>
+<tr>
+<td><code>--resume &lt;file&gt;</code></td>
+<td>Resume from manifest</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>--keep-chunks</code></td>
+<td>Keep intermediate files</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--skip-existing</code></td>
+<td>Skip if output exists</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--estimate</code></td>
+<td>Show duration estimate</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Preview only</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>--quiet</code></td>
+<td>Suppress output</td>
+<td>false</td>
+</tr>
+</tbody>
+</table>
+<h2>Commands</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>speak setup</code></td>
+<td>Set up environment</td>
+</tr>
+<tr>
+<td><code>speak health</code></td>
+<td>Check system status</td>
+</tr>
+<tr>
+<td><code>speak models</code></td>
+<td>List TTS models</td>
+</tr>
+<tr>
+<td><code>speak concat</code></td>
+<td>Concatenate audio</td>
+</tr>
+<tr>
+<td><code>speak daemon kill</code></td>
+<td>Stop TTS server</td>
+</tr>
+<tr>
+<td><code>speak config</code></td>
+<td>Show configuration</td>
+</tr>
+</tbody>
+</table>
+<h2>Performance</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cold start</td>
+<td>~4-8s</td>
+</tr>
+<tr>
+<td>Warm start</td>
+<td>~3-8s</td>
+</tr>
+<tr>
+<td>Speed</td>
+<td>0.3-0.5x RTF (faster than real-time)</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>~2.5 MB/min, ~150 MB/hour</td>
+</tr>
+</tbody>
+</table>
+<h2>Resume Capability</h2>
+<p>For interrupted long generations:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Single file with auto-chunk — use --resume</span>
+</span><span class="code-line">speak long.txt --auto-chunk <span class="token parameter variable">--output</span> book.wav
+</span><span class="code-line"><span class="token comment"># If interrupted, manifest saved at ~/Audio/speak/manifest.json</span>
+</span><span class="code-line">speak <span class="token parameter variable">--resume</span> ~/Audio/speak/manifest.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Batch processing — use --skip-existing</span>
+</span><span class="code-line">speak ch*.txt --output-dir audiobook/ --auto-chunk
+</span><span class="code-line"><span class="token comment"># If interrupted, re-run same command:</span>
+</span><span class="code-line">speak ch*.txt --output-dir audiobook/ --auto-chunk --skip-existing
+</span></code></pre>
+<h2>Common Errors</h2>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Voice file not found"</td>
+<td>Relative path</td>
+<td>Use full path: <code>~/.chatter/voices/x.wav</code></td>
+</tr>
+<tr>
+<td>"Invalid WAV format"</td>
+<td>Wrong specs</td>
+<td>Convert: <code>ffmpeg -i in.wav -ar 24000 -ac 1 out.wav</code></td>
+</tr>
+<tr>
+<td>"Voice sample too short"</td>
+<td>&lt;10 seconds</td>
+<td>Record 15-25 seconds</td>
+</tr>
+<tr>
+<td>"Output directory doesn't exist"</td>
+<td>Not created</td>
+<td><code>mkdir -p dirname/</code></td>
+</tr>
+<tr>
+<td>"sox not found"</td>
+<td>Not installed</td>
+<td><code>brew install sox</code></td>
+</tr>
+<tr>
+<td>Scrambled concat order</td>
+<td>Non-zero-padded</td>
+<td>Use <code>01</code>, <code>02</code>, not <code>1</code>, <code>2</code></td>
+</tr>
+<tr>
+<td>Timeout</td>
+<td>&gt;5 min generation</td>
+<td>Use <code>--auto-chunk</code> or <code>--timeout 600</code></td>
+</tr>
+<tr>
+<td>"Server not running"</td>
+<td>Stale daemon</td>
+<td><code>speak daemon kill &amp;&amp; speak health</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Setup</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak <span class="token string">"test"</span>     <span class="token comment"># Auto-setup on first run (downloads model ~500MB)</span>
+</span><span class="code-line">speak setup      <span class="token comment"># Or manual setup</span>
+</span><span class="code-line">speak health     <span class="token comment"># Verify everything works</span>
+</span></code></pre>
+<h2>Server Management</h2>
+<p>Server auto-starts and shuts down after 1 hour idle.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">speak health        <span class="token comment"># Check status</span>
+</span><span class="code-line">speak daemon <span class="token function">kill</span>   <span class="token comment"># Stop manually</span>
+</span></code></pre></div>

@@ -1,0 +1,445 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Next.js Performance Optimization</h1>
+<p>Expert guidance for optimizing Next.js applications with focus on Core Web Vitals, modern patterns, and best practices.</p>
+<h2>Overview</h2>
+<p>This skill provides comprehensive guidance for optimizing Next.js applications. It covers Core Web Vitals optimization (LCP, INP, CLS), modern React patterns, Server Components, caching strategies, and bundle optimization techniques. Designed for developers already familiar with React/Next.js who want to implement production-grade optimizations.</p>
+<h2>When to Use</h2>
+<p>Use this skill when working on Next.js applications and need to:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Optimize Core Web Vitals (LCP, INP, CLS) for better performance and SEO</li>
+<li>Implement image optimization with <code>next/image</code> for faster loading</li>
+<li>Configure font optimization with <code>next/font</code> to eliminate layout shift</li>
+<li>Set up caching strategies using <code>unstable_cache</code>, <code>revalidateTag</code>, or ISR</li>
+<li>Convert Client Components to Server Components for reduced bundle size</li>
+<li>Implement Suspense streaming for progressive page loading</li>
+<li>Analyze and reduce bundle size with code splitting and dynamic imports</li>
+<li>Configure metadata and SEO for better search engine visibility</li>
+<li>Optimize API route handlers for better performance</li>
+<li>Apply Next.js 16 and React 19 modern patterns</li>
+</ul>
+<h3>Coverage Areas</h3>
+<ul>
+<li><strong>Core Web Vitals optimization</strong> (LCP, INP, CLS)</li>
+<li><strong>Image optimization</strong> with <code>next/image</code></li>
+<li><strong>Font optimization</strong> with <code>next/font</code></li>
+<li><strong>Caching strategies</strong> (<code>unstable_cache</code>, <code>revalidateTag</code>, ISR)</li>
+<li><strong>Server Components</strong> patterns and Client-to-Server conversion</li>
+<li><strong>Streaming and Suspense</strong> for progressive loading</li>
+<li><strong>Bundle optimization</strong> and code splitting</li>
+<li><strong>Metadata and SEO</strong> configuration</li>
+<li><strong>Route handlers</strong> optimization</li>
+<li><strong>Next.js 16 + React 19</strong> patterns</li>
+</ul>
+<h2>Instructions</h2>
+<h3>Before Starting</h3>
+<ol>
+<li><strong>Analyze current performance</strong> with Lighthouse</li>
+<li><strong>Identify bottlenecks</strong> - check Core Web Vitals in Chrome DevTools or PageSpeed Insights</li>
+<li><strong>Determine optimization priority</strong>:
+<ul>
+<li>LCP issues → Focus on images, fonts</li>
+<li>INP issues → Reduce JS, use Server Components</li>
+<li>CLS issues → Add dimensions, use next/font</li>
+</ul>
+</li>
+</ol>
+<h3>How to Use This Skill</h3>
+<ol>
+<li>
+<p><strong>Load relevant reference files</strong> based on the area you're optimizing:</p>
+<ul>
+<li>Image issues → <code>references/image-optimization.md</code></li>
+<li>Font/layout shift → <code>references/font-optimization.md</code></li>
+<li>Caching → <code>references/caching-strategies.md</code></li>
+<li>Component architecture → <code>references/server-components.md</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Follow the quick patterns</strong> for common optimizations</p>
+</li>
+<li>
+<p><strong>Apply before/after conversions</strong> to improve existing code</p>
+</li>
+<li>
+<p><strong>Verify improvements</strong> with Lighthouse after changes</p>
+</li>
+</ol>
+<h3>Core Principles</h3>
+<ol>
+<li><strong>Prefer Server Components</strong> - Only use 'use client' when necessary (browser APIs, interactivity)</li>
+<li><strong>Load components as low as possible</strong> - Keep Client Components at leaf nodes</li>
+<li><strong>Use Suspense boundaries</strong> - Enable streaming and progressive loading</li>
+<li><strong>Cache appropriately</strong> - Use tags for granular revalidation</li>
+<li><strong>Measure before/after</strong> - Always verify improvements with real metrics</li>
+</ol>
+<h2>Examples</h2>
+<h3>Example 1: Convert Client Component to Server Component</h3>
+<p><strong>BEFORE (Client Component with useEffect):</strong></p>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token string">'use client'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> useEffect<span class="token punctuation">,</span> useState <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span> <span class="token function">ProductList</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>products<span class="token punctuation">,</span> setProducts<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'/api/products'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">then</span><span class="token punctuation">(</span>r <span class="token arrow operator">=&gt;</span> r<span class="token punctuation">.</span><span class="token method function property-access">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">then</span><span class="token punctuation">(</span>setProducts<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>ul</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>products<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span>p <span class="token arrow operator">=&gt;</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">key</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>p<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>p<span class="token punctuation">.</span><span class="token property-access">name</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>ul</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>AFTER (Server Component with direct data access):</strong></p>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> db <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'@/lib/db'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">ProductList</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> products <span class="token operator">=</span> <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token property-access">product</span><span class="token punctuation">.</span><span class="token method function property-access">findMany</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>ul</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>products<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span>p <span class="token arrow operator">=&gt;</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">key</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>p<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>p<span class="token punctuation">.</span><span class="token property-access">name</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>ul</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 2: Optimize Images for LCP</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token maybe-class-name">Image</span></span> <span class="token keyword">from</span> <span class="token string">'next/image'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">Hero</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>relative w-full h-[600px]<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span>
+</span></span><span class="code-line"><span class="token tag">        <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/hero.jpg<span class="token punctuation">"</span></span>
+</span></span><span class="code-line"><span class="token tag">        <span class="token attr-name">alt</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>Hero<span class="token punctuation">"</span></span>
+</span></span><span class="code-line"><span class="token tag">        <span class="token attr-name">fill</span>
+</span></span><span class="code-line"><span class="token tag">        <span class="token attr-name">priority</span>          <span class="token comment">// Disable lazy loading for LCP</span>
+</span></span><span class="code-line"><span class="token tag">        <span class="token attr-name">sizes</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>100vw<span class="token punctuation">"</span></span>
+</span></span><span class="code-line"><span class="token tag">        <span class="token attr-name">className</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>object-cover<span class="token punctuation">"</span></span>
+</span></span><span class="code-line"><span class="token tag">      <span class="token punctuation">/&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 3: Implement Caching Strategy</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> unstable_cache<span class="token punctuation">,</span> revalidateTag <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'next/cache'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Cached data function</span>
+</span><span class="code-line"><span class="token keyword">const</span> getProducts <span class="token operator">=</span> <span class="token function">unstable_cache</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> db<span class="token punctuation">.</span><span class="token property-access">product</span><span class="token punctuation">.</span><span class="token method function property-access">findMany</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">[</span><span class="token string">'products'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> revalidate<span class="token operator">:</span> <span class="token number">3600</span><span class="token punctuation">,</span> tags<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'products'</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Revalidate on mutation</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">createProduct</span><span class="token punctuation">(</span>data<span class="token operator">:</span> <span class="token maybe-class-name">FormData</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token string">'use server'</span>
+</span><span class="code-line">  <span class="token keyword">await</span> db<span class="token punctuation">.</span><span class="token property-access">product</span><span class="token punctuation">.</span><span class="token method function property-access">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span> data <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token function">revalidateTag</span><span class="token punctuation">(</span><span class="token string">'products'</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 4: Setup Optimized Fonts</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> <span class="token maybe-class-name">Inter</span> <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'next/font/google'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> inter <span class="token operator">=</span> <span class="token function">Inter</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  subsets<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'latin'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  display<span class="token operator">:</span> <span class="token string">'swap'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  variable<span class="token operator">:</span> <span class="token string">'--font-inter'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span> <span class="token function">RootLayout</span><span class="token punctuation">(</span><span class="token punctuation">{</span> children <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span> <span class="token attr-name">lang</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>en<span class="token punctuation">"</span></span> <span class="token attr-name">className</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>inter<span class="token punctuation">.</span><span class="token property-access">variable</span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span> <span class="token attr-name">className</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>inter<span class="token punctuation">.</span>className<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> antialiased</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">        </span><span class="token punctuation">{</span>children<span class="token punctuation">}</span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 5: Implement Suspense Streaming</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> <span class="token maybe-class-name">Suspense</span> <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span> <span class="token function">Page</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>header</span><span class="token punctuation">&gt;</span></span><span class="token plain-text">Static content (immediate)</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>header</span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Suspense</span></span> <span class="token attr-name">fallback</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ProductSkeleton</span></span> <span class="token punctuation">/&gt;</span></span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">        </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ProductList</span></span> <span class="token punctuation">/&gt;</span></span><span class="token plain-text">  </span><span class="token punctuation">{</span><span class="token comment">/* Streamed when ready */</span><span class="token punctuation">}</span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">Suspense</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Suspense</span></span> <span class="token attr-name">fallback</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ReviewsSkeleton</span></span> <span class="token punctuation">/&gt;</span></span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">        </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Reviews</span></span> <span class="token punctuation">/&gt;</span></span><span class="token plain-text">      </span><span class="token punctuation">{</span><span class="token comment">/* Independent streaming */</span><span class="token punctuation">}</span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">Suspense</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span></span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Reference Documentation</h2>
+<p>Load these references when working on specific areas:</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Reference File</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core Web Vitals</td>
+<td><code>references/core-web-vitals.md</code></td>
+</tr>
+<tr>
+<td>Image Optimization</td>
+<td><code>references/image-optimization.md</code></td>
+</tr>
+<tr>
+<td>Font Optimization</td>
+<td><code>references/font-optimization.md</code></td>
+</tr>
+<tr>
+<td>Caching Strategies</td>
+<td><code>references/caching-strategies.md</code></td>
+</tr>
+<tr>
+<td>Server Components</td>
+<td><code>references/server-components.md</code></td>
+</tr>
+<tr>
+<td>Streaming/Suspense</td>
+<td><code>references/streaming-suspense.md</code></td>
+</tr>
+<tr>
+<td>Bundle Optimization</td>
+<td><code>references/bundle-optimization.md</code></td>
+</tr>
+<tr>
+<td>Metadata/SEO</td>
+<td><code>references/metadata-seo.md</code></td>
+</tr>
+<tr>
+<td>API Routes</td>
+<td><code>references/api-routes.md</code></td>
+</tr>
+<tr>
+<td>Next.js 16 Patterns</td>
+<td><code>references/nextjs-16-patterns.md</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Common Conversions</h2>
+<table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Benefit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>useEffect</code> + fetch</td>
+<td>Direct async in Server Component</td>
+<td>-70% JS, faster TTFB</td>
+</tr>
+<tr>
+<td><code>useState</code> for data</td>
+<td>Server Component with direct DB access</td>
+<td>Simpler code, no hydration</td>
+</tr>
+<tr>
+<td>Client-side fetch</td>
+<td><code>unstable_cache</code> or ISR</td>
+<td>Faster repeated loads</td>
+</tr>
+<tr>
+<td><code>img</code> tag</td>
+<td><code>next/image</code></td>
+<td>Optimized formats, lazy loading</td>
+</tr>
+<tr>
+<td>CSS font import</td>
+<td><code>next/font</code></td>
+<td>Zero CLS, automatic optimization</td>
+</tr>
+<tr>
+<td>Static import of heavy component</td>
+<td><code>dynamic()</code></td>
+<td>Reduced initial bundle</td>
+</tr>
+</tbody>
+</table>
+<h2>Best Practices</h2>
+<h3>Images</h3>
+<ul>
+<li>Use <code>next/image</code> for all images</li>
+<li>Add <code>priority</code> to LCP images only</li>
+<li>Provide <code>width</code> and <code>height</code> or <code>fill</code> with sizes</li>
+<li>Use <code>placeholder="blur"</code> for better UX</li>
+<li>Configure remotePatterns in next.config.js</li>
+</ul>
+<h3>Fonts</h3>
+<ul>
+<li>Use <code>next/font</code> instead of CSS imports</li>
+<li>Specify <code>subsets</code> to reduce size</li>
+<li>Use <code>display: 'swap'</code> for immediate text render</li>
+<li>Create CSS variable with <code>variable</code> option</li>
+<li>Configure Tailwind to use CSS variables</li>
+</ul>
+<h3>Caching</h3>
+<ul>
+<li>Cache expensive queries with <code>unstable_cache</code></li>
+<li>Use meaningful cache tags for granular control</li>
+<li>Implement on-demand revalidation for dynamic content</li>
+<li>Set TTL based on data change frequency</li>
+<li>Use revalidatePath for route-level invalidation</li>
+</ul>
+<h3>Components</h3>
+<ul>
+<li>Convert Client Components to Server Components where possible</li>
+<li>Keep Client Components at the leaf level</li>
+<li>Use Suspense boundaries for progressive loading</li>
+<li>Implement proper loading states</li>
+<li>Use dynamic() for heavy components below the fold</li>
+</ul>
+<h3>Bundle</h3>
+<ul>
+<li>Lazy load heavy components with <code>dynamic()</code></li>
+<li>Use named exports for better tree shaking</li>
+<li>Analyze bundle regularly with <code>@</code>next/bundle-analyzer</li>
+<li>Prefer ESM packages over CommonJS</li>
+<li>Use modularizeImports for large libraries</li>
+</ul>
+<h2>Constraints and Warnings</h2>
+<h3>Server Components Limitations</h3>
+<ul>
+<li>Cannot use browser APIs (window, localStorage, document)</li>
+<li>Cannot use React hooks (useState, useEffect, useContext)</li>
+<li>Cannot use event handlers (onClick, onSubmit)</li>
+<li>Cannot use dynamic imports with ssr: false</li>
+</ul>
+<h3>Image Optimization Constraints</h3>
+<ul>
+<li><code>priority</code> should only be used for above-the-fold images</li>
+<li>External images require configuration in next.config.js</li>
+<li><code>width</code> and <code>height</code> are required unless using <code>fill</code></li>
+<li>Animated GIFs are not optimized by default</li>
+</ul>
+<h3>Caching Considerations</h3>
+<ul>
+<li>Cache tags must be manually invalidated</li>
+<li>Data cache is per-request in development</li>
+<li>Edge runtime has different caching behavior</li>
+<li>Be careful caching user-specific data</li>
+</ul>
+<h3>Bundle Size Warnings</h3>
+<ul>
+<li>Dynamic imports can impact SEO if critical content</li>
+<li>Tree shaking requires proper ES module usage</li>
+<li>Some libraries cannot be tree shaken (avoid barrel exports)</li>
+<li>Client Components increase bundle size - use sparingly</li>
+</ul>
+<h2>Next.js 16 + React 19 Specifics</h2>
+<h3>Async Params</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token comment">// Next.js 15+ params is a Promise</span>
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">Page</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  params<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  params<span class="token operator">:</span> <span class="token known-class-name class-name">Promise</span><span class="token operator">&lt;</span><span class="token punctuation">{</span> slug<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span><span class="token operator">&gt;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">{</span> slug <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> params
+</span><span class="code-line">  <span class="token keyword">const</span> post <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetchPost</span><span class="token punctuation">(</span>slug<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>article</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>post<span class="token punctuation">.</span><span class="token property-access">content</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>article</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>use() Hook for Promises</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token string">'use client'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> use<span class="token punctuation">,</span> <span class="token maybe-class-name">Suspense</span> <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">Comments</span><span class="token punctuation">(</span><span class="token punctuation">{</span> promise <span class="token punctuation">}</span><span class="token operator">:</span> <span class="token punctuation">{</span> promise<span class="token operator">:</span> <span class="token known-class-name class-name">Promise</span><span class="token operator">&lt;</span><span class="token maybe-class-name">Comment</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token operator">&gt;</span> <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> comments <span class="token operator">=</span> <span class="token function">use</span><span class="token punctuation">(</span>promise<span class="token punctuation">)</span>  <span class="token comment">// Suspend until resolved</span>
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>ul</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>comments<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span>c <span class="token arrow operator">=&gt;</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>li</span> <span class="token attr-name">key</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>c<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>c<span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>li</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>ul</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>useOptimistic for UI Updates</h3>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token string">'use client'</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> useOptimistic <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">TodoList</span><span class="token punctuation">(</span><span class="token punctuation">{</span> todos <span class="token punctuation">}</span><span class="token operator">:</span> <span class="token punctuation">{</span> todos<span class="token operator">:</span> <span class="token maybe-class-name">Todo</span><span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token punctuation">[</span>optimisticTodos<span class="token punctuation">,</span> addOptimisticTodo<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useOptimistic</span><span class="token punctuation">(</span>
+</span><span class="code-line">    todos<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>state<span class="token punctuation">,</span> newTodo<span class="token operator">:</span> <span class="token maybe-class-name">Todo</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">[</span><span class="token spread operator">...</span>state<span class="token punctuation">,</span> newTodo<span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">addTodo</span><span class="token punctuation">(</span>formData<span class="token operator">:</span> <span class="token maybe-class-name">FormData</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> text <span class="token operator">=</span> formData<span class="token punctuation">.</span><span class="token method function property-access">get</span><span class="token punctuation">(</span><span class="token string">'text'</span><span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token builtin">string</span>
+</span><span class="code-line">    <span class="token function">addOptimisticTodo</span><span class="token punctuation">(</span><span class="token punctuation">{</span> id<span class="token operator">:</span> crypto<span class="token punctuation">.</span><span class="token method function property-access">randomUUID</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> text<span class="token punctuation">,</span> completed<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">await</span> <span class="token function">createTodo</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">action</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>addTodo<span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token punctuation">/&gt;</span></span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">      </span><span class="token punctuation">{</span>optimisticTodos<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span>todo <span class="token arrow operator">=&gt;</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">key</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>todo<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">}</span></span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>todo<span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token plain-text">
+</span></span><span class="code-line"><span class="token plain-text">    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">  <span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Bundle Analysis</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Install analyzer</span>
+</span><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> --save-dev @next/bundle-analyzer
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run analysis</span>
+</span><span class="code-line"><span class="token assign-left variable">ANALYZE</span><span class="token operator">=</span>true <span class="token function">npm</span> run build
+</span></code></pre>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// next.config.js</span>
+</span><span class="code-line"><span class="token keyword">const</span> withBundleAnalyzer <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'@next/bundle-analyzer'</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">enabled</span><span class="token operator">:</span> process<span class="token punctuation">.</span><span class="token property-access">env</span><span class="token punctuation">.</span><span class="token constant">ANALYZE</span> <span class="token operator">===</span> <span class="token string">'true'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">module<span class="token punctuation">.</span><span class="token property-access">exports</span> <span class="token operator">=</span> <span class="token function">withBundleAnalyzer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">modularizeImports</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token string-property property">'lodash'</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">transform</span><span class="token operator">:</span> <span class="token string">'lodash/{{member}}'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Performance Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All images use <code>next/image</code> with proper dimensions</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> LCP images have <code>priority</code> attribute</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Fonts use <code>next/font</code> with subsets</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Server Components used where possible</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Client Components at leaf level only</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Suspense boundaries for data fetching</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Caching configured for expensive operations</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Bundle analyzed for duplicates</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Heavy components lazy loaded</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Lighthouse score verified before/after</li>
+</ul>
+<h2>Common Mistakes</h2>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token comment">// ❌ DON'T: Fetch in useEffect</span>
+</span><span class="code-line"><span class="token string">'use client'</span>
+</span><span class="code-line"><span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'/api/data'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">then</span><span class="token punctuation">(</span><span class="token spread operator">...</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Fetch directly in Server Component</span>
+</span><span class="code-line"><span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'/api/data'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ DON'T: Forget dimensions on images</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/photo.jpg<span class="token punctuation">"</span></span> <span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Always provide dimensions</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/photo.jpg<span class="token punctuation">"</span></span> <span class="token attr-name">width</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token number">800</span><span class="token punctuation">}</span></span> <span class="token attr-name">height</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token number">600</span><span class="token punctuation">}</span></span> <span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ DON'T: Use priority on all images</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/photo1.jpg<span class="token punctuation">"</span></span> <span class="token attr-name">priority</span> <span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/photo2.jpg<span class="token punctuation">"</span></span> <span class="token attr-name">priority</span> <span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Priority only for LCP</span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/hero.jpg<span class="token punctuation">"</span></span> <span class="token attr-name">priority</span> <span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Image</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/photo.jpg<span class="token punctuation">"</span></span> <span class="token attr-name">loading</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>lazy<span class="token punctuation">"</span></span> <span class="token punctuation">/&gt;</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ❌ DON'T: Cache everything with same TTL</span>
+</span><span class="code-line"><span class="token punctuation">{</span> revalidate<span class="token operator">:</span> <span class="token number">3600</span> <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ DO: Match TTL to data change frequency</span>
+</span><span class="code-line"><span class="token punctuation">{</span> revalidate<span class="token operator">:</span> <span class="token number">86400</span> <span class="token punctuation">}</span> <span class="token comment">// Categories rarely change</span>
+</span><span class="code-line"><span class="token punctuation">{</span> revalidate<span class="token operator">:</span> <span class="token number">60</span> <span class="token punctuation">}</span>     <span class="token comment">// Comments change often</span>
+</span></code></pre>
+<h2>External Resources</h2>
+<ul>
+<li><a href="https://nextjs.org/docs/app/building-your-application/optimizing" target="_blank" rel="noopener">Next.js Performance Documentation</a></li>
+<li><a href="https://web.dev/vitals/" target="_blank" rel="ugc nofollow noopener">Core Web Vitals</a></li>
+<li><a href="https://react.dev/reference/react/server-components" target="_blank" rel="ugc nofollow noopener">React Server Components</a></li>
+</ul></div>

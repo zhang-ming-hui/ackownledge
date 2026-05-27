@@ -1,0 +1,165 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Handling HTTP and JSON</h1>
+<h2>Contents</h2>
+<ul>
+<li><a href="#core-guidelines" target="_blank" rel="ugc nofollow noopener">Core Guidelines</a></li>
+<li><a href="#workflow-executing-http-operations" target="_blank" rel="ugc nofollow noopener">Workflow: Executing HTTP Operations</a></li>
+<li><a href="#workflow-implementing-json-serialization" target="_blank" rel="ugc nofollow noopener">Workflow: Implementing JSON Serialization</a></li>
+<li><a href="#workflow-parsing-large-json-in-the-background" target="_blank" rel="ugc nofollow noopener">Workflow: Parsing Large JSON in the Background</a></li>
+<li><a href="#examples" target="_blank" rel="ugc nofollow noopener">Examples</a></li>
+</ul>
+<h2>Core Guidelines</h2>
+<ul>
+<li><strong>Enforce HTTPS:</strong> iOS and Android disable cleartext (HTTP) connections by default. Always use HTTPS endpoints. If HTTP is strictly required for debugging, configure <code>network_security_config.xml</code> (Android) and <code>NSAppTransportSecurity</code> (iOS).</li>
+<li><strong>Construct URIs Safely:</strong> Always use <code>Uri.https(authority, unencodedPath, [queryParameters])</code> to safely build URLs. This handles encoding and formatting reliably, preventing string concatenation errors.</li>
+<li><strong>Handle Status Codes:</strong> Always validate the <code>http.Response.statusCode</code>. Treat <code>200</code> (OK) and <code>201</code> (Created) as success. Throw explicit exceptions for other codes (do not return <code>null</code>).</li>
+<li><strong>Prevent UI Jank:</strong> Move expensive JSON parsing operations (taking &gt;16ms) to a background isolate using the <code>compute()</code> function.</li>
+<li><strong>Structured AI Output:</strong> When integrating LLMs, enforce reliable JSON output by specifying a strict JSON schema in the system prompt and setting the response MIME type to <code>application/json</code>.</li>
+</ul>
+<h2>Workflow: Executing HTTP Operations</h2>
+<p>Use this workflow to implement network requests using the <code>http</code> package.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Task Progress:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Add the <code>http</code> package to <code>pubspec.yaml</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Configure platform permissions (Internet permission in <code>AndroidManifest.xml</code> and macOS <code>.entitlements</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Construct the target <code>Uri</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Execute the HTTP method.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Validate the response and parse the JSON payload.</li>
+</ul>
+<p><strong>Conditional Implementation:</strong></p>
+<ul>
+<li><strong>If fetching data (GET):</strong> Use <code>http.get(uri)</code>.</li>
+<li><strong>If sending new data (POST):</strong> Use <code>http.post(uri, headers: {...}, body: jsonEncode(data))</code>. Ensure <code>Content-Type</code> is <code>application/json; charset=UTF-8</code>.</li>
+<li><strong>If updating data (PUT):</strong> Use <code>http.put(uri, headers: {...}, body: jsonEncode(data))</code>.</li>
+<li><strong>If deleting data (DELETE):</strong> Use <code>http.delete(uri, headers: {...})</code>.</li>
+</ul>
+<p><strong>Feedback Loop: Validation &amp; Error Handling</strong></p>
+<ol>
+<li>Run the HTTP request.</li>
+<li>Check <code>response.statusCode</code>.</li>
+<li>If <code>200</code> or <code>201</code>, call <code>jsonDecode(response.body)</code> and map to a Dart object.</li>
+<li>If any other code, throw an <code>Exception('Failed to load/update/delete resource')</code>.</li>
+<li>Review errors -&gt; fix endpoint, headers, or payload structure.</li>
+</ol>
+<h2>Workflow: Implementing JSON Serialization</h2>
+<p>Choose the serialization strategy based on project complexity.</p>
+<p><strong>Conditional Implementation:</strong></p>
+<ul>
+<li><strong>If building a small prototype or simple models:</strong> Use manual serialization with <code>dart:convert</code>.</li>
+<li><strong>If building a production app with complex/nested models:</strong> Use code generation with <code>json_serializable</code>.</li>
+</ul>
+<h3>Manual Serialization Setup</h3>
+<p><strong>Task Progress:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Import <code>dart:convert</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Define the Model class with <code>final</code> properties.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement a <code>factory Model.fromJson(Map&lt;String, dynamic&gt; json)</code> constructor.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Implement a <code>Map&lt;String, dynamic&gt; toJson()</code> method.</li>
+</ul>
+<h3>Code Generation Setup (<code>json_serializable</code>)</h3>
+<p><strong>Task Progress:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Add dependencies: <code>flutter pub add json_annotation</code> and <code>flutter pub add -d build_runner json_serializable</code>.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Import <code>json_annotation.dart</code> in the model file.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Add the <code>part 'model_name.g.dart';</code> directive.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Annotate the class with <code>@JsonSerializable()</code>. Use <code>explicitToJson: true</code> if the class contains nested models.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Define the <code>fromJson</code> factory and <code>toJson</code> method delegating to the generated functions.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Run the generator: <code>dart run build_runner build --delete-conflicting-outputs</code>.</li>
+</ul>
+<h2>Workflow: Parsing Large JSON in the Background</h2>
+<p>Use this workflow to prevent frame drops when parsing large JSON payloads (e.g., lists of 1000+ items).</p>
+<p><strong>Task Progress:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Create a top-level or static function that takes a <code>String</code> (the response body) and returns the parsed Dart object (e.g., <code>List&lt;Model&gt;</code>).</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Inside the function, call <code>jsonDecode</code> and map the results to the Model class.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> In the HTTP fetch method, pass the top-level parsing function and the <code>response.body</code> to Flutter's <code>compute()</code> function.</li>
+</ul>
+<h2>Examples</h2>
+<h3>Example 1: HTTP GET with Manual Serialization</h3>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'dart:convert'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:http/http.dart'</span></span> <span class="token operator">as</span> http<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">Album</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> int id<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">final</span> <span class="token class-name">String</span> title<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token class-name">Album</span><span class="token punctuation">(</span><span class="token punctuation">{</span>required <span class="token keyword">this</span><span class="token punctuation">.</span>id<span class="token punctuation">,</span> required <span class="token keyword">this</span><span class="token punctuation">.</span>title<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">factory</span> <span class="token class-name">Album</span><span class="token punctuation">.</span><span class="token function">fromJson</span><span class="token punctuation">(</span><span class="token class-name">Map</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token keyword">dynamic</span><span class="token punctuation">&gt;</span></span> json<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token class-name">Album</span><span class="token punctuation">(</span>
+</span><span class="code-line">      id<span class="token punctuation">:</span> json<span class="token punctuation">[</span><span class="token string-literal"><span class="token string">'id'</span></span><span class="token punctuation">]</span> <span class="token operator">as</span> int<span class="token punctuation">,</span>
+</span><span class="code-line">      title<span class="token punctuation">:</span> json<span class="token punctuation">[</span><span class="token string-literal"><span class="token string">'title'</span></span><span class="token punctuation">]</span> <span class="token operator">as</span> <span class="token class-name">String</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token class-name">Future</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">Album</span><span class="token punctuation">&gt;</span></span> <span class="token function">fetchAlbum</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> uri <span class="token operator">=</span> <span class="token class-name">Uri</span><span class="token punctuation">.</span><span class="token function">https</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'jsonplaceholder.typicode.com'</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">'/albums/1'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">final</span> response <span class="token operator">=</span> <span class="token keyword">await</span> http<span class="token punctuation">.</span><span class="token keyword">get</span><span class="token punctuation">(</span>uri<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>response<span class="token punctuation">.</span>statusCode <span class="token operator">==</span> <span class="token number">200</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token class-name">Album</span><span class="token punctuation">.</span><span class="token function">fromJson</span><span class="token punctuation">(</span><span class="token function">jsonDecode</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>body<span class="token punctuation">)</span> <span class="token operator">as</span> <span class="token class-name">Map</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token keyword">dynamic</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token class-name">Exception</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'Failed to load album'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 2: HTTP POST Request</h3>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token class-name">Future</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">Album</span><span class="token punctuation">&gt;</span></span> <span class="token function">createAlbum</span><span class="token punctuation">(</span><span class="token class-name">String</span> title<span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> uri <span class="token operator">=</span> <span class="token class-name">Uri</span><span class="token punctuation">.</span><span class="token function">https</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'jsonplaceholder.typicode.com'</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">'/albums'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">final</span> response <span class="token operator">=</span> <span class="token keyword">await</span> http<span class="token punctuation">.</span><span class="token function">post</span><span class="token punctuation">(</span>
+</span><span class="code-line">    uri<span class="token punctuation">,</span>
+</span><span class="code-line">    headers<span class="token punctuation">:</span> <span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token class-name">String</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-literal"><span class="token string">'Content-Type'</span></span><span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'application/json; charset=UTF-8'</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    body<span class="token punctuation">:</span> <span class="token function">jsonEncode</span><span class="token punctuation">(</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token class-name">String</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">{</span><span class="token string-literal"><span class="token string">'title'</span></span><span class="token punctuation">:</span> title<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>response<span class="token punctuation">.</span>statusCode <span class="token operator">==</span> <span class="token number">201</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token class-name">Album</span><span class="token punctuation">.</span><span class="token function">fromJson</span><span class="token punctuation">(</span><span class="token function">jsonDecode</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>body<span class="token punctuation">)</span> <span class="token operator">as</span> <span class="token class-name">Map</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token keyword">dynamic</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token class-name">Exception</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'Failed to create album.'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 3: Background Parsing with <code>compute</code></h3>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'dart:convert'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:flutter/foundation.dart'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:http/http.dart'</span></span> <span class="token operator">as</span> http<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 1. Top-level function for parsing</span>
+</span><span class="code-line"><span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">Photo</span><span class="token punctuation">&gt;</span></span> <span class="token function">parsePhotos</span><span class="token punctuation">(</span><span class="token class-name">String</span> responseBody<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> parsed <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token function">jsonDecode</span><span class="token punctuation">(</span>responseBody<span class="token punctuation">)</span> <span class="token operator">as</span> <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">Object</span><span class="token operator">?</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span>cast<span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">Map</span><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token class-name">Object</span><span class="token operator">?</span><span class="token punctuation">&gt;</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> parsed<span class="token punctuation">.</span>map<span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">Photo</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token class-name">Photo</span><span class="token punctuation">.</span>fromJson<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toList</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// 2. Fetch function using compute</span>
+</span><span class="code-line"><span class="token class-name">Future</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">List</span><span class="token punctuation">&lt;</span><span class="token class-name">Photo</span><span class="token punctuation">&gt;</span><span class="token punctuation">&gt;</span></span> <span class="token function">fetchPhotos</span><span class="token punctuation">(</span><span class="token class-name"><span class="token namespace">http<span class="token punctuation">.</span></span>Client</span> client<span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> uri <span class="token operator">=</span> <span class="token class-name">Uri</span><span class="token punctuation">.</span><span class="token function">https</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'jsonplaceholder.typicode.com'</span></span><span class="token punctuation">,</span> <span class="token string-literal"><span class="token string">'/photos'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">final</span> response <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span><span class="token keyword">get</span><span class="token punctuation">(</span>uri<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>response<span class="token punctuation">.</span>statusCode <span class="token operator">==</span> <span class="token number">200</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Run parsePhotos in a separate isolate</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token function">compute</span><span class="token punctuation">(</span>parsePhotos<span class="token punctuation">,</span> response<span class="token punctuation">.</span>body<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token class-name">Exception</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">'Failed to load photos'</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Example 4: Code Generation (<code>json_serializable</code>)</h3>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token string-literal"><span class="token string">'package:json_annotation/json_annotation.dart'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">part</span> <span class="token string-literal"><span class="token string">'user.g.dart'</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token metadata function">@JsonSerializable</span><span class="token punctuation">(</span>explicitToJson<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">User</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> <span class="token class-name">String</span> name<span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token metadata function">@JsonKey</span><span class="token punctuation">(</span>name<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">'registration_date_millis'</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token keyword">final</span> int registrationDateMillis<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token class-name">User</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>name<span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">.</span>registrationDateMillis<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">factory</span> <span class="token class-name">User</span><span class="token punctuation">.</span><span class="token function">fromJson</span><span class="token punctuation">(</span><span class="token class-name">Map</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token keyword">dynamic</span><span class="token punctuation">&gt;</span></span> json<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&gt;</span> _$<span class="token class-name">UserFromJson</span><span class="token punctuation">(</span>json<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token class-name">Map</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">String</span><span class="token punctuation">,</span> <span class="token keyword">dynamic</span><span class="token punctuation">&gt;</span></span> <span class="token function">toJson</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&gt;</span> _$<span class="token class-name">UserToJson</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre></div>

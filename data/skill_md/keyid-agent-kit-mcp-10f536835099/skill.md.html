@@ -1,0 +1,414 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>KeyID Agent Kit — MCP Email Tools for AI Agents</h1>
+<blockquote>
+<p>Skill by <a href="https://ara.so" target="_blank" rel="ugc nofollow noopener">ara.so</a> — Daily 2026 Skills collection.</p>
+</blockquote>
+<p>KeyID Agent Kit gives AI agents (Claude, Cursor, or any MCP client) a real, working email address with 27 tools via the Model Context Protocol. No signup, no API keys to acquire manually, no cost. Powered by <a href="https://keyid.ai" target="_blank" rel="ugc nofollow noopener">KeyID.ai</a>.</p>
+<h2>What It Does</h2>
+<ul>
+<li>Provisions a real email address for your AI agent automatically</li>
+<li>Exposes 27 MCP tools: send, receive, reply, forward, search, contacts, drafts, webhooks, auto-reply, signatures, forwarding rules, metrics</li>
+<li>Runs as a stdio MCP server — compatible with Claude Desktop, Cursor, and any MCP client</li>
+<li>Uses Ed25519 keypairs for identity — auto-generated if not provided</li>
+</ul>
+<h2>Installation</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">npm</span> <span class="token function">install</span> @keyid/agent-kit
+</span><span class="code-line"><span class="token comment"># or</span>
+</span><span class="code-line"><span class="token function">yarn</span> <span class="token function">add</span> @keyid/agent-kit
+</span><span class="code-line"><span class="token comment"># or run directly without installing</span>
+</span><span class="code-line">npx @keyid/agent-kit
+</span></code></pre>
+<h2>Configuration</h2>
+<h3>Environment Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>KEYID_PUBLIC_KEY</code></td>
+<td>Ed25519 public key (hex)</td>
+<td>Auto-generated on first run</td>
+</tr>
+<tr>
+<td><code>KEYID_PRIVATE_KEY</code></td>
+<td>Ed25519 private key (hex)</td>
+<td>Auto-generated on first run</td>
+</tr>
+<tr>
+<td><code>KEYID_BASE_URL</code></td>
+<td>API base URL</td>
+<td><code>https://keyid.ai</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important:</strong> Save the auto-generated keys after first run so your agent keeps the same email address across sessions. The keys are printed to stderr on first launch.</p>
+<h3>Claude Desktop Setup</h3>
+<p>Edit <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code>%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"keyid"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"npx"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"@keyid/agent-kit"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"env"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"KEYID_PUBLIC_KEY"</span><span class="token operator">:</span> <span class="token string">"$KEYID_PUBLIC_KEY"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"KEYID_PRIVATE_KEY"</span><span class="token operator">:</span> <span class="token string">"$KEYID_PRIVATE_KEY"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Cursor Setup</h3>
+<p>In <code>.cursor/mcp.json</code> at project root or global Cursor settings:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"mcpServers"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"keyid"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"command"</span><span class="token operator">:</span> <span class="token string">"npx"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"@keyid/agent-kit"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"env"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"KEYID_PUBLIC_KEY"</span><span class="token operator">:</span> <span class="token string">"$KEYID_PUBLIC_KEY"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"KEYID_PRIVATE_KEY"</span><span class="token operator">:</span> <span class="token string">"$KEYID_PRIVATE_KEY"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>First Run — Get Your Email Address</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Run once to generate keys and register the agent</span>
+</span><span class="code-line">npx @keyid/agent-kit
+</span><span class="code-line"><span class="token comment"># Keys are printed to stderr — save them!</span>
+</span><span class="code-line"><span class="token comment"># Then set them in your environment or config</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">KEYID_PUBLIC_KEY</span><span class="token operator">=</span><span class="token operator">&lt;</span>hex-from-output<span class="token operator">&gt;</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">KEYID_PRIVATE_KEY</span><span class="token operator">=</span><span class="token operator">&lt;</span>hex-from-output<span class="token operator">&gt;</span>
+</span></code></pre>
+<h2>All 27 Tools Reference</h2>
+<h3>Identity &amp; Auth</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_provision     — Register agent, get assigned email address
+</span><span class="code-line">keyid_get_email     — Get the current active email address
+</span></code></pre>
+<h3>Messages</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_get_inbox          — Fetch inbox; supports search query, filtering, pagination
+</span><span class="code-line">keyid_send               — Send email (to, subject, body, HTML, scheduled time, display name)
+</span><span class="code-line">keyid_reply              — Reply to a message by message_id
+</span><span class="code-line">keyid_forward            — Forward a message to another address
+</span><span class="code-line">keyid_update_message     — Mark read/unread, star/unstar
+</span><span class="code-line">keyid_get_unread_count   — Get count of unread messages
+</span></code></pre>
+<h3>Threads &amp; Drafts</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_list_threads   — List conversation threads
+</span><span class="code-line">keyid_get_thread     — Get a thread with all its messages
+</span><span class="code-line">keyid_create_draft   — Save a draft
+</span><span class="code-line">keyid_send_draft     — Send a previously saved draft
+</span></code></pre>
+<h3>Settings</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_get_auto_reply   — Get current auto-reply/vacation responder config
+</span><span class="code-line">keyid_set_auto_reply   — Enable/disable auto-reply with custom message
+</span><span class="code-line">keyid_get_signature    — Get email signature
+</span><span class="code-line">keyid_set_signature    — Set email signature text/HTML
+</span><span class="code-line">keyid_get_forwarding   — Get forwarding rules
+</span><span class="code-line">keyid_set_forwarding   — Add or update forwarding to another address
+</span></code></pre>
+<h3>Contacts</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_list_contacts    — List all saved contacts
+</span><span class="code-line">keyid_create_contact   — Create a contact (name, email, notes)
+</span><span class="code-line">keyid_delete_contact   — Delete a contact by ID
+</span></code></pre>
+<h3>Webhooks</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_list_webhooks           — List configured webhooks
+</span><span class="code-line">keyid_create_webhook          — Register a webhook URL for inbound events
+</span><span class="code-line">keyid_get_webhook_deliveries  — View delivery history and failures
+</span></code></pre>
+<h3>Lists &amp; Metrics</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">keyid_manage_list   — Add/remove addresses from allow or blocklist
+</span><span class="code-line">keyid_get_metrics   — Query usage metrics (sent, received, bounces)
+</span></code></pre>
+<h2>Real Code Examples</h2>
+<h3>Programmatic MCP Client (Node.js)</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> spawn <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'child_process'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> createInterface <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'readline'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Start the MCP server as a child process</span>
+</span><span class="code-line"><span class="token keyword">const</span> server <span class="token operator">=</span> <span class="token function">spawn</span><span class="token punctuation">(</span><span class="token string">'npx'</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token string">'@keyid/agent-kit'</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">env</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token spread operator">...</span>process<span class="token punctuation">.</span><span class="token property-access">env</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token constant">KEYID_PUBLIC_KEY</span><span class="token operator">:</span> process<span class="token punctuation">.</span><span class="token property-access">env</span><span class="token punctuation">.</span><span class="token constant">KEYID_PUBLIC_KEY</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token constant">KEYID_PRIVATE_KEY</span><span class="token operator">:</span> process<span class="token punctuation">.</span><span class="token property-access">env</span><span class="token punctuation">.</span><span class="token constant">KEYID_PRIVATE_KEY</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">stdio</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'pipe'</span><span class="token punctuation">,</span> <span class="token string">'pipe'</span><span class="token punctuation">,</span> <span class="token string">'inherit'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Send a JSON-RPC request</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">sendRequest</span><span class="token punctuation">(</span><span class="token parameter">method<span class="token punctuation">,</span> params <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> request <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">jsonrpc</span><span class="token operator">:</span> <span class="token string">'2.0'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token known-class-name class-name">Date</span><span class="token punctuation">.</span><span class="token method function property-access">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    method<span class="token punctuation">,</span>
+</span><span class="code-line">    params<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  server<span class="token punctuation">.</span><span class="token property-access">stdin</span><span class="token punctuation">.</span><span class="token method function property-access">write</span><span class="token punctuation">(</span><span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">stringify</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token string">'\n'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Read responses</span>
+</span><span class="code-line"><span class="token keyword">const</span> rl <span class="token operator">=</span> <span class="token function">createInterface</span><span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token literal-property property">input</span><span class="token operator">:</span> server<span class="token punctuation">.</span><span class="token property-access">stdout</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">rl<span class="token punctuation">.</span><span class="token method function property-access">on</span><span class="token punctuation">(</span><span class="token string">'line'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">line</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">parse</span><span class="token punctuation">(</span>line<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token string">'Response:'</span><span class="token punctuation">,</span> <span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">stringify</span><span class="token punctuation">(</span>response<span class="token punctuation">,</span> <span class="token keyword null nil">null</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Initialize MCP session</span>
+</span><span class="code-line"><span class="token function">sendRequest</span><span class="token punctuation">(</span><span class="token string">'initialize'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">protocolVersion</span><span class="token operator">:</span> <span class="token string">'2024-11-05'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">capabilities</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">clientInfo</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'my-app'</span><span class="token punctuation">,</span> <span class="token literal-property property">version</span><span class="token operator">:</span> <span class="token string">'1.0.0'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Call a Tool via MCP JSON-RPC</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// After initialization, call tools/call</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">callTool</span><span class="token punctuation">(</span><span class="token parameter">toolName<span class="token punctuation">,</span> toolArgs</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> request <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">jsonrpc</span><span class="token operator">:</span> <span class="token string">'2.0'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token known-class-name class-name">Date</span><span class="token punctuation">.</span><span class="token method function property-access">now</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">method</span><span class="token operator">:</span> <span class="token string">'tools/call'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">params</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token literal-property property">name</span><span class="token operator">:</span> toolName<span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">arguments</span><span class="token operator">:</span> toolArgs<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  server<span class="token punctuation">.</span><span class="token property-access">stdin</span><span class="token punctuation">.</span><span class="token method function property-access">write</span><span class="token punctuation">(</span><span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">stringify</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token string">'\n'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Get inbox</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_get_inbox'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token literal-property property">limit</span><span class="token operator">:</span> <span class="token number">10</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Send an email</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_send'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">to</span><span class="token operator">:</span> <span class="token string">'colleague@example.com'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">subject</span><span class="token operator">:</span> <span class="token string">'Hello from my AI agent'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token string">'This email was sent by an AI agent using KeyID.'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Reply to a message</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_reply'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">message_id</span><span class="token operator">:</span> <span class="token string">'msg_abc123'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token string">'Thanks, I will review this today.'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Search inbox</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_get_inbox'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">query</span><span class="token operator">:</span> <span class="token string">'from:alice@company.com subject:report'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">unread_only</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Set auto-reply</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_set_auto_reply'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">enabled</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">subject</span><span class="token operator">:</span> <span class="token string">'Out of Office'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token string">'I am currently unavailable. My AI agent will respond shortly.'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Create a contact</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_create_contact'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'Alice Smith'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">email</span><span class="token operator">:</span> <span class="token string">'alice@company.com'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">notes</span><span class="token operator">:</span> <span class="token string">'Project lead for Q1 initiative'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Schedule an email</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_send'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">to</span><span class="token operator">:</span> <span class="token string">'team@company.com'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">subject</span><span class="token operator">:</span> <span class="token string">'Weekly Update'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token string">'Here is the weekly status...'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">scheduled_at</span><span class="token operator">:</span> <span class="token string">'2026-03-25T09:00:00Z'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Set email signature</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_set_signature'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">signature</span><span class="token operator">:</span> <span class="token string">'Best regards,\nAI Agent\npowered by KeyID.ai'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Get metrics</span>
+</span><span class="code-line"><span class="token function">callTool</span><span class="token punctuation">(</span><span class="token string">'keyid_get_metrics'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">period</span><span class="token operator">:</span> <span class="token string">'7d'</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Using with the MCP SDK (if building a custom client)</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> <span class="token maybe-class-name">Client</span> <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'@modelcontextprotocol/sdk/client/index.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> <span class="token maybe-class-name">StdioClientTransport</span> <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'@modelcontextprotocol/sdk/client/stdio.js'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> transport <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">StdioClientTransport</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">command</span><span class="token operator">:</span> <span class="token string">'npx'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">args</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'@keyid/agent-kit'</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">env</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token constant">KEYID_PUBLIC_KEY</span><span class="token operator">:</span> process<span class="token punctuation">.</span><span class="token property-access">env</span><span class="token punctuation">.</span><span class="token constant">KEYID_PUBLIC_KEY</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token constant">KEYID_PRIVATE_KEY</span><span class="token operator">:</span> process<span class="token punctuation">.</span><span class="token property-access">env</span><span class="token punctuation">.</span><span class="token constant">KEYID_PRIVATE_KEY</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> client <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Client</span><span class="token punctuation">(</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'my-email-agent'</span><span class="token punctuation">,</span> <span class="token literal-property property">version</span><span class="token operator">:</span> <span class="token string">'1.0.0'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token literal-property property">capabilities</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">connect</span><span class="token punctuation">(</span>transport<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// List available tools</span>
+</span><span class="code-line"><span class="token keyword">const</span> tools <span class="token operator">=</span> <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">listTools</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token string">'Available tools:'</span><span class="token punctuation">,</span> tools<span class="token punctuation">.</span><span class="token property-access">tools</span><span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span><span class="token parameter">t</span> <span class="token arrow operator">=&gt;</span> t<span class="token punctuation">.</span><span class="token property-access">name</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Get email address</span>
+</span><span class="code-line"><span class="token keyword">const</span> emailResult <span class="token operator">=</span> <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_get_email'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token string">'Agent email:'</span><span class="token punctuation">,</span> emailResult<span class="token punctuation">.</span><span class="token property-access">content</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Check unread</span>
+</span><span class="code-line"><span class="token keyword">const</span> unread <span class="token operator">=</span> <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_get_unread_count'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token string">'Unread count:'</span><span class="token punctuation">,</span> unread<span class="token punctuation">.</span><span class="token property-access">content</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Send email</span>
+</span><span class="code-line"><span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_send'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">to</span><span class="token operator">:</span> <span class="token string">'recipient@example.com'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">subject</span><span class="token operator">:</span> <span class="token string">'Automated report'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token string">'Your daily report is attached.'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">html</span><span class="token operator">:</span> <span class="token string">'&lt;p&gt;Your &lt;strong&gt;daily report&lt;/strong&gt; is attached.&lt;/p&gt;'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Webhook Integration</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token keyword module">import</span> <span class="token imports">express</span> <span class="token keyword module">from</span> <span class="token string">'express'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> app <span class="token operator">=</span> <span class="token function">express</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token method function property-access">use</span><span class="token punctuation">(</span>express<span class="token punctuation">.</span><span class="token method function property-access">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Endpoint to receive KeyID webhook events</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token method function property-access">post</span><span class="token punctuation">(</span><span class="token string">'/keyid-webhook'</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token parameter">req<span class="token punctuation">,</span> res</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> event <span class="token operator">=</span> req<span class="token punctuation">.</span><span class="token property-access">body</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span><span class="token property-access">type</span> <span class="token operator">===</span> <span class="token string">'message.received'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token punctuation">{</span> <span class="token keyword module">from</span><span class="token punctuation">,</span> subject<span class="token punctuation">,</span> body<span class="token punctuation">,</span> message_id <span class="token punctuation">}</span> <span class="token operator">=</span> event<span class="token punctuation">.</span><span class="token property-access">data</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">New email from </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword module">from</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>subject<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    
+</span><span class="code-line">    <span class="token comment">// Trigger your agent logic here</span>
+</span><span class="code-line">    <span class="token function">handleIncomingEmail</span><span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token keyword module">from</span><span class="token punctuation">,</span> subject<span class="token punctuation">,</span> body<span class="token punctuation">,</span> message_id <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  res<span class="token punctuation">.</span><span class="token method function property-access">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token literal-property property">ok</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token method function property-access">listen</span><span class="token punctuation">(</span><span class="token number">3000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Register the webhook via the MCP tool</span>
+</span><span class="code-line"><span class="token comment">// (call this once via your agent)</span>
+</span><span class="code-line"><span class="token comment">// callTool('keyid_create_webhook', {</span>
+</span><span class="code-line"><span class="token comment">//   url: 'https://your-server.com/keyid-webhook',</span>
+</span><span class="code-line"><span class="token comment">//   events: ['message.received'],</span>
+</span><span class="code-line"><span class="token comment">// });</span>
+</span></code></pre>
+<h2>Common Patterns</h2>
+<h3>Pattern: Agent with Persistent Identity</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Generate and store keys once, reuse forever</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> writeFileSync<span class="token punctuation">,</span> readFileSync<span class="token punctuation">,</span> existsSync <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'fs'</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword module">import</span> <span class="token imports"><span class="token punctuation">{</span> generateKeyPairSync <span class="token punctuation">}</span></span> <span class="token keyword module">from</span> <span class="token string">'crypto'</span><span class="token punctuation">;</span> <span class="token comment">// or use @noble/ed25519</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token constant">KEY_FILE</span> <span class="token operator">=</span> <span class="token string">'.keyid-keys.json'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">loadOrCreateKeys</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token function">existsSync</span><span class="token punctuation">(</span><span class="token constant">KEY_FILE</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword control-flow">return</span> <span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">parse</span><span class="token punctuation">(</span><span class="token function">readFileSync</span><span class="token punctuation">(</span><span class="token constant">KEY_FILE</span><span class="token punctuation">,</span> <span class="token string">'utf8'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token comment">// Let @keyid/agent-kit auto-generate on first run,</span>
+</span><span class="code-line">  <span class="token comment">// then save what it prints to stderr</span>
+</span><span class="code-line">  <span class="token comment">// Or pre-generate using @noble/ed25519:</span>
+</span><span class="code-line">  <span class="token comment">// const privKey = randomBytes(32);</span>
+</span><span class="code-line">  <span class="token comment">// const pubKey = await ed.getPublicKeyAsync(privKey);</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> <span class="token keyword null nil">null</span><span class="token punctuation">;</span> <span class="token comment">// will auto-generate</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern: Email-Triggered Agent Loop</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Poll inbox and process new messages</span>
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">agentEmailLoop</span><span class="token punctuation">(</span><span class="token parameter">client</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword control-flow">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_get_inbox'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">unread_only</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> <span class="token literal-property property">limit</span><span class="token operator">:</span> <span class="token number">5</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> messages <span class="token operator">=</span> <span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">parse</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span><span class="token property-access">content</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword control-flow">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> msg <span class="token keyword">of</span> messages<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Process with your LLM/agent logic</span>
+</span><span class="code-line">      <span class="token keyword">const</span> agentResponse <span class="token operator">=</span> <span class="token keyword control-flow">await</span> <span class="token function">processWithAgent</span><span class="token punctuation">(</span>msg<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Reply</span>
+</span><span class="code-line">      <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_reply'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">          <span class="token literal-property property">message_id</span><span class="token operator">:</span> msg<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">,</span>
+</span><span class="code-line">          <span class="token literal-property property">body</span><span class="token operator">:</span> agentResponse<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Mark as read</span>
+</span><span class="code-line">      <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_update_message'</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">message_id</span><span class="token operator">:</span> msg<span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">,</span> <span class="token literal-property property">read</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Wait 60 seconds before next poll</span>
+</span><span class="code-line">    <span class="token keyword control-flow">await</span> <span class="token keyword">new</span> <span class="token class-name">Promise</span><span class="token punctuation">(</span><span class="token parameter">r</span> <span class="token arrow operator">=&gt;</span> <span class="token function">setTimeout</span><span class="token punctuation">(</span>r<span class="token punctuation">,</span> <span class="token number">60_000</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Pattern: Draft-Review-Send Workflow</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Create draft, review, then send</span>
+</span><span class="code-line"><span class="token keyword">const</span> draft <span class="token operator">=</span> <span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_create_draft'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">to</span><span class="token operator">:</span> <span class="token string">'client@example.com'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">subject</span><span class="token operator">:</span> <span class="token string">'Proposal'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">body</span><span class="token operator">:</span> draftBody<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> draftId <span class="token operator">=</span> <span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">parse</span><span class="token punctuation">(</span>draft<span class="token punctuation">.</span><span class="token property-access">content</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token property-access">id</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Human or agent reviews...</span>
+</span><span class="code-line"><span class="token comment">// Then send:</span>
+</span><span class="code-line"><span class="token keyword control-flow">await</span> client<span class="token punctuation">.</span><span class="token method function property-access">callTool</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'keyid_send_draft'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">arguments</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">draft_id</span><span class="token operator">:</span> draftId <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Troubleshooting</h2>
+<h3>Agent gets a new email address every run</h3>
+<p><strong>Cause:</strong> Keys not persisted between runs.<br>
+<strong>Fix:</strong> Save <code>KEYID_PUBLIC_KEY</code> and <code>KEYID_PRIVATE_KEY</code> from first run output and set them in your config or environment.</p>
+<h3>MCP server not appearing in Claude Desktop</h3>
+<p><strong>Fix:</strong> Restart Claude Desktop after editing config. Verify JSON is valid (no trailing commas). Check that <code>npx</code> is in your PATH.</p>
+<h3>Tool calls return errors</h3>
+<p><strong>Fix:</strong> Ensure the agent is provisioned first — call <code>keyid_provision</code> before other tools, or call <code>keyid_get_email</code> to confirm the agent has an address.</p>
+<h3>Emails not being received</h3>
+<p><strong>Fix:</strong> Check <code>keyid_manage_list</code> to ensure the sender isn't blocklisted. Check <code>keyid_get_metrics</code> for bounce data.</p>
+<h3>Connection drops / server crashes</h3>
+<p><strong>Fix:</strong> The server uses stdio — make sure nothing else is writing to stdout in the same process. Restart the MCP server process.</p>
+<h3>Keys auto-generated but not shown</h3>
+<p><strong>Cause:</strong> stderr may be suppressed by your MCP client.<br>
+<strong>Fix:</strong> Run <code>npx @keyid/agent-kit</code> directly in a terminal first to capture the key output before adding to your MCP config.</p>
+<h2>Protocol Details</h2>
+<ul>
+<li><strong>Transport:</strong> stdio (JSON-RPC over stdin/stdout)</li>
+<li><strong>MCP Protocol Version:</strong> <code>2024-11-05</code></li>
+<li><strong>Auth:</strong> Ed25519 keypair — public key becomes agent identity, private key signs requests</li>
+<li><strong>Compatibility:</strong> Claude Desktop, Cursor, any MCP-compatible client</li>
+</ul></div>

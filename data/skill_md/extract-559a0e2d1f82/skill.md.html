@@ -1,0 +1,420 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h2>When to Use This Skill</h2>
+<p>Activate when the user wants to <strong>obtain data</strong> from a website:</p>
+<ul>
+<li>"Extract all product prices from this page"</li>
+<li>"Scrape the table of results from ..."</li>
+<li>"Pull the list of authors and titles from arXiv search results"</li>
+<li>"Collect all job listings from this page"</li>
+<li>"Get the data from this dashboard table"</li>
+<li>"Harvest review scores from ..."</li>
+<li>"Download all the links/images/cards from ..."</li>
+</ul>
+<p>The deliverable is always <strong>two artifacts</strong>:</p>
+<ol>
+<li><strong>Executable Playwright script</strong> — a standalone <code>.cjs</code> file that reproduces the extraction without Actionbook at runtime.</li>
+<li><strong>Extracted data</strong> — JSON (default), CSV, or user-specified format written to disk.</li>
+</ol>
+<h2>Decision Strategy</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Use Actionbook as a <strong>conditional accelerator</strong>, not a mandatory step. The goal is reliable selectors in the shortest path.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">User request
+</span><span class="code-line">  │
+</span><span class="code-line">  ├─► actionbook search "&lt;site&gt; &lt;intent&gt;"
+</span><span class="code-line">  │     ├─ Results with Health Score ≥ 70%  ──► actionbook get "&lt;ID&gt;" ──► use selectors
+</span><span class="code-line">  │     └─ No results / low score  ──► Fallback
+</span><span class="code-line">  │
+</span><span class="code-line">  └─► Fallback: actionbook browser open &lt;url&gt;
+</span><span class="code-line">        ├─ actionbook browser snapshot   (accessibility tree → find selectors)
+</span><span class="code-line">        ├─ actionbook browser screenshot (visual confirmation)
+</span><span class="code-line">        └─ manual selector discovery via DOM inspection
+</span></code></pre>
+<p><strong>Priority order for selector sources:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Source</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>actionbook get</code></td>
+<td>Site is indexed, health score ≥ 70%</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>actionbook browser snapshot</code></td>
+<td>Not indexed or selectors outdated</td>
+</tr>
+<tr>
+<td>3</td>
+<td>DOM inspection via screenshot + snapshot</td>
+<td>Complex SPA / dynamic content</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Non-negotiable rule:</strong> if <code>search + get</code> already provides usable selectors for required fields, start from <code>get</code> selectors and do not jump to full fallback (<code>snapshot</code>/<code>screenshot</code>) by default. Exception: lightweight mechanism probes (for hydration/virtualization/pagination) are allowed when runtime behavior may affect script correctness. Escalate to <code>snapshot</code>/<code>screenshot</code> only when probes/sample validation indicate selector gaps or instability.</p>
+<h2>Mechanism-Aware Script Strategy</h2>
+<p>Websites use patterns that break naive scraping. The generated Playwright script <strong>must</strong> account for these:</p>
+<h3>Streaming / SSR / RSC hydration</h3>
+<p>Pages may render a shell first, then stream or hydrate content.</p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Wait for hydration to complete — not just DOMContentLoaded</span>
+</span><span class="code-line"><span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">waitForSelector</span><span class="token punctuation">(</span><span class="token string">'[data-item]'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token literal-property property">state</span><span class="token operator">:</span> <span class="token string">'attached'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">waitForFunction</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> items <span class="token operator">=</span> <span class="token dom variable">document</span><span class="token punctuation">.</span><span class="token method function property-access">querySelectorAll</span><span class="token punctuation">(</span><span class="token string">'[data-item]'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">return</span> items<span class="token punctuation">.</span><span class="token property-access">length</span> <span class="token operator">&gt;</span> <span class="token number">0</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span><span class="token dom variable">document</span><span class="token punctuation">.</span><span class="token method function property-access">querySelector</span><span class="token punctuation">(</span><span class="token string">'[data-pending]'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p><strong>Detection cues:</strong> React root with <code>data-reactroot</code>, Next.js <code>__NEXT_DATA__</code>, empty containers that fill after JS runs. If <code>actionbook browser text "&lt;selector&gt;"</code> returns empty but the screenshot shows content, hydration hasn't completed.</p>
+<h3>Virtualized lists / virtual DOM</h3>
+<p>Only visible rows exist in the DOM. Scrolling renders new rows and destroys old ones.</p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Scroll-and-collect loop for virtualized lists (scroll container aware)</span>
+</span><span class="code-line"><span class="token keyword">const</span> allItems <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> maxScrolls <span class="token operator">=</span> <span class="token number">50</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> scrolls <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> container <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">$</span><span class="token punctuation">(</span><span class="token string">'&lt;scroll-container-selector&gt;'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>container<span class="token punctuation">)</span> <span class="token keyword control-flow">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">'Scroll container not found'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> previousTop <span class="token operator">=</span> <span class="token keyword control-flow">await</span> container<span class="token punctuation">.</span><span class="token method function property-access">evaluate</span><span class="token punctuation">(</span><span class="token parameter">el</span> <span class="token arrow operator">=&gt;</span> el<span class="token punctuation">.</span><span class="token property-access">scrollTop</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword control-flow">while</span> <span class="token punctuation">(</span>scrolls <span class="token operator">&lt;</span> maxScrolls<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> items <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">$$eval</span><span class="token punctuation">(</span><span class="token string">'[data-row]'</span><span class="token punctuation">,</span> <span class="token parameter">rows</span> <span class="token arrow operator">=&gt;</span>
+</span><span class="code-line">    rows<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span><span class="token parameter">r</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token literal-property property">text</span><span class="token operator">:</span> r<span class="token punctuation">.</span><span class="token property-access">textContent</span><span class="token punctuation">.</span><span class="token method function property-access">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> item <span class="token keyword">of</span> items<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>allItems<span class="token punctuation">.</span><span class="token method function property-access">find</span><span class="token punctuation">(</span><span class="token parameter">i</span> <span class="token arrow operator">=&gt;</span> i<span class="token punctuation">.</span><span class="token property-access">text</span> <span class="token operator">===</span> item<span class="token punctuation">.</span><span class="token property-access">text</span><span class="token punctuation">)</span><span class="token punctuation">)</span> allItems<span class="token punctuation">.</span><span class="token method function property-access">push</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> container<span class="token punctuation">.</span><span class="token method function property-access">evaluate</span><span class="token punctuation">(</span><span class="token parameter">el</span> <span class="token arrow operator">=&gt;</span> el<span class="token punctuation">.</span><span class="token method function property-access">scrollBy</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">600</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">waitForTimeout</span><span class="token punctuation">(</span><span class="token number">300</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> currentTop <span class="token operator">=</span> <span class="token keyword control-flow">await</span> container<span class="token punctuation">.</span><span class="token method function property-access">evaluate</span><span class="token punctuation">(</span><span class="token parameter">el</span> <span class="token arrow operator">=&gt;</span> el<span class="token punctuation">.</span><span class="token property-access">scrollTop</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>currentTop <span class="token operator">===</span> previousTop<span class="token punctuation">)</span> <span class="token keyword control-flow">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  previousTop <span class="token operator">=</span> currentTop<span class="token punctuation">;</span>
+</span><span class="code-line">  scrolls <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Detection cues:</strong> Container has fixed height with <code>overflow: auto/scroll</code>, row count in DOM is much smaller than stated total, rows have <code>transform: translateY(...)</code> or <code>position: absolute; top: ...px</code>.</p>
+<h3>Infinite scroll / lazy loading</h3>
+<p>New content appends when the user scrolls near the bottom.</p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Scroll to bottom until no new content loads (with no-growth tolerance)</span>
+</span><span class="code-line"><span class="token keyword">let</span> itemCount <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> noGrowthStreak <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> maxScrolls <span class="token operator">=</span> <span class="token number">80</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> scrolls <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword control-flow">while</span> <span class="token punctuation">(</span>scrolls <span class="token operator">&lt;</span> maxScrolls <span class="token operator">&amp;&amp;</span> noGrowthStreak <span class="token operator">&lt;</span> <span class="token number">3</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">evaluate</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token dom variable">window</span><span class="token punctuation">.</span><span class="token method function property-access">scrollTo</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token dom variable">document</span><span class="token punctuation">.</span><span class="token property-access">body</span><span class="token punctuation">.</span><span class="token property-access">scrollHeight</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">waitForTimeout</span><span class="token punctuation">(</span><span class="token number">1200</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> newCount <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">$$eval</span><span class="token punctuation">(</span><span class="token string">'.item'</span><span class="token punctuation">,</span> <span class="token parameter">els</span> <span class="token arrow operator">=&gt;</span> els<span class="token punctuation">.</span><span class="token property-access">length</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span>newCount <span class="token operator">&gt;</span> itemCount<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    itemCount <span class="token operator">=</span> newCount<span class="token punctuation">;</span>
+</span><span class="code-line">    noGrowthStreak <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword control-flow">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    noGrowthStreak <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  scrolls <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Detection cues:</strong> Intersection Observer in page JS, "Load more" button, sentinel element at bottom, network requests firing on scroll.</p>
+<h3>Pagination</h3>
+<p>Multi-page results behind "Next" buttons or numbered pages.</p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Click-through pagination (navigation-aware, SPA-safe)</span>
+</span><span class="code-line"><span class="token keyword">const</span> allData <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">const</span> maxPages <span class="token operator">=</span> <span class="token number">50</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">let</span> pageIndex <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword control-flow">while</span> <span class="token punctuation">(</span>pageIndex <span class="token operator">&lt;</span> maxPages<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> pageData <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">$$eval</span><span class="token punctuation">(</span><span class="token string">'.result-item'</span><span class="token punctuation">,</span> <span class="token parameter">items</span> <span class="token arrow operator">=&gt;</span>
+</span><span class="code-line">    items<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span><span class="token parameter">el</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token literal-property property">title</span><span class="token operator">:</span> el<span class="token punctuation">.</span><span class="token method function property-access">querySelector</span><span class="token punctuation">(</span><span class="token string">'h3'</span><span class="token punctuation">)</span><span class="token operator">?.</span>textContent<span class="token operator">?.</span><span class="token method function property-access">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  allData<span class="token punctuation">.</span><span class="token method function property-access">push</span><span class="token punctuation">(</span><span class="token spread operator">...</span>pageData<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> nextBtn <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">$</span><span class="token punctuation">(</span><span class="token string">'a.next-page:not([disabled])'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>nextBtn<span class="token punctuation">)</span> <span class="token keyword control-flow">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> previousUrl <span class="token operator">=</span> page<span class="token punctuation">.</span><span class="token method function property-access">url</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> previousFirstItem <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token method function property-access">$eval</span><span class="token punctuation">(</span><span class="token string">'.result-item'</span><span class="token punctuation">,</span> <span class="token parameter">el</span> <span class="token arrow operator">=&gt;</span> el<span class="token punctuation">.</span><span class="token property-access">textContent</span><span class="token operator">?.</span><span class="token method function property-access">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token keyword control-flow">catch</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> nextBtn<span class="token punctuation">.</span><span class="token method function property-access">click</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Post-click detection only: advance must be caused by this click</span>
+</span><span class="code-line">  <span class="token keyword">const</span> advanced <span class="token operator">=</span> <span class="token keyword control-flow">await</span> <span class="token known-class-name class-name">Promise</span><span class="token punctuation">.</span><span class="token method function property-access">any</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+</span><span class="code-line">    page
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token method function property-access">waitForURL</span><span class="token punctuation">(</span><span class="token parameter">url</span> <span class="token arrow operator">=&gt;</span> url<span class="token punctuation">.</span><span class="token method function property-access">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">!==</span> previousUrl<span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token literal-property property">timeout</span><span class="token operator">:</span> <span class="token number">5000</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token method function property-access">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    page
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token method function property-access">waitForFunction</span><span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token parameter">prev</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">          <span class="token keyword">const</span> first <span class="token operator">=</span> <span class="token dom variable">document</span><span class="token punctuation">.</span><span class="token method function property-access">querySelector</span><span class="token punctuation">(</span><span class="token string">'.result-item'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">          <span class="token keyword control-flow">return</span> <span class="token operator">!</span><span class="token operator">!</span>first <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span>first<span class="token punctuation">.</span><span class="token property-access">textContent</span> <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token method function property-access">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">!==</span> prev<span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        previousFirstItem<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">{</span> <span class="token literal-property property">timeout</span><span class="token operator">:</span> <span class="token number">5000</span> <span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">.</span><span class="token method function property-access">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token keyword control-flow">catch</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>advanced<span class="token punctuation">)</span> <span class="token keyword control-flow">break</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">waitForLoadState</span><span class="token punctuation">(</span><span class="token string">'networkidle'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token keyword control-flow">catch</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  pageIndex <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Execution Chain</h2>
+<h3>Step 1: Understand the target</h3>
+<p>Identify from the user request:</p>
+<ul>
+<li><strong>URL</strong> — the page to extract from</li>
+<li><strong>Data shape</strong> — what fields / columns are needed</li>
+<li><strong>Scope</strong> — single page, paginated, infinite scroll, or multi-page crawl</li>
+<li><strong>Output format</strong> — JSON (default), CSV, or other</li>
+</ul>
+<h3>Step 2: Obtain selectors and choose execution path</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Try Actionbook index first</span>
+</span><span class="code-line">actionbook search <span class="token string">"&lt;site&gt; &lt;data-description&gt;"</span> <span class="token parameter variable">--domain</span> <span class="token operator">&lt;</span>domain<span class="token operator">&gt;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># If good results (health ≥ 70%), get full selectors</span>
+</span><span class="code-line">actionbook get <span class="token string">"&lt;ID&gt;"</span>
+</span></code></pre>
+<p>Use this routing strictly:</p>
+<ul>
+<li>
+<p><strong>Path A (default when <code>get</code> is good):</strong> requested fields are covered by <code>get</code> selectors and quality is acceptable.</p>
+<ul>
+<li>Start from <code>get</code> selectors and move to script draft quickly.</li>
+<li>You may run lightweight mechanism probes (<code>browser text</code>, quick scroll checks) before finalizing script strategy.</li>
+<li><strong>Do not run full fallback (<code>snapshot</code> / <code>screenshot</code>) before first draft unless probe/sample validation shows mismatch.</strong></li>
+<li>Field mapping must default to <code>get</code> selectors and mark source as <code>actionbook_get</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Path B (partial / unstable):</strong> <code>get</code> exists but required fields are missing, selector resolves 0 elements, or validation fails.</p>
+<ul>
+<li>Run targeted fallback only for failed fields/steps.</li>
+</ul>
+</li>
+<li>
+<p><strong>Path C (no usable coverage):</strong> search/get has no usable result.</p>
+<ul>
+<li>Run full fallback discovery.</li>
+</ul>
+</li>
+</ul>
+<h3>Step 3: Probe page mechanisms and fallback only when needed</h3>
+<p>Path A mechanism detection timing:</p>
+<ul>
+<li>Run minimal probes either <strong>before final script draft</strong> or during <strong>sample validation</strong>.</li>
+<li>Before any probe command, ensure the correct page context is open:
+<ul>
+<li><code>actionbook browser open "&lt;url&gt;"</code> (if current tab context is unknown/stale)</li>
+</ul>
+</li>
+<li>If probes/sample run indicate mismatch (missing rows, unstable selectors, wrong pagination behavior), escalate to Path B targeted fallback.</li>
+</ul>
+<p>Fallback discovery by path:</p>
+<p><strong>Path B targeted fallback (only failed fields/steps):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">actionbook browser <span class="token function">open</span> <span class="token string">"&lt;url&gt;"</span>     <span class="token comment"># if not already open</span>
+</span><span class="code-line">actionbook browser snapshot          <span class="token comment"># focus on failed field/container mapping</span>
+</span><span class="code-line"><span class="token comment"># actionbook browser screenshot      # optional visual confirmation for failed area</span>
+</span></code></pre>
+<p><strong>Path C full fallback (no usable coverage):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">actionbook browser <span class="token function">open</span> <span class="token string">"&lt;url&gt;"</span>
+</span><span class="code-line">actionbook browser snapshot
+</span><span class="code-line">actionbook browser screenshot
+</span></code></pre>
+<p>Mechanism probes (run when script strategy needs confirmation):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Hydration / streaming check</span>
+</span><span class="code-line">actionbook browser text <span class="token string">"&lt;container-selector&gt;"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Infinite scroll quick signal (explicit before/after decision)</span>
+</span><span class="code-line">actionbook browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelectorAll('&lt;item-selector&gt;').length"</span>   <span class="token comment"># before</span>
+</span><span class="code-line">actionbook browser click <span class="token string">"&lt;scroll-container-selector-or-body&gt;"</span>                    <span class="token comment"># focus scroll context</span>
+</span><span class="code-line">actionbook browser <span class="token builtin class-name">eval</span> <span class="token string">"const c=document.querySelector('&lt;scroll-container-selector&gt;') || document.scrollingElement; c.scrollBy(0, c.clientHeight || window.innerHeight);"</span>
+</span><span class="code-line">actionbook browser <span class="token builtin class-name">eval</span> <span class="token string">"document.querySelectorAll('&lt;item-selector&gt;').length"</span>   <span class="token comment"># after</span>
+</span><span class="code-line"><span class="token comment"># If count increases, treat page as lazy-load/infinite-scroll.</span>
+</span></code></pre>
+<p>Fallback trigger conditions:</p>
+<ul>
+<li><code>actionbook get</code> cannot map all required fields.</li>
+<li><code>actionbook get</code> selectors return empty/unstable values in sample run.</li>
+<li>Runtime behavior conflicts with expected mechanism (e.g., virtualized container, delayed hydration).</li>
+</ul>
+<h3>Step 4: Generate Playwright script</h3>
+<p>Write a standalone Playwright script (<code>extract_&lt;domain&gt;_&lt;slug&gt;.cjs</code>) that:</p>
+<ol>
+<li>Navigates to the target URL.</li>
+<li>Waits for the correct readiness signal (not just <code>load</code> — see mechanisms above).</li>
+<li>Handles the detected mechanism (virtual scroll, pagination, etc.).</li>
+<li>Extracts data into structured objects.</li>
+<li>Writes output to disk (<code>JSON.stringify</code> / CSV).</li>
+<li>Closes the browser.</li>
+<li>Enforces guardrails (<code>maxPages</code>, <code>maxScrolls</code>, timeout budget) to avoid infinite loops.</li>
+</ol>
+<p><strong>Script template:</strong></p>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// extract_&lt;domain&gt;_&lt;slug&gt;.cjs</span>
+</span><span class="code-line"><span class="token comment">// Generated by Actionbook extract skill</span>
+</span><span class="code-line"><span class="token comment">// Usage: node extract_&lt;domain&gt;_&lt;slug&gt;.cjs</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> chromium <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'playwright'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> browser <span class="token operator">=</span> <span class="token keyword control-flow">await</span> chromium<span class="token punctuation">.</span><span class="token method function property-access">launch</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> page <span class="token operator">=</span> <span class="token keyword control-flow">await</span> browser<span class="token punctuation">.</span><span class="token method function property-access">newPage</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">goto</span><span class="token punctuation">(</span><span class="token string">'&lt;URL&gt;'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token literal-property property">waitUntil</span><span class="token operator">:</span> <span class="token string">'domcontentloaded'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// -- wait for readiness --</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">waitForSelector</span><span class="token punctuation">(</span><span class="token string">'&lt;container&gt;'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> <span class="token literal-property property">state</span><span class="token operator">:</span> <span class="token string">'visible'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// -- extract --</span>
+</span><span class="code-line">  <span class="token keyword">const</span> data <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">$$eval</span><span class="token punctuation">(</span><span class="token string">'&lt;item-selector&gt;'</span><span class="token punctuation">,</span> <span class="token parameter">items</span> <span class="token arrow operator">=&gt;</span>
+</span><span class="code-line">    items<span class="token punctuation">.</span><span class="token method function property-access">map</span><span class="token punctuation">(</span><span class="token parameter">el</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// fields mapped from user request</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// -- output --</span>
+</span><span class="code-line">  <span class="token keyword">const</span> fs <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'fs'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  fs<span class="token punctuation">.</span><span class="token method function property-access">writeFileSync</span><span class="token punctuation">(</span><span class="token string">'output.json'</span><span class="token punctuation">,</span> <span class="token known-class-name class-name">JSON</span><span class="token punctuation">.</span><span class="token method function property-access">stringify</span><span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token keyword null nil">null</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Extracted </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>data<span class="token punctuation">.</span><span class="token property-access">length</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> items → output.json</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> browser<span class="token punctuation">.</span><span class="token method function property-access">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Step 5: Execute and validate</h3>
+<p>Run the script to confirm it works:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">node</span> extract_<span class="token operator">&lt;</span>domain<span class="token operator">&gt;</span>_<span class="token operator">&lt;</span>slug<span class="token operator">&gt;</span>.cjs
+</span></code></pre>
+<p><strong>Validation rules:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Pass condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Script exits 0</td>
+<td>No runtime errors</td>
+</tr>
+<tr>
+<td>Output file exists</td>
+<td>Non-empty file written</td>
+</tr>
+<tr>
+<td>Record count &gt; 0</td>
+<td>At least one item extracted</td>
+</tr>
+<tr>
+<td>No null/empty fields</td>
+<td>Every declared field has a value in ≥ 90% of records</td>
+</tr>
+<tr>
+<td>Data matches page</td>
+<td>Spot-check first and last record against <code>actionbook browser text</code></td>
+</tr>
+</tbody>
+</table>
+<p>If validation fails, inspect the output, adjust selectors or wait strategy, and re-run.</p>
+<h3>Step 6: Deliver</h3>
+<p>Present to the user:</p>
+<ol>
+<li><strong>Script path</strong> — the <code>.cjs</code> file they can re-run anytime.</li>
+<li><strong>Data path</strong> — the output JSON/CSV file.</li>
+<li><strong>Record count</strong> — how many items were extracted.</li>
+<li><strong>Notes</strong> — any mechanism-specific caveats (e.g., "this site uses infinite scroll; the script scrolls up to 50 pages by default").</li>
+</ol>
+<h2>Output Contract</h2>
+<p>Every <code>extract</code> invocation produces:</p>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Path</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Playwright script</td>
+<td><code>./extract_&lt;domain&gt;_&lt;slug&gt;.cjs</code></td>
+<td>Standalone Node.js script using <code>playwright</code></td>
+</tr>
+<tr>
+<td>Extracted data</td>
+<td><code>./output.json</code> (default) or user-specified path</td>
+<td>JSON array of objects (default), CSV, or user-specified</td>
+</tr>
+</tbody>
+</table>
+<p>The script must be <strong>re-runnable</strong> — a user should be able to execute it later without Actionbook installed, as long as Node.js + Playwright are available in the runtime environment.</p>
+<h2>Selector Priority</h2>
+<p>When multiple selector types are available from <code>actionbook get</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Type</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>data-testid</code></td>
+<td>Stable, test-oriented, rarely changes</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>aria-label</code></td>
+<td>Accessibility-driven, semantically meaningful</td>
+</tr>
+<tr>
+<td>3</td>
+<td>CSS selector</td>
+<td>Structural, may break on redesign</td>
+</tr>
+<tr>
+<td>4</td>
+<td>XPath</td>
+<td>Last resort, most brittle</td>
+</tr>
+</tbody>
+</table>
+<h2>Error Handling</h2>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>actionbook search</code> returns no results</td>
+<td>Fall back to <code>snapshot</code> + <code>screenshot</code></td>
+</tr>
+<tr>
+<td>Selector returns 0 elements</td>
+<td>Re-snapshot, compare with screenshot, update selector</td>
+</tr>
+<tr>
+<td>Script times out</td>
+<td>Add longer <code>waitForTimeout</code>, check for anti-bot measures</td>
+</tr>
+<tr>
+<td>Partial data (some fields empty)</td>
+<td>Check if content is lazy-loaded; add scroll/wait</td>
+</tr>
+<tr>
+<td>Anti-bot / CAPTCHA</td>
+<td>Inform user; suggest running with <code>headless: false</code> or using their own browser session via <code>actionbook setup</code> extension mode</td>
+</tr>
+</tbody>
+</table></div>

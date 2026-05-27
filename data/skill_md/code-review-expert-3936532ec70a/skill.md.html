@@ -1,0 +1,192 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Code Review Expert</h1>
+<h2>Overview</h2>
+<p>Perform a structured review of the current git changes with focus on SOLID, architecture, removal candidates, and security risks. Default to review-only output unless the user asks to implement changes.</p>
+<h2>Severity Levels</h2>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Name</th>
+<th>Description</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0</strong></td>
+<td>Critical</td>
+<td>Security vulnerability, data loss risk, correctness bug</td>
+<td>Must block merge</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>High</td>
+<td>Logic error, significant SOLID violation, performance regression</td>
+<td>Should fix before merge</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Medium</td>
+<td>Code smell, maintainability concern, minor SOLID violation</td>
+<td>Fix in this PR or create follow-up</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Low</td>
+<td>Style, naming, minor suggestion</td>
+<td>Optional improvement</td>
+</tr>
+</tbody>
+</table>
+<h2>Workflow</h2>
+<h3>1) Preflight context</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Use <code>git status -sb</code>, <code>git diff --stat</code>, and <code>git diff</code> to scope changes.</li>
+<li>If needed, use <code>rg</code> or <code>grep</code> to find related modules, usages, and contracts.</li>
+<li>Identify entry points, ownership boundaries, and critical paths (auth, payments, data writes, network).</li>
+</ul>
+<p><strong>Edge cases:</strong></p>
+<ul>
+<li><strong>No changes</strong>: If <code>git diff</code> is empty, inform user and ask if they want to review staged changes or a specific commit range.</li>
+<li><strong>Large diff (&gt;500 lines)</strong>: Summarize by file first, then review in batches by module/feature area.</li>
+<li><strong>Mixed concerns</strong>: Group findings by logical feature, not just file order.</li>
+</ul>
+<h3>2) SOLID + architecture smells</h3>
+<ul>
+<li>Load <code>references/solid-checklist.md</code> for specific prompts.</li>
+<li>Look for:
+<ul>
+<li><strong>SRP</strong>: Overloaded modules with unrelated responsibilities.</li>
+<li><strong>OCP</strong>: Frequent edits to add behavior instead of extension points.</li>
+<li><strong>LSP</strong>: Subclasses that break expectations or require type checks.</li>
+<li><strong>ISP</strong>: Wide interfaces with unused methods.</li>
+<li><strong>DIP</strong>: High-level logic tied to low-level implementations.</li>
+</ul>
+</li>
+<li>When you propose a refactor, explain <em>why</em> it improves cohesion/coupling and outline a minimal, safe split.</li>
+<li>If refactor is non-trivial, propose an incremental plan instead of a large rewrite.</li>
+</ul>
+<h3>3) Removal candidates + iteration plan</h3>
+<ul>
+<li>Load <code>references/removal-plan.md</code> for template.</li>
+<li>Identify code that is unused, redundant, or feature-flagged off.</li>
+<li>Distinguish <strong>safe delete now</strong> vs <strong>defer with plan</strong>.</li>
+<li>Provide a follow-up plan with concrete steps and checkpoints (tests/metrics).</li>
+</ul>
+<h3>4) Security and reliability scan</h3>
+<ul>
+<li>Load <code>references/security-checklist.md</code> for coverage.</li>
+<li>Check for:
+<ul>
+<li>XSS, injection (SQL/NoSQL/command), SSRF, path traversal</li>
+<li>AuthZ/AuthN gaps, missing tenancy checks</li>
+<li>Secret leakage or API keys in logs/env/files</li>
+<li>Rate limits, unbounded loops, CPU/memory hotspots</li>
+<li>Unsafe deserialization, weak crypto, insecure defaults</li>
+<li><strong>Race conditions</strong>: concurrent access, check-then-act, TOCTOU, missing locks</li>
+</ul>
+</li>
+<li>Call out both <strong>exploitability</strong> and <strong>impact</strong>.</li>
+</ul>
+<h3>5) Code quality scan</h3>
+<ul>
+<li>Load <code>references/code-quality-checklist.md</code> for coverage.</li>
+<li>Check for:
+<ul>
+<li><strong>Error handling</strong>: swallowed exceptions, overly broad catch, missing error handling, async errors</li>
+<li><strong>Performance</strong>: N+1 queries, CPU-intensive ops in hot paths, missing cache, unbounded memory</li>
+<li><strong>Boundary conditions</strong>: null/undefined handling, empty collections, numeric boundaries, off-by-one</li>
+</ul>
+</li>
+<li>Flag issues that may cause silent failures or production incidents.</li>
+</ul>
+<h3>6) Output format</h3>
+<p>Structure your review as follows:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Code Review Summary</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Files reviewed</span><span class="token punctuation">**</span></span>: X files, Y lines changed
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Overall assessment</span><span class="token punctuation">**</span></span>: [APPROVE / REQUEST_CHANGES / COMMENT]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token hr punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Findings</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> P0 - Critical</span>
+</span><span class="code-line">(none or list)
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> P1 - High</span>
+</span><span class="code-line"><span class="token list punctuation">1.</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">[file:line]</span><span class="token punctuation">**</span></span> Brief title
+</span><span class="code-line">  <span class="token list punctuation">-</span> Description of issue
+</span><span class="code-line">  <span class="token list punctuation">-</span> Suggested fix
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> P2 - Medium</span>
+</span><span class="code-line"><span class="token list punctuation">2.</span> (continue numbering across sections)
+</span><span class="code-line">  <span class="token list punctuation">-</span> ...
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> P3 - Low</span>
+</span><span class="code-line">...
+</span><span class="code-line">
+</span><span class="code-line"><span class="token hr punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Removal/Iteration Plan</span>
+</span><span class="code-line">(if applicable)
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Additional Suggestions</span>
+</span><span class="code-line">(optional improvements, not blocking)
+</span></code></pre>
+<p><strong>Inline comments</strong>: Use this format for file-specific findings:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">::code-comment{file="path/to/file.ts" line="42" severity="P1"}
+</span><span class="code-line">Description of the issue and suggested fix.
+</span><span class="code-line">::
+</span></code></pre>
+<p><strong>Clean review</strong>: If no issues found, explicitly state:</p>
+<ul>
+<li>What was checked</li>
+<li>Any areas not covered (e.g., "Did not verify database migrations")</li>
+<li>Residual risks or recommended follow-up tests</li>
+</ul>
+<h3>7) Next steps confirmation</h3>
+<p>After presenting findings, ask user how to proceed:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token hr punctuation">---</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Next Steps</span>
+</span><span class="code-line">
+</span><span class="code-line">I found X issues (P0: <span class="token italic"><span class="token punctuation">_</span><span class="token content">, P1: </span><span class="token punctuation">_</span></span>, P2: <span class="token italic"><span class="token punctuation">_</span><span class="token content">, P3: </span><span class="token punctuation">_</span></span>).
+</span><span class="code-line">
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">How would you like to proceed?</span><span class="token punctuation">**</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token list punctuation">1.</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Fix all</span><span class="token punctuation">**</span></span> - I'll implement all suggested fixes
+</span><span class="code-line"><span class="token list punctuation">2.</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Fix P0/P1 only</span><span class="token punctuation">**</span></span> - Address critical and high priority issues
+</span><span class="code-line"><span class="token list punctuation">3.</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">Fix specific items</span><span class="token punctuation">**</span></span> - Tell me which issues to fix
+</span><span class="code-line"><span class="token list punctuation">4.</span> <span class="token bold"><span class="token punctuation">**</span><span class="token content">No changes</span><span class="token punctuation">**</span></span> - Review complete, no implementation needed
+</span><span class="code-line">
+</span><span class="code-line">Please choose an option or provide specific instructions.
+</span></code></pre>
+<p><strong>Important</strong>: Do NOT implement any changes until user explicitly confirms. This is a review-first workflow.</p>
+<h2>Resources</h2>
+<h3>references/</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>solid-checklist.md</code></td>
+<td>SOLID smell prompts and refactor heuristics</td>
+</tr>
+<tr>
+<td><code>security-checklist.md</code></td>
+<td>Web/app security and runtime risk checklist</td>
+</tr>
+<tr>
+<td><code>code-quality-checklist.md</code></td>
+<td>Error handling, performance, boundary conditions</td>
+</tr>
+<tr>
+<td><code>removal-plan.md</code></td>
+<td>Template for deletion candidates and follow-up plan</td>
+</tr>
+</tbody>
+</table></div>

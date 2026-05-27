@@ -1,0 +1,527 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>WidgetKit and ActivityKit</h1>
+<p>Build home screen widgets, Lock Screen widgets, Live Activities, Dynamic Island
+presentations, Control Center controls, and StandBy surfaces for iOS 26+.</p>
+<p>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/widgetkit/references/widgetkit-advanced.md" target="_blank" rel="ugc nofollow noopener">references/widgetkit-advanced.md</a> for timeline strategies, push-based
+updates, Xcode setup, and advanced patterns.</p>
+<h2>Contents</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li><a href="#workflow" target="_blank" rel="ugc nofollow noopener">Workflow</a></li>
+<li><a href="#widget-protocol-and-widgetbundle" target="_blank" rel="ugc nofollow noopener">Widget Protocol and WidgetBundle</a></li>
+<li><a href="#configuration-types" target="_blank" rel="ugc nofollow noopener">Configuration Types</a></li>
+<li><a href="#timelineprovider" target="_blank" rel="ugc nofollow noopener">TimelineProvider</a></li>
+<li><a href="#appintenttimelineprovider" target="_blank" rel="ugc nofollow noopener">AppIntentTimelineProvider</a></li>
+<li><a href="#widget-families" target="_blank" rel="ugc nofollow noopener">Widget Families</a></li>
+<li><a href="#interactive-widgets-ios-17" target="_blank" rel="ugc nofollow noopener">Interactive Widgets (iOS 17+)</a></li>
+<li><a href="#live-activities-and-dynamic-island" target="_blank" rel="ugc nofollow noopener">Live Activities and Dynamic Island</a></li>
+<li><a href="#control-center-widgets-ios-18" target="_blank" rel="ugc nofollow noopener">Control Center Widgets (iOS 18+)</a></li>
+<li><a href="#lock-screen-widgets" target="_blank" rel="ugc nofollow noopener">Lock Screen Widgets</a></li>
+<li><a href="#standby-mode" target="_blank" rel="ugc nofollow noopener">StandBy Mode</a></li>
+<li><a href="#design-patterns" target="_blank" rel="ugc nofollow noopener">Design Patterns</a></li>
+<li><a href="#ios-26-additions" target="_blank" rel="ugc nofollow noopener">iOS 26 Additions</a></li>
+<li><a href="#common-mistakes" target="_blank" rel="ugc nofollow noopener">Common Mistakes</a></li>
+<li><a href="#review-checklist" target="_blank" rel="ugc nofollow noopener">Review Checklist</a></li>
+<li><a href="#references" target="_blank" rel="ugc nofollow noopener">References</a></li>
+</ul>
+<h2>Workflow</h2>
+<h3>1. Create a new widget</h3>
+<ol>
+<li>Add a Widget Extension target in Xcode (File &gt; New &gt; Target &gt; Widget Extension).</li>
+<li>Enable App Groups for shared data between the app and widget extension.</li>
+<li>Define a <code>TimelineEntry</code> struct with a <code>date</code> property and display data.</li>
+<li>Implement a <code>TimelineProvider</code> (static) or <code>AppIntentTimelineProvider</code> (configurable).</li>
+<li>Build the widget view using SwiftUI, adapting layout per <code>WidgetFamily</code>.</li>
+<li>Declare the <code>Widget</code> conforming struct with a configuration and supported families.</li>
+<li>Register all widgets in a <code>WidgetBundle</code> annotated with <code>@main</code>.</li>
+</ol>
+<h3>2. Add a Live Activity</h3>
+<ol>
+<li>Define an <code>ActivityAttributes</code> struct with a nested <code>ContentState</code>.</li>
+<li>Add <code>NSSupportsLiveActivities = YES</code> to the app's Info.plist.</li>
+<li>Create an <code>ActivityConfiguration</code> in the widget bundle with Lock Screen content
+and Dynamic Island closures.</li>
+<li>Start the activity with <code>Activity.request(attributes:content:pushType:)</code>.</li>
+<li>Update with <code>activity.update(_:)</code> and end with <code>activity.end(_:dismissalPolicy:)</code>.</li>
+</ol>
+<h3>3. Add a Control Center control</h3>
+<ol>
+<li>Define an <code>AppIntent</code> for the action.</li>
+<li>Create a <code>ControlWidgetButton</code> or <code>ControlWidgetToggle</code> in the widget bundle.</li>
+<li>Use <code>StaticControlConfiguration</code> or <code>AppIntentControlConfiguration</code>.</li>
+</ol>
+<h3>4. Review existing widget code</h3>
+<p>Run through the Review Checklist at the end of this document.</p>
+<h2>Widget Protocol and WidgetBundle</h2>
+<h3>Widget</h3>
+<p>Every widget conforms to the <code>Widget</code> protocol and returns a <code>WidgetConfiguration</code>
+from its <code>body</code>.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">OrderStatusWidget</span><span class="token punctuation">:</span> <span class="token class-name">Widget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> kind<span class="token punctuation">:</span> <span class="token class-name">String</span> <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"OrderStatusWidget"</span></span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">WidgetConfiguration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">StaticConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> kind<span class="token punctuation">,</span> provider<span class="token punctuation">:</span> <span class="token class-name">OrderProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> entry <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">OrderWidgetView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">configurationDisplayName</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Order Status"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">description</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Track your current order."</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">supportedFamilies</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">.</span>systemSmall<span class="token punctuation">,</span> <span class="token punctuation">.</span>systemMedium<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>WidgetBundle</h3>
+<p>Use <code>WidgetBundle</code> to expose multiple widgets from a single extension.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token attribute atrule">@main</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">MyAppWidgets</span><span class="token punctuation">:</span> <span class="token class-name">WidgetBundle</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">Widget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">OrderStatusWidget</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token class-name">FavoritesWidget</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token class-name">DeliveryActivityWidget</span><span class="token punctuation">(</span><span class="token punctuation">)</span>   <span class="token comment">// Live Activity</span>
+</span><span class="code-line">        <span class="token class-name">QuickActionControl</span><span class="token punctuation">(</span><span class="token punctuation">)</span>       <span class="token comment">// Control Center</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Configuration Types</h2>
+<p>Use <code>StaticConfiguration</code> for non-configurable widgets. Use <code>AppIntentConfiguration</code>
+(recommended) for configurable widgets paired with <code>AppIntentTimelineProvider</code>.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Static</span>
+</span><span class="code-line"><span class="token class-name">StaticConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"MyWidget"</span></span><span class="token punctuation">,</span> provider<span class="token punctuation">:</span> <span class="token class-name">MyProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> entry <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token class-name">MyWidgetView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token comment">// Configurable</span>
+</span><span class="code-line"><span class="token class-name">AppIntentConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"ConfigWidget"</span></span><span class="token punctuation">,</span> intent<span class="token punctuation">:</span> <span class="token class-name">SelectCategoryIntent</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">,</span>
+</span><span class="code-line">                       provider<span class="token punctuation">:</span> <span class="token class-name">CategoryProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> entry <span class="token keyword">in</span>
+</span><span class="code-line">    <span class="token class-name">CategoryWidgetView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Shared Modifiers</h3>
+<table>
+<thead>
+<tr>
+<th>Modifier</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.configurationDisplayName(_:)</code></td>
+<td>Name shown in the widget gallery</td>
+</tr>
+<tr>
+<td><code>.description(_:)</code></td>
+<td>Description shown in the widget gallery</td>
+</tr>
+<tr>
+<td><code>.supportedFamilies(_:)</code></td>
+<td>Array of <code>WidgetFamily</code> values</td>
+</tr>
+<tr>
+<td><code>.supplementalActivityFamilies(_:)</code></td>
+<td>Live Activity sizes (<code>.small</code>, <code>.medium</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2>TimelineProvider</h2>
+<p>For static (non-configurable) widgets. Uses completion handlers. Three required methods:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">WeatherProvider</span><span class="token punctuation">:</span> <span class="token class-name">TimelineProvider</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">typealias</span> <span class="token class-name">Entry</span> <span class="token operator">=</span> <span class="token class-name">WeatherEntry</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">placeholder</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">WeatherEntry</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">WeatherEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">,</span> temperature<span class="token punctuation">:</span> <span class="token number">72</span><span class="token punctuation">,</span> condition<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Sunny"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">getSnapshot</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">,</span> completion<span class="token punctuation">:</span> <span class="token attribute atrule">@escaping</span> <span class="token punctuation">(</span><span class="token class-name">WeatherEntry</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">Void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> entry <span class="token operator">=</span> context<span class="token punctuation">.</span>isPreview
+</span><span class="code-line">            <span class="token operator">?</span> <span class="token function">placeholder</span><span class="token punctuation">(</span><span class="token keyword">in</span><span class="token punctuation">:</span> context<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">:</span> <span class="token class-name">WeatherEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">,</span> temperature<span class="token punctuation">:</span> currentTemp<span class="token punctuation">,</span> condition<span class="token punctuation">:</span> currentCondition<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token function">completion</span><span class="token punctuation">(</span>entry<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">getTimeline</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">,</span> completion<span class="token punctuation">:</span> <span class="token attribute atrule">@escaping</span> <span class="token punctuation">(</span><span class="token class-name">Timeline</span><span class="token operator">&lt;</span><span class="token class-name">WeatherEntry</span><span class="token operator">&gt;</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">Void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">Task</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token keyword">let</span> weather <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token class-name">WeatherService</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">fetch</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">let</span> entry <span class="token operator">=</span> <span class="token class-name">WeatherEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">,</span> temperature<span class="token punctuation">:</span> weather<span class="token punctuation">.</span>temp<span class="token punctuation">,</span> condition<span class="token punctuation">:</span> weather<span class="token punctuation">.</span>condition<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token keyword">let</span> nextUpdate <span class="token operator">=</span> <span class="token class-name">Calendar</span><span class="token punctuation">.</span>current<span class="token punctuation">.</span><span class="token function">date</span><span class="token punctuation">(</span>byAdding<span class="token punctuation">:</span> <span class="token punctuation">.</span>hour<span class="token punctuation">,</span> value<span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span> to<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">)</span><span class="token operator">!</span>
+</span><span class="code-line">            <span class="token function">completion</span><span class="token punctuation">(</span><span class="token class-name">Timeline</span><span class="token punctuation">(</span>entries<span class="token punctuation">:</span> <span class="token punctuation">[</span>entry<span class="token punctuation">]</span><span class="token punctuation">,</span> policy<span class="token punctuation">:</span> <span class="token punctuation">.</span><span class="token function">after</span><span class="token punctuation">(</span>nextUpdate<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>AppIntentTimelineProvider</h2>
+<p>For configurable widgets. Uses async/await natively. Receives user intent configuration.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">CategoryProvider</span><span class="token punctuation">:</span> <span class="token class-name">AppIntentTimelineProvider</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">typealias</span> <span class="token class-name">Entry</span> <span class="token operator">=</span> <span class="token class-name">CategoryEntry</span>
+</span><span class="code-line">    <span class="token keyword">typealias</span> <span class="token class-name">Intent</span> <span class="token operator">=</span> <span class="token class-name">SelectCategoryIntent</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">placeholder</span><span class="token punctuation">(</span><span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">)</span> <span class="token operator">-&gt;</span> <span class="token class-name">CategoryEntry</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">CategoryEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">,</span> categoryName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Sample"</span></span><span class="token punctuation">,</span> items<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">snapshot</span><span class="token punctuation">(</span><span class="token keyword">for</span> config<span class="token punctuation">:</span> <span class="token class-name">SelectCategoryIntent</span><span class="token punctuation">,</span> <span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token operator">-&gt;</span> <span class="token class-name">CategoryEntry</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> items <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token class-name">DataStore</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">items</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> config<span class="token punctuation">.</span>category<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token class-name">CategoryEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">,</span> categoryName<span class="token punctuation">:</span> config<span class="token punctuation">.</span>category<span class="token punctuation">.</span>name<span class="token punctuation">,</span> items<span class="token punctuation">:</span> items<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">timeline</span><span class="token punctuation">(</span><span class="token keyword">for</span> config<span class="token punctuation">:</span> <span class="token class-name">SelectCategoryIntent</span><span class="token punctuation">,</span> <span class="token keyword">in</span> context<span class="token punctuation">:</span> <span class="token class-name">Context</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token operator">-&gt;</span> <span class="token class-name">Timeline</span><span class="token operator">&lt;</span><span class="token class-name">CategoryEntry</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> items <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token class-name">DataStore</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">items</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> config<span class="token punctuation">.</span>category<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">let</span> entry <span class="token operator">=</span> <span class="token class-name">CategoryEntry</span><span class="token punctuation">(</span>date<span class="token punctuation">:</span> <span class="token punctuation">.</span>now<span class="token punctuation">,</span> categoryName<span class="token punctuation">:</span> config<span class="token punctuation">.</span>category<span class="token punctuation">.</span>name<span class="token punctuation">,</span> items<span class="token punctuation">:</span> items<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token class-name">Timeline</span><span class="token punctuation">(</span>entries<span class="token punctuation">:</span> <span class="token punctuation">[</span>entry<span class="token punctuation">]</span><span class="token punctuation">,</span> policy<span class="token punctuation">:</span> <span class="token punctuation">.</span>atEnd<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Widget Families</h2>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Platform</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.systemSmall</code></td>
+<td>iOS, iPadOS, macOS, CarPlay (iOS 26+)</td>
+</tr>
+<tr>
+<td><code>.systemMedium</code></td>
+<td>iOS, iPadOS, macOS</td>
+</tr>
+<tr>
+<td><code>.systemLarge</code></td>
+<td>iOS, iPadOS, macOS</td>
+</tr>
+<tr>
+<td><code>.systemExtraLarge</code></td>
+<td>iPadOS only</td>
+</tr>
+<tr>
+<td><code>.accessoryCircular</code></td>
+<td>iOS, watchOS</td>
+</tr>
+<tr>
+<td><code>.accessoryRectangular</code></td>
+<td>iOS, watchOS</td>
+</tr>
+<tr>
+<td><code>.accessoryInline</code></td>
+<td>iOS, watchOS</td>
+</tr>
+<tr>
+<td><code>.accessoryCorner</code></td>
+<td>watchOS only</td>
+</tr>
+</tbody>
+</table>
+<p>Adapt layout per family using <code>@Environment(\.widgetFamily)</code>:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token attribute atrule">@Environment</span><span class="token punctuation">(</span><span class="token punctuation">\</span><span class="token punctuation">.</span>widgetFamily<span class="token punctuation">)</span> <span class="token keyword">var</span> family
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">switch</span> family <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>systemSmall<span class="token punctuation">:</span> <span class="token class-name">CompactView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>systemMedium<span class="token punctuation">:</span> <span class="token class-name">DetailedView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">case</span> <span class="token punctuation">.</span>accessoryCircular<span class="token punctuation">:</span> <span class="token class-name">CircularView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">default</span><span class="token punctuation">:</span> <span class="token class-name">FullView</span><span class="token punctuation">(</span>entry<span class="token punctuation">:</span> entry<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Interactive Widgets (iOS 17+)</h2>
+<p>Use <code>Button</code> and <code>Toggle</code> with <code>AppIntent</code> conforming types to perform actions
+directly from a widget without launching the app.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">ToggleFavoriteIntent</span><span class="token punctuation">:</span> <span class="token class-name">AppIntent</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">static</span> <span class="token keyword">var</span> title<span class="token punctuation">:</span> <span class="token class-name">LocalizedStringResource</span> <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"Toggle Favorite"</span></span>
+</span><span class="code-line">    <span class="token attribute atrule">@Parameter</span><span class="token punctuation">(</span>title<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Item ID"</span></span><span class="token punctuation">)</span> <span class="token keyword">var</span> itemID<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">perform</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">async</span> <span class="token keyword">throws</span> <span class="token operator">-&gt;</span> <span class="token keyword">some</span> <span class="token class-name">IntentResult</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">await</span> <span class="token class-name">DataStore</span><span class="token punctuation">.</span>shared<span class="token punctuation">.</span><span class="token function">toggleFavorite</span><span class="token punctuation">(</span>itemID<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token punctuation">.</span><span class="token function">result</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">InteractiveWidgetView</span><span class="token punctuation">:</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> entry<span class="token punctuation">:</span> <span class="token class-name">FavoriteEntry</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">View</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">HStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">Text</span><span class="token punctuation">(</span>entry<span class="token punctuation">.</span>itemName<span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token class-name">Spacer</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token class-name">Button</span><span class="token punctuation">(</span>intent<span class="token punctuation">:</span> <span class="token class-name">ToggleFavoriteIntent</span><span class="token punctuation">(</span>itemID<span class="token punctuation">:</span> entry<span class="token punctuation">.</span>itemID<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> entry<span class="token punctuation">.</span>isFavorite <span class="token operator">?</span> <span class="token string-literal"><span class="token string">"star.fill"</span></span> <span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"star"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">padding</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Live Activities and Dynamic Island</h2>
+<h3>ActivityAttributes</h3>
+<p>Define the static and dynamic data model.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">DeliveryAttributes</span><span class="token punctuation">:</span> <span class="token class-name">ActivityAttributes</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">struct</span> <span class="token class-name">ContentState</span><span class="token punctuation">:</span> <span class="token class-name">Codable</span><span class="token punctuation">,</span> <span class="token class-name">Hashable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">var</span> driverName<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line">        <span class="token keyword">var</span> estimatedDeliveryTime<span class="token punctuation">:</span> <span class="token class-name">ClosedRange</span><span class="token operator">&lt;</span><span class="token class-name">Date</span><span class="token operator">&gt;</span>
+</span><span class="code-line">        <span class="token keyword">var</span> currentStep<span class="token punctuation">:</span> <span class="token class-name">DeliveryStep</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">var</span> orderNumber<span class="token punctuation">:</span> <span class="token class-name">Int</span>
+</span><span class="code-line">    <span class="token keyword">var</span> restaurantName<span class="token punctuation">:</span> <span class="token class-name">String</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>ActivityConfiguration</h3>
+<p>Provide Lock Screen content and Dynamic Island closures in the widget bundle.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">DeliveryActivityWidget</span><span class="token punctuation">:</span> <span class="token class-name">Widget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">WidgetConfiguration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">ActivityConfiguration</span><span class="token punctuation">(</span><span class="token keyword">for</span><span class="token punctuation">:</span> <span class="token class-name">DeliveryAttributes</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> context <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">VStack</span><span class="token punctuation">(</span>alignment<span class="token punctuation">:</span> <span class="token punctuation">.</span>leading<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Text</span><span class="token punctuation">(</span>context<span class="token punctuation">.</span>attributes<span class="token punctuation">.</span>restaurantName<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>headline<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token class-name">HStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Driver: </span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">context<span class="token punctuation">.</span>state<span class="token punctuation">.</span>driverName</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token class-name">Spacer</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token class-name">Text</span><span class="token punctuation">(</span>timerInterval<span class="token punctuation">:</span> context<span class="token punctuation">.</span>state<span class="token punctuation">.</span>estimatedDeliveryTime<span class="token punctuation">,</span> countsDown<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">padding</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span> dynamicIsland<span class="token punctuation">:</span> <span class="token punctuation">{</span> context <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">DynamicIsland</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">DynamicIslandExpandedRegion</span><span class="token punctuation">(</span><span class="token punctuation">.</span>leading<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"box.truck.fill"</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>title2<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">                <span class="token class-name">DynamicIslandExpandedRegion</span><span class="token punctuation">(</span><span class="token punctuation">.</span>trailing<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token class-name">Text</span><span class="token punctuation">(</span>timerInterval<span class="token punctuation">:</span> context<span class="token punctuation">.</span>state<span class="token punctuation">.</span>estimatedDeliveryTime<span class="token punctuation">,</span> countsDown<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line">                        <span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>caption<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">                <span class="token class-name">DynamicIslandExpandedRegion</span><span class="token punctuation">(</span><span class="token punctuation">.</span>center<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token class-name">Text</span><span class="token punctuation">(</span>context<span class="token punctuation">.</span>attributes<span class="token punctuation">.</span>restaurantName<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>headline<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">                <span class="token class-name">DynamicIslandExpandedRegion</span><span class="token punctuation">(</span><span class="token punctuation">.</span>bottom<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token class-name">HStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                        <span class="token class-name">ForEach</span><span class="token punctuation">(</span><span class="token class-name">DeliveryStep</span><span class="token punctuation">.</span>allCases<span class="token punctuation">,</span> id<span class="token punctuation">:</span> <span class="token punctuation">\</span><span class="token punctuation">.</span><span class="token keyword">self</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> step <span class="token keyword">in</span>
+</span><span class="code-line">                            <span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> step<span class="token punctuation">.</span>icon<span class="token punctuation">)</span>
+</span><span class="code-line">                                <span class="token punctuation">.</span><span class="token function">foregroundStyle</span><span class="token punctuation">(</span>step <span class="token operator">&lt;=</span> context<span class="token punctuation">.</span>state<span class="token punctuation">.</span>currentStep <span class="token operator">?</span> <span class="token punctuation">.</span>primary <span class="token punctuation">:</span> <span class="token punctuation">.</span>tertiary<span class="token punctuation">)</span>
+</span><span class="code-line">                        <span class="token punctuation">}</span>
+</span><span class="code-line">                    <span class="token punctuation">}</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span> compactLeading<span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"box.truck.fill"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span> compactTrailing<span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Text</span><span class="token punctuation">(</span>timerInterval<span class="token punctuation">:</span> context<span class="token punctuation">.</span>state<span class="token punctuation">.</span>estimatedDeliveryTime<span class="token punctuation">,</span> countsDown<span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token punctuation">.</span><span class="token function">frame</span><span class="token punctuation">(</span>width<span class="token punctuation">:</span> <span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">monospacedDigit</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span> minimal<span class="token punctuation">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"box.truck.fill"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Dynamic Island Regions</h3>
+<table>
+<thead>
+<tr>
+<th>Region</th>
+<th>Position</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.leading</code></td>
+<td>Left of the TrueDepth camera; wraps below</td>
+</tr>
+<tr>
+<td><code>.trailing</code></td>
+<td>Right of the TrueDepth camera; wraps below</td>
+</tr>
+<tr>
+<td><code>.center</code></td>
+<td>Directly below the camera</td>
+</tr>
+<tr>
+<td><code>.bottom</code></td>
+<td>Below all other regions</td>
+</tr>
+</tbody>
+</table>
+<h3>Starting, Updating, and Ending</h3>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">let</span> attributes <span class="token operator">=</span> <span class="token class-name">DeliveryAttributes</span><span class="token punctuation">(</span>orderNumber<span class="token punctuation">:</span> <span class="token number">123</span><span class="token punctuation">,</span> restaurantName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Pizza Place"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> state <span class="token operator">=</span> <span class="token class-name">DeliveryAttributes</span><span class="token punctuation">.</span><span class="token class-name">ContentState</span><span class="token punctuation">(</span>
+</span><span class="code-line">    driverName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Alex"</span></span><span class="token punctuation">,</span>
+</span><span class="code-line">    estimatedDeliveryTime<span class="token punctuation">:</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">...</span><span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">addingTimeInterval</span><span class="token punctuation">(</span><span class="token number">1800</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    currentStep<span class="token punctuation">:</span> <span class="token punctuation">.</span>preparing
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> content <span class="token operator">=</span> <span class="token class-name">ActivityContent</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> state<span class="token punctuation">,</span> staleDate<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> relevanceScore<span class="token punctuation">:</span> <span class="token number">75</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">let</span> activity <span class="token operator">=</span> <span class="token keyword">try</span> <span class="token class-name">Activity</span><span class="token punctuation">.</span><span class="token function">request</span><span class="token punctuation">(</span>attributes<span class="token punctuation">:</span> attributes<span class="token punctuation">,</span> content<span class="token punctuation">:</span> content<span class="token punctuation">,</span> pushType<span class="token punctuation">:</span> <span class="token punctuation">.</span>token<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> updated <span class="token operator">=</span> <span class="token class-name">ActivityContent</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> newState<span class="token punctuation">,</span> staleDate<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> relevanceScore<span class="token punctuation">:</span> <span class="token number">90</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">await</span> activity<span class="token punctuation">.</span><span class="token function">update</span><span class="token punctuation">(</span>updated<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">let</span> <span class="token keyword">final</span> <span class="token operator">=</span> <span class="token class-name">ActivityContent</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> finalState<span class="token punctuation">,</span> staleDate<span class="token punctuation">:</span> <span class="token nil constant">nil</span><span class="token punctuation">,</span> relevanceScore<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">await</span> activity<span class="token punctuation">.</span><span class="token function">end</span><span class="token punctuation">(</span><span class="token keyword">final</span><span class="token punctuation">,</span> dismissalPolicy<span class="token punctuation">:</span> <span class="token punctuation">.</span><span class="token function">after</span><span class="token punctuation">(</span><span class="token punctuation">.</span>now<span class="token punctuation">.</span><span class="token function">addingTimeInterval</span><span class="token punctuation">(</span><span class="token number">3600</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Control Center Widgets (iOS 18+)</h2>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token comment">// Button control</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">OpenCameraControl</span><span class="token punctuation">:</span> <span class="token class-name">ControlWidget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">ControlWidgetConfiguration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">StaticControlConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"OpenCamera"</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token class-name">ControlWidgetButton</span><span class="token punctuation">(</span>action<span class="token punctuation">:</span> <span class="token class-name">OpenCameraIntent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Label</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Camera"</span></span><span class="token punctuation">,</span> systemImage<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"camera.fill"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">displayName</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Open Camera"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Toggle control with value provider</span>
+</span><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">FlashlightControl</span><span class="token punctuation">:</span> <span class="token class-name">ControlWidget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">ControlWidgetConfiguration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">StaticControlConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"Flashlight"</span></span><span class="token punctuation">,</span> provider<span class="token punctuation">:</span> <span class="token class-name">FlashlightValueProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> value <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">ControlWidgetToggle</span><span class="token punctuation">(</span>isOn<span class="token punctuation">:</span> value<span class="token punctuation">,</span> action<span class="token punctuation">:</span> <span class="token class-name">ToggleFlashlightIntent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">Label</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Flashlight"</span></span><span class="token punctuation">,</span> systemImage<span class="token punctuation">:</span> value <span class="token operator">?</span> <span class="token string-literal"><span class="token string">"flashlight.on.fill"</span></span> <span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"flashlight.off.fill"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">displayName</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"Flashlight"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Lock Screen Widgets</h2>
+<p>Use accessory families and <code>AccessoryWidgetBackground</code>.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">StepsWidget</span><span class="token punctuation">:</span> <span class="token class-name">Widget</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">let</span> kind <span class="token operator">=</span> <span class="token string-literal"><span class="token string">"StepsWidget"</span></span>
+</span><span class="code-line">    <span class="token keyword">var</span> body<span class="token punctuation">:</span> <span class="token keyword">some</span> <span class="token class-name">WidgetConfiguration</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">StaticConfiguration</span><span class="token punctuation">(</span>kind<span class="token punctuation">:</span> kind<span class="token punctuation">,</span> provider<span class="token punctuation">:</span> <span class="token class-name">StepsProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> entry <span class="token keyword">in</span>
+</span><span class="code-line">            <span class="token class-name">ZStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                <span class="token class-name">AccessoryWidgetBackground</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token class-name">VStack</span> <span class="token punctuation">{</span>
+</span><span class="code-line">                    <span class="token class-name">Image</span><span class="token punctuation">(</span>systemName<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"figure.walk"</span></span><span class="token punctuation">)</span>
+</span><span class="code-line">                    <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token string-literal"><span class="token string">"</span><span class="token interpolation-punctuation punctuation">\(</span><span class="token interpolation">entry<span class="token punctuation">.</span>stepCount</span><span class="token interpolation-punctuation punctuation">)</span><span class="token string">"</span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">font</span><span class="token punctuation">(</span><span class="token punctuation">.</span>headline<span class="token punctuation">)</span>
+</span><span class="code-line">                <span class="token punctuation">}</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">.</span><span class="token function">supportedFamilies</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">.</span>accessoryCircular<span class="token punctuation">,</span> <span class="token punctuation">.</span>accessoryRectangular<span class="token punctuation">,</span> <span class="token punctuation">.</span>accessoryInline<span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>StandBy Mode</h2>
+<p><code>.systemSmall</code> widgets automatically appear in StandBy (iPhone on charger in
+landscape). Use <code>@Environment(\.widgetLocation)</code> for conditional rendering:</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token attribute atrule">@Environment</span><span class="token punctuation">(</span><span class="token punctuation">\</span><span class="token punctuation">.</span>widgetLocation<span class="token punctuation">)</span> <span class="token keyword">var</span> location
+</span><span class="code-line"><span class="token comment">// location == .standBy, .homeScreen, .lockScreen, .carPlay, etc.</span>
+</span></code></pre>
+<h2>Design Patterns</h2>
+<ul>
+<li><strong>Prefer <code>Gauge</code> over manual arcs.</strong> Use <code>.gaugeStyle(.accessoryCircular)</code> for
+Lock Screen circular widgets and <code>.linearCapacity</code> for home screen capacity bars.
+The system handles styling, accessibility, and rendering-mode adaptation.</li>
+<li><strong>Use <code>.containerBackground(_:for: .widget)</code></strong> (iOS 17+) for widget backgrounds
+instead of padding and background modifiers.</li>
+<li><strong>Use <code>Canvas</code> for dense visualizations</strong> like sparklines or mini bar charts.
+The lack of per-element accessibility is acceptable since the entire widget
+surface is a single tap target.</li>
+<li><strong>Match timeline refresh to data granularity.</strong> Apple budgets
+<a href="https://sosumi.ai/documentation/widgetkit/keeping-a-widget-up-to-date" target="_blank" rel="ugc nofollow noopener">40–70 refreshes per day</a>
+with entries at least 5 minutes apart. Use <code>Text(timerInterval:countsDown:)</code>
+for live countdowns instead of burning timeline entries.</li>
+</ul>
+<p>See <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/widgetkit/references/widgetkit-advanced.md" target="_blank" rel="ugc nofollow noopener">references/widgetkit-advanced.md</a> for
+code examples and detailed guidance on each pattern.</p>
+<h2>iOS 26 Additions</h2>
+<h3>Liquid Glass Support</h3>
+<p>Adapt widgets to the Liquid Glass visual style using <code>WidgetAccentedRenderingMode</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.accented</code></td>
+<td>Accented rendering for Liquid Glass</td>
+</tr>
+<tr>
+<td><code>.accentedDesaturated</code></td>
+<td>Accented with desaturation</td>
+</tr>
+<tr>
+<td><code>.desaturated</code></td>
+<td>Fully desaturated</td>
+</tr>
+<tr>
+<td><code>.fullColor</code></td>
+<td>Full-color rendering</td>
+</tr>
+</tbody>
+</table>
+<h3>WidgetPushHandler</h3>
+<p>Enable push-based timeline reloads without scheduled polling.</p>
+<pre class="language-swift"><code class="language-swift code-highlight"><span class="code-line"><span class="token keyword">struct</span> <span class="token class-name">MyWidgetPushHandler</span><span class="token punctuation">:</span> <span class="token class-name">WidgetPushHandler</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">func</span> <span class="token function-definition function">pushTokenDidChange</span><span class="token punctuation">(</span><span class="token omit keyword">_</span> pushInfo<span class="token punctuation">:</span> <span class="token class-name">WidgetPushInfo</span><span class="token punctuation">,</span> widgets<span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token class-name">WidgetInfo</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">let</span> tokenString <span class="token operator">=</span> pushInfo<span class="token punctuation">.</span>token<span class="token punctuation">.</span>map <span class="token punctuation">{</span> <span class="token class-name">String</span><span class="token punctuation">(</span>format<span class="token punctuation">:</span> <span class="token string-literal"><span class="token string">"%02x"</span></span><span class="token punctuation">,</span> <span class="token short-argument">$0</span><span class="token punctuation">)</span> <span class="token punctuation">}</span><span class="token punctuation">.</span><span class="token function">joined</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token comment">// Send tokenString to your server</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>CarPlay Widgets</h3>
+<p><code>.systemSmall</code> widgets render in CarPlay on iOS 26+. Ensure small widget layouts
+are legible at a glance for driver safety.</p>
+<h2>Common Mistakes</h2>
+<ol>
+<li>
+<p><strong>Using IntentTimelineProvider instead of AppIntentTimelineProvider.</strong>
+<code>IntentTimelineProvider</code> is the older SiriKit Intents-based provider. Prefer
+<code>AppIntentTimelineProvider</code> with the App Intents framework for new widgets.</p>
+</li>
+<li>
+<p><strong>Exceeding the refresh budget.</strong> Widgets have a daily refresh limit. Do not
+call <code>WidgetCenter.shared.reloadTimelines(ofKind:)</code> on every minor data change.
+Batch updates and use appropriate <code>TimelineReloadPolicy</code> values.</p>
+</li>
+<li>
+<p><strong>Forgetting App Groups for shared data.</strong> The widget extension runs in a
+separate process. Use <code>UserDefaults(suiteName:)</code> or a shared App Group
+container for data the widget reads.</p>
+</li>
+<li>
+<p><strong>Performing network calls in placeholder().</strong> <code>placeholder(in:)</code> must return
+synchronously with sample data. Use <code>getTimeline</code> or <code>timeline(for:in:)</code> for
+async work.</p>
+</li>
+<li>
+<p><strong>Missing NSSupportsLiveActivities Info.plist key.</strong> Live Activities will not
+start without <code>NSSupportsLiveActivities = YES</code> in the host app's Info.plist.</p>
+</li>
+<li>
+<p><strong>Using the deprecated contentState API.</strong> Use <code>ActivityContent</code> for all
+<code>Activity.request</code>, <code>update</code>, and <code>end</code> calls. The <code>contentState</code>-based
+methods are deprecated.</p>
+</li>
+<li>
+<p><strong>Not handling the stale state.</strong> Check <code>context.isStale</code> in Live Activity
+views and show a fallback (e.g., "Updating...") when content is outdated.</p>
+</li>
+<li>
+<p><strong>Putting heavy logic in the widget view.</strong> Widget views are rendered in a
+size-limited process. Pre-compute data in the timeline provider and pass
+display-ready values through the entry.</p>
+</li>
+<li>
+<p><strong>Ignoring accessory rendering modes.</strong> Lock Screen widgets render in
+<code>.vibrant</code> or <code>.accented</code> mode, not <code>.fullColor</code>. Test with
+<code>@Environment(\.widgetRenderingMode)</code> and avoid relying on color alone.</p>
+</li>
+<li>
+<p><strong>Not testing on device.</strong> Dynamic Island and StandBy behavior differ
+significantly from Simulator. Always verify on physical hardware.</p>
+</li>
+</ol>
+<h2>Review Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Widget extension target has App Groups entitlement matching the main app</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>@main</code> is on the <code>WidgetBundle</code>, not on individual widgets</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>placeholder(in:)</code> returns synchronously; <code>getSnapshot</code>/<code>snapshot(for:in:)</code> fast when <code>isPreview</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Timeline reload policy matches update frequency; <code>reloadTimelines(ofKind:)</code> only on data change</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Layout adapts per <code>WidgetFamily</code>; accessory widgets tested in <code>.vibrant</code> mode</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Interactive widgets use <code>AppIntent</code> with <code>Button</code>/<code>Toggle</code> only</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Live Activity: <code>NSSupportsLiveActivities = YES</code>; <code>ActivityContent</code> used; Dynamic Island closures implemented</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>activity.end(_:dismissalPolicy:)</code> called; controls use <code>StaticControlConfiguration</code>/<code>AppIntentControlConfiguration</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Timeline entries and Intent types are Sendable; tested on device</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li>Advanced guide: <a href="https://github.com/dpearson2699/swift-ios-skills/blob/HEAD/skills/widgetkit/references/widgetkit-advanced.md" target="_blank" rel="ugc nofollow noopener">references/widgetkit-advanced.md</a></li>
+<li>Apple docs: <a href="https://sosumi.ai/documentation/widgetkit" target="_blank" rel="ugc nofollow noopener">WidgetKit</a> | <a href="https://sosumi.ai/documentation/activitykit" target="_blank" rel="ugc nofollow noopener">ActivityKit</a> | <a href="https://sosumi.ai/documentation/widgetkit/keeping-a-widget-up-to-date" target="_blank" rel="ugc nofollow noopener">Keeping a widget up to date</a></li>
+</ul></div>

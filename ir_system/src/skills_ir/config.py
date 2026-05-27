@@ -1,3 +1,11 @@
+"""IR 子系统的配置加载与路径解析。
+
+该模块负责：
+1. 将 `configs/ir_config.json` 反序列化为类型化配置对象。
+2. 统一把相对路径解析到 `ir_system/` 根目录下。
+3. 为评测集、运行时产物和数据文件提供集中访问入口。
+"""
+
 from __future__ import annotations
 
 import json
@@ -11,12 +19,15 @@ DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "ir_config.json"
 
 
 def _resolve_path(value: str) -> Path:
+    """把配置中的路径值解析为绝对路径。"""
     path = Path(value)
     return path if path.is_absolute() else (REPO_ROOT / path)
 
 
 @dataclass(frozen=True)
 class PathsConfig:
+    """聚合 IR 子系统涉及的文件路径。"""
+
     data_file: Path
     index_file: Path
     eval_dir: Path
@@ -36,6 +47,8 @@ class PathsConfig:
 
 @dataclass(frozen=True)
 class IRConfig:
+    """检索系统运行所需的完整配置集合。"""
+
     paths: PathsConfig
     field_weights: Dict[str, float]
     stopwords: Set[str]
@@ -51,6 +64,7 @@ class IRConfig:
 
     @classmethod
     def from_dict(cls, payload: Dict) -> "IRConfig":
+        """从原始 JSON 字典构造配置对象。"""
         paths_payload = payload["paths"]
         paths = PathsConfig(
             data_file=_resolve_path(paths_payload["data_file"]),
@@ -89,16 +103,19 @@ class IRConfig:
         )
 
     def resolve_eval_path(self, name_or_path: str | None) -> Path:
+        """把评测集名称或路径统一解析为可访问文件。"""
         if not name_or_path:
             name_or_path = self.default_eval_set
         path = Path(name_or_path)
         return path if path.is_absolute() else self.paths.eval_dir / path
 
     def ensure_runtime_dirs(self) -> None:
+        """确保运行时目录存在，供报告与索引写入。"""
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)
 
 
 def load_config(config_path: Path | None = None) -> IRConfig:
+    """从磁盘加载 IR 配置文件。"""
     config_path = config_path or DEFAULT_CONFIG_PATH
     with config_path.open("r", encoding="utf-8") as file:
         payload = json.load(file)

@@ -1,0 +1,105 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Web Content Fetcher</h1>
+<p>Given a URL, return its main content as clean Markdown — headings, links, images, lists, code blocks all preserved.</p>
+<h2>Extraction Strategy</h2>
+<p>Always try <strong>one method per URL</strong> — don't cascade blindly. Pick the right one upfront.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">URL
+</span><span class="code-line"> │
+</span><span class="code-line"> ├─ 1. Scrapling script (preferred)
+</span><span class="code-line"> │     Run fetch.py — check the domain routing table to decide fast vs --stealth.
+</span><span class="code-line"> │     Works for most sites. Returns clean Markdown directly.
+</span><span class="code-line"> │
+</span><span class="code-line"> └─ 2. Jina Reader (fallback — only if Scrapling fails or dependencies not installed)
+</span><span class="code-line">       web_fetch("https://r.jina.ai/&lt;url&gt;")
+</span><span class="code-line">       Free tier: 200 req/day. Fast (~1-2s), good Markdown output.
+</span><span class="code-line">       Does NOT work for: WeChat (403), some Chinese platforms.
+</span></code></pre>
+<h3>Scrapling script</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">python3 <span class="token operator">&lt;</span>SKILL_DIR<span class="token operator">&gt;</span>/scripts/fetch.py <span class="token string">"&lt;url&gt;"</span> <span class="token punctuation">[</span>max_chars<span class="token punctuation">]</span> <span class="token punctuation">[</span>--stealth<span class="token punctuation">]</span>
+</span></code></pre>
+<p><code>&lt;SKILL_DIR&gt;</code> is the directory where this SKILL.md lives. Resolve it before calling the script.</p>
+<p>The script has two modes built in:</p>
+<ul>
+<li><strong>Default (fast):</strong> HTTP fetch, ~1-3s, works for most sites</li>
+<li><strong><code>--stealth</code>:</strong> Headless browser, ~5-15s, for JS-rendered or anti-scraping sites</li>
+</ul>
+<p>When run without <code>--stealth</code>, the script automatically falls back to stealth if the fast result has too little content. So you rarely need to specify <code>--stealth</code> manually — the only reason to force it is when you already know the site needs it (see routing table), which saves the initial fast attempt.</p>
+<h2>Domain Routing</h2>
+<p>Use this table to pick the right mode on the first call:</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Command</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mp.weixin.qq.com</code></td>
+<td><code>fetch.py &lt;url&gt; --stealth</code></td>
+<td>JS-rendered content</td>
+</tr>
+<tr>
+<td><code>zhuanlan.zhihu.com</code></td>
+<td><code>fetch.py &lt;url&gt; --stealth</code></td>
+<td>Anti-scraping + JS</td>
+</tr>
+<tr>
+<td><code>juejin.cn</code></td>
+<td><code>fetch.py &lt;url&gt; --stealth</code></td>
+<td>JS-rendered SPA</td>
+</tr>
+<tr>
+<td><code>sspai.com</code></td>
+<td><code>fetch.py &lt;url&gt;</code></td>
+<td>Static HTML</td>
+</tr>
+<tr>
+<td><code>blog.csdn.net</code></td>
+<td><code>fetch.py &lt;url&gt;</code></td>
+<td>Static HTML</td>
+</tr>
+<tr>
+<td><code>ruanyifeng.com</code></td>
+<td><code>fetch.py &lt;url&gt;</code></td>
+<td>Static blog</td>
+</tr>
+<tr>
+<td><code>openai.com</code></td>
+<td><code>fetch.py &lt;url&gt;</code></td>
+<td>Static HTML</td>
+</tr>
+<tr>
+<td><code>blog.google</code></td>
+<td><code>fetch.py &lt;url&gt;</code></td>
+<td>Static HTML</td>
+</tr>
+<tr>
+<td>Everything else</td>
+<td><code>fetch.py &lt;url&gt;</code></td>
+<td>Auto-fallback handles it</td>
+</tr>
+</tbody>
+</table>
+<h2>Script Options</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Basic — auto-selects fast or stealth</span>
+</span><span class="code-line">python3 <span class="token operator">&lt;</span>SKILL_DIR<span class="token operator">&gt;</span>/scripts/fetch.py <span class="token string">"https://sspai.com/post/73145"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Force stealth for known JS-heavy sites</span>
+</span><span class="code-line">python3 <span class="token operator">&lt;</span>SKILL_DIR<span class="token operator">&gt;</span>/scripts/fetch.py <span class="token string">"https://mp.weixin.qq.com/s/xxx"</span> <span class="token parameter variable">--stealth</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Limit output to 15000 characters (default: 30000)</span>
+</span><span class="code-line">python3 <span class="token operator">&lt;</span>SKILL_DIR<span class="token operator">&gt;</span>/scripts/fetch.py <span class="token string">"https://example.com/article"</span> <span class="token number">15000</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># JSON output with metadata (url, mode, selector, content_length)</span>
+</span><span class="code-line">python3 <span class="token operator">&lt;</span>SKILL_DIR<span class="token operator">&gt;</span>/scripts/fetch.py <span class="token string">"https://example.com"</span> <span class="token parameter variable">--json</span>
+</span></code></pre>
+<h2>Install Dependencies</h2>
+<p>First use only — the script checks and tells you if anything is missing:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> scrapling html2text
+</span></code></pre>
+<p>If on system-managed Python (macOS/Linux), add <code>--break-system-packages</code> or use a venv.</p>
+<h2>Failure Rules</h2>
+<ul>
+<li>Same URL fails once → give up, tell the user "unable to extract content from this URL"</li>
+<li>Do not retry — each failed call wastes context tokens</li>
+</ul></div>

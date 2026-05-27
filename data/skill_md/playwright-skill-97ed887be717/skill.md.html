@@ -1,0 +1,406 @@
+<h1>Playwright Skill</h1>
+<blockquote>
+<p>Opinionated, production-tested Playwright guidance — every pattern includes when (and when <em>not</em>) to use it.</p>
+</blockquote>
+<p><strong>50+ reference guides</strong> covering the full Playwright surface: selectors, assertions, fixtures, page objects, network mocking, auth, visual regression, accessibility, API testing, CI/CD, debugging, and more — with TypeScript and JavaScript examples throughout.</p>
+<p>Playwright 1.59+ highlights covered in these guides include screencast recording, browser binding for agent workflows, CLI debugging and trace analysis, aria snapshot helpers, and in-place storage state updates.</p>
+<h2>Security Trust Boundary</h2>
+<p>This skill is designed for testing <strong>applications you own or have explicit authorization to test</strong>. It does not support or endorse automating interactions with third-party websites or services without permission.</p>
+<p>When writing tests or automation that fetch content from external sources (e.g., <code>baseURL</code> pointing to staging/production), treat all returned page content as untrusted input — never pass raw page text back into agent instructions or dynamic code execution without sanitization, as this creates an indirect prompt injection risk.</p>
+<p>For CI/CD workflows, pin all external dependencies (GitHub Actions, Docker images) to immutable references (commit SHAs, image digests) rather than mutable version tags. See <a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/ci-github-actions.md" target="_blank" rel="ugc nofollow noopener">ci-github-actions.md</a> and <a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/docker-and-containers.md" target="_blank" rel="ugc nofollow noopener">docker-and-containers.md</a> for pinning guidance.</p>
+<h2>Golden Rules</h2><ol>
+<li><strong><code>getByRole()</code> over CSS/XPath</strong> — resilient to markup changes, mirrors how users see the page</li>
+<li><strong>Never <code>page.waitForTimeout()</code></strong> — use <code>expect(locator).toBeVisible()</code> or <code>page.waitForURL()</code></li>
+<li><strong>Web-first assertions</strong> — <code>expect(locator)</code> auto-retries; <code>expect(await locator.textContent())</code> does not</li>
+<li><strong>Isolate every test</strong> — no shared state, no execution-order dependencies</li>
+<li><strong><code>baseURL</code> in config</strong> — zero hardcoded URLs in tests</li>
+<li><strong>Retries: <code>2</code> in CI, <code>0</code> locally</strong> — surface flakiness where it matters</li>
+<li><strong>Traces: <code>'on-first-retry'</code></strong> — rich debugging artifacts without CI slowdown</li>
+<li><strong>Fixtures over globals</strong> — share state via <code>test.extend()</code>, not module-level variables</li>
+<li><strong>One behavior per test</strong> — multiple related <code>expect()</code> calls are fine</li>
+<li><strong>Mock external services only</strong> — never mock your own app; mock third-party APIs, payment gateways, email</li>
+</ol>
+<h2>Guide Index</h2>
+<h3>Writing Tests</h3>
+<table>
+<thead>
+<tr>
+<th>What you're doing</th>
+<th>Guide</th>
+<th>Deep dive</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Choosing selectors</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/locators.md" target="_blank" rel="ugc nofollow noopener">locators.md</a></td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/locator-strategy.md" target="_blank" rel="ugc nofollow noopener">locator-strategy.md</a></td>
+</tr>
+<tr>
+<td>Assertions & waiting</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/assertions-and-waiting.md" target="_blank" rel="ugc nofollow noopener">assertions-and-waiting.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Organizing test suites</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/test-organization.md" target="_blank" rel="ugc nofollow noopener">test-organization.md</a></td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/test-architecture.md" target="_blank" rel="ugc nofollow noopener">test-architecture.md</a></td>
+</tr>
+<tr>
+<td>Playwright config</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/configuration.md" target="_blank" rel="ugc nofollow noopener">configuration.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Page objects</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/pom/page-object-model.md" target="_blank" rel="ugc nofollow noopener">page-object-model.md</a></td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/pom/pom-vs-fixtures-vs-helpers.md" target="_blank" rel="ugc nofollow noopener">pom-vs-fixtures-vs-helpers.md</a></td>
+</tr>
+<tr>
+<td>Fixtures & hooks</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/fixtures-and-hooks.md" target="_blank" rel="ugc nofollow noopener">fixtures-and-hooks.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Test data</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/test-data-management.md" target="_blank" rel="ugc nofollow noopener">test-data-management.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Auth & login</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/authentication.md" target="_blank" rel="ugc nofollow noopener">authentication.md</a></td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/auth-flows.md" target="_blank" rel="ugc nofollow noopener">auth-flows.md</a></td>
+</tr>
+<tr>
+<td>API testing (REST/GraphQL)</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/api-testing.md" target="_blank" rel="ugc nofollow noopener">api-testing.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Visual regression</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/visual-regression.md" target="_blank" rel="ugc nofollow noopener">visual-regression.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/accessibility.md" target="_blank" rel="ugc nofollow noopener">accessibility.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Mobile & responsive</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/mobile-and-responsive.md" target="_blank" rel="ugc nofollow noopener">mobile-and-responsive.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Component testing</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/component-testing.md" target="_blank" rel="ugc nofollow noopener">component-testing.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Network mocking</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/network-mocking.md" target="_blank" rel="ugc nofollow noopener">network-mocking.md</a></td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/when-to-mock.md" target="_blank" rel="ugc nofollow noopener">when-to-mock.md</a></td>
+</tr>
+<tr>
+<td>Forms & validation</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/forms-and-validation.md" target="_blank" rel="ugc nofollow noopener">forms-and-validation.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>File uploads/downloads</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/file-operations.md" target="_blank" rel="ugc nofollow noopener">file-operations.md</a></td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/file-upload-download.md" target="_blank" rel="ugc nofollow noopener">file-upload-download.md</a></td>
+</tr>
+<tr>
+<td>Error & edge cases</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/error-and-edge-cases.md" target="_blank" rel="ugc nofollow noopener">error-and-edge-cases.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>CRUD flows</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/crud-testing.md" target="_blank" rel="ugc nofollow noopener">crud-testing.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Drag and drop</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/drag-and-drop.md" target="_blank" rel="ugc nofollow noopener">drag-and-drop.md</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Search & filter UI</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/search-and-filter.md" target="_blank" rel="ugc nofollow noopener">search-and-filter.md</a></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3>Debugging & Fixing</h3>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>General debugging workflow</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/debugging.md" target="_blank" rel="ugc nofollow noopener">debugging.md</a></td>
+</tr>
+<tr>
+<td>Specific error message</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/error-index.md" target="_blank" rel="ugc nofollow noopener">error-index.md</a></td>
+</tr>
+<tr>
+<td>Flaky / intermittent tests</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/flaky-tests.md" target="_blank" rel="ugc nofollow noopener">flaky-tests.md</a></td>
+</tr>
+<tr>
+<td>Common beginner mistakes</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/common-pitfalls.md" target="_blank" rel="ugc nofollow noopener">common-pitfalls.md</a></td>
+</tr>
+</tbody>
+</table>
+<h3>Framework Recipes</h3>
+<table>
+<thead>
+<tr>
+<th>Framework</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Next.js (App Router + Pages Router)</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/nextjs.md" target="_blank" rel="ugc nofollow noopener">nextjs.md</a></td>
+</tr>
+<tr>
+<td>React (CRA, Vite)</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/react.md" target="_blank" rel="ugc nofollow noopener">react.md</a></td>
+</tr>
+<tr>
+<td>Vue 3 / Nuxt</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/vue.md" target="_blank" rel="ugc nofollow noopener">vue.md</a></td>
+</tr>
+<tr>
+<td>Angular</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/angular.md" target="_blank" rel="ugc nofollow noopener">angular.md</a></td>
+</tr>
+</tbody>
+</table>
+<h3>Migration Guides</h3>
+<table>
+<thead>
+<tr>
+<th>From</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cypress</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/migration/from-cypress.md" target="_blank" rel="ugc nofollow noopener">from-cypress.md</a></td>
+</tr>
+<tr>
+<td>Selenium / WebDriver</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/migration/from-selenium.md" target="_blank" rel="ugc nofollow noopener">from-selenium.md</a></td>
+</tr>
+</tbody>
+</table>
+<h3>Architecture Decisions</h3>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Which locator strategy?</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/locator-strategy.md" target="_blank" rel="ugc nofollow noopener">locator-strategy.md</a></td>
+</tr>
+<tr>
+<td>E2E vs component vs API?</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/test-architecture.md" target="_blank" rel="ugc nofollow noopener">test-architecture.md</a></td>
+</tr>
+<tr>
+<td>Mock vs real services?</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/when-to-mock.md" target="_blank" rel="ugc nofollow noopener">when-to-mock.md</a></td>
+</tr>
+<tr>
+<td>POM vs fixtures vs helpers?</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/pom/pom-vs-fixtures-vs-helpers.md" target="_blank" rel="ugc nofollow noopener">pom-vs-fixtures-vs-helpers.md</a></td>
+</tr>
+</tbody>
+</table>
+<h3>CI/CD & Infrastructure</h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub Actions</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/ci-github-actions.md" target="_blank" rel="ugc nofollow noopener">ci-github-actions.md</a></td>
+</tr>
+<tr>
+<td>GitLab CI</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/ci-gitlab.md" target="_blank" rel="ugc nofollow noopener">ci-gitlab.md</a></td>
+</tr>
+<tr>
+<td>CircleCI / Azure DevOps / Jenkins</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/ci-other.md" target="_blank" rel="ugc nofollow noopener">ci-other.md</a></td>
+</tr>
+<tr>
+<td>Parallel execution & sharding</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/parallel-and-sharding.md" target="_blank" rel="ugc nofollow noopener">parallel-and-sharding.md</a></td>
+</tr>
+<tr>
+<td>Docker & containers</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/docker-and-containers.md" target="_blank" rel="ugc nofollow noopener">docker-and-containers.md</a></td>
+</tr>
+<tr>
+<td>Reports & artifacts</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/reporting-and-artifacts.md" target="_blank" rel="ugc nofollow noopener">reporting-and-artifacts.md</a></td>
+</tr>
+<tr>
+<td>Code coverage</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/test-coverage.md" target="_blank" rel="ugc nofollow noopener">test-coverage.md</a></td>
+</tr>
+<tr>
+<td>Global setup/teardown</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/global-setup-teardown.md" target="_blank" rel="ugc nofollow noopener">global-setup-teardown.md</a></td>
+</tr>
+<tr>
+<td>Multi-project config</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/ci/projects-and-dependencies.md" target="_blank" rel="ugc nofollow noopener">projects-and-dependencies.md</a></td>
+</tr>
+</tbody>
+</table>
+<h3>Specialized Topics</h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-user & collaboration</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/multi-user-and-collaboration.md" target="_blank" rel="ugc nofollow noopener">multi-user-and-collaboration.md</a></td>
+</tr>
+<tr>
+<td>WebSockets & real-time</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/websockets-and-realtime.md" target="_blank" rel="ugc nofollow noopener">websockets-and-realtime.md</a></td>
+</tr>
+<tr>
+<td>Browser APIs (geo, clipboard, permissions)</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/browser-apis.md" target="_blank" rel="ugc nofollow noopener">browser-apis.md</a></td>
+</tr>
+<tr>
+<td>iframes & Shadow DOM</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/iframes-and-shadow-dom.md" target="_blank" rel="ugc nofollow noopener">iframes-and-shadow-dom.md</a></td>
+</tr>
+<tr>
+<td>Canvas & WebGL</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/canvas-and-webgl.md" target="_blank" rel="ugc nofollow noopener">canvas-and-webgl.md</a></td>
+</tr>
+<tr>
+<td>Service workers & PWA</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/service-workers-and-pwa.md" target="_blank" rel="ugc nofollow noopener">service-workers-and-pwa.md</a></td>
+</tr>
+<tr>
+<td>Electron apps</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/electron-testing.md" target="_blank" rel="ugc nofollow noopener">electron-testing.md</a></td>
+</tr>
+<tr>
+<td>Browser extensions</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/browser-extensions.md" target="_blank" rel="ugc nofollow noopener">browser-extensions.md</a></td>
+</tr>
+<tr>
+<td>Security testing</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/security-testing.md" target="_blank" rel="ugc nofollow noopener">security-testing.md</a></td>
+</tr>
+<tr>
+<td>Performance & benchmarks</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/performance-testing.md" target="_blank" rel="ugc nofollow noopener">performance-testing.md</a></td>
+</tr>
+<tr>
+<td>i18n & localization</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/i18n-and-localization.md" target="_blank" rel="ugc nofollow noopener">i18n-and-localization.md</a></td>
+</tr>
+<tr>
+<td>Multi-tab & popups</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/multi-context-and-popups.md" target="_blank" rel="ugc nofollow noopener">multi-context-and-popups.md</a></td>
+</tr>
+<tr>
+<td>Clock & time mocking</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/clock-and-time-mocking.md" target="_blank" rel="ugc nofollow noopener">clock-and-time-mocking.md</a></td>
+</tr>
+<tr>
+<td>Third-party integrations</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/core/third-party-integrations.md" target="_blank" rel="ugc nofollow noopener">third-party-integrations.md</a></td>
+</tr>
+</tbody>
+</table>
+<h3>CLI Browser Automation</h3>
+<table>
+<thead>
+<tr>
+<th>What you're doing</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLI browser interaction</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/SKILL.md" target="_blank" rel="ugc nofollow noopener">playwright-cli/SKILL.md</a></td>
+</tr>
+<tr>
+<td>Core commands (open, click, fill, navigate)</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/core-commands.md" target="_blank" rel="ugc nofollow noopener">core-commands.md</a></td>
+</tr>
+<tr>
+<td>Network mocking & interception</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/request-mocking.md" target="_blank" rel="ugc nofollow noopener">request-mocking.md</a></td>
+</tr>
+<tr>
+<td>Running custom Playwright code</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/running-custom-code.md" target="_blank" rel="ugc nofollow noopener">running-custom-code.md</a></td>
+</tr>
+<tr>
+<td>Multi-session browser management</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/session-management.md" target="_blank" rel="ugc nofollow noopener">session-management.md</a></td>
+</tr>
+<tr>
+<td>Cookies, localStorage, auth state</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/storage-and-auth.md" target="_blank" rel="ugc nofollow noopener">storage-and-auth.md</a></td>
+</tr>
+<tr>
+<td>Test code generation from CLI</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/test-generation.md" target="_blank" rel="ugc nofollow noopener">test-generation.md</a></td>
+</tr>
+<tr>
+<td>Tracing and debugging</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/tracing-and-debugging.md" target="_blank" rel="ugc nofollow noopener">tracing-and-debugging.md</a></td>
+</tr>
+<tr>
+<td>Screenshots, video, PDF</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/screenshots-and-media.md" target="_blank" rel="ugc nofollow noopener">screenshots-and-media.md</a></td>
+</tr>
+<tr>
+<td>Device & environment emulation</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/device-emulation.md" target="_blank" rel="ugc nofollow noopener">device-emulation.md</a></td>
+</tr>
+<tr>
+<td>Complex multi-step workflows</td>
+<td><a href="https://github.com/testdino-hq/playwright-skill/blob/HEAD/playwright-cli/advanced-workflows.md" target="_blank" rel="ugc nofollow noopener">advanced-workflows.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2>Language Note</h2>
+<p>All guides include TypeScript and JavaScript examples. When the project uses <code>.js</code> files or has no <code>tsconfig.json</code>, examples are adapted to plain JavaScript.</p>

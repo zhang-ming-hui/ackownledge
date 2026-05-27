@@ -1,4 +1,14 @@
-'''把所有模块串联起来，执行一个完整的"运行周期"。'''
+"""IR 子系统的单次自治运行周期。
+
+一个 cycle 会串联：
+1. 数据集状态检查
+2. 可选采集
+3. 索引加载/构建
+4. 数据健康分析
+5. 离线评测
+6. 项目状态与建议落盘
+"""
+
 from __future__ import annotations
 
 from typing import Dict
@@ -12,10 +22,12 @@ from .state import load_json, save_json_atomic, utc_now_iso
 
 
 def _load_agent_manifest(config: IRConfig) -> Dict:
+    """读取代理配置，作为周期报告的一部分。"""
     return load_json(config.paths.agent_config_file, default={"agents": []})
 
 
 def _load_skills_registry(config: IRConfig) -> Dict:
+    """读取技能注册表，便于把系统状态和技能集合关联起来。"""
     return load_json(config.paths.skills_registry_file, default={"skills": []})
 
 
@@ -27,11 +39,11 @@ def run_cycle(
     run_ingest_step: bool = False,
     headless: bool = True,
 ) -> Dict:
+    """执行一次完整的 IR 运行周期，并返回报告。"""
     config.ensure_runtime_dirs()
     top_k = top_k or config.default_top_k
     eval_path = config.resolve_eval_path(eval_set)
 
-    # 检查数据集是否存在、有多少条记录、是否过期
     before_dataset = dataset_stats(config.paths.data_file)
     dataset_is_stale = is_stale(config.paths.data_file, config.data_stale_after_hours)
 
@@ -41,7 +53,6 @@ def run_cycle(
         "reason": "skipped",
         "details": None,
     }
-    # 根据需要运行爬虫更新数据集
     if run_ingest_step:
         ingest_summary["executed"] = True
         ingest_summary["reason"] = "requested"
@@ -53,10 +64,8 @@ def run_cycle(
     engine.load_or_build()
     index_summary = engine.summary()
 
-    # 分析数据质量，生成健康报告
     data_health_report = save_data_health_report(config)
 
-    # 检索性能评测，运行评测集，保存指标和失败案例
     eval_report = evaluate_queries(engine, eval_path=eval_path, top_k=top_k)
     save_json_atomic(config.paths.metrics_report_file, eval_report)
     save_json_atomic(
@@ -72,13 +81,12 @@ def run_cycle(
     recommendations: list[str] = []
     failure_count = sum(len(items) for items in eval_report["failure_buckets"].values())
     if dataset_is_stale and not run_ingest_step:
-        recommendations.append("数据集已过期，建议运行 ingest 以执行新一轮扩库。")
+        recommendations.append("数据集已过期，建议运行 ingest 执行新一轮扩库。")
     if failure_count:
         recommendations.append("评测存在失败样例，优先处理 failure_buckets.json 中的高频失败类型。")
     else:
         recommendations.append("当前评测集全部命中，可优先扩展评测集和长尾 query。")
 
-    # 生成综合报告
     cycle_report = {
         "generated_at": utc_now_iso(),
         "dataset": {

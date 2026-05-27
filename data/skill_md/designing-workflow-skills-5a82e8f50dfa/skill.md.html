@@ -1,0 +1,386 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Designing Workflow Skills</h1>
+<p>Build workflow-based skills that execute reliably by following structural patterns, not prose.</p>
+<h2>Essential Principles</h2>
+<p>&lt;essential_principles&gt;</p>
+<p>Claude decides whether to load a skill based solely on its frontmatter <code>description</code>. The body of SKILL.md — including "When to Use" and "When NOT to Use" sections — is only read AFTER the skill is already active. Put your trigger keywords, use cases, and exclusions in the description. A bad description means wrong activations or missed activations regardless of what the body says.</p>
+<p>"When to Use" and "When NOT to Use" sections still serve a purpose: they scope the LLM's behavior once active. "When NOT to Use" should name specific alternatives: "use Semgrep for simple pattern matching" not "not for simple tasks."
+</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Unnumbered prose instructions produce unreliable execution order. Every phase needs:</p>
+<ul>
+<li>A number (Phase 1, Phase 2, ...)</li>
+<li>Entry criteria (what must be true before starting)</li>
+<li>Numbered actions (what to do)</li>
+<li>Exit criteria (how to know it's done)</li>
+</ul>
+<p>Skills use <code>allowed-tools:</code> in frontmatter. Agents use <code>tools:</code> in frontmatter. Subagents get tools from their <code>subagent_type</code>. Never list tools the component doesn't use. Never use Bash for operations that have dedicated tools (Glob, Grep, Read, Write, Edit).</p>
+<p>Most skills and agents should include <code>TodoRead</code> and <code>TodoWrite</code> in their tool list — these enable progress tracking during multi-step execution and are useful even for skills that don't explicitly manage tasks.
+</p>
+<p>SKILL.md stays under 500 lines. It contains only what the LLM needs for every invocation: principles, routing, quick references, and links. Detailed patterns go in <code>references/</code>. Step-by-step processes go in <code>workflows/</code>. One level deep — no reference chains.
+</p>
+<p>Every workflow instruction becomes tool calls at runtime. If a workflow searches N files for M patterns, combine into one regex — not N×M calls. If a workflow spawns subagents per item, use batching — not one subagent per file. Apply the 10,000-file test: mentally run the workflow against a large repo and check that tool call count stays bounded. See <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/anti-patterns.md" target="_blank" rel="ugc nofollow noopener">anti-patterns.md</a> AP-18 and AP-19.
+</p>
+<p>Not every step needs the same level of prescription. Calibrate per step:</p>
+<ul>
+<li><strong>Low freedom</strong> (exact commands, no variation): Fragile operations — database migrations, crypto, destructive actions. "Run exactly this script."</li>
+<li><strong>Medium freedom</strong> (pseudocode with parameters): Preferred patterns where variation is acceptable. "Use this template and customize as needed."</li>
+<li><strong>High freedom</strong> (heuristics and judgment): Variable tasks — code review, exploration, documentation. "Analyze the structure and suggest improvements."</li>
+</ul>
+<p>A skill can mix freedom levels. A security audit skill might use high freedom for the discovery phase ("explore the codebase for auth patterns") and low freedom for the reporting phase ("use exactly this severity classification table").
+</p>
+<p>&lt;/essential_principles&gt;</p>
+<h2>When to Use</h2>
+<ul>
+<li>Designing a new skill with multi-step workflows or phased execution</li>
+<li>Creating a skill that routes between multiple independent tasks</li>
+<li>Building a skill with safety gates (destructive actions requiring confirmation)</li>
+<li>Structuring a skill that uses subagents or task tracking</li>
+<li>Reviewing or refactoring an existing workflow skill for quality</li>
+<li>Deciding how to split content between SKILL.md, references/, and workflows/</li>
+</ul>
+<h2>When NOT to Use</h2>
+<ul>
+<li>Simple single-purpose skills with no workflow (just guidance) — write the SKILL.md directly</li>
+<li>Writing the actual domain content of a skill (this teaches structure, not domain expertise)</li>
+<li>Plugin configuration (plugin.json, hooks, commands) — use plugin development guides</li>
+<li>Non-skill Claude Code development — this is specifically for skill architecture</li>
+</ul>
+<h2>Pattern Selection</h2>
+<p>Choose the right pattern for your skill's structure. Read the full pattern description in <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/workflow-patterns.md" target="_blank" rel="ugc nofollow noopener">workflow-patterns.md</a>.</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">How many distinct paths does the skill have?
+</span><span class="code-line">|
+</span><span class="code-line">+-- One path, always the same
+</span><span class="code-line">|   +-- Does it perform destructive actions?
+</span><span class="code-line">|       +-- YES -&gt; Safety Gate Pattern
+</span><span class="code-line">|       +-- NO  -&gt; Linear Progression Pattern
+</span><span class="code-line">|
+</span><span class="code-line">+-- Multiple independent paths from shared setup
+</span><span class="code-line">|   +-- Routing Pattern
+</span><span class="code-line">|
+</span><span class="code-line">+-- Multiple dependent steps in sequence
+</span><span class="code-line">    +-- Do steps have complex dependencies?
+</span><span class="code-line">        +-- YES -&gt; Task-Driven Pattern
+</span><span class="code-line">        +-- NO  -&gt; Sequential Pipeline Pattern
+</span></code></pre>
+<h3>Pattern Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Use When</th>
+<th>Key Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Routing</strong></td>
+<td>Multiple independent tasks from shared intake</td>
+<td>Routing table maps intent to workflow files</td>
+</tr>
+<tr>
+<td><strong>Sequential Pipeline</strong></td>
+<td>Dependent steps, each feeding the next</td>
+<td>Auto-detection may resume from partial progress</td>
+</tr>
+<tr>
+<td><strong>Linear Progression</strong></td>
+<td>Single path, same every time</td>
+<td>Numbered phases with entry/exit criteria</td>
+</tr>
+<tr>
+<td><strong>Safety Gate</strong></td>
+<td>Destructive/irreversible actions</td>
+<td>Two confirmation gates before execution</td>
+</tr>
+<tr>
+<td><strong>Task-Driven</strong></td>
+<td>Complex dependencies, partial failure tolerance</td>
+<td>TaskCreate/TaskUpdate with dependency tracking</td>
+</tr>
+</tbody>
+</table>
+<h2>Structural Anatomy</h2>
+<p>Every workflow skill needs this skeleton, regardless of pattern:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token front-matter-block"><span class="token punctuation">---</span>
+</span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">name</span><span class="token punctuation">:</span> kebab<span class="token punctuation">-</span>case<span class="token punctuation">-</span>name
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Third-person description with trigger keywords — this is how Claude decides to activate the skill"</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token key atrule">allowed-tools</span><span class="token punctuation">:</span> Tool1 Tool2 Tool3  <span class="token comment"># space-delimited list of tool names</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># Optional fields — see tool-assignment-guide.md for full reference:</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># disable-model-invocation: true    # Only user can invoke (not Claude)</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># user-invocable: false             # Only Claude can invoke (hidden from / menu)</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># context: fork                     # Run in isolated subagent context</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># agent: Explore                    # Subagent type (requires context: fork)</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># model: [model-name]               # Switch model when skill is active</span>
+</span></span></span><span class="code-line"><span class="token front-matter-block"><span class="token front-matter yaml language-yaml"><span class="token comment"># argument-hint: "[filename]"       # Hint shown during autocomplete</span></span>
+</span></span><span class="code-line"><span class="token front-matter-block"><span class="token punctuation">---</span></span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Title</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Essential Principles</span>
+</span><span class="code-line">[3-5 non-negotiable rules with WHY explanations]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> When to Use</span>
+</span><span class="code-line">[4-6 specific scenarios — scopes behavior after activation]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> When NOT to Use</span>
+</span><span class="code-line">[3-5 scenarios with named alternatives — scopes behavior after activation]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> [Pattern-Specific Section]</span>
+</span><span class="code-line">[Routing table / Pipeline steps / Phase list / Gates]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Quick Reference</span>
+</span><span class="code-line">[Compact tables for frequently-needed info]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Reference Index</span>
+</span><span class="code-line">[Links to all supporting files]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Success Criteria</span>
+</span><span class="code-line">[Checklist for output validation]
+</span></code></pre>
+<p>Skills support three types of string substitutions: dollar-prefixed variables for arguments and session ID, and exclamation-backtick syntax for shell preprocessing. The skill loader processes these before Claude sees the file — even inside code fences — so never use the raw syntax in documentation text. See <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/tool-assignment-guide.md" target="_blank" rel="ugc nofollow noopener">tool-assignment-guide.md</a> for the full variable reference and usage guidance.</p>
+<h2>Anti-Pattern Quick Reference</h2>
+<p>The most common mistakes. Full catalog with before/after fixes in <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/anti-patterns.md" target="_blank" rel="ugc nofollow noopener">anti-patterns.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>AP</th>
+<th>Anti-Pattern</th>
+<th>One-Line Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AP-1</td>
+<td>Missing goals/anti-goals</td>
+<td>Add When to Use AND When NOT to Use sections</td>
+</tr>
+<tr>
+<td>AP-2</td>
+<td>Monolithic SKILL.md (&gt;500 lines)</td>
+<td>Split into references/ and workflows/</td>
+</tr>
+<tr>
+<td>AP-3</td>
+<td>Reference chains (A -&gt; B -&gt; C)</td>
+<td>All files one hop from SKILL.md</td>
+</tr>
+<tr>
+<td>AP-4</td>
+<td>Hardcoded paths</td>
+<td>Use <code>{baseDir}</code> for all internal paths</td>
+</tr>
+<tr>
+<td>AP-5</td>
+<td>Broken file references</td>
+<td>Verify every path resolves before submitting</td>
+</tr>
+<tr>
+<td>AP-6</td>
+<td>Unnumbered phases</td>
+<td>Number every phase with entry/exit criteria</td>
+</tr>
+<tr>
+<td>AP-7</td>
+<td>Missing exit criteria</td>
+<td>Define what "done" means for every phase</td>
+</tr>
+<tr>
+<td>AP-8</td>
+<td>No verification step</td>
+<td>Add validation at the end of every workflow</td>
+</tr>
+<tr>
+<td>AP-9</td>
+<td>Vague routing keywords</td>
+<td>Use distinctive keywords per workflow route</td>
+</tr>
+<tr>
+<td>AP-11</td>
+<td>Wrong tool for the job</td>
+<td>Use Glob/Grep/Read, not Bash equivalents</td>
+</tr>
+<tr>
+<td>AP-12</td>
+<td>Overprivileged tools</td>
+<td>Remove tools not actually used</td>
+</tr>
+<tr>
+<td>AP-13</td>
+<td>Vague subagent prompts</td>
+<td>Specify what to analyze, look for, and return</td>
+</tr>
+<tr>
+<td>AP-15</td>
+<td>Reference dumps</td>
+<td>Teach judgment, not raw documentation</td>
+</tr>
+<tr>
+<td>AP-16</td>
+<td>Missing rationalizations</td>
+<td>Add "Rationalizations to Reject" for audit skills</td>
+</tr>
+<tr>
+<td>AP-17</td>
+<td>No concrete examples</td>
+<td>Show input -&gt; output for key instructions</td>
+</tr>
+<tr>
+<td>AP-18</td>
+<td>Cartesian product tool calls</td>
+<td>Combine patterns into single regex, grep once, then filter</td>
+</tr>
+<tr>
+<td>AP-19</td>
+<td>Unbounded subagent spawning</td>
+<td>Batch items into groups, one subagent per batch</td>
+</tr>
+<tr>
+<td>AP-20</td>
+<td>Description summarizes workflow</td>
+<td>Description = triggering conditions only, never workflow steps</td>
+</tr>
+</tbody>
+</table>
+<p><em>AP-10 (No Default/Fallback Route), AP-14 (Missing Tool Justification in Agents), and AP-20 (Description Summarizes Workflow) are in the <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/anti-patterns.md" target="_blank" rel="ugc nofollow noopener">full catalog</a>. AP-20 is included in the quick reference above due to its high impact.</em></p>
+<h2>Tool Assignment Quick Reference</h2>
+<p>Map your component type to the right tool set. Full guide in <a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/tool-assignment-guide.md" target="_blank" rel="ugc nofollow noopener">tool-assignment-guide.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Component Type</th>
+<th>Typical Tools</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read-only analysis skill</td>
+<td>Read, Glob, Grep, TodoRead, TodoWrite</td>
+</tr>
+<tr>
+<td>Interactive analysis skill</td>
+<td>Read, Glob, Grep, AskUserQuestion, TodoRead, TodoWrite</td>
+</tr>
+<tr>
+<td>Code generation skill</td>
+<td>Read, Glob, Grep, Write, Bash, TodoRead, TodoWrite</td>
+</tr>
+<tr>
+<td>Pipeline skill</td>
+<td>Read, Write, Glob, Grep, Bash, AskUserQuestion, Task, TaskCreate, TaskList, TaskUpdate, TodoRead, TodoWrite</td>
+</tr>
+<tr>
+<td>Read-only agent</td>
+<td>Read, Grep, Glob, TodoRead, TodoWrite</td>
+</tr>
+<tr>
+<td>Action agent</td>
+<td>Read, Grep, Glob, Write, Bash, TodoRead, TodoWrite</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key rules:</strong></p>
+<ul>
+<li>Use Glob (not <code>find</code>), Grep (not <code>grep</code>), Read (not <code>cat</code>) — always prefer dedicated tools</li>
+<li>Skills use <code>allowed-tools:</code> — agents use <code>tools:</code></li>
+<li>List only tools that instructions actually reference</li>
+<li>Read-only components should never have Write or Bash</li>
+</ul>
+<h2>Rationalizations to Reject</h2>
+<p>When designing workflow skills, reject these shortcuts:</p>
+<table>
+<thead>
+<tr>
+<th>Rationalization</th>
+<th>Why It's Wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"It's obvious which phase comes next"</td>
+<td>LLMs don't infer ordering from prose. Number the phases.</td>
+</tr>
+<tr>
+<td>"Exit criteria are implied"</td>
+<td>Implied criteria are skipped criteria. Write them explicitly.</td>
+</tr>
+<tr>
+<td>"One big SKILL.md is simpler"</td>
+<td>Simpler to write, worse to execute. The LLM loses focus past 500 lines.</td>
+</tr>
+<tr>
+<td>"The description doesn't matter much"</td>
+<td>The description is how the skill gets triggered. A bad description means wrong activations or missed activations.</td>
+</tr>
+<tr>
+<td>"Bash can do everything"</td>
+<td>Bash file operations are fragile. Dedicated tools handle encoding, permissions, and formatting better.</td>
+</tr>
+<tr>
+<td>"The LLM will figure out the tools"</td>
+<td>It will guess wrong. Specify exactly which tool for each operation.</td>
+</tr>
+<tr>
+<td>"I'll add details later"</td>
+<td>Incomplete skills ship incomplete. Design fully before writing.</td>
+</tr>
+</tbody>
+</table>
+<h2>Reference Index</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/workflow-patterns.md" target="_blank" rel="ugc nofollow noopener">workflow-patterns.md</a></td>
+<td>5 patterns with structural skeletons and examples</td>
+</tr>
+<tr>
+<td><a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/anti-patterns.md" target="_blank" rel="ugc nofollow noopener">anti-patterns.md</a></td>
+<td>20 anti-patterns with before/after fixes</td>
+</tr>
+<tr>
+<td><a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/tool-assignment-guide.md" target="_blank" rel="ugc nofollow noopener">tool-assignment-guide.md</a></td>
+<td>Tool selection matrix, component comparison, subagent guidance</td>
+</tr>
+<tr>
+<td><a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/references/progressive-disclosure-guide.md" target="_blank" rel="ugc nofollow noopener">progressive-disclosure-guide.md</a></td>
+<td>Content splitting rules, the 500-line rule, sizing guidelines</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/workflows/design-a-workflow-skill.md" target="_blank" rel="ugc nofollow noopener">design-a-workflow-skill.md</a></td>
+<td>6-phase creation process from scope to self-review</td>
+</tr>
+<tr>
+<td><a href="https://github.com/trailofbits/skills/blob/HEAD/plugins/workflow-skill-design/skills/designing-workflow-skills/workflows/review-checklist.md" target="_blank" rel="ugc nofollow noopener">review-checklist.md</a></td>
+<td>Structured self-review checklist for submission readiness</td>
+</tr>
+</tbody>
+</table>
+<h2>Success Criteria</h2>
+<p>A well-designed workflow skill:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Has When to Use AND When NOT to Use sections</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Uses a recognizable pattern (routing, pipeline, linear, safety gate, or task-driven)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Numbers all phases with entry and exit criteria</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Lists only the tools it actually uses (least privilege)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Keeps SKILL.md under 500 lines with details in references/workflows</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Has no hardcoded paths (uses <code>{baseDir}</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Has no broken file references</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Has no reference chains (all links one hop from SKILL.md)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Includes a verification step at the end of the workflow</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Has a description that triggers correctly (third-person, specific keywords)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Includes concrete examples for key instructions</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Explains WHY, not just WHAT, for essential principles</li>
+</ul></div>

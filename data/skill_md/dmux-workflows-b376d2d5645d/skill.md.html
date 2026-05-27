@@ -1,0 +1,168 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>dmux Workflows</h1>
+<p>Orchestrate parallel AI agent sessions using dmux, a tmux pane manager for agent harnesses.</p>
+<h2>When to Activate</h2>
+<ul>
+<li>Running multiple agent sessions in parallel</li>
+<li>Coordinating work across Claude Code, Codex, and other harnesses</li>
+<li>Complex tasks that benefit from divide-and-conquer parallelism</li>
+<li>User says "run in parallel", "split this work", "use dmux", or "multi-agent"</li>
+</ul>
+<h2>What is dmux</h2>
+<p>dmux is a tmux-based orchestration tool that manages AI agent panes:</p>
+<ul>
+<li>Press <code>n</code> to create a new pane with a prompt</li>
+<li>Press <code>m</code> to merge pane output back to the main session</li>
+<li>Supports: Claude Code, Codex, OpenCode, Cline, Gemini, Qwen</li>
+</ul>
+<p><strong>Install:</strong> Install dmux from its repository after reviewing the package. See <a href="https://github.com/standardagents/dmux" target="_blank" rel="ugc nofollow noopener">github.com/standardagents/dmux</a></p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>Quick Start</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Start dmux session</span>
+</span><span class="code-line">dmux
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create agent panes (press 'n' in dmux, then type prompt)</span>
+</span><span class="code-line"><span class="token comment"># Pane 1: "Implement the auth middleware in src/auth/"</span>
+</span><span class="code-line"><span class="token comment"># Pane 2: "Write tests for the user service"</span>
+</span><span class="code-line"><span class="token comment"># Pane 3: "Update API documentation"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Each pane runs its own agent session</span>
+</span><span class="code-line"><span class="token comment"># Press 'm' to merge results back</span>
+</span></code></pre>
+<h2>Workflow Patterns</h2>
+<h3>Pattern 1: Research + Implement</h3>
+<p>Split research and implementation into parallel tracks:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Pane 1 (Research): "Research best practices for rate limiting in Node.js.
+</span><span class="code-line">  Check current libraries, compare approaches, and write findings to
+</span><span class="code-line">  /tmp/rate-limit-research.md"
+</span><span class="code-line">
+</span><span class="code-line">Pane 2 (Implement): "Implement rate limiting middleware for our Express API.
+</span><span class="code-line">  Start with a basic token bucket, we'll refine after research completes."
+</span><span class="code-line">
+</span><span class="code-line"># After Pane 1 completes, merge findings into Pane 2's context
+</span></code></pre>
+<h3>Pattern 2: Multi-File Feature</h3>
+<p>Parallelize work across independent files:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Pane 1: "Create the database schema and migrations for the billing feature"
+</span><span class="code-line">Pane 2: "Build the billing API endpoints in src/api/billing/"
+</span><span class="code-line">Pane 3: "Create the billing dashboard UI components"
+</span><span class="code-line">
+</span><span class="code-line"># Merge all, then do integration in main pane
+</span></code></pre>
+<h3>Pattern 3: Test + Fix Loop</h3>
+<p>Run tests in one pane, fix in another:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Pane 1 (Watcher): "Run the test suite in watch mode. When tests fail,
+</span><span class="code-line">  summarize the failures."
+</span><span class="code-line">
+</span><span class="code-line">Pane 2 (Fixer): "Fix failing tests based on the error output from pane 1"
+</span></code></pre>
+<h3>Pattern 4: Cross-Harness</h3>
+<p>Use different AI tools for different tasks:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Pane 1 (Claude Code): "Review the security of the auth module"
+</span><span class="code-line">Pane 2 (Codex): "Refactor the utility functions for performance"
+</span><span class="code-line">Pane 3 (Claude Code): "Write E2E tests for the checkout flow"
+</span></code></pre>
+<h3>Pattern 5: Code Review Pipeline</h3>
+<p>Parallel review perspectives:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Pane 1: "Review src/api/ for security vulnerabilities"
+</span><span class="code-line">Pane 2: "Review src/api/ for performance issues"
+</span><span class="code-line">Pane 3: "Review src/api/ for test coverage gaps"
+</span><span class="code-line">
+</span><span class="code-line"># Merge all reviews into a single report
+</span></code></pre>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Independent tasks only.</strong> Don't parallelize tasks that depend on each other's output.</li>
+<li><strong>Clear boundaries.</strong> Each pane should work on distinct files or concerns.</li>
+<li><strong>Merge strategically.</strong> Review pane output before merging to avoid conflicts.</li>
+<li><strong>Use git worktrees.</strong> For file-conflict-prone work, use separate worktrees per pane.</li>
+<li><strong>Resource awareness.</strong> Each pane uses API tokens — keep total panes under 5-6.</li>
+</ol>
+<h2>Git Worktree Integration</h2>
+<p>For tasks that touch overlapping files:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create worktrees for isolation</span>
+</span><span class="code-line"><span class="token function">git</span> worktree <span class="token function">add</span> <span class="token parameter variable">-b</span> feat/auth <span class="token punctuation">..</span>/feature-auth HEAD
+</span><span class="code-line"><span class="token function">git</span> worktree <span class="token function">add</span> <span class="token parameter variable">-b</span> feat/billing <span class="token punctuation">..</span>/feature-billing HEAD
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Run agents in separate worktrees</span>
+</span><span class="code-line"><span class="token comment"># Pane 1: cd ../feature-auth &amp;&amp; claude</span>
+</span><span class="code-line"><span class="token comment"># Pane 2: cd ../feature-billing &amp;&amp; claude</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Merge branches when done</span>
+</span><span class="code-line"><span class="token function">git</span> merge feat/auth
+</span><span class="code-line"><span class="token function">git</span> merge feat/billing
+</span></code></pre>
+<h2>Complementary Tools</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>What It Does</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>dmux</strong></td>
+<td>tmux pane management for agents</td>
+<td>Parallel agent sessions</td>
+</tr>
+<tr>
+<td><strong>Superset</strong></td>
+<td>Terminal IDE for 10+ parallel agents</td>
+<td>Large-scale orchestration</td>
+</tr>
+<tr>
+<td><strong>Claude Code Task tool</strong></td>
+<td>In-process subagent spawning</td>
+<td>Programmatic parallelism within a session</td>
+</tr>
+<tr>
+<td><strong>Codex multi-agent</strong></td>
+<td>Built-in agent roles</td>
+<td>Codex-specific parallel work</td>
+</tr>
+</tbody>
+</table>
+<h2>ECC Helper</h2>
+<p>ECC now includes a helper for external tmux-pane orchestration with separate git worktrees:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">node</span> scripts/orchestrate-worktrees.js plan.json <span class="token parameter variable">--execute</span>
+</span></code></pre>
+<p>Example <code>plan.json</code>:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"sessionName"</span><span class="token operator">:</span> <span class="token string">"skill-audit"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"baseRef"</span><span class="token operator">:</span> <span class="token string">"HEAD"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"launcherCommand"</span><span class="token operator">:</span> <span class="token string">"codex exec --cwd {worktree_path} --task-file {task_file}"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"workers"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"docs-a"</span><span class="token punctuation">,</span> <span class="token property">"task"</span><span class="token operator">:</span> <span class="token string">"Fix skills 1-4 and write handoff notes."</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"docs-b"</span><span class="token punctuation">,</span> <span class="token property">"task"</span><span class="token operator">:</span> <span class="token string">"Fix skills 5-8 and write handoff notes."</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>The helper:</p>
+<ul>
+<li>Creates one branch-backed git worktree per worker</li>
+<li>Optionally overlays selected <code>seedPaths</code> from the main checkout into each worker worktree</li>
+<li>Writes per-worker <code>task.md</code>, <code>handoff.md</code>, and <code>status.md</code> files under <code>.orchestration/&lt;session&gt;/</code></li>
+<li>Starts a tmux session with one pane per worker</li>
+<li>Launches each worker command in its own pane</li>
+<li>Leaves the main pane free for the orchestrator</li>
+</ul>
+<p>Use <code>seedPaths</code> when workers need access to dirty or untracked local files that are not yet part of <code>HEAD</code>, such as local orchestration scripts, draft plans, or docs:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"sessionName"</span><span class="token operator">:</span> <span class="token string">"workflow-e2e"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"seedPaths"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"scripts/orchestrate-worktrees.js"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"scripts/lib/tmux-worktree-orchestrator.js"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">".claude/plan/workflow-e2e-test.json"</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"launcherCommand"</span><span class="token operator">:</span> <span class="token string">"bash {repo_root}/scripts/orchestrate-codex-worker.sh {task_file} {handoff_file} {status_file}"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"workers"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"seed-check"</span><span class="token punctuation">,</span> <span class="token property">"task"</span><span class="token operator">:</span> <span class="token string">"Verify seeded files are present before starting work."</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Troubleshooting</h2>
+<ul>
+<li><strong>Pane not responding:</strong> Switch to the pane directly or inspect it with <code>tmux capture-pane -pt &lt;session&gt;:0.&lt;pane-index&gt;</code>.</li>
+<li><strong>Merge conflicts:</strong> Use git worktrees to isolate file changes per pane.</li>
+<li><strong>High token usage:</strong> Reduce number of parallel panes. Each pane is a full agent session.</li>
+<li><strong>tmux not found:</strong> Install with <code>brew install tmux</code> (macOS) or <code>apt install tmux</code> (Linux).</li>
+</ul></div>

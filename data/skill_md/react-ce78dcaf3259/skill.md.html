@@ -1,0 +1,170 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>React Component Writing Guide</h1>
+<h2>Styling</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Most cases</td>
+<td><code>createStaticStyles</code> + <code>cssVar.*</code> (zero-runtime, module-level)</td>
+</tr>
+<tr>
+<td>Simple one-off</td>
+<td>Inline <code>style</code> attribute</td>
+</tr>
+<tr>
+<td>Truly dynamic (JS color fns like <code>readableColor</code>/<code>chroma</code>)</td>
+<td><code>createStyles</code> + <code>token</code> — <strong>last resort</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Component Priority</h2>
+<ol>
+<li><strong><code>src/components</code></strong> — project-specific reusable components</li>
+<li><strong><code>@lobehub/ui/base-ui</code></strong> — headless primitives (Select, Modal, DropdownMenu, Popover, Switch, ScrollArea…)</li>
+<li><strong><code>@lobehub/ui</code></strong> — higher-level components (ActionIcon, Markdown, DragPage…)</li>
+<li><strong>Custom implementation</strong> — last resort; never reach for antd directly</li>
+</ol>
+<p>If unsure about available components, search existing code or check <code>node_modules/@lobehub/ui/es/index.mjs</code>.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>Common @lobehub/ui Components</h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Components</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>General</td>
+<td>ActionIcon, ActionIconGroup, Block, Button, Icon</td>
+</tr>
+<tr>
+<td>Data Display</td>
+<td>Avatar, Collapse, Empty, Highlighter, Markdown, Tag, Tooltip</td>
+</tr>
+<tr>
+<td>Data Entry</td>
+<td>CodeEditor, CopyButton, EditableText, Form, FormModal, Input, SearchBar, Select</td>
+</tr>
+<tr>
+<td>Feedback</td>
+<td>Alert, Drawer, Modal</td>
+</tr>
+<tr>
+<td>Layout</td>
+<td>Center, DraggablePanel, Flexbox, Grid, Header, MaskShadow</td>
+</tr>
+<tr>
+<td>Navigation</td>
+<td>Burger, Dropdown, Menu, SideNav, Tabs</td>
+</tr>
+</tbody>
+</table>
+<h2>Layout</h2>
+<p>Use <code>Flexbox</code> and <code>Center</code> from <code>@lobehub/ui</code>. See <code>references/layout-kit.md</code> for full props and examples.</p>
+<ul>
+<li>Use <code>gap</code> instead of <code>margin</code> for spacing between flex children</li>
+<li>Use <code>flex={1}</code> to fill available space</li>
+<li>Nest Flexbox for complex layouts; set <code>overflow: 'auto'</code> for scrollable regions</li>
+</ul>
+<h2>Navigation</h2>
+<p><strong>For SPA pages, use <code>react-router-dom</code>, NOT <code>next/link</code>.</strong></p>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token comment">// ❌ Wrong</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token maybe-class-name">Link</span></span> <span class="token keyword">from</span> <span class="token string">'next/link'</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// ✅ Correct</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> <span class="token maybe-class-name">Link</span><span class="token punctuation">,</span> useNavigate <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'react-router-dom'</span><span class="token punctuation">;</span>
+</span></code></pre>
+<p>Access navigate from stores: <code>useGlobalStore.getState().navigate?.('/settings');</code></p>
+<h2>Desktop File Sync Rule</h2>
+<p>Files with a <code>.desktop.ts(x)</code> variant must be edited <strong>in sync</strong>. Drift causes blank pages in Electron.</p>
+<table>
+<thead>
+<tr>
+<th>Base file (web)</th>
+<th>Desktop file (Electron)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>desktopRouter.config.tsx</code></td>
+<td><code>desktopRouter.config.desktop.tsx</code></td>
+</tr>
+<tr>
+<td><code>componentMap.ts</code></td>
+<td><code>componentMap.desktop.ts</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>After editing any <code>.ts</code>/<code>.tsx</code>:</strong> glob for <code>&lt;filename&gt;.desktop.{ts,tsx}</code> in the same directory. If found, apply the equivalent sync-import change.</p>
+<h2>Routing Architecture</h2>
+<table>
+<thead>
+<tr>
+<th>Route Type</th>
+<th>Use Case</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Next.js App Router</td>
+<td>Auth pages</td>
+<td><code>src/app/[variants]/(auth)/</code></td>
+</tr>
+<tr>
+<td>React Router DOM</td>
+<td>Main SPA</td>
+<td><code>desktopRouter.config.tsx</code> + <code>.desktop.tsx</code> (pair)</td>
+</tr>
+</tbody>
+</table>
+<p>Router utilities:</p>
+<pre class="language-tsx"><code class="language-tsx code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token imports"><span class="token punctuation">{</span> dynamicElement<span class="token punctuation">,</span> redirectElement<span class="token punctuation">,</span> <span class="token maybe-class-name">ErrorBoundary</span> <span class="token punctuation">}</span></span> <span class="token keyword">from</span> <span class="token string">'@/utils/router'</span><span class="token punctuation">;</span>
+</span><span class="code-line">element<span class="token operator">:</span> <span class="token function">dynamicElement</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> <span class="token keyword">import</span><span class="token punctuation">(</span><span class="token string">'./chat'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'Desktop &gt; Chat'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">element<span class="token operator">:</span> <span class="token function">redirectElement</span><span class="token punctuation">(</span><span class="token string">'/settings/profile'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">errorElement<span class="token operator">:</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ErrorBoundary</span></span> <span class="token punctuation">/&gt;</span></span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Common Mistakes</h2>
+<table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Using <code>next/link</code> in SPA</td>
+<td>Use <code>react-router-dom</code> <code>Link</code></td>
+</tr>
+<tr>
+<td>Using antd directly</td>
+<td>Use <code>@lobehub/ui/base-ui</code> first, then <code>@lobehub/ui</code></td>
+</tr>
+<tr>
+<td><code>createStyles</code> for static styles</td>
+<td>Use <code>createStaticStyles</code> + <code>cssVar</code></td>
+</tr>
+<tr>
+<td>Editing only <code>desktopRouter.config.tsx</code></td>
+<td>Must edit both <code>.tsx</code> and <code>.desktop.tsx</code></td>
+</tr>
+<tr>
+<td>Using <code>margin</code> for flex spacing</td>
+<td>Use <code>gap</code> prop on Flexbox</td>
+</tr>
+<tr>
+<td>Accessing zustand store without selector</td>
+<td>Use selectors to access store data (see zustand skill)</td>
+</tr>
+<tr>
+<td>Text or icon-text actions built with <code>Flexbox</code>/<code>Text</code> + <code>onClick</code></td>
+<td>Use <code>Button type={'text'} size={'small'}</code> with <code>icon</code> when needed</td>
+</tr>
+</tbody>
+</table></div>

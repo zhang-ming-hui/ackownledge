@@ -1,0 +1,274 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>ADK Observability Guide</h1>
+<blockquote>
+<p><strong>Scaffolded project?</strong> Cloud Trace and prompt-response logging are pre-configured by Terraform. See <code>references/cloud-trace-and-logging.md</code> for infrastructure details, env vars, and verification commands.</p>
+<p><strong>No scaffold?</strong> Follow the ADK docs links below for manual setup. For production infrastructure, scaffold with <code>/adk-scaffold</code>.</p>
+</blockquote>
+<h3>Reference Files</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>references/cloud-trace-and-logging.md</code></td>
+<td>Scaffolded project details — Terraform-provisioned resources, environment variables, verification commands, enabling/disabling locally</td>
+</tr>
+<tr>
+<td><code>references/bigquery-agent-analytics.md</code></td>
+<td>BQ Agent Analytics plugin — enabling, key features, GCS offloading, tool provenance</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Observability Tiers</h2>
+<p>Choose the right level of observability based on your needs:</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>What It Does</th>
+<th>Scope</th>
+<th>Default State</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cloud Trace</strong></td>
+<td>Distributed tracing — execution flow, latency, errors via OpenTelemetry spans</td>
+<td>All templates, all environments</td>
+<td>Always enabled</td>
+<td>Debugging latency, understanding agent execution flow</td>
+</tr>
+<tr>
+<td><strong>Prompt-Response Logging</strong></td>
+<td>GenAI interactions exported to GCS, BigQuery, and Cloud Logging</td>
+<td>ADK agents only</td>
+<td>Disabled locally, enabled when deployed</td>
+<td>Auditing LLM interactions, compliance</td>
+</tr>
+<tr>
+<td><strong>BigQuery Agent Analytics</strong></td>
+<td>Structured agent events (LLM calls, tool use, outcomes) to BigQuery</td>
+<td>ADK agents with plugin enabled</td>
+<td>Opt-in (<code>--bq-analytics</code> at scaffold time)</td>
+<td>Conversational analytics, custom dashboards, LLM-as-judge evals</td>
+</tr>
+<tr>
+<td><strong>Third-Party Integrations</strong></td>
+<td>External observability platforms (AgentOps, Phoenix, MLflow, etc.)</td>
+<td>Any ADK agent</td>
+<td>Opt-in, per-provider setup</td>
+<td>Team collaboration, specialized visualization, prompt management</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ask the user</strong> which tier(s) they need — they can be combined. Cloud Trace is always on; the others are additive.</p>
+<hr>
+<h2>Cloud Trace</h2>
+<p>ADK uses OpenTelemetry to emit distributed traces. Every agent invocation produces spans that track the full execution flow.</p>
+<h3>Span Hierarchy</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">invocation
+</span><span class="code-line">  └── agent_run (one per agent in the chain)
+</span><span class="code-line">        ├── call_llm (model request/response)
+</span><span class="code-line">        └── execute_tool (tool execution)
+</span></code></pre>
+<h3>Setup by Deployment Type</h3>
+<table>
+<thead>
+<tr>
+<th>Deployment</th>
+<th>Setup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Agent Engine</strong></td>
+<td>Automatic — traces are exported to Cloud Trace by default</td>
+</tr>
+<tr>
+<td><strong>Cloud Run (scaffolded)</strong></td>
+<td>Automatic — <code>otel_to_cloud=True</code> in the FastAPI app</td>
+</tr>
+<tr>
+<td><strong>GKE (scaffolded)</strong></td>
+<td>Automatic — <code>otel_to_cloud=True</code> in the FastAPI app</td>
+</tr>
+<tr>
+<td><strong>Cloud Run / GKE (manual)</strong></td>
+<td>Configure OpenTelemetry exporter in your app</td>
+</tr>
+<tr>
+<td><strong>Local dev</strong></td>
+<td>Works with <code>make playground</code>; traces visible in Cloud Console</td>
+</tr>
+</tbody>
+</table>
+<p>View traces: <strong>Cloud Console → Trace → Trace explorer</strong></p>
+<p>For detailed setup instructions (Agent Engine CLI/SDK, Cloud Run, custom deployments), fetch <code>https://adk.dev/integrations/cloud-trace/index.md</code>.</p>
+<hr>
+<h2>Prompt-Response Logging</h2>
+<p>Captures GenAI interactions (model name, tokens, timing) and exports to GCS (JSONL), BigQuery (external tables), and Cloud Logging (dedicated bucket). Privacy-preserving by default — only metadata is logged unless explicitly configured otherwise.</p>
+<p>Key env var: <code>OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT</code> — set to <code>NO_CONTENT</code> (metadata only, default in deployed envs), <code>true</code> (full content), or <code>false</code> (disabled). Logging is disabled locally unless <code>LOGS_BUCKET_NAME</code> is set.</p>
+<p>For scaffolded project details (Terraform resources, env vars, privacy modes, enabling/disabling, verification commands), see <code>references/cloud-trace-and-logging.md</code>.</p>
+<p>For ADK logging docs (log levels, configuration, debugging), fetch <code>https://adk.dev/observability/logging/index.md</code>.</p>
+<hr>
+<h2>BigQuery Agent Analytics Plugin</h2>
+<p>Optional plugin that logs structured agent events to BigQuery. Enable with <code>--bq-analytics</code> at scaffold time. See <code>references/bigquery-agent-analytics.md</code> for details.</p>
+<hr>
+<h2>Third-Party Integrations</h2>
+<p>ADK supports several third-party observability platforms. Each uses OpenTelemetry or custom instrumentation to capture agent behavior.</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Key Differentiator</th>
+<th>Setup Complexity</th>
+<th>Self-Hosted Option</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AgentOps</strong></td>
+<td>Session replays, 2-line setup, replaces native telemetry</td>
+<td>Minimal</td>
+<td>No (SaaS)</td>
+</tr>
+<tr>
+<td><strong>Arize AX</strong></td>
+<td>Commercial platform, production monitoring, evaluation dashboards</td>
+<td>Low</td>
+<td>No (SaaS)</td>
+</tr>
+<tr>
+<td><strong>Phoenix</strong></td>
+<td>Open-source, custom evaluators, experiment testing</td>
+<td>Low</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>MLflow</strong></td>
+<td>OTel traces to MLflow Tracking Server, span tree visualization</td>
+<td>Medium (needs SQL backend)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Monocle</strong></td>
+<td>1-call setup, VS Code Gantt chart visualizer</td>
+<td>Minimal</td>
+<td>Yes (local files)</td>
+</tr>
+<tr>
+<td><strong>Weave</strong></td>
+<td>W&amp;B platform, team collaboration, timeline views</td>
+<td>Low</td>
+<td>No (SaaS)</td>
+</tr>
+<tr>
+<td><strong>Freeplay</strong></td>
+<td>Prompt management + evals + observability in one platform</td>
+<td>Low</td>
+<td>No (SaaS)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ask the user</strong> which platform they prefer — present the trade-offs and let them choose. For setup details, fetch the relevant ADK docs page from the Deep Dive table below.</p>
+<hr>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No traces in Cloud Trace</td>
+<td>Verify <code>otel_to_cloud=True</code> in FastAPI app; check service account has <code>cloudtrace.agent</code> role</td>
+</tr>
+<tr>
+<td>Prompt-response data not appearing</td>
+<td>Check <code>LOGS_BUCKET_NAME</code> is set; verify SA has <code>storage.objectCreator</code> on the bucket; check app logs for telemetry setup warnings</td>
+</tr>
+<tr>
+<td>Privacy mode misconfigured</td>
+<td>Check <code>OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT</code> value — use <code>NO_CONTENT</code> for metadata-only, <code>false</code> to disable</td>
+</tr>
+<tr>
+<td>BigQuery Analytics not logging</td>
+<td>Verify plugin is configured in <code>app/agent.py</code>; check <code>BQ_ANALYTICS_DATASET_ID</code> env var is set</td>
+</tr>
+<tr>
+<td>Third-party integration not capturing spans</td>
+<td>Check provider-specific env vars (API keys, endpoints); some providers (AgentOps) replace native telemetry</td>
+</tr>
+<tr>
+<td>Traces missing tool spans</td>
+<td>Tool execution spans appear under <code>execute_tool</code> — check trace explorer filters</td>
+</tr>
+<tr>
+<td>High telemetry costs</td>
+<td>Switch to <code>NO_CONTENT</code> mode; reduce BigQuery retention; disable unused tiers</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Deep Dive: ADK Docs (WebFetch URLs)</h2>
+<p>For detailed documentation beyond what this skill covers, fetch these pages:</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Observability overview</td>
+<td><code>https://adk.dev/observability/index.md</code></td>
+</tr>
+<tr>
+<td>Agent activity logging</td>
+<td><code>https://adk.dev/observability/logging/index.md</code></td>
+</tr>
+<tr>
+<td>Cloud Trace integration</td>
+<td><code>https://adk.dev/integrations/cloud-trace/index.md</code></td>
+</tr>
+<tr>
+<td>BigQuery Agent Analytics</td>
+<td><code>https://adk.dev/integrations/bigquery-agent-analytics/index.md</code></td>
+</tr>
+<tr>
+<td>AgentOps</td>
+<td><code>https://adk.dev/integrations/agentops/index.md</code></td>
+</tr>
+<tr>
+<td>Arize AX</td>
+<td><code>https://adk.dev/integrations/arize-ax/index.md</code></td>
+</tr>
+<tr>
+<td>Phoenix (Arize)</td>
+<td><code>https://adk.dev/integrations/phoenix/index.md</code></td>
+</tr>
+<tr>
+<td>MLflow tracing</td>
+<td><code>https://adk.dev/integrations/mlflow/index.md</code></td>
+</tr>
+<tr>
+<td>Monocle</td>
+<td><code>https://adk.dev/integrations/monocle/index.md</code></td>
+</tr>
+<tr>
+<td>W&amp;B Weave</td>
+<td><code>https://adk.dev/integrations/weave/index.md</code></td>
+</tr>
+<tr>
+<td>Freeplay</td>
+<td><code>https://adk.dev/integrations/freeplay/index.md</code></td>
+</tr>
+</tbody>
+</table></div>

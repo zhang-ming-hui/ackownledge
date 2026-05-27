@@ -1,0 +1,265 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Spring Boot Testing Patterns</h1>
+<h2>Overview</h2>
+<p>Comprehensive guidance for writing robust test suites for Spring Boot applications using JUnit 5, Mockito, Testcontainers, and performance-optimized slice testing patterns.</p>
+<h2>When to Use</h2>
+<ul>
+<li>Writing unit tests for services or repositories with mocked dependencies</li>
+<li>Implementing integration tests with real databases via Testcontainers</li>
+<li>Testing REST APIs with <code>@WebMvcTest</code> or MockMvc</li>
+<li>Configuring <code>@ServiceConnection</code> for container management in Spring Boot 3.5+</li>
+</ul>
+<h2>Quick Reference</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Test Type</th>
+<th>Annotation</th>
+<th>Target Time</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit Tests</strong></td>
+<td><code>@ExtendWith(MockitoExtension.class)</code></td>
+<td>&lt; 50ms</td>
+<td>Business logic without Spring context</td>
+</tr>
+<tr>
+<td><strong>Repository Tests</strong></td>
+<td><code>@DataJpaTest</code></td>
+<td>&lt; 100ms</td>
+<td>Database operations with minimal context</td>
+</tr>
+<tr>
+<td><strong>Controller Tests</strong></td>
+<td><code>@WebMvcTest</code> / <code>@WebFluxTest</code></td>
+<td>&lt; 100ms</td>
+<td>REST API layer testing</td>
+</tr>
+<tr>
+<td><strong>Integration Tests</strong></td>
+<td><code>@SpringBootTest</code></td>
+<td>&lt; 500ms</td>
+<td>Full application context with containers</td>
+</tr>
+<tr>
+<td><strong>Testcontainers</strong></td>
+<td><code>@ServiceConnection</code> / <code>@Testcontainers</code></td>
+<td>Varies</td>
+<td>Real database/message broker containers</td>
+</tr>
+</tbody>
+</table>
+<h2>Core Concepts</h2>
+<h3>Test Architecture Philosophy</h3>
+<ol>
+<li><strong>Unit Tests</strong> — Fast, isolated tests without Spring context (&lt; 50ms)</li>
+<li><strong>Slice Tests</strong> — Minimal Spring context for specific layers (&lt; 100ms)</li>
+<li><strong>Integration Tests</strong> — Full Spring context with real dependencies (&lt; 500ms)</li>
+</ol>
+<h3>Key Annotations</h3>
+<p><strong>Spring Boot Test:</strong></p>
+<ul>
+<li><code>@SpringBootTest</code> — Full application context (use sparingly)</li>
+<li><code>@DataJpaTest</code> — JPA components only (repositories, entities)</li>
+<li><code>@WebMvcTest</code> — MVC layer only (controllers, <code>@ControllerAdvice</code>)</li>
+<li><code>@WebFluxTest</code> — WebFlux layer only (reactive controllers)</li>
+<li><code>@JsonTest</code> — JSON serialization components only</li>
+</ul>
+<p><strong>Testcontainers:</strong></p>
+<ul>
+<li><code>@ServiceConnection</code> — Wire Testcontainer to Spring Boot (3.5+)</li>
+<li><code>@DynamicPropertySource</code> — Register dynamic properties at runtime</li>
+<li><code>@Testcontainers</code> — Enable Testcontainers lifecycle management</li>
+</ul>
+<h2>Instructions</h2>
+<h3>1. Unit Testing Pattern</h3>
+<p>Test business logic with mocked dependencies:</p>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token annotation punctuation">@ExtendWith</span><span class="token punctuation">(</span><span class="token class-name">MockitoExtension</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserServiceTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token annotation punctuation">@Mock</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">UserRepository</span> userRepository<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@InjectMocks</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">UserService</span> userService<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">    <span class="token keyword">void</span> <span class="token function">shouldFindUserByIdWhenExists</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">when</span><span class="token punctuation">(</span>userRepository<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token number">1L</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">thenReturn</span><span class="token punctuation">(</span><span class="token class-name">Optional</span><span class="token punctuation">.</span><span class="token function">of</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token class-name">Optional</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">User</span><span class="token punctuation">&gt;</span></span> result <span class="token operator">=</span> userService<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token number">1L</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">assertThat</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isPresent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">verify</span><span class="token punctuation">(</span>userRepository<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span><span class="token number">1L</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>See <a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/unit-testing.md" target="_blank" rel="ugc nofollow noopener">unit-testing.md</a> for advanced patterns.</p>
+<h3>2. Slice Testing Pattern</h3>
+<p>Use focused test slices for specific layers:</p>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token annotation punctuation">@DataJpaTest</span>
+</span><span class="code-line"><span class="token annotation punctuation">@AutoConfigureTestDatabase</span><span class="token punctuation">(</span>replace <span class="token operator">=</span> <span class="token class-name">AutoConfigureTestDatabase<span class="token punctuation">.</span>Replace</span><span class="token punctuation">.</span><span class="token constant">NONE</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token annotation punctuation">@TestContainerConfig</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserRepositoryIntegrationTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token annotation punctuation">@Autowired</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">UserRepository</span> userRepository<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">    <span class="token keyword">void</span> <span class="token function">shouldSaveAndRetrieveUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">User</span> saved <span class="token operator">=</span> userRepository<span class="token punctuation">.</span><span class="token function">save</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">assertThat</span><span class="token punctuation">(</span>userRepository<span class="token punctuation">.</span><span class="token function">findByEmail</span><span class="token punctuation">(</span><span class="token string">"test@example.com"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isPresent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>See <a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/slice-testing.md" target="_blank" rel="ugc nofollow noopener">slice-testing.md</a> for all slice patterns.</p>
+<h3>3. REST API Testing Pattern</h3>
+<p>Test controllers with MockMvc:</p>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token annotation punctuation">@WebMvcTest</span><span class="token punctuation">(</span><span class="token class-name">UserController</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserControllerTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token annotation punctuation">@Autowired</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">MockMvc</span> mockMvc<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@MockBean</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">UserService</span> userService<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">    <span class="token keyword">void</span> <span class="token function">shouldGetUserById</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> <span class="token class-name">Exception</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        mockMvc<span class="token punctuation">.</span><span class="token function">perform</span><span class="token punctuation">(</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"/api/users/1"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">andExpect</span><span class="token punctuation">(</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isOk</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">andExpect</span><span class="token punctuation">(</span><span class="token function">jsonPath</span><span class="token punctuation">(</span><span class="token string">"$.email"</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token string">"test@example.com"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>4. Testcontainers with <code>@ServiceConnection</code></h3>
+<p>Configure containers with Spring Boot 3.5+:</p>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token annotation punctuation">@TestConfiguration</span>
+</span><span class="code-line"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">TestContainerConfig</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token annotation punctuation">@Bean</span>
+</span><span class="code-line">    <span class="token annotation punctuation">@ServiceConnection</span>
+</span><span class="code-line">    <span class="token keyword">public</span> <span class="token class-name">PostgreSQLContainer</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token operator">?</span><span class="token punctuation">&gt;</span></span> <span class="token function">postgresContainer</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">PostgreSQLContainer</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token string">"postgres:16-alpine"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Apply with <code>@Import(TestContainerConfig.class)</code> on test classes.
+See <a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/testcontainers-setup.md" target="_blank" rel="ugc nofollow noopener">testcontainers-setup.md</a> for detailed configuration.</p>
+<h3>5. Add Dependencies</h3>
+<p>Include required testing dependencies:</p>
+<pre class="language-xml"><code class="language-xml code-highlight"><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>org.springframework.boot<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>spring-boot-starter-test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>scope</span><span class="token punctuation">&gt;</span></span>test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>scope</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>org.testcontainers<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>junit-jupiter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">&gt;</span></span>1.19.0<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>scope</span><span class="token punctuation">&gt;</span></span>test<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>scope</span><span class="token punctuation">&gt;</span></span>
+</span><span class="code-line"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</span></code></pre>
+<p>See <a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/test-dependencies.md" target="_blank" rel="ugc nofollow noopener">test-dependencies.md</a> for complete dependency list.</p>
+<h3>6. Configure CI/CD</h3>
+<p>Set up GitHub Actions for automated testing:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">name</span><span class="token punctuation">:</span> Tests
+</span><span class="code-line"><span class="token key atrule">on</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>push<span class="token punctuation">,</span> pull_request<span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token key atrule">jobs</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">test</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">runs-on</span><span class="token punctuation">:</span> ubuntu<span class="token punctuation">-</span>latest
+</span><span class="code-line">    <span class="token key atrule">services</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">docker</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">image</span><span class="token punctuation">:</span> docker<span class="token punctuation">:</span>20<span class="token punctuation">-</span>dind
+</span><span class="code-line">    <span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/checkout@v4
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> Set up JDK 17
+</span><span class="code-line">      <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/setup<span class="token punctuation">-</span>java@v4
+</span><span class="code-line">      <span class="token key atrule">with</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">distribution</span><span class="token punctuation">:</span> <span class="token string">'temurin'</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> Run tests
+</span><span class="code-line">      <span class="token key atrule">run</span><span class="token punctuation">:</span> ./mvnw test
+</span></code></pre>
+<p>See <a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/ci-cd-configuration.md" target="_blank" rel="ugc nofollow noopener">ci-cd-configuration.md</a> for full CI/CD patterns.</p>
+<h3>Validation Checkpoints</h3>
+<p>After implementing tests, verify:</p>
+<ul>
+<li>Container running: <code>docker ps</code> (look for testcontainer images)</li>
+<li>Context loaded: check startup logs for "Started Application in X.XX seconds"</li>
+<li>Test isolation: run tests individually and confirm no cross-contamination</li>
+</ul>
+<h2>Examples</h2>
+<h3>Full Integration Test with <code>@ServiceConnection</code></h3>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token annotation punctuation">@SpringBootTest</span>
+</span><span class="code-line"><span class="token annotation punctuation">@Import</span><span class="token punctuation">(</span><span class="token class-name">TestContainerConfig</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">OrderServiceIntegrationTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Autowired</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">OrderService</span> orderService<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Autowired</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">UserRepository</span> userRepository<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">    <span class="token keyword">void</span> <span class="token function">shouldCreateOrderForExistingUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token class-name">User</span> user <span class="token operator">=</span> userRepository<span class="token punctuation">.</span><span class="token function">save</span><span class="token punctuation">(</span><span class="token class-name">User</span><span class="token punctuation">.</span><span class="token function">builder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">email</span><span class="token punctuation">(</span><span class="token string">"order-test@example.com"</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token class-name">Order</span> order <span class="token operator">=</span> orderService<span class="token punctuation">.</span><span class="token function">createOrder</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span><span class="token function">getId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token class-name">List</span><span class="token punctuation">.</span><span class="token function">of</span><span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token keyword">new</span> <span class="token class-name">OrderItem</span><span class="token punctuation">(</span><span class="token string">"SKU-001"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token function">assertThat</span><span class="token punctuation">(</span>order<span class="token punctuation">.</span><span class="token function">getId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isNotNull</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">assertThat</span><span class="token punctuation">(</span>order<span class="token punctuation">.</span><span class="token function">getStatus</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">isEqualTo</span><span class="token punctuation">(</span><span class="token class-name">OrderStatus</span><span class="token punctuation">.</span><span class="token constant">PENDING</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3><code>@DataJpaTest</code> with Real Database</h3>
+<pre class="language-java"><code class="language-java code-highlight"><span class="code-line"><span class="token annotation punctuation">@DataJpaTest</span>
+</span><span class="code-line"><span class="token annotation punctuation">@AutoConfigureTestDatabase</span><span class="token punctuation">(</span>replace <span class="token operator">=</span> <span class="token class-name">AutoConfigureTestDatabase<span class="token punctuation">.</span>Replace</span><span class="token punctuation">.</span><span class="token constant">NONE</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token annotation punctuation">@TestContainerConfig</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserRepositoryTest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Autowired</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token class-name">UserRepository</span> userRepository<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token annotation punctuation">@Test</span>
+</span><span class="code-line">    <span class="token keyword">void</span> <span class="token function">shouldFindByEmail</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        userRepository<span class="token punctuation">.</span><span class="token function">save</span><span class="token punctuation">(</span><span class="token class-name">User</span><span class="token punctuation">.</span><span class="token function">builder</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">email</span><span class="token punctuation">(</span><span class="token string">"jpa-test@example.com"</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token function">assertThat</span><span class="token punctuation">(</span>userRepository<span class="token punctuation">.</span><span class="token function">findByEmail</span><span class="token punctuation">(</span><span class="token string">"jpa-test@example.com"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">            <span class="token punctuation">.</span><span class="token function">isPresent</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>See <a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/workflow-patterns.md" target="_blank" rel="ugc nofollow noopener">workflow-patterns.md</a> for complete end-to-end examples.</p>
+<h2>Best Practices</h2>
+<ul>
+<li><strong>Use the right test type</strong>: <code>@DataJpaTest</code> for repositories, <code>@WebMvcTest</code> for controllers, <code>@SpringBootTest</code> only for full integration</li>
+<li><strong>Prefer <code>@ServiceConnection</code></strong> on Spring Boot 3.5+ for cleaner container management over <code>@DynamicPropertySource</code></li>
+<li><strong>Keep tests deterministic</strong>: Initialize all test data explicitly in <code>@BeforeEach</code></li>
+<li><strong>Organize by layer</strong>: Group tests by layer to maximize context caching</li>
+<li><strong>Reuse Testcontainers</strong> at JVM level (<code>withReuse(true)</code> + <code>TESTCONTAINERS_REUSE_ENABLE=true</code>)</li>
+<li><strong>Avoid <code>@DirtiesContext</code></strong>: Forces context rebuild, significantly hurts performance</li>
+<li><strong>Mock external services</strong>, use real databases only when necessary</li>
+<li><strong>Performance targets</strong>: Unit &lt; 50ms, Slice &lt; 100ms, Integration &lt; 500ms</li>
+</ul>
+<h2>Constraints and Warnings</h2>
+<ul>
+<li>Never use <code>@DirtiesContext</code> unless absolutely necessary (forces context rebuild)</li>
+<li>Avoid mixing <code>@MockBean</code> with different configurations (creates separate contexts)</li>
+<li>Testcontainers require Docker; ensure CI/CD pipelines have Docker support</li>
+<li>Do not rely on test execution order; each test must be independent</li>
+<li>Be cautious with <code>@TestPropertySource</code> (creates separate contexts)</li>
+<li>Do not use <code>@SpringBootTest</code> for unit tests; use plain Mockito instead</li>
+<li>Context caching can be invalidated by different <code>@MockBean</code> configurations</li>
+<li>Avoid static mutable state in tests (causes flaky tests)</li>
+</ul>
+<h2>References</h2>
+<ul>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/test-dependencies.md" target="_blank" rel="ugc nofollow noopener">test-dependencies.md</a></strong> — Maven/Gradle test dependencies</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/unit-testing.md" target="_blank" rel="ugc nofollow noopener">unit-testing.md</a></strong> — Unit testing with Mockito patterns</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/slice-testing.md" target="_blank" rel="ugc nofollow noopener">slice-testing.md</a></strong> — Repository, controller, and JSON slice tests</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/testcontainers-setup.md" target="_blank" rel="ugc nofollow noopener">testcontainers-setup.md</a></strong> — Testcontainers configuration patterns</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/ci-cd-configuration.md" target="_blank" rel="ugc nofollow noopener">ci-cd-configuration.md</a></strong> — GitHub Actions, GitLab CI, Docker Compose</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/api-reference.md" target="_blank" rel="ugc nofollow noopener">api-reference.md</a></strong> — Complete test annotations and utilities</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/best-practices.md" target="_blank" rel="ugc nofollow noopener">best-practices.md</a></strong> — Testing patterns and optimization</li>
+<li><strong><a href="https://github.com/giuseppe-trisciuoglio/developer-kit/blob/HEAD/plugins/developer-kit-java/skills/spring-boot-test-patterns/references/workflow-patterns.md" target="_blank" rel="ugc nofollow noopener">workflow-patterns.md</a></strong> — Complete integration test examples</li>
+</ul></div>

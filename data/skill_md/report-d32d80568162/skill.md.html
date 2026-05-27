@@ -1,0 +1,117 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Smart Test Reporting</h1>
+<p>Generate test reports that plug into the user's existing workflow. Zero new tools.</p>
+<h2>Steps</h2>
+<h3>1. Run Tests (If Not Already Run)</h3>
+<p>Check if recent test results exist:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">ls</span> <span class="token parameter variable">-la</span> test-results/ playwright-report/ <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span>/dev/null
+</span></code></pre>
+<p>If no recent results, run tests:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> <span class="token parameter variable">--reporter</span><span class="token operator">=</span>json,html,list <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">|</span> <span class="token function">tee</span> test-output.log
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>2. Parse Results</h3>
+<p>Read the JSON report:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright <span class="token builtin class-name">test</span> <span class="token parameter variable">--reporter</span><span class="token operator">=</span>json <span class="token operator"><span class="token file-descriptor important">2</span>&gt;</span> /dev/null
+</span></code></pre>
+<p>Extract:</p>
+<ul>
+<li>Total tests, passed, failed, skipped, flaky</li>
+<li>Duration per test and total</li>
+<li>Failed test names with error messages</li>
+<li>Flaky tests (passed on retry)</li>
+</ul>
+<h3>3. Detect Report Destination</h3>
+<p>Check what's configured and route automatically:</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>If found</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TESTRAIL_URL</code> env var</td>
+<td>TestRail configured</td>
+<td>Push results via <code>/pw:testrail push</code></td>
+</tr>
+<tr>
+<td><code>SLACK_WEBHOOK_URL</code> env var</td>
+<td>Slack configured</td>
+<td>Post summary to Slack</td>
+</tr>
+<tr>
+<td><code>.github/workflows/</code></td>
+<td>GitHub Actions</td>
+<td>Results go to PR comment via artifacts</td>
+</tr>
+<tr>
+<td><code>playwright-report/</code></td>
+<td>HTML reporter</td>
+<td>Open or serve the report</td>
+</tr>
+<tr>
+<td>None of the above</td>
+<td>Default</td>
+<td>Generate markdown report</td>
+</tr>
+</tbody>
+</table>
+<h3>4. Generate Report</h3>
+<h4>Markdown Report (Always Generated)</h4>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Test Results — {{date}}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Summary</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> ✅ Passed: {{passed}}
+</span><span class="code-line"><span class="token list punctuation">-</span> ❌ Failed: {{failed}}
+</span><span class="code-line"><span class="token list punctuation">-</span> ⏭️ Skipped: {{skipped}}
+</span><span class="code-line"><span class="token list punctuation">-</span> 🔄 Flaky: {{flaky}}
+</span><span class="code-line"><span class="token list punctuation">-</span> ⏱️ Duration: {{duration}}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Failed Tests</span>
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Test </span><span class="token punctuation">|</span><span class="token table-header important"> Error </span><span class="token punctuation">|</span><span class="token table-header important"> File </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> {{name}} </span><span class="token punctuation">|</span><span class="token table-data"> {{error}} </span><span class="token punctuation">|</span><span class="token table-data"> {{file}}:{{line}} </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Flaky Tests</span>
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Test </span><span class="token punctuation">|</span><span class="token table-header important"> Retries </span><span class="token punctuation">|</span><span class="token table-header important"> File </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> {{name}} </span><span class="token punctuation">|</span><span class="token table-data"> {{retries}} </span><span class="token punctuation">|</span><span class="token table-data"> {{file}} </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> By Project</span>
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Browser </span><span class="token punctuation">|</span><span class="token table-header important"> Passed </span><span class="token punctuation">|</span><span class="token table-header important"> Failed </span><span class="token punctuation">|</span><span class="token table-header important"> Duration </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Chromium </span><span class="token punctuation">|</span><span class="token table-data"> X </span><span class="token punctuation">|</span><span class="token table-data"> Y </span><span class="token punctuation">|</span><span class="token table-data"> Zs </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Firefox </span><span class="token punctuation">|</span><span class="token table-data"> X </span><span class="token punctuation">|</span><span class="token table-data"> Y </span><span class="token punctuation">|</span><span class="token table-data"> Zs </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> WebKit </span><span class="token punctuation">|</span><span class="token table-data"> X </span><span class="token punctuation">|</span><span class="token table-data"> Y </span><span class="token punctuation">|</span><span class="token table-data"> Zs </span><span class="token punctuation">|</span>
+</span></span></span></code></pre>
+<p>Save to <code>test-reports/{{date}}-report.md</code>.</p>
+<h4>Slack Summary (If Webhook Configured)</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> POST <span class="token string">"<span class="token variable">$SLACK_WEBHOOK_URL</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-d</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "text": "🧪 Test Results: ✅ {{passed}} | ❌ {{failed}} | ⏱️ {{duration}}\n{{failed_details}}"
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<h4>TestRail Push (If Configured)</h4>
+<p>Invoke <code>/pw:testrail push</code> with the JSON results.</p>
+<h4>HTML Report</h4>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">npx playwright show-report
+</span></code></pre>
+<p>Or if in CI:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">"HTML report available at: playwright-report/index.html"</span>
+</span></code></pre>
+<h3>5. Trend Analysis (If Historical Data Exists)</h3>
+<p>If previous reports exist in <code>test-reports/</code>:</p>
+<ul>
+<li>Compare pass rate over time</li>
+<li>Identify tests that became flaky recently</li>
+<li>Highlight new failures vs. recurring failures</li>
+</ul>
+<h2>Output</h2>
+<ul>
+<li>Summary with pass/fail/skip/flaky counts</li>
+<li>Failed test details with error messages</li>
+<li>Report destination confirmation</li>
+<li>Trend comparison (if historical data available)</li>
+<li>Next action recommendation (fix failures or celebrate green)</li>
+</ul></div>

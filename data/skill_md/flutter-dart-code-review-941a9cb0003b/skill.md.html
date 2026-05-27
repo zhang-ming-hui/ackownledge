@@ -1,0 +1,507 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Flutter/Dart Code Review Best Practices</h1>
+<p>Comprehensive, library-agnostic checklist for reviewing Flutter/Dart applications. These principles apply regardless of which state management solution, routing library, or DI framework is used.</p>
+<hr>
+<h2>1. General Project Health</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Project follows consistent folder structure (feature-first or layer-first)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Proper separation of concerns: UI, business logic, data layers</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No business logic in widgets; widgets are purely presentational</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>pubspec.yaml</code> is clean — no unused dependencies, versions pinned appropriately</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>analysis_options.yaml</code> includes a strict lint set with strict analyzer settings enabled</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No <code>print()</code> statements in production code — use <code>dart:developer</code> <code>log()</code> or a logging package</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Generated files (<code>.g.dart</code>, <code>.freezed.dart</code>, <code>.gr.dart</code>) are up-to-date or in <code>.gitignore</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Platform-specific code isolated behind abstractions</li>
+</ul>
+<hr></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>2. Dart Language Pitfalls</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Implicit dynamic</strong>: Missing type annotations leading to <code>dynamic</code> — enable <code>strict-casts</code>, <code>strict-inference</code>, <code>strict-raw-types</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Null safety misuse</strong>: Excessive <code>!</code> (bang operator) instead of proper null checks or Dart 3 pattern matching (<code>if (value case var v?)</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Type promotion failures</strong>: Using <code>this.field</code> where local variable promotion would work</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Catching too broadly</strong>: <code>catch (e)</code> without <code>on</code> clause; always specify exception types</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Catching <code>Error</code></strong>: <code>Error</code> subtypes indicate bugs and should not be caught</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Unused <code>async</code></strong>: Functions marked <code>async</code> that never <code>await</code> — unnecessary overhead</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong><code>late</code> overuse</strong>: <code>late</code> used where nullable or constructor initialization would be safer; defers errors to runtime</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>String concatenation in loops</strong>: Use <code>StringBuffer</code> instead of <code>+</code> for iterative string building</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Mutable state in <code>const</code> contexts</strong>: Fields in <code>const</code> constructor classes should not be mutable</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Ignoring <code>Future</code> return values</strong>: Use <code>await</code> or explicitly call <code>unawaited()</code> to signal intent</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong><code>var</code> where <code>final</code> works</strong>: Prefer <code>final</code> for locals and <code>const</code> for compile-time constants</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Relative imports</strong>: Use <code>package:</code> imports for consistency</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Mutable collections exposed</strong>: Public APIs should return unmodifiable views, not raw <code>List</code>/<code>Map</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Missing Dart 3 pattern matching</strong>: Prefer switch expressions and <code>if-case</code> over verbose <code>is</code> checks and manual casting</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Throwaway classes for multiple returns</strong>: Use Dart 3 records <code>(String, int)</code> instead of single-use DTOs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong><code>print()</code> in production code</strong>: Use <code>dart:developer</code> <code>log()</code> or the project's logging package; <code>print()</code> has no log levels and cannot be filtered</li>
+</ul>
+<hr>
+<h2>3. Widget Best Practices</h2>
+<h3>Widget decomposition:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> No single widget with a <code>build()</code> method exceeding ~80-100 lines</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Widgets split by encapsulation AND by how they change (rebuild boundaries)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Private <code>_build*()</code> helper methods that return widgets are extracted to separate widget classes (enables element reuse, const propagation, and framework optimizations)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Stateless widgets preferred over Stateful where no mutable local state is needed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Extracted widgets are in separate files when reusable</li>
+</ul>
+<h3>Const usage:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>const</code> constructors used wherever possible — prevents unnecessary rebuilds</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>const</code> literals for collections that don't change (<code>const []</code>, <code>const {}</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Constructor is declared <code>const</code> when all fields are final</li>
+</ul>
+<h3>Key usage:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>ValueKey</code> used in lists/grids to preserve state across reorders</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>GlobalKey</code> used sparingly — only when accessing state across the tree is truly needed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>UniqueKey</code> avoided in <code>build()</code> — it forces rebuild every frame</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>ObjectKey</code> used when identity is based on a data object rather than a single value</li>
+</ul>
+<h3>Theming &amp; design system:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Colors come from <code>Theme.of(context).colorScheme</code> — no hardcoded <code>Colors.red</code> or hex values</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Text styles come from <code>Theme.of(context).textTheme</code> — no inline <code>TextStyle</code> with raw font sizes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dark mode compatibility verified — no assumptions about light background</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Spacing and sizing use consistent design tokens or constants, not magic numbers</li>
+</ul>
+<h3>Build method complexity:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> No network calls, file I/O, or heavy computation in <code>build()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No <code>Future.then()</code> or <code>async</code> work in <code>build()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No subscription creation (<code>.listen()</code>) in <code>build()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>setState()</code> localized to smallest possible subtree</li>
+</ul>
+<hr>
+<h2>4. State Management (Library-Agnostic)</h2>
+<p>These principles apply to all Flutter state management solutions (BLoC, Riverpod, Provider, GetX, MobX, Signals, ValueNotifier, etc.).</p>
+<h3>Architecture:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Business logic lives outside the widget layer — in a state management component (BLoC, Notifier, Controller, Store, ViewModel, etc.)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> State managers receive dependencies via injection, not by constructing them internally</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> A service or repository layer abstracts data sources — widgets and state managers should not call APIs or databases directly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> State managers have a single responsibility — no "god" managers handling unrelated concerns</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Cross-component dependencies follow the solution's conventions:
+<ul>
+<li>In <strong>Riverpod</strong>: providers depending on providers via <code>ref.watch</code> is expected — flag only circular or overly tangled chains</li>
+<li>In <strong>BLoC</strong>: blocs should not directly depend on other blocs — prefer shared repositories or presentation-layer coordination</li>
+<li>In other solutions: follow the documented conventions for inter-component communication</li>
+</ul>
+</li>
+</ul>
+<h3>Immutability &amp; value equality (for immutable-state solutions: BLoC, Riverpod, Redux):</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> State objects are immutable — new instances created via <code>copyWith()</code> or constructors, never mutated in-place</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> State classes implement <code>==</code> and <code>hashCode</code> properly (all fields included in comparison)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Mechanism is consistent across the project — manual override, <code>Equatable</code>, <code>freezed</code>, Dart records, or other</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Collections inside state objects are not exposed as raw mutable <code>List</code>/<code>Map</code></li>
+</ul>
+<h3>Reactivity discipline (for reactive-mutation solutions: MobX, GetX, Signals):</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> State is only mutated through the solution's reactive API (<code>@action</code> in MobX, <code>.value</code> on signals, <code>.obs</code> in GetX) — direct field mutation bypasses change tracking</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Derived values use the solution's computed mechanism rather than being stored redundantly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Reactions and disposers are properly cleaned up (<code>ReactionDisposer</code> in MobX, effect cleanup in Signals)</li>
+</ul>
+<h3>State shape design:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Mutually exclusive states use sealed types, union variants, or the solution's built-in async state type (e.g. Riverpod's <code>AsyncValue</code>) — not boolean flags (<code>isLoading</code>, <code>isError</code>, <code>hasData</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Every async operation models loading, success, and error as distinct states</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All state variants are handled exhaustively in UI — no silently ignored cases</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Error states carry error information for display; loading states don't carry stale data</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Nullable data is not used as a loading indicator — states are explicit</li>
+</ul>
+<pre class="language-dart"><code class="language-dart code-highlight"><span class="code-line"><span class="token comment">// BAD — boolean flag soup allows impossible states</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  bool isLoading <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+</span><span class="code-line">  bool hasError <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span> <span class="token comment">// isLoading &amp;&amp; hasError is representable!</span>
+</span><span class="code-line">  <span class="token class-name">User</span><span class="token operator">?</span> user<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// GOOD (immutable approach) — sealed types make impossible states unrepresentable</span>
+</span><span class="code-line">sealed <span class="token keyword">class</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserInitial</span> <span class="token keyword">extends</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserLoading</span> <span class="token keyword">extends</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserLoaded</span> <span class="token keyword">extends</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> <span class="token class-name">User</span> user<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token class-name">UserLoaded</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>user<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserError</span> <span class="token keyword">extends</span> <span class="token class-name">UserState</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">final</span> <span class="token class-name">String</span> message<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> <span class="token class-name">UserError</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>message<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// GOOD (reactive approach) — observable enum + data, mutations via reactivity API</span>
+</span><span class="code-line"><span class="token comment">// enum UserStatus { initial, loading, loaded, error }</span>
+</span><span class="code-line"><span class="token comment">// Use your solution's observable/signal to wrap status and data separately</span>
+</span></code></pre>
+<h3>Rebuild optimization:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> State consumer widgets (Builder, Consumer, Observer, Obx, Watch, etc.) scoped as narrow as possible</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Selectors used to rebuild only when specific fields change — not on every state emission</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>const</code> widgets used to stop rebuild propagation through the tree</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Computed/derived state is calculated reactively, not stored redundantly</li>
+</ul>
+<h3>Subscriptions &amp; disposal:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All manual subscriptions (<code>.listen()</code>) are cancelled in <code>dispose()</code> / <code>close()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Stream controllers are closed when no longer needed</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Timers are cancelled in disposal lifecycle</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Framework-managed lifecycle is preferred over manual subscription (declarative builders over <code>.listen()</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>mounted</code> check before <code>setState</code> in async callbacks</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>BuildContext</code> not used after <code>await</code> without checking <code>context.mounted</code> (Flutter 3.7+) — stale context causes crashes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No navigation, dialogs, or scaffold messages after async gaps without verifying the widget is still mounted</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>BuildContext</code> never stored in singletons, state managers, or static fields</li>
+</ul>
+<h3>Local vs global state:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Ephemeral UI state (checkbox, slider, animation) uses local state (<code>setState</code>, <code>ValueNotifier</code>)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Shared state is lifted only as high as needed — not over-globalized</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Feature-scoped state is properly disposed when the feature is no longer active</li>
+</ul>
+<hr>
+<h2>5. Performance</h2>
+<h3>Unnecessary rebuilds:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>setState()</code> not called at root widget level — localize state changes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>const</code> widgets used to stop rebuild propagation</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>RepaintBoundary</code> used around complex subtrees that repaint independently</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>AnimatedBuilder</code> child parameter used for subtrees independent of animation</li>
+</ul>
+<h3>Expensive operations in build():</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> No sorting, filtering, or mapping large collections in <code>build()</code> — compute in state management layer</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No regex compilation in <code>build()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>MediaQuery.of(context)</code> usage is specific (e.g., <code>MediaQuery.sizeOf(context)</code>)</li>
+</ul>
+<h3>Image optimization:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Network images use caching (any caching solution appropriate for the project)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Appropriate image resolution for target device (no loading 4K images for thumbnails)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>Image.asset</code> with <code>cacheWidth</code>/<code>cacheHeight</code> to decode at display size</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Placeholder and error widgets provided for network images</li>
+</ul>
+<h3>Lazy loading:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>ListView.builder</code> / <code>GridView.builder</code> used instead of <code>ListView(children: [...])</code> for large or dynamic lists (concrete constructors are fine for small, static lists)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Pagination implemented for large data sets</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Deferred loading (<code>deferred as</code>) used for heavy libraries in web builds</li>
+</ul>
+<h3>Other:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>Opacity</code> widget avoided in animations — use <code>AnimatedOpacity</code> or <code>FadeTransition</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Clipping avoided in animations — pre-clip images</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>operator ==</code> not overridden on widgets — use <code>const</code> constructors instead</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Intrinsic dimension widgets (<code>IntrinsicHeight</code>, <code>IntrinsicWidth</code>) used sparingly (extra layout pass)</li>
+</ul>
+<hr>
+<h2>6. Testing</h2>
+<h3>Test types and expectations:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Unit tests</strong>: Cover all business logic (state managers, repositories, utility functions)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Widget tests</strong>: Cover individual widget behavior, interactions, and visual output</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Integration tests</strong>: Cover critical user flows end-to-end</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <strong>Golden tests</strong>: Pixel-perfect comparisons for design-critical UI components</li>
+</ul>
+<h3>Coverage targets:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Aim for 80%+ line coverage on business logic</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All state transitions have corresponding tests (loading → success, loading → error, retry, etc.)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Edge cases tested: empty states, error states, loading states, boundary values</li>
+</ul>
+<h3>Test isolation:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> External dependencies (API clients, databases, services) are mocked or faked</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Each test file tests exactly one class/unit</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tests verify behavior, not implementation details</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Stubs define only the behavior needed for each test (minimal stubbing)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No shared mutable state between test cases</li>
+</ul>
+<h3>Widget test quality:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>pumpWidget</code> and <code>pump</code> used correctly for async operations</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>find.byType</code>, <code>find.text</code>, <code>find.byKey</code> used appropriately</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No flaky tests depending on timing — use <code>pumpAndSettle</code> or explicit <code>pump(Duration)</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tests run in CI and failures block merges</li>
+</ul>
+<hr>
+<h2>7. Accessibility</h2>
+<h3>Semantic widgets:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>Semantics</code> widget used to provide screen reader labels where automatic labels are insufficient</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>ExcludeSemantics</code> used for purely decorative elements</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>MergeSemantics</code> used to combine related widgets into a single accessible element</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Images have <code>semanticLabel</code> property set</li>
+</ul>
+<h3>Screen reader support:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All interactive elements are focusable and have meaningful descriptions</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Focus order is logical (follows visual reading order)</li>
+</ul>
+<h3>Visual accessibility:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Contrast ratio &gt;= 4.5:1 for text against background</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Tappable targets are at least 48x48 pixels</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Color is not the sole indicator of state (use icons/text alongside)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Text scales with system font size settings</li>
+</ul>
+<h3>Interaction accessibility:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> No no-op <code>onPressed</code> callbacks — every button does something or is disabled</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Error fields suggest corrections</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Context does not change unexpectedly while user is inputting data</li>
+</ul>
+<hr>
+<h2>8. Platform-Specific Concerns</h2>
+<h3>iOS/Android differences:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Platform-adaptive widgets used where appropriate</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Back navigation handled correctly (Android back button, iOS swipe-to-go-back)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Status bar and safe area handled via <code>SafeArea</code> widget</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Platform-specific permissions declared in <code>AndroidManifest.xml</code> and <code>Info.plist</code></li>
+</ul>
+<h3>Responsive design:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>LayoutBuilder</code> or <code>MediaQuery</code> used for responsive layouts</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Breakpoints defined consistently (phone, tablet, desktop)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Text doesn't overflow on small screens — use <code>Flexible</code>, <code>Expanded</code>, <code>FittedBox</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Landscape orientation tested or explicitly locked</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Web-specific: mouse/keyboard interactions supported, hover states present</li>
+</ul>
+<hr>
+<h2>9. Security</h2>
+<h3>Secure storage:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Sensitive data (tokens, credentials) stored using platform-secure storage (Keychain on iOS, EncryptedSharedPreferences on Android)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Never store secrets in plaintext storage</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Biometric authentication gating considered for sensitive operations</li>
+</ul>
+<h3>API key handling:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> API keys NOT hardcoded in Dart source — use <code>--dart-define</code>, <code>.env</code> files excluded from VCS, or compile-time configuration</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Secrets not committed to git — check <code>.gitignore</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Backend proxy used for truly secret keys (client should never hold server secrets)</li>
+</ul>
+<h3>Input validation:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All user input validated before sending to API</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Form validation uses proper validation patterns</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No raw SQL or string interpolation of user input</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Deep link URLs validated and sanitized before navigation</li>
+</ul>
+<h3>Network security:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> HTTPS enforced for all API calls</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Certificate pinning considered for high-security apps</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Authentication tokens refreshed and expired properly</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No sensitive data logged or printed</li>
+</ul>
+<hr>
+<h2>10. Package/Dependency Review</h2>
+<h3>Evaluating pub.dev packages:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Check <strong>pub points score</strong> (aim for 130+/160)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Check <strong>likes</strong> and <strong>popularity</strong> as community signals</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Verify the publisher is <strong>verified</strong> on pub.dev</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Check last publish date — stale packages (&gt;1 year) are a risk</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Review open issues and response time from maintainers</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Check license compatibility with your project</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Verify platform support covers your targets</li>
+</ul>
+<h3>Version constraints:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Use caret syntax (<code>^1.2.3</code>) for dependencies — allows compatible updates</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Pin exact versions only when absolutely necessary</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Run <code>flutter pub outdated</code> regularly to track stale dependencies</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No dependency overrides in production <code>pubspec.yaml</code> — only for temporary fixes with a comment/issue link</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Minimize transitive dependency count — each dependency is an attack surface</li>
+</ul>
+<h3>Monorepo-specific (melos/workspace):</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Internal packages import only from public API — no <code>package:other/src/internal.dart</code> (breaks Dart package encapsulation)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Internal package dependencies use workspace resolution, not hardcoded <code>path: ../../</code> relative strings</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All sub-packages share or inherit root <code>analysis_options.yaml</code></li>
+</ul>
+<hr>
+<h2>11. Navigation and Routing</h2>
+<h3>General principles (apply to any routing solution):</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> One routing approach used consistently — no mixing imperative <code>Navigator.push</code> with a declarative router</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Route arguments are typed — no <code>Map&lt;String, dynamic&gt;</code> or <code>Object?</code> casting</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Route paths defined as constants, enums, or generated — no magic strings scattered in code</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Auth guards/redirects centralized — not duplicated across individual screens</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Deep links configured for both Android and iOS</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Deep link URLs validated and sanitized before navigation</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Navigation state is testable — route changes can be verified in tests</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Back behavior is correct on all platforms</li>
+</ul>
+<hr>
+<h2>12. Error Handling</h2>
+<h3>Framework error handling:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>FlutterError.onError</code> overridden to capture framework errors (build, layout, paint)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>PlatformDispatcher.instance.onError</code> set for async errors not caught by Flutter</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>ErrorWidget.builder</code> customized for release mode (user-friendly instead of red screen)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Global error capture wrapper around <code>runApp</code> (e.g., <code>runZonedGuarded</code>, Sentry/Crashlytics wrapper)</li>
+</ul>
+<h3>Error reporting:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Error reporting service integrated (Firebase Crashlytics, Sentry, or equivalent)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Non-fatal errors reported with stack traces</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> State management error observer wired to error reporting (e.g., BlocObserver, ProviderObserver, or equivalent for your solution)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> User-identifiable info (user ID) attached to error reports for debugging</li>
+</ul>
+<h3>Graceful degradation:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> API errors result in user-friendly error UI, not crashes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Retry mechanisms for transient network failures</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Offline state handled gracefully</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Error states in state management carry error info for display</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Raw exceptions (network, parsing) are mapped to user-friendly, localized messages before reaching the UI — never show raw exception strings to users</li>
+</ul>
+<hr>
+<h2>13. Internationalization (l10n)</h2>
+<h3>Setup:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Localization solution configured (Flutter's built-in ARB/l10n, easy_localization, or equivalent)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Supported locales declared in app configuration</li>
+</ul>
+<h3>Content:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> All user-visible strings use the localization system — no hardcoded strings in widgets</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Template file includes descriptions/context for translators</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> ICU message syntax used for plurals, genders, selects</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Placeholders defined with types</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No missing keys across locales</li>
+</ul>
+<h3>Code review:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Localization accessor used consistently throughout the project</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Date, time, number, and currency formatting is locale-aware</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Text directionality (RTL) supported if targeting Arabic, Hebrew, etc.</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No string concatenation for localized text — use parameterized messages</li>
+</ul>
+<hr>
+<h2>14. Dependency Injection</h2>
+<h3>Principles (apply to any DI approach):</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Classes depend on abstractions (interfaces), not concrete implementations at layer boundaries</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Dependencies provided externally via constructor, DI framework, or provider graph — not created internally</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Registration distinguishes lifetime: singleton vs factory vs lazy singleton</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Environment-specific bindings (dev/staging/prod) use configuration, not runtime <code>if</code> checks</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> No circular dependencies in the DI graph</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Service locator calls (if used) are not scattered throughout business logic</li>
+</ul>
+<hr>
+<h2>15. Static Analysis</h2>
+<h3>Configuration:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>analysis_options.yaml</code> present with strict settings enabled</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Strict analyzer settings: <code>strict-casts: true</code>, <code>strict-inference: true</code>, <code>strict-raw-types: true</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> A comprehensive lint rule set is included (very_good_analysis, flutter_lints, or custom strict rules)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> All sub-packages in monorepos inherit or share the root analysis options</li>
+</ul>
+<h3>Enforcement:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> No unresolved analyzer warnings in committed code</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Lint suppressions (<code>// ignore:</code>) are justified with comments explaining why</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>flutter analyze</code> runs in CI and failures block merges</li>
+</ul>
+<h3>Key rules to verify regardless of lint package:</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>prefer_const_constructors</code> — performance in widget trees</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>avoid_print</code> — use proper logging</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>unawaited_futures</code> — prevent fire-and-forget async bugs</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>prefer_final_locals</code> — immutability at variable level</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>always_declare_return_types</code> — explicit contracts</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>avoid_catches_without_on_clauses</code> — specific error handling</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>always_use_package_imports</code> — consistent import style</li>
+</ul>
+<hr>
+<h2>State Management Quick Reference</h2>
+<p>The table below maps universal principles to their implementation in popular solutions. Use this to adapt review rules to whichever solution the project uses.</p>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>BLoC/Cubit</th>
+<th>Riverpod</th>
+<th>Provider</th>
+<th>GetX</th>
+<th>MobX</th>
+<th>Signals</th>
+<th>Built-in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>State container</td>
+<td><code>Bloc</code>/<code>Cubit</code></td>
+<td><code>Notifier</code>/<code>AsyncNotifier</code></td>
+<td><code>ChangeNotifier</code></td>
+<td><code>GetxController</code></td>
+<td><code>Store</code></td>
+<td><code>signal()</code></td>
+<td><code>StatefulWidget</code></td>
+</tr>
+<tr>
+<td>UI consumer</td>
+<td><code>BlocBuilder</code></td>
+<td><code>ConsumerWidget</code></td>
+<td><code>Consumer</code></td>
+<td><code>Obx</code>/<code>GetBuilder</code></td>
+<td><code>Observer</code></td>
+<td><code>Watch</code></td>
+<td><code>setState</code></td>
+</tr>
+<tr>
+<td>Selector</td>
+<td><code>BlocSelector</code>/<code>buildWhen</code></td>
+<td><code>ref.watch(p.select(...))</code></td>
+<td><code>Selector</code></td>
+<td>N/A</td>
+<td>computed</td>
+<td><code>computed()</code></td>
+<td>N/A</td>
+</tr>
+<tr>
+<td>Side effects</td>
+<td><code>BlocListener</code></td>
+<td><code>ref.listen</code></td>
+<td><code>Consumer</code> callback</td>
+<td><code>ever()</code>/<code>once()</code></td>
+<td><code>reaction</code></td>
+<td><code>effect()</code></td>
+<td>callbacks</td>
+</tr>
+<tr>
+<td>Disposal</td>
+<td>auto via <code>BlocProvider</code></td>
+<td><code>.autoDispose</code></td>
+<td>auto via <code>Provider</code></td>
+<td><code>onClose()</code></td>
+<td><code>ReactionDisposer</code></td>
+<td>manual</td>
+<td><code>dispose()</code></td>
+</tr>
+<tr>
+<td>Testing</td>
+<td><code>blocTest()</code></td>
+<td><code>ProviderContainer</code></td>
+<td><code>ChangeNotifier</code> directly</td>
+<td><code>Get.put</code> in test</td>
+<td>store directly</td>
+<td>signal directly</td>
+<td>widget test</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://dart.dev/effective-dart/style" target="_blank" rel="ugc nofollow noopener">Effective Dart: Style</a></li>
+<li><a href="https://dart.dev/effective-dart/usage" target="_blank" rel="ugc nofollow noopener">Effective Dart: Usage</a></li>
+<li><a href="https://dart.dev/effective-dart/design" target="_blank" rel="ugc nofollow noopener">Effective Dart: Design</a></li>
+<li><a href="https://docs.flutter.dev/perf/best-practices" target="_blank" rel="ugc nofollow noopener">Flutter Performance Best Practices</a></li>
+<li><a href="https://docs.flutter.dev/testing/overview" target="_blank" rel="ugc nofollow noopener">Flutter Testing Overview</a></li>
+<li><a href="https://docs.flutter.dev/ui/accessibility-and-internationalization/accessibility" target="_blank" rel="ugc nofollow noopener">Flutter Accessibility</a></li>
+<li><a href="https://docs.flutter.dev/ui/accessibility-and-internationalization/internationalization" target="_blank" rel="ugc nofollow noopener">Flutter Internationalization</a></li>
+<li><a href="https://docs.flutter.dev/ui/navigation" target="_blank" rel="ugc nofollow noopener">Flutter Navigation and Routing</a></li>
+<li><a href="https://docs.flutter.dev/testing/errors" target="_blank" rel="ugc nofollow noopener">Flutter Error Handling</a></li>
+<li><a href="https://docs.flutter.dev/data-and-backend/state-mgmt/options" target="_blank" rel="ugc nofollow noopener">Flutter State Management Options</a></li>
+</ul></div>

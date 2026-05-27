@@ -1,0 +1,368 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Gmail Workflows</h1>
+<p>Automate Gmail with intelligent workflows for attachment management, email organization, and Google Drive integration. Based on n8n's 7,800+ workflow templates.</p>
+<h2>Overview</h2>
+<p>This skill helps you design and implement Gmail automation workflows that:</p>
+<ul>
+<li>Automatically save attachments to Google Drive</li>
+<li>Organize emails with smart labeling</li>
+<li>Archive processed emails</li>
+<li>Send notifications via Slack/Email</li>
+<li>Track email metrics</li>
+</ul>
+<h2>Core Workflow Templates</h2>
+<h3>1. Gmail Attachment Manager</h3>
+<p><strong>Purpose</strong>: Automatically extract attachments from emails and save to Google Drive</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Workflow Steps</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+</span><span class="code-line">│ Gmail       │───▶│ Filter by   │───▶│ Extract     │───▶│ Upload to   │
+</span><span class="code-line">│ Trigger     │    │ Criteria    │    │ Attachments │    │ Google Drive│
+</span><span class="code-line">└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+</span><span class="code-line">                                                                │
+</span><span class="code-line">                         ┌─────────────┐    ┌─────────────┐    │
+</span><span class="code-line">                         │ Send        │◀───│ Apply Label │◀───┘
+</span><span class="code-line">                         │ Notification│    │ &amp; Archive   │
+</span><span class="code-line">                         └─────────────┘    └─────────────┘
+</span></code></pre>
+<p><strong>Configuration</strong>:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">trigger</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">type</span><span class="token punctuation">:</span> gmail_new_email
+</span><span class="code-line">  <span class="token key atrule">filters</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">has_attachment</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">    <span class="token key atrule">from</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"*@company.com"</span><span class="token punctuation">,</span> <span class="token string">"*@vendor.com"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token key atrule">subject_contains</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"invoice"</span><span class="token punctuation">,</span> <span class="token string">"report"</span><span class="token punctuation">,</span> <span class="token string">"contract"</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">actions</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">extract_attachments</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">file_types</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>pdf<span class="token punctuation">,</span> xlsx<span class="token punctuation">,</span> docx<span class="token punctuation">,</span> csv<span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token key atrule">max_size_mb</span><span class="token punctuation">:</span> <span class="token number">25</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">upload_to_drive</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">folder_path</span><span class="token punctuation">:</span> <span class="token string">"/Attachments/{year}/{month}"</span>
+</span><span class="code-line">      <span class="token key atrule">naming_pattern</span><span class="token punctuation">:</span> <span class="token string">"{filename}_{sender}_{date}"</span>
+</span><span class="code-line">      <span class="token key atrule">create_folder_if_missing</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">organize_email</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">apply_label</span><span class="token punctuation">:</span> <span class="token string">"Processed/Attachments"</span>
+</span><span class="code-line">      <span class="token key atrule">mark_as_read</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">      <span class="token key atrule">archive</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">notify</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">channel</span><span class="token punctuation">:</span> slack
+</span><span class="code-line">      <span class="token key atrule">message</span><span class="token punctuation">:</span> <span class="token string">"New attachment saved: {filename} from {sender}"</span>
+</span></code></pre>
+<p><strong>Best Practices</strong>:</p>
+<ul>
+<li>Use specific sender filters to avoid processing spam</li>
+<li>Set file size limits to prevent storage issues</li>
+<li>Use date-based folder structure for easy retrieval</li>
+<li>Enable duplicate detection to avoid redundant uploads</li>
+</ul>
+<hr>
+<h3>2. Invoice Auto-Archiver</h3>
+<p><strong>Purpose</strong>: Automatically collect and organize invoices from email</p>
+<p><strong>Workflow Steps</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Gmail Trigger → Detect Invoice → Extract PDF → OCR/Parse → Save to Drive → Update Spreadsheet → Archive Email
+</span></code></pre>
+<p><strong>Configuration</strong>:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">trigger</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">subject_patterns</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token string">"invoice"</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token string">"bill"</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token string">"statement"</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token string">"付款"</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token string">"发票"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">processing</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">detect_invoice</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">methods</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>subject_keywords<span class="token punctuation">,</span> attachment_name<span class="token punctuation">,</span> sender_domain<span class="token punctuation">]</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">extract_data</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">fields</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>invoice_number<span class="token punctuation">,</span> amount<span class="token punctuation">,</span> date<span class="token punctuation">,</span> vendor<span class="token punctuation">,</span> due_date<span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token key atrule">use_ocr</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">save_to_drive</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">folder</span><span class="token punctuation">:</span> <span class="token string">"/Finance/Invoices/{year}/{vendor}"</span>
+</span><span class="code-line">      <span class="token key atrule">naming</span><span class="token punctuation">:</span> <span class="token string">"{date}_{vendor}_{amount}"</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">update_tracker</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">spreadsheet</span><span class="token punctuation">:</span> <span class="token string">"Invoice Tracker"</span>
+</span><span class="code-line">      <span class="token key atrule">columns</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>Date<span class="token punctuation">,</span> Vendor<span class="token punctuation">,</span> Amount<span class="token punctuation">,</span> Invoice<span class="token comment">#, Status, File_Link]</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">archive</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">label</span><span class="token punctuation">:</span> <span class="token string">"Finance/Invoices"</span>
+</span><span class="code-line">      <span class="token key atrule">star</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<hr>
+<h3>3. Client Communication Organizer</h3>
+<p><strong>Purpose</strong>: Automatically organize client emails by project/client</p>
+<p><strong>Configuration</strong>:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">rules</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Client A Emails"</span>
+</span><span class="code-line">    <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">from_domain</span><span class="token punctuation">:</span> <span class="token string">"clienta.com"</span>
+</span><span class="code-line">    <span class="token key atrule">actions</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">apply_label</span><span class="token punctuation">:</span> <span class="token string">"Clients/Client A"</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">forward_to</span><span class="token punctuation">:</span> <span class="token string">"team-a@company.com"</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">save_attachments</span><span class="token punctuation">:</span> <span class="token string">"/Clients/Client A/{subject}"</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Project X Updates"</span>
+</span><span class="code-line">    <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">subject_contains</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"Project X"</span><span class="token punctuation">,</span> <span class="token string">"PX-"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token key atrule">actions</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">apply_label</span><span class="token punctuation">:</span> <span class="token string">"Projects/Project X"</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">add_to_task</span><span class="token punctuation">:</span> <span class="token string">"Project X Board"</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">notify_slack</span><span class="token punctuation">:</span> <span class="token string">"#project-x"</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"Urgent Requests"</span>
+</span><span class="code-line">    <span class="token key atrule">condition</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">subject_contains</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"URGENT"</span><span class="token punctuation">,</span> <span class="token string">"ASAP"</span><span class="token punctuation">,</span> <span class="token string">"紧急"</span><span class="token punctuation">]</span>
+</span><span class="code-line">      <span class="token key atrule">is_unread</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">    <span class="token key atrule">actions</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">apply_label</span><span class="token punctuation">:</span> <span class="token string">"Priority/Urgent"</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">send_sms</span><span class="token punctuation">:</span> <span class="token string">"+1234567890"</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> <span class="token key atrule">move_to_inbox</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span></code></pre>
+<hr>
+<h3>4. Email Analytics Dashboard</h3>
+<p><strong>Purpose</strong>: Track email metrics and generate reports</p>
+<p><strong>Metrics to Track</strong>:</p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">daily_metrics</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">emails_received</span><span class="token punctuation">:</span> count(inbox)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">emails_sent</span><span class="token punctuation">:</span> count(sent)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">response_time_avg</span><span class="token punctuation">:</span> avg(reply_time)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">unread_count</span><span class="token punctuation">:</span> count(unread)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">attachment_count</span><span class="token punctuation">:</span> count(has_attachment)
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">weekly_report</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">top_senders</span><span class="token punctuation">:</span> group_by(from<span class="token punctuation">,</span> count)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">busiest_hours</span><span class="token punctuation">:</span> group_by(hour<span class="token punctuation">,</span> count)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">label_distribution</span><span class="token punctuation">:</span> group_by(label<span class="token punctuation">,</span> count)
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">response_rate</span><span class="token punctuation">:</span> sent / received
+</span><span class="code-line">
+</span><span class="code-line"><span class="token key atrule">automation</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">schedule</span><span class="token punctuation">:</span> <span class="token string">"every Monday 9am"</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">output</span><span class="token punctuation">:</span> Google Sheets
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">notify</span><span class="token punctuation">:</span> Slack <span class="token comment">#email-metrics</span>
+</span></code></pre>
+<hr>
+<h2>Implementation Guide</h2>
+<h3>Using n8n</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// n8n Workflow: Gmail to Google Drive</span>
+</span><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token string-property property">"nodes"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"Gmail Trigger"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"n8n-nodes-base.gmailTrigger"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string-property property">"pollTimes"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token string-property property">"item"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span> <span class="token string-property property">"mode"</span><span class="token operator">:</span> <span class="token string">"everyMinute"</span> <span class="token punctuation">}</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string-property property">"filters"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token string-property property">"labelIds"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"INBOX"</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"Filter Attachments"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"n8n-nodes-base.if"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string-property property">"conditions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">          <span class="token string-property property">"boolean"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token string-property property">"value1"</span><span class="token operator">:</span> <span class="token string">"={{ $json.hasAttachment }}"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string-property property">"value2"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+</span><span class="code-line">          <span class="token punctuation">}</span><span class="token punctuation">]</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"Get Attachments"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"n8n-nodes-base.gmail"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string-property property">"operation"</span><span class="token operator">:</span> <span class="token string">"getAttachments"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string-property property">"messageId"</span><span class="token operator">:</span> <span class="token string">"={{ $json.id }}"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"Upload to Drive"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"n8n-nodes-base.googleDrive"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string-property property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string-property property">"operation"</span><span class="token operator">:</span> <span class="token string">"upload"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string-property property">"folderId"</span><span class="token operator">:</span> <span class="token string">"your-folder-id"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"={{ $json.filename }}"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Using Google Apps Script</h3>
+<pre class="language-javascript"><code class="language-javascript code-highlight"><span class="code-line"><span class="token comment">// Gmail to Drive Automation</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">processNewEmails</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> threads <span class="token operator">=</span> <span class="token maybe-class-name">GmailApp</span><span class="token punctuation">.</span><span class="token method function property-access">search</span><span class="token punctuation">(</span><span class="token string">'has:attachment is:unread'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> targetFolder <span class="token operator">=</span> <span class="token maybe-class-name">DriveApp</span><span class="token punctuation">.</span><span class="token method function property-access">getFolderById</span><span class="token punctuation">(</span><span class="token string">'FOLDER_ID'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  threads<span class="token punctuation">.</span><span class="token method function property-access">forEach</span><span class="token punctuation">(</span><span class="token parameter">thread</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> messages <span class="token operator">=</span> thread<span class="token punctuation">.</span><span class="token method function property-access">getMessages</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    messages<span class="token punctuation">.</span><span class="token method function property-access">forEach</span><span class="token punctuation">(</span><span class="token parameter">message</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">const</span> attachments <span class="token operator">=</span> message<span class="token punctuation">.</span><span class="token method function property-access">getAttachments</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      attachments<span class="token punctuation">.</span><span class="token method function property-access">forEach</span><span class="token punctuation">(</span><span class="token parameter">attachment</span> <span class="token arrow operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Save to Drive</span>
+</span><span class="code-line">        <span class="token keyword">const</span> file <span class="token operator">=</span> targetFolder<span class="token punctuation">.</span><span class="token method function property-access">createFile</span><span class="token punctuation">(</span>attachment<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        
+</span><span class="code-line">        <span class="token comment">// Rename with date and sender</span>
+</span><span class="code-line">        <span class="token keyword">const</span> newName <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token maybe-class-name">Utilities</span><span class="token punctuation">.</span><span class="token method function property-access">formatDate</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span><span class="token method function property-access">getDate</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'GMT'</span><span class="token punctuation">,</span> <span class="token string">'yyyy-MM-dd'</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>message<span class="token punctuation">.</span><span class="token method function property-access">getFrom</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>attachment<span class="token punctuation">.</span><span class="token method function property-access">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+</span><span class="code-line">        file<span class="token punctuation">.</span><span class="token method function property-access">setName</span><span class="token punctuation">(</span>newName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      
+</span><span class="code-line">      <span class="token comment">// Mark as processed</span>
+</span><span class="code-line">      message<span class="token punctuation">.</span><span class="token method function property-access">markRead</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      thread<span class="token punctuation">.</span><span class="token method function property-access">addLabel</span><span class="token punctuation">(</span><span class="token maybe-class-name">GmailApp</span><span class="token punctuation">.</span><span class="token method function property-access">getUserLabelByName</span><span class="token punctuation">(</span><span class="token string">'Processed'</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Set up trigger</span>
+</span><span class="code-line"><span class="token keyword">function</span> <span class="token function">setupTrigger</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token maybe-class-name">ScriptApp</span><span class="token punctuation">.</span><span class="token method function property-access">newTrigger</span><span class="token punctuation">(</span><span class="token string">'processNewEmails'</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token method function property-access">timeBased</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token method function property-access">everyMinutes</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">.</span><span class="token method function property-access">create</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<hr>
+<h2>Common Workflow Patterns</h2>
+<h3>Pattern 1: Filter → Process → Organize → Notify</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Email arrives
+</span><span class="code-line">    │
+</span><span class="code-line">    ▼
+</span><span class="code-line">┌─────────────────┐
+</span><span class="code-line">│ Apply Filters   │ → Skip if doesn't match
+</span><span class="code-line">│ (sender, subject│
+</span><span class="code-line">│  attachment)    │
+</span><span class="code-line">└────────┬────────┘
+</span><span class="code-line">         │
+</span><span class="code-line">         ▼
+</span><span class="code-line">┌─────────────────┐
+</span><span class="code-line">│ Process Content │ → Extract data, attachments
+</span><span class="code-line">│                 │
+</span><span class="code-line">└────────┬────────┘
+</span><span class="code-line">         │
+</span><span class="code-line">         ▼
+</span><span class="code-line">┌─────────────────┐
+</span><span class="code-line">│ Organize        │ → Save files, apply labels
+</span><span class="code-line">│                 │
+</span><span class="code-line">└────────┬────────┘
+</span><span class="code-line">         │
+</span><span class="code-line">         ▼
+</span><span class="code-line">┌─────────────────┐
+</span><span class="code-line">│ Notify          │ → Slack, email, SMS
+</span><span class="code-line">│                 │
+</span><span class="code-line">└─────────────────┘
+</span></code></pre>
+<h3>Pattern 2: Batch Processing</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">schedule</span><span class="token punctuation">:</span> <span class="token string">"daily at 6am"</span>
+</span><span class="code-line"><span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">  1. Collect all unprocessed emails from last 24h
+</span><span class="code-line">  2. Group by category (invoices<span class="token punctuation">,</span> reports<span class="token punctuation">,</span> misc)
+</span><span class="code-line">  3. Batch upload to respective Drive folders
+</span><span class="code-line">  4. Generate summary report
+</span><span class="code-line">  5. Send daily digest to stakeholders
+</span></code></pre>
+<h3>Pattern 3: Conditional Routing</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">conditions</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">if</span><span class="token punctuation">:</span> attachment_type == "pdf" AND subject contains "invoice"
+</span><span class="code-line">    <span class="token key atrule">then</span><span class="token punctuation">:</span> route_to_finance_folder
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">if</span><span class="token punctuation">:</span> from_domain in <span class="token punctuation">[</span><span class="token string">"important-client.com"</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token key atrule">then</span><span class="token punctuation">:</span> priority_handling + immediate_notification
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">if</span><span class="token punctuation">:</span> attachment_size <span class="token punctuation">&gt;</span> 10MB
+</span><span class="code-line">    <span class="token key atrule">then</span><span class="token punctuation">:</span> save_to_large_files_folder + skip_backup
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token punctuation">-</span> <span class="token key atrule">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">then</span><span class="token punctuation">:</span> standard_processing
+</span></code></pre>
+<hr>
+<h2>Troubleshooting</h2>
+<h3>Common Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attachments not detected</td>
+<td>Check MIME type filters, increase trigger frequency</td>
+</tr>
+<tr>
+<td>Duplicate files</td>
+<td>Enable deduplication by hash or filename</td>
+</tr>
+<tr>
+<td>Rate limits</td>
+<td>Reduce trigger frequency, use batch processing</td>
+</tr>
+<tr>
+<td>Permission errors</td>
+<td>Re-authorize OAuth credentials</td>
+</tr>
+<tr>
+<td>Large files failing</td>
+<td>Set size limits, use chunked upload</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Security Considerations</h2>
+<ol>
+<li>
+<p><strong>OAuth Scopes</strong>: Request minimal permissions</p>
+<ul>
+<li><code>gmail.readonly</code> for reading</li>
+<li><code>gmail.modify</code> for labels/archive</li>
+<li><code>drive.file</code> for Drive access</li>
+</ul>
+</li>
+<li>
+<p><strong>Data Privacy</strong>:</p>
+<ul>
+<li>Don't log email content</li>
+<li>Use secure storage for credentials</li>
+<li>Implement retention policies</li>
+</ul>
+</li>
+<li>
+<p><strong>Access Control</strong>:</p>
+<ul>
+<li>Limit who can modify workflows</li>
+<li>Audit automation activities</li>
+<li>Use separate service accounts</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>Output Example</h2>
+<p><strong>Daily Email Report</strong>:</p>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">#</span> Email Activity Report - 2026-01-30</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Summary</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> Emails Received: 47
+</span><span class="code-line"><span class="token list punctuation">-</span> Emails Sent: 23
+</span><span class="code-line"><span class="token list punctuation">-</span> Attachments Processed: 12
+</span><span class="code-line"><span class="token list punctuation">-</span> Average Response Time: 2.3 hours
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Attachment Processing</span>
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> File </span><span class="token punctuation">|</span><span class="token table-header important"> Sender </span><span class="token punctuation">|</span><span class="token table-header important"> Saved To </span><span class="token punctuation">|</span><span class="token table-header important"> Time </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">------</span><span class="token punctuation">|</span><span class="token punctuation">--------</span><span class="token punctuation">|</span><span class="token punctuation">----------</span><span class="token punctuation">|</span><span class="token punctuation">------</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Invoice_Jan.pdf </span><span class="token punctuation">|</span><span class="token table-data"> vendor@co.com </span><span class="token punctuation">|</span><span class="token table-data"> /Finance/Invoices </span><span class="token punctuation">|</span><span class="token table-data"> 09:15 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Report_Q4.xlsx </span><span class="token punctuation">|</span><span class="token table-data"> team@company.com </span><span class="token punctuation">|</span><span class="token table-data"> /Reports/Q4 </span><span class="token punctuation">|</span><span class="token table-data"> 10:30 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> Contract_v2.docx </span><span class="token punctuation">|</span><span class="token table-data"> legal@client.com </span><span class="token punctuation">|</span><span class="token table-data"> /Contracts </span><span class="token punctuation">|</span><span class="token table-data"> 14:22 </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Labels Applied</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> Finance/Invoices: 5 emails
+</span><span class="code-line"><span class="token list punctuation">-</span> Projects/Active: 12 emails
+</span><span class="code-line"><span class="token list punctuation">-</span> Clients/Priority: 8 emails
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Pending Actions</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> 3 emails require manual review
+</span><span class="code-line"><span class="token list punctuation">-</span> 2 large attachments need approval
+</span></code></pre>
+<hr>
+<p><em>Gmail Workflows Skill - Part of Claude Office Skills</em></p></div>

@@ -1,0 +1,432 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Text-to-Speech (HeyGen Starfish)</h1>
+<p>Generate speech audio files from text using HeyGen's in-house Starfish TTS model via the v3 API. This skill is for standalone audio generation — separate from video creation.</p>
+<h2>Authentication</h2>
+<p>All requests require the <code>X-Api-Key</code> header. Set the <code>HEYGEN_API_KEY</code> environment variable.</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> GET <span class="token string">"https://api.heygen.com/v3/voices?engine=starfish"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"X-Api-Key: <span class="token variable">$HEYGEN_API_KEY</span>"</span>
+</span></code></pre>
+<h2>Tool Selection</h2>
+<p>If HeyGen MCP tools are available (<code>mcp__heygen__*</code>), <strong>prefer them</strong> over direct HTTP API calls.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><table>
+<thead>
+<tr>
+<th>Task</th>
+<th>MCP Tool</th>
+<th>Fallback (Direct API)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>List TTS voices</td>
+<td><code>mcp__heygen__list_audio_voices</code></td>
+<td><code>GET /v3/voices?engine=starfish</code></td>
+</tr>
+<tr>
+<td>Generate speech audio</td>
+<td><code>mcp__heygen__text_to_speech</code></td>
+<td><code>POST /v3/voices/speech</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Default Workflow</h2>
+<ol>
+<li>List voices with <code>mcp__heygen__list_audio_voices</code> (or <code>GET /v3/voices?engine=starfish</code>)</li>
+<li>Pick a voice matching desired language, gender, and features</li>
+<li>Call <code>mcp__heygen__text_to_speech</code> (or <code>POST /v3/voices/speech</code>) with text and voice_id</li>
+<li>Use the returned <code>audio_url</code> to download or play the audio</li>
+</ol>
+<h2>List TTS Voices</h2>
+<p>Retrieve voices compatible with the Starfish TTS model.</p>
+<blockquote>
+<p><strong>Note:</strong> This uses the unified <code>GET /v3/voices</code> endpoint with the <code>engine=starfish</code> filter to return only TTS-compatible voices. Not all video voices support Starfish TTS. The response is paginated — use <code>next_token</code> to fetch additional pages.</p>
+</blockquote>
+<h3>Query Parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine</code></td>
+<td>string</td>
+<td>Filter by engine (use <code>starfish</code> for TTS voices)</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>public</code> or <code>private</code></td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td>Filter by language</td>
+</tr>
+<tr>
+<td><code>gender</code></td>
+<td>string</td>
+<td>Filter by gender</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td>Results per page, 1-100</td>
+</tr>
+<tr>
+<td><code>token</code></td>
+<td>string</td>
+<td>Pagination cursor from <code>next_token</code></td>
+</tr>
+</tbody>
+</table>
+<h3>curl</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> GET <span class="token string">"https://api.heygen.com/v3/voices?engine=starfish"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"X-Api-Key: <span class="token variable">$HEYGEN_API_KEY</span>"</span>
+</span></code></pre>
+<h3>TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">AudioVoiceItem</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  voice_id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  name<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  language<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  gender<span class="token operator">:</span> <span class="token string">"female"</span> <span class="token operator">|</span> <span class="token string">"male"</span> <span class="token operator">|</span> <span class="token string">"unknown"</span><span class="token punctuation">;</span>
+</span><span class="code-line">  preview_audio_url<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">  support_pause<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>
+</span><span class="code-line">  support_locale<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>
+</span><span class="code-line">  type<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">TTSVoicesResponse</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  error<span class="token operator">:</span> <span class="token keyword">null</span> <span class="token operator">|</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  data<span class="token operator">:</span> AudioVoiceItem<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">  has_more<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>
+</span><span class="code-line">  next_token<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">listTTSVoices</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>AudioVoiceItem<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> allVoices<span class="token operator">:</span> AudioVoiceItem<span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">let</span> token<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">|</span> <span class="token keyword">null</span> <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">do</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name"><span class="token constant">URL</span></span><span class="token punctuation">(</span><span class="token string">"https://api.heygen.com/v3/voices"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    url<span class="token punctuation">.</span>searchParams<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"engine"</span><span class="token punctuation">,</span> <span class="token string">"starfish"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>token<span class="token punctuation">)</span> url<span class="token punctuation">.</span>searchParams<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"token"</span><span class="token punctuation">,</span> token<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>url<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      headers<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token string-property property">"X-Api-Key"</span><span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">HEYGEN_API_KEY</span><span class="token operator">!</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> json<span class="token operator">:</span> TTSVoicesResponse <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>json<span class="token punctuation">.</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    allVoices<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token operator">...</span>json<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    token <span class="token operator">=</span> json<span class="token punctuation">.</span>next_token<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span> <span class="token keyword">while</span> <span class="token punctuation">(</span>token<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> allVoices<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> requests
+</span><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">list_tts_voices</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">list</span><span class="token punctuation">:</span>
+</span><span class="code-line">    all_voices <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+</span><span class="code-line">    token <span class="token operator">=</span> <span class="token boolean">None</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
+</span><span class="code-line">        params <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"engine"</span><span class="token punctuation">:</span> <span class="token string">"starfish"</span><span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">if</span> token<span class="token punctuation">:</span>
+</span><span class="code-line">            params<span class="token punctuation">[</span><span class="token string">"token"</span><span class="token punctuation">]</span> <span class="token operator">=</span> token
+</span><span class="code-line">
+</span><span class="code-line">        response <span class="token operator">=</span> requests<span class="token punctuation">.</span>get<span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token string">"https://api.heygen.com/v3/voices"</span><span class="token punctuation">,</span>
+</span><span class="code-line">            headers<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"X-Api-Key"</span><span class="token punctuation">:</span> os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"HEYGEN_API_KEY"</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">            params<span class="token operator">=</span>params<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        data <span class="token operator">=</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">if</span> data<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"error"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>data<span class="token punctuation">[</span><span class="token string">"error"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        all_voices<span class="token punctuation">.</span>extend<span class="token punctuation">(</span>data<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">        <span class="token keyword">if</span> <span class="token keyword">not</span> data<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"has_more"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">break</span>
+</span><span class="code-line">        token <span class="token operator">=</span> data<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"next_token"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> all_voices
+</span></code></pre>
+<h3>Response Format</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token property">"voice_id"</span><span class="token operator">:</span> <span class="token string">"f38a635bee7a4d1f9b0a654a31d050d2"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Chill Brian"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"language"</span><span class="token operator">:</span> <span class="token string">"English"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"gender"</span><span class="token operator">:</span> <span class="token string">"male"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"preview_audio_url"</span><span class="token operator">:</span> <span class="token string">"https://resource.heygen.ai/text_to_speech/WpSDQvmLGXEqXZVZQiVeg6.mp3"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"support_pause"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"support_locale"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"public"</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"has_more"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"next_token"</span><span class="token operator">:</span> <span class="token null keyword">null</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Generate Speech Audio</h2>
+<p>Convert text to speech audio using a specified voice.</p>
+<h3>Endpoint</h3>
+<p><code>POST https://api.heygen.com/v3/voices/speech</code></p>
+<h3>Request Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th align="center">Req</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text</code></td>
+<td>string</td>
+<td align="center">Y</td>
+<td>Text content to convert (1-5000 characters)</td>
+</tr>
+<tr>
+<td><code>voice_id</code></td>
+<td>string</td>
+<td align="center">Y</td>
+<td>Voice ID from <code>GET /v3/voices?engine=starfish</code></td>
+</tr>
+<tr>
+<td><code>input_type</code></td>
+<td>string</td>
+<td align="center"></td>
+<td><code>"text"</code> (default) or <code>"ssml"</code> for full SSML markup</td>
+</tr>
+<tr>
+<td><code>speed</code></td>
+<td>number</td>
+<td align="center"></td>
+<td>Speech speed, 0.5-2.0 (default: 1.0)</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td align="center"></td>
+<td>Base language code (e.g., <code>"en"</code>, <code>"pt"</code>). Auto-detected if omitted</td>
+</tr>
+<tr>
+<td><code>locale</code></td>
+<td>string</td>
+<td align="center"></td>
+<td>BCP-47 locale for multilingual voices (e.g., <code>"en-US"</code>, <code>"pt-BR"</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3>curl</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-X</span> POST <span class="token string">"https://api.heygen.com/v3/voices/speech"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"X-Api-Key: <span class="token variable">$HEYGEN_API_KEY</span>"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-H</span> <span class="token string">"Content-Type: application/json"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">-d</span> <span class="token string">'{
+</span></span><span class="code-line"><span class="token string">    "text": "Hello! Welcome to our product demo.",
+</span></span><span class="code-line"><span class="token string">    "voice_id": "YOUR_VOICE_ID",
+</span></span><span class="code-line"><span class="token string">    "speed": 1.0
+</span></span><span class="code-line"><span class="token string">  }'</span>
+</span></code></pre>
+<h3>TypeScript</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">TTSRequest</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  voice_id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  input_type<span class="token operator">?</span><span class="token operator">:</span> <span class="token string">"text"</span> <span class="token operator">|</span> <span class="token string">"ssml"</span><span class="token punctuation">;</span>
+</span><span class="code-line">  speed<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+</span><span class="code-line">  language<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  locale<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">WordTimestamp</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  word<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  start<span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+</span><span class="code-line">  end<span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">TTSResponse</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  error<span class="token operator">:</span> <span class="token keyword">null</span> <span class="token operator">|</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  data<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    audio_url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">    duration<span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+</span><span class="code-line">    request_id<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">    word_timestamps<span class="token operator">?</span><span class="token operator">:</span> WordTimestamp<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">textToSpeech</span><span class="token punctuation">(</span>request<span class="token operator">:</span> TTSRequest<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>TTSResponse<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token string">"https://api.heygen.com/v3/voices/speech"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      method<span class="token operator">:</span> <span class="token string">"POST"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      headers<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string-property property">"X-Api-Key"</span><span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">HEYGEN_API_KEY</span><span class="token operator">!</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string-property property">"Content-Type"</span><span class="token operator">:</span> <span class="token string">"application/json"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      body<span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> json<span class="token operator">:</span> TTSResponse <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>json<span class="token punctuation">.</span>error<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> json<span class="token punctuation">.</span>data<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Python</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> requests
+</span><span class="code-line"><span class="token keyword">import</span> os
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">def</span> <span class="token function">text_to_speech</span><span class="token punctuation">(</span>
+</span><span class="code-line">    text<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>
+</span><span class="code-line">    voice_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>
+</span><span class="code-line">    input_type<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    speed<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> <span class="token number">1.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    language<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+</span><span class="code-line">    locale<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+</span><span class="code-line">    payload <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token string">"text"</span><span class="token punctuation">:</span> text<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"voice_id"</span><span class="token punctuation">:</span> voice_id<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token string">"speed"</span><span class="token punctuation">:</span> speed<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> input_type <span class="token operator">!=</span> <span class="token string">"text"</span><span class="token punctuation">:</span>
+</span><span class="code-line">        payload<span class="token punctuation">[</span><span class="token string">"input_type"</span><span class="token punctuation">]</span> <span class="token operator">=</span> input_type
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> language<span class="token punctuation">:</span>
+</span><span class="code-line">        payload<span class="token punctuation">[</span><span class="token string">"language"</span><span class="token punctuation">]</span> <span class="token operator">=</span> language
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> locale<span class="token punctuation">:</span>
+</span><span class="code-line">        payload<span class="token punctuation">[</span><span class="token string">"locale"</span><span class="token punctuation">]</span> <span class="token operator">=</span> locale
+</span><span class="code-line">
+</span><span class="code-line">    response <span class="token operator">=</span> requests<span class="token punctuation">.</span>post<span class="token punctuation">(</span>
+</span><span class="code-line">        <span class="token string">"https://api.heygen.com/v3/voices/speech"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        headers<span class="token operator">=</span><span class="token punctuation">{</span>
+</span><span class="code-line">            <span class="token string">"X-Api-Key"</span><span class="token punctuation">:</span> os<span class="token punctuation">.</span>environ<span class="token punctuation">[</span><span class="token string">"HEYGEN_API_KEY"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">            <span class="token string">"Content-Type"</span><span class="token punctuation">:</span> <span class="token string">"application/json"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        json<span class="token operator">=</span>payload<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    data <span class="token operator">=</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> data<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"error"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>data<span class="token punctuation">[</span><span class="token string">"error"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">return</span> data<span class="token punctuation">[</span><span class="token string">"data"</span><span class="token punctuation">]</span>
+</span></code></pre>
+<h3>Response Format</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"audio_url"</span><span class="token operator">:</span> <span class="token string">"https://resource2.heygen.ai/text_to_speech/.../id=365d46bb.wav"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"duration"</span><span class="token operator">:</span> <span class="token number">5.526</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"request_id"</span><span class="token operator">:</span> <span class="token string">"p38QJ52hfgNlsYKZZmd9"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"word_timestamps"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> <span class="token property">"word"</span><span class="token operator">:</span> <span class="token string">"&lt;start&gt;"</span><span class="token punctuation">,</span> <span class="token property">"start"</span><span class="token operator">:</span> <span class="token number">0.0</span><span class="token punctuation">,</span> <span class="token property">"end"</span><span class="token operator">:</span> <span class="token number">0.0</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> <span class="token property">"word"</span><span class="token operator">:</span> <span class="token string">"Hey"</span><span class="token punctuation">,</span> <span class="token property">"start"</span><span class="token operator">:</span> <span class="token number">0.079</span><span class="token punctuation">,</span> <span class="token property">"end"</span><span class="token operator">:</span> <span class="token number">0.219</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> <span class="token property">"word"</span><span class="token operator">:</span> <span class="token string">"there,"</span><span class="token punctuation">,</span> <span class="token property">"start"</span><span class="token operator">:</span> <span class="token number">0.239</span><span class="token punctuation">,</span> <span class="token property">"end"</span><span class="token operator">:</span> <span class="token number">0.459</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span> <span class="token property">"word"</span><span class="token operator">:</span> <span class="token string">"&lt;end&gt;"</span><span class="token punctuation">,</span> <span class="token property">"start"</span><span class="token operator">:</span> <span class="token number">5.526</span><span class="token punctuation">,</span> <span class="token property">"end"</span><span class="token operator">:</span> <span class="token number">5.526</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Usage Examples</h2>
+<h3>Basic TTS</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">textToSpeech</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token string">"Welcome to our quarterly earnings call."</span><span class="token punctuation">,</span>
+</span><span class="code-line">  voice_id<span class="token operator">:</span> <span class="token string">"YOUR_VOICE_ID"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Audio URL: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>result<span class="token punctuation">.</span>audio_url<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Duration: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>result<span class="token punctuation">.</span>duration<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">s</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>With Speed Adjustment</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">textToSpeech</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token string">"We're thrilled to announce our newest feature!"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  voice_id<span class="token operator">:</span> <span class="token string">"YOUR_VOICE_ID"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  speed<span class="token operator">:</span> <span class="token number">1.1</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>With Language and Locale for Multilingual Voices</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">textToSpeech</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token string">"Bem-vindo ao nosso produto."</span><span class="token punctuation">,</span>
+</span><span class="code-line">  voice_id<span class="token operator">:</span> <span class="token string">"MULTILINGUAL_VOICE_ID"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  language<span class="token operator">:</span> <span class="token string">"pt"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  locale<span class="token operator">:</span> <span class="token string">"pt-BR"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>With SSML Input</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">textToSpeech</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  text<span class="token operator">:</span> <span class="token string">'&lt;speak&gt;Hello &lt;break time="1s"/&gt; and welcome!&lt;/speak&gt;'</span><span class="token punctuation">,</span>
+</span><span class="code-line">  voice_id<span class="token operator">:</span> <span class="token string">"YOUR_VOICE_ID"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  input_type<span class="token operator">:</span> <span class="token string">"ssml"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Find a Voice and Generate Audio</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">generateSpeech</span><span class="token punctuation">(</span>text<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> language<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> voices <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">listTTSVoices</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> voice <span class="token operator">=</span> voices<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">(</span>v<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> v<span class="token punctuation">.</span>language<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">includes</span><span class="token punctuation">(</span>language<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>voice<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">No TTS voice found for language: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>language<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">textToSpeech</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    text<span class="token punctuation">,</span>
+</span><span class="code-line">    voice_id<span class="token operator">:</span> voice<span class="token punctuation">.</span>voice_id<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> result<span class="token punctuation">.</span>audio_url<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> audioUrl <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">generateSpeech</span><span class="token punctuation">(</span><span class="token string">"Hello and welcome!"</span><span class="token punctuation">,</span> <span class="token string">"english"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Pauses with Break Tags</h2>
+<p>Use SSML-style break tags in your text for pauses:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">word &lt;break time="1s"/&gt; word
+</span></code></pre>
+<p>Rules:</p>
+<ul>
+<li>Use seconds with <code>s</code> suffix: <code>&lt;break time="1.5s"/&gt;</code></li>
+<li>Must have spaces before and after the tag</li>
+<li>Self-closing tag format</li>
+</ul>
+<p>With v3, you can also use <code>input_type: "ssml"</code> for full SSML support, allowing richer markup beyond just break tags:</p>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"text"</span><span class="token operator">:</span> <span class="token string">"&lt;speak&gt;Welcome! &lt;break time=\"1s\"/&gt; Let's get started.&lt;/speak&gt;"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"voice_id"</span><span class="token operator">:</span> <span class="token string">"YOUR_VOICE_ID"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"input_type"</span><span class="token operator">:</span> <span class="token string">"ssml"</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Use <code>GET /v3/voices?engine=starfish</code></strong> to find compatible voices — the unified <code>/v3/voices</code> endpoint serves all voice types, so the <code>engine=starfish</code> filter is essential for TTS</li>
+<li><strong>Check <code>support_locale</code></strong> before setting a <code>locale</code> — only multilingual voices support locale selection</li>
+<li><strong>Keep speed between 0.8-1.2</strong> for natural-sounding output</li>
+<li><strong>Preview voices</strong> using the <code>preview_audio_url</code> before generating (may be null for some voices)</li>
+<li><strong>Use <code>word_timestamps</code></strong> in the response for caption syncing or timed text overlays</li>
+<li><strong>Use SSML break tags</strong> in your text for pauses: <code>word &lt;break time="1s"/&gt; word</code></li>
+<li><strong>Use <code>input_type: "ssml"</code></strong> when you need full SSML markup control beyond simple break tags</li>
+<li><strong>Paginate voice listing</strong> — the v3 endpoint returns paginated results; use <code>has_more</code> and <code>next_token</code> to fetch all voices</li>
+</ol></div>

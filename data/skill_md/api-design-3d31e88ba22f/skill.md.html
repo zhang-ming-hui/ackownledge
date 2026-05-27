@@ -1,0 +1,508 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>API Design Patterns</h1>
+<p>Conventions and best practices for designing consistent, developer-friendly REST APIs.</p>
+<h2>When to Activate</h2>
+<ul>
+<li>Designing new API endpoints</li>
+<li>Reviewing existing API contracts</li>
+<li>Adding pagination, filtering, or sorting</li>
+<li>Implementing error handling for APIs</li>
+<li>Planning API versioning strategy</li>
+<li>Building public or partner-facing APIs</li>
+</ul>
+<h2>Resource Design</h2>
+<h3>URL Structure</h3></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Resources are nouns, plural, lowercase, kebab-case
+</span><span class="code-line">GET    /api/v1/users
+</span><span class="code-line">GET    /api/v1/users/:id
+</span><span class="code-line">POST   /api/v1/users
+</span><span class="code-line">PUT    /api/v1/users/:id
+</span><span class="code-line">PATCH  /api/v1/users/:id
+</span><span class="code-line">DELETE /api/v1/users/:id
+</span><span class="code-line">
+</span><span class="code-line"># Sub-resources for relationships
+</span><span class="code-line">GET    /api/v1/users/:id/orders
+</span><span class="code-line">POST   /api/v1/users/:id/orders
+</span><span class="code-line">
+</span><span class="code-line"># Actions that don't map to CRUD (use verbs sparingly)
+</span><span class="code-line">POST   /api/v1/orders/:id/cancel
+</span><span class="code-line">POST   /api/v1/auth/login
+</span><span class="code-line">POST   /api/v1/auth/refresh
+</span></code></pre>
+<h3>Naming Rules</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># GOOD
+</span><span class="code-line">/api/v1/team-members          # kebab-case for multi-word resources
+</span><span class="code-line">/api/v1/orders?status=active  # query params for filtering
+</span><span class="code-line">/api/v1/users/123/orders      # nested resources for ownership
+</span><span class="code-line">
+</span><span class="code-line"># BAD
+</span><span class="code-line">/api/v1/getUsers              # verb in URL
+</span><span class="code-line">/api/v1/user                  # singular (use plural)
+</span><span class="code-line">/api/v1/team_members          # snake_case in URLs
+</span><span class="code-line">/api/v1/users/123/getOrders   # verb in nested resource
+</span></code></pre>
+<h2>HTTP Methods and Status Codes</h2>
+<h3>Method Semantics</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Idempotent</th>
+<th>Safe</th>
+<th>Use For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Retrieve resources</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>No</td>
+<td>No</td>
+<td>Create resources, trigger actions</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>Yes</td>
+<td>No</td>
+<td>Full replacement of a resource</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>No*</td>
+<td>No</td>
+<td>Partial update of a resource</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Yes</td>
+<td>No</td>
+<td>Remove a resource</td>
+</tr>
+</tbody>
+</table>
+<p>*PATCH can be made idempotent with proper implementation</p>
+<h3>Status Code Reference</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Success
+</span><span class="code-line">200 OK                    — GET, PUT, PATCH (with response body)
+</span><span class="code-line">201 Created               — POST (include Location header)
+</span><span class="code-line">204 No Content            — DELETE, PUT (no response body)
+</span><span class="code-line">
+</span><span class="code-line"># Client Errors
+</span><span class="code-line">400 Bad Request           — Validation failure, malformed JSON
+</span><span class="code-line">401 Unauthorized          — Missing or invalid authentication
+</span><span class="code-line">403 Forbidden             — Authenticated but not authorized
+</span><span class="code-line">404 Not Found             — Resource doesn't exist
+</span><span class="code-line">409 Conflict              — Duplicate entry, state conflict
+</span><span class="code-line">422 Unprocessable Entity  — Semantically invalid (valid JSON, bad data)
+</span><span class="code-line">429 Too Many Requests     — Rate limit exceeded
+</span><span class="code-line">
+</span><span class="code-line"># Server Errors
+</span><span class="code-line">500 Internal Server Error — Unexpected failure (never expose details)
+</span><span class="code-line">502 Bad Gateway           — Upstream service failed
+</span><span class="code-line">503 Service Unavailable   — Temporary overload, include Retry-After
+</span></code></pre>
+<h3>Common Mistakes</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># BAD: 200 for everything
+</span><span class="code-line">{ "status": 200, "success": false, "error": "Not found" }
+</span><span class="code-line">
+</span><span class="code-line"># GOOD: Use HTTP status codes semantically
+</span><span class="code-line">HTTP/1.1 404 Not Found
+</span><span class="code-line">{ "error": { "code": "not_found", "message": "User not found" } }
+</span><span class="code-line">
+</span><span class="code-line"># BAD: 500 for validation errors
+</span><span class="code-line"># GOOD: 400 or 422 with field-level details
+</span><span class="code-line">
+</span><span class="code-line"># BAD: 200 for created resources
+</span><span class="code-line"># GOOD: 201 with Location header
+</span><span class="code-line">HTTP/1.1 201 Created
+</span><span class="code-line">Location: /api/v1/users/abc-123
+</span></code></pre>
+<h2>Response Format</h2>
+<h3>Success Response</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"abc-123"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"email"</span><span class="token operator">:</span> <span class="token string">"alice@example.com"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Alice"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"created_at"</span><span class="token operator">:</span> <span class="token string">"2025-01-15T10:30:00Z"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Collection Response (with Pagination)</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"abc-123"</span><span class="token punctuation">,</span> <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Alice"</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> <span class="token property">"id"</span><span class="token operator">:</span> <span class="token string">"def-456"</span><span class="token punctuation">,</span> <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Bob"</span> <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"meta"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"total"</span><span class="token operator">:</span> <span class="token number">142</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"page"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"per_page"</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"total_pages"</span><span class="token operator">:</span> <span class="token number">8</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"links"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"self"</span><span class="token operator">:</span> <span class="token string">"/api/v1/users?page=1&amp;per_page=20"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"next"</span><span class="token operator">:</span> <span class="token string">"/api/v1/users?page=2&amp;per_page=20"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"last"</span><span class="token operator">:</span> <span class="token string">"/api/v1/users?page=8&amp;per_page=20"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Error Response</h3>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"code"</span><span class="token operator">:</span> <span class="token string">"validation_error"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"message"</span><span class="token operator">:</span> <span class="token string">"Request validation failed"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"details"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">      <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"field"</span><span class="token operator">:</span> <span class="token string">"email"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"message"</span><span class="token operator">:</span> <span class="token string">"Must be a valid email address"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"code"</span><span class="token operator">:</span> <span class="token string">"invalid_format"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token property">"field"</span><span class="token operator">:</span> <span class="token string">"age"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"message"</span><span class="token operator">:</span> <span class="token string">"Must be between 0 and 150"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token property">"code"</span><span class="token operator">:</span> <span class="token string">"out_of_range"</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">]</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Response Envelope Variants</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Option A: Envelope with data wrapper (recommended for public APIs)</span>
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">ApiResponse<span class="token operator">&lt;</span><span class="token constant">T</span><span class="token operator">&gt;</span></span> <span class="token punctuation">{</span>
+</span><span class="code-line">  data<span class="token operator">:</span> <span class="token constant">T</span><span class="token punctuation">;</span>
+</span><span class="code-line">  meta<span class="token operator">?</span><span class="token operator">:</span> PaginationMeta<span class="token punctuation">;</span>
+</span><span class="code-line">  links<span class="token operator">?</span><span class="token operator">:</span> PaginationLinks<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">ApiError</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  error<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    code<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">    message<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">    details<span class="token operator">?</span><span class="token operator">:</span> FieldError<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Option B: Flat response (simpler, common for internal APIs)</span>
+</span><span class="code-line"><span class="token comment">// Success: just return the resource directly</span>
+</span><span class="code-line"><span class="token comment">// Error: return error object</span>
+</span><span class="code-line"><span class="token comment">// Distinguish by HTTP status code</span>
+</span></code></pre>
+<h2>Pagination</h2>
+<h3>Offset-Based (Simple)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">GET /api/v1/users?page=2&amp;per_page=20
+</span><span class="code-line">
+</span><span class="code-line"># Implementation
+</span><span class="code-line">SELECT * FROM users
+</span><span class="code-line">ORDER BY created_at DESC
+</span><span class="code-line">LIMIT 20 OFFSET 20;
+</span></code></pre>
+<p><strong>Pros:</strong> Easy to implement, supports "jump to page N"
+<strong>Cons:</strong> Slow on large offsets (OFFSET 100000), inconsistent with concurrent inserts</p>
+<h3>Cursor-Based (Scalable)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">GET /api/v1/users?cursor=eyJpZCI6MTIzfQ&amp;limit=20
+</span><span class="code-line">
+</span><span class="code-line"># Implementation
+</span><span class="code-line">SELECT * FROM users
+</span><span class="code-line">WHERE id &gt; :cursor_id
+</span><span class="code-line">ORDER BY id ASC
+</span><span class="code-line">LIMIT 21;  -- fetch one extra to determine has_next
+</span></code></pre>
+<pre class="language-json"><code class="language-json code-highlight"><span class="code-line"><span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">[</span>...<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token property">"meta"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token property">"has_next"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token property">"next_cursor"</span><span class="token operator">:</span> <span class="token string">"eyJpZCI6MTQzfQ"</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p><strong>Pros:</strong> Consistent performance regardless of position, stable with concurrent inserts
+<strong>Cons:</strong> Cannot jump to arbitrary page, cursor is opaque</p>
+<h3>When to Use Which</h3>
+<table>
+<thead>
+<tr>
+<th>Use Case</th>
+<th>Pagination Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin dashboards, small datasets (&lt;10K)</td>
+<td>Offset</td>
+</tr>
+<tr>
+<td>Infinite scroll, feeds, large datasets</td>
+<td>Cursor</td>
+</tr>
+<tr>
+<td>Public APIs</td>
+<td>Cursor (default) with offset (optional)</td>
+</tr>
+<tr>
+<td>Search results</td>
+<td>Offset (users expect page numbers)</td>
+</tr>
+</tbody>
+</table>
+<h2>Filtering, Sorting, and Search</h2>
+<h3>Filtering</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Simple equality
+</span><span class="code-line">GET /api/v1/orders?status=active&amp;customer_id=abc-123
+</span><span class="code-line">
+</span><span class="code-line"># Comparison operators (use bracket notation)
+</span><span class="code-line">GET /api/v1/products?price[gte]=10&amp;price[lte]=100
+</span><span class="code-line">GET /api/v1/orders?created_at[after]=2025-01-01
+</span><span class="code-line">
+</span><span class="code-line"># Multiple values (comma-separated)
+</span><span class="code-line">GET /api/v1/products?category=electronics,clothing
+</span><span class="code-line">
+</span><span class="code-line"># Nested fields (dot notation)
+</span><span class="code-line">GET /api/v1/orders?customer.country=US
+</span></code></pre>
+<h3>Sorting</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Single field (prefix - for descending)
+</span><span class="code-line">GET /api/v1/products?sort=-created_at
+</span><span class="code-line">
+</span><span class="code-line"># Multiple fields (comma-separated)
+</span><span class="code-line">GET /api/v1/products?sort=-featured,price,-created_at
+</span></code></pre>
+<h3>Full-Text Search</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Search query parameter
+</span><span class="code-line">GET /api/v1/products?q=wireless+headphones
+</span><span class="code-line">
+</span><span class="code-line"># Field-specific search
+</span><span class="code-line">GET /api/v1/users?email=alice
+</span></code></pre>
+<h3>Sparse Fieldsets</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Return only specified fields (reduces payload)
+</span><span class="code-line">GET /api/v1/users?fields=id,name,email
+</span><span class="code-line">GET /api/v1/orders?fields=id,total,status&amp;include=customer.name
+</span></code></pre>
+<h2>Authentication and Authorization</h2>
+<h3>Token-Based Auth</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line"># Bearer token in Authorization header
+</span><span class="code-line">GET /api/v1/users
+</span><span class="code-line">Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+</span><span class="code-line">
+</span><span class="code-line"># API key (for server-to-server)
+</span><span class="code-line">GET /api/v1/data
+</span><span class="code-line">X-API-Key: sk_live_abc123
+</span></code></pre>
+<h3>Authorization Patterns</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token comment">// Resource-level: check ownership</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">"/api/v1/orders/:id"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> order <span class="token operator">=</span> <span class="token keyword">await</span> Order<span class="token punctuation">.</span><span class="token function">findById</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>params<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>order<span class="token punctuation">)</span> <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">404</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> error<span class="token operator">:</span> <span class="token punctuation">{</span> code<span class="token operator">:</span> <span class="token string">"not_found"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>order<span class="token punctuation">.</span>userId <span class="token operator">!==</span> req<span class="token punctuation">.</span>user<span class="token punctuation">.</span>id<span class="token punctuation">)</span> <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">403</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> error<span class="token operator">:</span> <span class="token punctuation">{</span> code<span class="token operator">:</span> <span class="token string">"forbidden"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> order <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Role-based: check permissions</span>
+</span><span class="code-line">app<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span><span class="token string">"/api/v1/users/:id"</span><span class="token punctuation">,</span> <span class="token function">requireRole</span><span class="token punctuation">(</span><span class="token string">"admin"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>req<span class="token punctuation">,</span> res<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">await</span> User<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>req<span class="token punctuation">.</span>params<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> res<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">204</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Rate Limiting</h2>
+<h3>Headers</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">HTTP/1.1 200 OK
+</span><span class="code-line">X-RateLimit-Limit: 100
+</span><span class="code-line">X-RateLimit-Remaining: 95
+</span><span class="code-line">X-RateLimit-Reset: 1640000000
+</span><span class="code-line">
+</span><span class="code-line"># When exceeded
+</span><span class="code-line">HTTP/1.1 429 Too Many Requests
+</span><span class="code-line">Retry-After: 60
+</span><span class="code-line">{
+</span><span class="code-line">  "error": {
+</span><span class="code-line">    "code": "rate_limit_exceeded",
+</span><span class="code-line">    "message": "Rate limit exceeded. Try again in 60 seconds."
+</span><span class="code-line">  }
+</span><span class="code-line">}
+</span></code></pre>
+<h3>Rate Limit Tiers</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Limit</th>
+<th>Window</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anonymous</td>
+<td>30/min</td>
+<td>Per IP</td>
+<td>Public endpoints</td>
+</tr>
+<tr>
+<td>Authenticated</td>
+<td>100/min</td>
+<td>Per user</td>
+<td>Standard API access</td>
+</tr>
+<tr>
+<td>Premium</td>
+<td>1000/min</td>
+<td>Per API key</td>
+<td>Paid API plans</td>
+</tr>
+<tr>
+<td>Internal</td>
+<td>10000/min</td>
+<td>Per service</td>
+<td>Service-to-service</td>
+</tr>
+</tbody>
+</table>
+<h2>Versioning</h2>
+<h3>URL Path Versioning (Recommended)</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/api/v1/users
+</span><span class="code-line">/api/v2/users
+</span></code></pre>
+<p><strong>Pros:</strong> Explicit, easy to route, cacheable
+<strong>Cons:</strong> URL changes between versions</p>
+<h3>Header Versioning</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">GET /api/users
+</span><span class="code-line">Accept: application/vnd.myapp.v2+json
+</span></code></pre>
+<p><strong>Pros:</strong> Clean URLs
+<strong>Cons:</strong> Harder to test, easy to forget</p>
+<h3>Versioning Strategy</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">1. Start with /api/v1/ — don't version until you need to
+</span><span class="code-line">2. Maintain at most 2 active versions (current + previous)
+</span><span class="code-line">3. Deprecation timeline:
+</span><span class="code-line">   - Announce deprecation (6 months notice for public APIs)
+</span><span class="code-line">   - Add Sunset header: Sunset: Sat, 01 Jan 2026 00:00:00 GMT
+</span><span class="code-line">   - Return 410 Gone after sunset date
+</span><span class="code-line">4. Non-breaking changes don't need a new version:
+</span><span class="code-line">   - Adding new fields to responses
+</span><span class="code-line">   - Adding new optional query parameters
+</span><span class="code-line">   - Adding new endpoints
+</span><span class="code-line">5. Breaking changes require a new version:
+</span><span class="code-line">   - Removing or renaming fields
+</span><span class="code-line">   - Changing field types
+</span><span class="code-line">   - Changing URL structure
+</span><span class="code-line">   - Changing authentication method
+</span></code></pre>
+<h2>Implementation Patterns</h2>
+<h3>TypeScript (Next.js API Route)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> NextRequest<span class="token punctuation">,</span> NextResponse <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"next/server"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> createUserSchema <span class="token operator">=</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  email<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">email</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">  name<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">min</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">max</span><span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token constant">POST</span><span class="token punctuation">(</span>req<span class="token operator">:</span> NextRequest<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> body <span class="token operator">=</span> <span class="token keyword">await</span> req<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> parsed <span class="token operator">=</span> createUserSchema<span class="token punctuation">.</span><span class="token function">safeParse</span><span class="token punctuation">(</span>body<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>parsed<span class="token punctuation">.</span>success<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> NextResponse<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      error<span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        code<span class="token operator">:</span> <span class="token string">"validation_error"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        message<span class="token operator">:</span> <span class="token string">"Request validation failed"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        details<span class="token operator">:</span> parsed<span class="token punctuation">.</span>error<span class="token punctuation">.</span>issues<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span>i <span class="token operator">=&gt;</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">          field<span class="token operator">:</span> i<span class="token punctuation">.</span>path<span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span><span class="token string">"."</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">          message<span class="token operator">:</span> i<span class="token punctuation">.</span>message<span class="token punctuation">,</span>
+</span><span class="code-line">          code<span class="token operator">:</span> i<span class="token punctuation">.</span>code<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">{</span> status<span class="token operator">:</span> <span class="token number">422</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">createUser</span><span class="token punctuation">(</span>parsed<span class="token punctuation">.</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> NextResponse<span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token punctuation">{</span> data<span class="token operator">:</span> user <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      status<span class="token operator">:</span> <span class="token number">201</span><span class="token punctuation">,</span>
+</span><span class="code-line">      headers<span class="token operator">:</span> <span class="token punctuation">{</span> Location<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/v1/users/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>user<span class="token punctuation">.</span>id<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Python (Django REST Framework)</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> rest_framework <span class="token keyword">import</span> serializers<span class="token punctuation">,</span> viewsets<span class="token punctuation">,</span> status
+</span><span class="code-line"><span class="token keyword">from</span> rest_framework<span class="token punctuation">.</span>response <span class="token keyword">import</span> Response
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">CreateUserSerializer</span><span class="token punctuation">(</span>serializers<span class="token punctuation">.</span>Serializer<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    email <span class="token operator">=</span> serializers<span class="token punctuation">.</span>EmailField<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">    name <span class="token operator">=</span> serializers<span class="token punctuation">.</span>CharField<span class="token punctuation">(</span>max_length<span class="token operator">=</span><span class="token number">100</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserSerializer</span><span class="token punctuation">(</span>serializers<span class="token punctuation">.</span>ModelSerializer<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">:</span>
+</span><span class="code-line">        model <span class="token operator">=</span> User
+</span><span class="code-line">        fields <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">,</span> <span class="token string">"email"</span><span class="token punctuation">,</span> <span class="token string">"name"</span><span class="token punctuation">,</span> <span class="token string">"created_at"</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">UserViewSet</span><span class="token punctuation">(</span>viewsets<span class="token punctuation">.</span>ModelViewSet<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    serializer_class <span class="token operator">=</span> UserSerializer
+</span><span class="code-line">    permission_classes <span class="token operator">=</span> <span class="token punctuation">[</span>IsAuthenticated<span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">get_serializer_class</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token keyword">if</span> self<span class="token punctuation">.</span>action <span class="token operator">==</span> <span class="token string">"create"</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token keyword">return</span> CreateUserSerializer
+</span><span class="code-line">        <span class="token keyword">return</span> UserSerializer
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">def</span> <span class="token function">create</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> request<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">        serializer <span class="token operator">=</span> CreateUserSerializer<span class="token punctuation">(</span>data<span class="token operator">=</span>request<span class="token punctuation">.</span>data<span class="token punctuation">)</span>
+</span><span class="code-line">        serializer<span class="token punctuation">.</span>is_valid<span class="token punctuation">(</span>raise_exception<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">        user <span class="token operator">=</span> UserService<span class="token punctuation">.</span>create<span class="token punctuation">(</span><span class="token operator">**</span>serializer<span class="token punctuation">.</span>validated_data<span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span> Response<span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token punctuation">{</span><span class="token string">"data"</span><span class="token punctuation">:</span> UserSerializer<span class="token punctuation">(</span>user<span class="token punctuation">)</span><span class="token punctuation">.</span>data<span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">            status<span class="token operator">=</span>status<span class="token punctuation">.</span>HTTP_201_CREATED<span class="token punctuation">,</span>
+</span><span class="code-line">            headers<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">"Location"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"/api/v1/users/</span><span class="token interpolation"><span class="token punctuation">{</span>user<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Go (net/http)</h3>
+<pre class="language-go"><code class="language-go code-highlight"><span class="code-line"><span class="token keyword">func</span> <span class="token punctuation">(</span>h <span class="token operator">*</span>UserHandler<span class="token punctuation">)</span> <span class="token function">CreateUser</span><span class="token punctuation">(</span>w http<span class="token punctuation">.</span>ResponseWriter<span class="token punctuation">,</span> r <span class="token operator">*</span>http<span class="token punctuation">.</span>Request<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">var</span> req CreateUserRequest
+</span><span class="code-line">    <span class="token keyword">if</span> err <span class="token operator">:=</span> json<span class="token punctuation">.</span><span class="token function">NewDecoder</span><span class="token punctuation">(</span>r<span class="token punctuation">.</span>Body<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Decode</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">writeError</span><span class="token punctuation">(</span>w<span class="token punctuation">,</span> http<span class="token punctuation">.</span>StatusBadRequest<span class="token punctuation">,</span> <span class="token string">"invalid_json"</span><span class="token punctuation">,</span> <span class="token string">"Invalid request body"</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> err <span class="token operator">:=</span> req<span class="token punctuation">.</span><span class="token function">Validate</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">writeError</span><span class="token punctuation">(</span>w<span class="token punctuation">,</span> http<span class="token punctuation">.</span>StatusUnprocessableEntity<span class="token punctuation">,</span> <span class="token string">"validation_error"</span><span class="token punctuation">,</span> err<span class="token punctuation">.</span><span class="token function">Error</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">return</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    user<span class="token punctuation">,</span> err <span class="token operator">:=</span> h<span class="token punctuation">.</span>service<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span>r<span class="token punctuation">.</span><span class="token function">Context</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> req<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">switch</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">case</span> errors<span class="token punctuation">.</span><span class="token function">Is</span><span class="token punctuation">(</span>err<span class="token punctuation">,</span> domain<span class="token punctuation">.</span>ErrEmailTaken<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token function">writeError</span><span class="token punctuation">(</span>w<span class="token punctuation">,</span> http<span class="token punctuation">.</span>StatusConflict<span class="token punctuation">,</span> <span class="token string">"email_taken"</span><span class="token punctuation">,</span> <span class="token string">"Email already registered"</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token keyword">default</span><span class="token punctuation">:</span>
+</span><span class="code-line">            <span class="token function">writeError</span><span class="token punctuation">(</span>w<span class="token punctuation">,</span> http<span class="token punctuation">.</span>StatusInternalServerError<span class="token punctuation">,</span> <span class="token string">"internal_error"</span><span class="token punctuation">,</span> <span class="token string">"Internal error"</span><span class="token punctuation">)</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token keyword">return</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    w<span class="token punctuation">.</span><span class="token function">Header</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Set</span><span class="token punctuation">(</span><span class="token string">"Location"</span><span class="token punctuation">,</span> fmt<span class="token punctuation">.</span><span class="token function">Sprintf</span><span class="token punctuation">(</span><span class="token string">"/api/v1/users/%s"</span><span class="token punctuation">,</span> user<span class="token punctuation">.</span>ID<span class="token punctuation">)</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token function">writeJSON</span><span class="token punctuation">(</span>w<span class="token punctuation">,</span> http<span class="token punctuation">.</span>StatusCreated<span class="token punctuation">,</span> <span class="token keyword">map</span><span class="token punctuation">[</span><span class="token builtin">string</span><span class="token punctuation">]</span>any<span class="token punctuation">{</span><span class="token string">"data"</span><span class="token punctuation">:</span> user<span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>API Design Checklist</h2>
+<p>Before shipping a new endpoint:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> Resource URL follows naming conventions (plural, kebab-case, no verbs)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Correct HTTP method used (GET for reads, POST for creates, etc.)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Appropriate status codes returned (not 200 for everything)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Input validated with schema (Zod, Pydantic, Bean Validation)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Error responses follow standard format with codes and messages</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Pagination implemented for list endpoints (cursor or offset)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Authentication required (or explicitly marked as public)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Authorization checked (user can only access their own resources)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Rate limiting configured</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Response does not leak internal details (stack traces, SQL errors)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Consistent naming with existing endpoints (camelCase vs snake_case)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Documented (OpenAPI/Swagger spec updated)</li>
+</ul></div>

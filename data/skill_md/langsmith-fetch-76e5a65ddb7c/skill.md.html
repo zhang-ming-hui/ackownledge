@@ -1,0 +1,412 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>LangSmith Fetch - Agent Debugging Skill</h1>
+<p>Debug LangChain and LangGraph agents by fetching execution traces directly from LangSmith Studio in your terminal.</p>
+<h2>When to Use This Skill</h2>
+<p>Automatically activate when user mentions:</p>
+<ul>
+<li>🐛 "Debug my agent" or "What went wrong?"</li>
+<li>🔍 "Show me recent traces" or "What happened?"</li>
+<li>❌ "Check for errors" or "Why did it fail?"</li>
+<li>💾 "Analyze memory operations" or "Check LTM"</li>
+<li>📊 "Review agent performance" or "Check token usage"</li>
+<li>🔧 "What tools were called?" or "Show execution flow"</li>
+</ul>
+<h2>Prerequisites</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h3>1. Install langsmith-fetch</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">pip <span class="token function">install</span> langsmith-fetch
+</span></code></pre>
+<h3>2. Set Environment Variables</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">LANGSMITH_API_KEY</span><span class="token operator">=</span><span class="token string">"your_langsmith_api_key"</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">LANGSMITH_PROJECT</span><span class="token operator">=</span><span class="token string">"your_project_name"</span>
+</span></code></pre>
+<p><strong>Verify setup:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token variable">$LANGSMITH_API_KEY</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token variable">$LANGSMITH_PROJECT</span>
+</span></code></pre>
+<h2>Core Workflows</h2>
+<h3>Workflow 1: Quick Debug Recent Activity</h3>
+<p><strong>When user asks:</strong> "What just happened?" or "Debug my agent"</p>
+<p><strong>Execute:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">5</span> <span class="token parameter variable">--limit</span> <span class="token number">5</span> <span class="token parameter variable">--format</span> pretty
+</span></code></pre>
+<p><strong>Analyze and report:</strong></p>
+<ol>
+<li>✅ Number of traces found</li>
+<li>⚠️ Any errors or failures</li>
+<li>🛠️ Tools that were called</li>
+<li>⏱️ Execution times</li>
+<li>💰 Token usage</li>
+</ol>
+<p><strong>Example response format:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Found 3 traces in the last 5 minutes:
+</span><span class="code-line">
+</span><span class="code-line">Trace 1: ✅ Success
+</span><span class="code-line">- Agent: memento
+</span><span class="code-line">- Tools: recall_memories, create_entities
+</span><span class="code-line">- Duration: 2.3s
+</span><span class="code-line">- Tokens: 1,245
+</span><span class="code-line">
+</span><span class="code-line">Trace 2: ❌ Error
+</span><span class="code-line">- Agent: cypher
+</span><span class="code-line">- Error: "Neo4j connection timeout"
+</span><span class="code-line">- Duration: 15.1s
+</span><span class="code-line">- Failed at: search_nodes tool
+</span><span class="code-line">
+</span><span class="code-line">Trace 3: ✅ Success
+</span><span class="code-line">- Agent: memento
+</span><span class="code-line">- Tools: store_memory
+</span><span class="code-line">- Duration: 1.8s
+</span><span class="code-line">- Tokens: 892
+</span><span class="code-line">
+</span><span class="code-line">💡 Issue found: Trace 2 failed due to Neo4j timeout. Recommend checking database connection.
+</span></code></pre>
+<hr>
+<h3>Workflow 2: Deep Dive Specific Trace</h3>
+<p><strong>When user provides:</strong> Trace ID or says "investigate that error"</p>
+<p><strong>Execute:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch trace <span class="token operator">&lt;</span>trace-id<span class="token operator">&gt;</span> <span class="token parameter variable">--format</span> json
+</span></code></pre>
+<p><strong>Analyze JSON and report:</strong></p>
+<ol>
+<li>🎯 What the agent was trying to do</li>
+<li>🛠️ Which tools were called (in order)</li>
+<li>✅ Tool results (success/failure)</li>
+<li>❌ Error messages (if any)</li>
+<li>💡 Root cause analysis</li>
+<li>🔧 Suggested fix</li>
+</ol>
+<p><strong>Example response format:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Deep Dive Analysis - Trace abc123
+</span><span class="code-line">
+</span><span class="code-line">Goal: User asked "Find all projects in Neo4j"
+</span><span class="code-line">
+</span><span class="code-line">Execution Flow:
+</span><span class="code-line">1. ✅ search_nodes(query: "projects")
+</span><span class="code-line">   → Found 24 nodes
+</span><span class="code-line">
+</span><span class="code-line">2. ❌ get_node_details(node_id: "proj_123")
+</span><span class="code-line">   → Error: "Node not found"
+</span><span class="code-line">   → This is the failure point
+</span><span class="code-line">
+</span><span class="code-line">3. ⏹️ Execution stopped
+</span><span class="code-line">
+</span><span class="code-line">Root Cause:
+</span><span class="code-line">The search_nodes tool returned node IDs that no longer exist in the database,
+</span><span class="code-line">possibly due to recent deletions.
+</span><span class="code-line">
+</span><span class="code-line">Suggested Fix:
+</span><span class="code-line">1. Add error handling in get_node_details tool
+</span><span class="code-line">2. Filter deleted nodes in search results
+</span><span class="code-line">3. Update cache invalidation strategy
+</span><span class="code-line">
+</span><span class="code-line">Token Usage: 1,842 tokens ($0.0276)
+</span><span class="code-line">Execution Time: 8.7 seconds
+</span></code></pre>
+<hr>
+<h3>Workflow 3: Export Debug Session</h3>
+<p><strong>When user says:</strong> "Save this session" or "Export traces"</p>
+<p><strong>Execute:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create session folder with timestamp</span>
+</span><span class="code-line"><span class="token assign-left variable">SESSION_DIR</span><span class="token operator">=</span><span class="token string">"langsmith-debug/session-<span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%Y%m%d-%H%M%S<span class="token variable">)</span></span>"</span>
+</span><span class="code-line"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token string">"<span class="token variable">$SESSION_DIR</span>"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Export traces</span>
+</span><span class="code-line">langsmith-fetch traces <span class="token string">"<span class="token variable">$SESSION_DIR</span>/traces"</span> --last-n-minutes <span class="token number">30</span> <span class="token parameter variable">--limit</span> <span class="token number">50</span> --include-metadata
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Export threads (conversations)</span>
+</span><span class="code-line">langsmith-fetch threads <span class="token string">"<span class="token variable">$SESSION_DIR</span>/threads"</span> <span class="token parameter variable">--limit</span> <span class="token number">20</span>
+</span></code></pre>
+<p><strong>Report:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">✅ Session exported successfully!
+</span><span class="code-line">
+</span><span class="code-line">Location: langsmith-debug/session-20251224-143022/
+</span><span class="code-line">- Traces: 42 files
+</span><span class="code-line">- Threads: 8 files
+</span><span class="code-line">
+</span><span class="code-line">You can now:
+</span><span class="code-line">1. Review individual trace files
+</span><span class="code-line">2. Share folder with team
+</span><span class="code-line">3. Analyze with external tools
+</span><span class="code-line">4. Archive for future reference
+</span><span class="code-line">
+</span><span class="code-line">Session size: 2.3 MB
+</span></code></pre>
+<hr>
+<h3>Workflow 4: Error Detection</h3>
+<p><strong>When user asks:</strong> "Show me errors" or "What's failing?"</p>
+<p><strong>Execute:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Fetch recent traces</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">30</span> <span class="token parameter variable">--limit</span> <span class="token number">50</span> <span class="token parameter variable">--format</span> json <span class="token operator">&gt;</span> recent-traces.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Search for errors</span>
+</span><span class="code-line"><span class="token function">grep</span> <span class="token parameter variable">-i</span> <span class="token string">"error\|failed\|exception"</span> recent-traces.json
+</span></code></pre>
+<p><strong>Analyze and report:</strong></p>
+<ol>
+<li>📊 Total errors found</li>
+<li>❌ Error types and frequency</li>
+<li>🕐 When errors occurred</li>
+<li>🎯 Which agents/tools failed</li>
+<li>💡 Common patterns</li>
+</ol>
+<p><strong>Example response format:</strong></p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Error Analysis - Last 30 Minutes
+</span><span class="code-line">
+</span><span class="code-line">Total Traces: 50
+</span><span class="code-line">Failed Traces: 7 (14% failure rate)
+</span><span class="code-line">
+</span><span class="code-line">Error Breakdown:
+</span><span class="code-line">1. Neo4j Connection Timeout (4 occurrences)
+</span><span class="code-line">   - Agent: cypher
+</span><span class="code-line">   - Tool: search_nodes
+</span><span class="code-line">   - First occurred: 14:32
+</span><span class="code-line">   - Last occurred: 14:45
+</span><span class="code-line">   - Pattern: Happens during peak load
+</span><span class="code-line">
+</span><span class="code-line">2. Memory Store Failed (2 occurrences)
+</span><span class="code-line">   - Agent: memento
+</span><span class="code-line">   - Tool: store_memory
+</span><span class="code-line">   - Error: "Pinecone rate limit exceeded"
+</span><span class="code-line">   - Occurred: 14:38, 14:41
+</span><span class="code-line">
+</span><span class="code-line">3. Tool Not Found (1 occurrence)
+</span><span class="code-line">   - Agent: sqlcrm
+</span><span class="code-line">   - Attempted tool: "export_report" (doesn't exist)
+</span><span class="code-line">   - Occurred: 14:35
+</span><span class="code-line">
+</span><span class="code-line">💡 Recommendations:
+</span><span class="code-line">1. Add retry logic for Neo4j timeouts
+</span><span class="code-line">2. Implement rate limiting for Pinecone
+</span><span class="code-line">3. Fix sqlcrm tool configuration
+</span></code></pre>
+<hr>
+<h2>Common Use Cases</h2>
+<h3>Use Case 1: "Agent Not Responding"</h3>
+<p><strong>User says:</strong> "My agent isn't doing anything"</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p>Check if traces exist:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">5</span> <span class="token parameter variable">--limit</span> <span class="token number">5</span>
+</span></code></pre>
+</li>
+<li>
+<p><strong>If NO traces found:</strong></p>
+<ul>
+<li>Tracing might be disabled</li>
+<li>Check: <code>LANGCHAIN_TRACING_V2=true</code> in environment</li>
+<li>Check: <code>LANGCHAIN_API_KEY</code> is set</li>
+<li>Verify agent actually ran</li>
+</ul>
+</li>
+<li>
+<p><strong>If traces found:</strong></p>
+<ul>
+<li>Review for errors</li>
+<li>Check execution time (hanging?)</li>
+<li>Verify tool calls completed</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h3>Use Case 2: "Wrong Tool Called"</h3>
+<p><strong>User says:</strong> "Why did it use the wrong tool?"</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Get the specific trace</li>
+<li>Review available tools at execution time</li>
+<li>Check agent's reasoning for tool selection</li>
+<li>Examine tool descriptions/instructions</li>
+<li>Suggest prompt or tool config improvements</li>
+</ol>
+<hr>
+<h3>Use Case 3: "Memory Not Working"</h3>
+<p><strong>User says:</strong> "Agent doesn't remember things"</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p>Search for memory operations:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">10</span> <span class="token parameter variable">--limit</span> <span class="token number">20</span> <span class="token parameter variable">--format</span> raw <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-i</span> <span class="token string">"memory\|recall\|store"</span>
+</span></code></pre>
+</li>
+<li>
+<p>Check:</p>
+<ul>
+<li>Were memory tools called?</li>
+<li>Did recall return results?</li>
+<li>Were memories actually stored?</li>
+<li>Are retrieved memories being used?</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h3>Use Case 4: "Performance Issues"</h3>
+<p><strong>User says:</strong> "Agent is too slow"</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p>Export with metadata:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces ./perf-analysis --last-n-minutes <span class="token number">30</span> <span class="token parameter variable">--limit</span> <span class="token number">50</span> --include-metadata
+</span></code></pre>
+</li>
+<li>
+<p>Analyze:</p>
+<ul>
+<li>Execution time per trace</li>
+<li>Tool call latencies</li>
+<li>Token usage (context size)</li>
+<li>Number of iterations</li>
+<li>Slowest operations</li>
+</ul>
+</li>
+<li>
+<p>Identify bottlenecks and suggest optimizations</p>
+</li>
+</ol>
+<hr>
+<h2>Output Format Guide</h2>
+<h3>Pretty Format (Default)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces <span class="token parameter variable">--limit</span> <span class="token number">5</span> <span class="token parameter variable">--format</span> pretty
+</span></code></pre>
+<p><strong>Use for:</strong> Quick visual inspection, showing to users</p>
+<h3>JSON Format</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces <span class="token parameter variable">--limit</span> <span class="token number">5</span> <span class="token parameter variable">--format</span> json
+</span></code></pre>
+<p><strong>Use for:</strong> Detailed analysis, syntax-highlighted review</p>
+<h3>Raw Format</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">langsmith-fetch traces <span class="token parameter variable">--limit</span> <span class="token number">5</span> <span class="token parameter variable">--format</span> raw
+</span></code></pre>
+<p><strong>Use for:</strong> Piping to other commands, automation</p>
+<hr>
+<h2>Advanced Features</h2>
+<h3>Time-Based Filtering</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># After specific timestamp</span>
+</span><span class="code-line">langsmith-fetch traces <span class="token parameter variable">--after</span> <span class="token string">"2025-12-24T13:00:00Z"</span> <span class="token parameter variable">--limit</span> <span class="token number">20</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Last N minutes (most common)</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">60</span> <span class="token parameter variable">--limit</span> <span class="token number">100</span>
+</span></code></pre>
+<h3>Include Metadata</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Get extra context</span>
+</span><span class="code-line">langsmith-fetch traces <span class="token parameter variable">--limit</span> <span class="token number">10</span> --include-metadata
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Metadata includes: agent type, model, tags, environment</span>
+</span></code></pre>
+<h3>Concurrent Fetching (Faster)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Speed up large exports</span>
+</span><span class="code-line">langsmith-fetch traces ./output <span class="token parameter variable">--limit</span> <span class="token number">100</span> <span class="token parameter variable">--concurrent</span> <span class="token number">10</span>
+</span></code></pre>
+<hr>
+<h2>Troubleshooting</h2>
+<h3>"No traces found matching criteria"</h3>
+<p><strong>Possible causes:</strong></p>
+<ol>
+<li>No agent activity in the timeframe</li>
+<li>Tracing is disabled</li>
+<li>Wrong project name</li>
+<li>API key issues</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># 1. Try longer timeframe</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">1440</span> <span class="token parameter variable">--limit</span> <span class="token number">50</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 2. Check environment</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token variable">$LANGSMITH_API_KEY</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token variable">$LANGSMITH_PROJECT</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 3. Try fetching threads instead</span>
+</span><span class="code-line">langsmith-fetch threads <span class="token parameter variable">--limit</span> <span class="token number">10</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># 4. Verify tracing is enabled in your code</span>
+</span><span class="code-line"><span class="token comment"># Check for: LANGCHAIN_TRACING_V2=true</span>
+</span></code></pre>
+<h3>"Project not found"</h3>
+<p><strong>Solution:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># View current config</span>
+</span><span class="code-line">langsmith-fetch config show
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Set correct project</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">LANGSMITH_PROJECT</span><span class="token operator">=</span><span class="token string">"correct-project-name"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or configure permanently</span>
+</span><span class="code-line">langsmith-fetch config <span class="token builtin class-name">set</span> project <span class="token string">"your-project-name"</span>
+</span></code></pre>
+<h3>Environment variables not persisting</h3>
+<p><strong>Solution:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Add to shell config file (~/.bashrc or ~/.zshrc)</span>
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">'export LANGSMITH_API_KEY="your_key"'</span> <span class="token operator">&gt;&gt;</span> ~/.bashrc
+</span><span class="code-line"><span class="token builtin class-name">echo</span> <span class="token string">'export LANGSMITH_PROJECT="your_project"'</span> <span class="token operator">&gt;&gt;</span> ~/.bashrc
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Reload shell config</span>
+</span><span class="code-line"><span class="token builtin class-name">source</span> ~/.bashrc
+</span></code></pre>
+<hr>
+<h2>Best Practices</h2>
+<h3>1. Regular Health Checks</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Quick check after making changes</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">5</span> <span class="token parameter variable">--limit</span> <span class="token number">5</span>
+</span></code></pre>
+<h3>2. Organized Storage</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">langsmith-debug/
+</span><span class="code-line">├── sessions/
+</span><span class="code-line">│   ├── 2025-12-24/
+</span><span class="code-line">│   └── 2025-12-25/
+</span><span class="code-line">├── error-cases/
+</span><span class="code-line">└── performance-tests/
+</span></code></pre>
+<h3>3. Document Findings</h3>
+<p>When you find bugs:</p>
+<ol>
+<li>Export the problematic trace</li>
+<li>Save to <code>error-cases/</code> folder</li>
+<li>Note what went wrong in a README</li>
+<li>Share trace ID with team</li>
+</ol>
+<h3>4. Integration with Development</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Before committing code</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">10</span> <span class="token parameter variable">--limit</span> <span class="token number">5</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># If errors found</span>
+</span><span class="code-line">langsmith-fetch trace <span class="token operator">&lt;</span>error-id<span class="token operator">&gt;</span> <span class="token parameter variable">--format</span> json <span class="token operator">&gt;</span> pre-commit-error.json
+</span></code></pre>
+<hr>
+<h2>Quick Reference</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Most common commands</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Quick debug</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">5</span> <span class="token parameter variable">--limit</span> <span class="token number">5</span> <span class="token parameter variable">--format</span> pretty
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Specific trace</span>
+</span><span class="code-line">langsmith-fetch trace <span class="token operator">&lt;</span>trace-id<span class="token operator">&gt;</span> <span class="token parameter variable">--format</span> pretty
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Export session</span>
+</span><span class="code-line">langsmith-fetch traces ./debug-session --last-n-minutes <span class="token number">30</span> <span class="token parameter variable">--limit</span> <span class="token number">50</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Find errors</span>
+</span><span class="code-line">langsmith-fetch traces --last-n-minutes <span class="token number">30</span> <span class="token parameter variable">--limit</span> <span class="token number">50</span> <span class="token parameter variable">--format</span> raw <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-i</span> error
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With metadata</span>
+</span><span class="code-line">langsmith-fetch traces <span class="token parameter variable">--limit</span> <span class="token number">10</span> --include-metadata
+</span></code></pre>
+<hr>
+<h2>Resources</h2>
+<ul>
+<li><strong>LangSmith Fetch CLI:</strong> <a href="https://github.com/langchain-ai/langsmith-fetch" target="_blank" rel="ugc nofollow noopener">https://github.com/langchain-ai/langsmith-fetch</a></li>
+<li><strong>LangSmith Studio:</strong> <a href="https://smith.langchain.com/" target="_blank" rel="ugc nofollow noopener">https://smith.langchain.com/</a></li>
+<li><strong>LangChain Docs:</strong> <a href="https://docs.langchain.com/" target="_blank" rel="ugc nofollow noopener">https://docs.langchain.com/</a></li>
+<li><strong>This Skill Repo:</strong> <a href="https://github.com/OthmanAdi/langsmith-fetch-skill" target="_blank" rel="ugc nofollow noopener">https://github.com/OthmanAdi/langsmith-fetch-skill</a></li>
+</ul>
+<hr>
+<h2>Notes for Claude</h2>
+<ul>
+<li>Always check if <code>langsmith-fetch</code> is installed before running commands</li>
+<li>Verify environment variables are set</li>
+<li>Use <code>--format pretty</code> for human-readable output</li>
+<li>Use <code>--format json</code> when you need to parse and analyze data</li>
+<li>When exporting sessions, create organized folder structures</li>
+<li>Always provide clear analysis and actionable insights</li>
+<li>If commands fail, help troubleshoot configuration issues</li>
+</ul>
+<hr>
+<p><strong>Version:</strong> 0.1.0
+<strong>Author:</strong> Ahmad Othman Ammar Adi
+<strong>License:</strong> MIT
+<strong>Repository:</strong> <a href="https://github.com/OthmanAdi/langsmith-fetch-skill" target="_blank" rel="ugc nofollow noopener">https://github.com/OthmanAdi/langsmith-fetch-skill</a></p></div>

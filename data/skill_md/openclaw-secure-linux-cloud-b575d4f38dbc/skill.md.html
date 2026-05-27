@@ -1,0 +1,136 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h2>Overview</h2>
+<p>Use this skill for the conservative "deploy first, expose later" pattern for
+OpenClaw on a cloud server.</p>
+<p>Default to a private control plane:</p>
+<ul>
+<li>Harden the Linux host before exposing anything.</li>
+<li>Keep the gateway bound to <code>127.0.0.1</code>.</li>
+<li>Reach the Control UI through an SSH tunnel first.</li>
+<li>Keep token authentication, pairing, and sandboxing enabled.</li>
+<li>Start with a narrow tool profile and loosen only with an explicit need.</li>
+</ul>
+<p>This skill is for secure Linux cloud hosting. If the user only wants the
+fastest generic OpenClaw install on a local machine, prefer the official
+OpenClaw onboarding docs instead of forcing this flow.</p>
+<p>Open <a href="https://github.com/xixu-me/skills/blob/HEAD/skills/openclaw-secure-linux-cloud/./references/REFERENCE.md" target="_blank" rel="ugc nofollow noopener"><code>references/REFERENCE.md</code></a> when you need the
+command matrix, baseline config shape, checklist, or access-path comparison.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h2>When To Use</h2>
+<p>Use this skill when the user mentions any of the following:</p>
+<ul>
+<li>OpenClaw on a cloud server, VM, or other Linux host</li>
+<li>Secure self-hosting, hardening, or "run it privately"</li>
+<li>Podman, loopback binding, SSH tunneling, or remote Control UI access</li>
+<li>Tailscale vs reverse proxy for OpenClaw</li>
+<li>Pairing, sandboxing, token auth, or locked-down tool permissions</li>
+<li>Reviewing whether an existing OpenClaw host is too exposed</li>
+</ul>
+<p>Do not use this skill for:</p>
+<ul>
+<li>General Linux hardening with no OpenClaw component</li>
+<li>Local single-machine onboarding where remote access is irrelevant</li>
+<li>Pure local onboarding with no remote-host hardening questions</li>
+<li>Non-Linux hosting unless the user explicitly wants this Linux-first pattern
+adapted</li>
+</ul>
+<h2>Workflow</h2>
+<h3>1. Classify the request</h3>
+<p>Put the task in one of these buckets before giving detailed guidance:</p>
+<ol>
+<li><strong>Fresh deploy</strong>: the user wants to stand up OpenClaw securely on a Linux
+cloud host from scratch.</li>
+<li><strong>Hardening review</strong>: the user already has OpenClaw running and wants to
+reduce exposure or audit risky defaults.</li>
+<li><strong>Access-model decision</strong>: the user is choosing between SSH tunneling,
+Tailscale, or a reverse proxy.</li>
+</ol>
+<h3>2. Start from the secure baseline</h3>
+<p>Unless the user clearly asks for something else, recommend this baseline:</p>
+<ul>
+<li>Harden the Linux host first: updates, SSH keys, SSH lock-down, and a
+default-deny inbound firewall matched to the distro.</li>
+<li>Run OpenClaw under rootless Podman rather than as a root-owned long-lived
+process.</li>
+<li>Keep the gateway on loopback only.</li>
+<li>Keep the Control UI private and access it through an SSH tunnel.</li>
+<li>Require token authentication.</li>
+<li>Keep pairing enabled for inbound messaging channels.</li>
+<li>Start with a minimal tool set and sandbox sessions by default.</li>
+</ul>
+<p>Treat these as explicit red flags:</p>
+<ul>
+<li>Binding the gateway to <code>0.0.0.0</code></li>
+<li>Opening port <code>18789</code> to the public internet</li>
+<li>Turning on broad runtime, filesystem, automation, or browser access by
+default</li>
+<li>Leaving <code>~/.openclaw</code> readable by other local users</li>
+</ul>
+<h3>3. Separate local and server actions</h3>
+<p>Always distinguish between:</p>
+<ul>
+<li><strong>Local machine actions</strong>: SSH key generation, tunnel setup, browser access</li>
+<li><strong>Server actions</strong>: Linux hardening, Podman install path, OpenClaw service
+setup, config permissions, service restarts</li>
+</ul>
+<p>Do not blur the two execution contexts together. The user should be able to
+tell which commands run on their laptop and which run on the Linux host.</p>
+<h3>4. Ask only for blocking facts</h3>
+<p>Only stop for missing facts that change the safe path, such as:</p>
+<ul>
+<li>Linux distro and host access details when package-manager or firewall
+commands matter</li>
+<li>Whether OpenClaw is already installed</li>
+<li>Whether the user truly needs repeated remote private access or public access</li>
+<li>Whether an existing deployment is already reachable from the internet</li>
+</ul>
+<p>If a detail is not safety-critical, make the reasonable secure assumption and
+state it.</p>
+<h3>5. Use the access escalation ladder</h3>
+<p>Recommend remote access in this order:</p>
+<ol>
+<li><strong>SSH tunnel</strong>: default for first deployment and personal use</li>
+<li><strong>Tailscale</strong>: next step when the user needs repeated private access across
+trusted devices</li>
+<li><strong>Reverse proxy</strong>: only when the user explicitly needs public exposure and
+accepts the extra hardening burden</li>
+</ol>
+<p>If the user asks for Tailscale or reverse proxy, still explain why the loopback
+binding and private-first model remain the baseline.</p>
+<h2>Output Expectations</h2>
+<p>For a fresh deployment, provide:</p>
+<ul>
+<li>A short architecture summary</li>
+<li>Local-vs-server steps</li>
+<li>A conservative config baseline</li>
+<li>A pre-launch checklist</li>
+<li>A short "what not to expose" warning</li>
+</ul>
+<p>For a hardening review, provide:</p>
+<ul>
+<li>The likely risks in the current setup</li>
+<li>A prioritized remediation sequence</li>
+<li>Any immediate exposure concerns to fix before anything else</li>
+</ul>
+<p>For an access-path decision, provide:</p>
+<ul>
+<li>A recommendation</li>
+<li>Why it is the lowest-risk fit</li>
+<li>What extra safeguards are required if the user chooses a broader exposure
+model</li>
+</ul>
+<h2>Common Mistakes</h2>
+<ul>
+<li>Treating OpenClaw like a normal public web app on day one</li>
+<li>Assuming auth alone replaces network boundaries</li>
+<li>Turning on more tool power before the user has a clear workflow that needs it</li>
+<li>Disabling pairing just to save time during early setup</li>
+<li>Skipping follow-up audits after changing config or sandbox settings</li>
+</ul>
+<h2>Reference Usage</h2>
+<p>Use <a href="https://github.com/xixu-me/skills/blob/HEAD/skills/openclaw-secure-linux-cloud/./references/REFERENCE.md" target="_blank" rel="ugc nofollow noopener"><code>references/REFERENCE.md</code></a> when you need:</p>
+<ul>
+<li>The cross-distro hardening flow and Debian/Ubuntu example commands</li>
+<li>The Podman-based OpenClaw setup outline</li>
+<li>The baseline config skeleton</li>
+<li>The pre-launch checklist</li>
+<li>The day-to-day audit commands</li>
+<li>The SSH tunnel vs Tailscale vs reverse-proxy comparison</li>
+</ul></div>

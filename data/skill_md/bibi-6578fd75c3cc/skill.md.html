@@ -1,0 +1,166 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>BibiGPT — AI Video &amp; Audio Summarizer</h1>
+<h2>Environment Check</h2>
+<p>Run <code>scripts/bibi-check.sh</code> first. It detects which mode is available:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>When to use</th>
+<th>Auth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CLI</strong> (<code>bibi</code> command)</td>
+<td>macOS / Windows / Linux with desktop app</td>
+<td>Desktop login or <code>BIBI_API_TOKEN</code></td>
+</tr>
+<tr>
+<td><strong>OpenAPI</strong> (HTTP calls)</td>
+<td>Containers, CI, or any env without CLI</td>
+<td><code>BIBI_API_TOKEN</code> only</td>
+</tr>
+</tbody>
+</table>
+<p>If neither mode is available, see <code>references/installation.md</code> for setup instructions.</p>
+<p><strong>Payment fallback (China)</strong>: if neither auth is set but the user has an Alipay
+account, BibiGPT may emit HTTP <code>402 Payment Required</code> with a <code>Payment-Needed</code>
+header (AI 收 protocol). The agent can resolve this automatically by installing
+<a href="https://www.npmjs.com/package/@alipay/agent-payment" target="_blank" rel="ugc nofollow noopener"><code>@alipay/agent-payment</code></a>,
+or manually by directing the user to a one-off QR purchase. See
+<code>references/billing-aipay.md</code>.</p></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p><strong>Detect 402 deterministically</strong>: the bibi CLI prints a stable marker line
+<code>[HTTP/402 Payment Required]</code> to stderr before any human-readable prompt; direct
+HTTP callers get status <code>402</code> + <code>Payment-Needed</code> header. When either signal
+appears, route to <code>references/billing-aipay.md</code> instead of treating the call
+as failed.</p>
+<h2>Intent Routing</h2>
+<p>Route the user's request to the appropriate workflow:</p>
+<table>
+<thead>
+<tr>
+<th>User Intent</th>
+<th>Workflow</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Summarize a video/audio URL</td>
+<td>→ <code>workflows/quick-summary.md</code></td>
+</tr>
+<tr>
+<td>Chapter-by-chapter breakdown, detailed analysis</td>
+<td>→ <code>workflows/deep-dive.md</code></td>
+</tr>
+<tr>
+<td>Get subtitles, extract transcript, raw text</td>
+<td>→ <code>workflows/transcript-extract.md</code></td>
+</tr>
+<tr>
+<td>Turn into article, blog post, 公众号图文, 小红书</td>
+<td>→ <code>workflows/article-rewrite.md</code></td>
+</tr>
+<tr>
+<td>Process multiple URLs, batch summarize</td>
+<td>→ <code>workflows/batch-process.md</code></td>
+</tr>
+<tr>
+<td>Research a topic across multiple videos</td>
+<td>→ <code>workflows/research-compile.md</code></td>
+</tr>
+<tr>
+<td>Save to Notion, Obsidian, export notes</td>
+<td>→ <code>workflows/export-notes.md</code></td>
+</tr>
+<tr>
+<td>Analyze visual content, slides, on-screen text</td>
+<td>→ <code>workflows/visual-analysis.md</code></td>
+</tr>
+<tr>
+<td>Check current account, plan, or remaining minutes</td>
+<td>→ <code>workflows/account-check.md</code></td>
+</tr>
+<tr>
+<td>Browse / search saved videos, "what have I summarized"</td>
+<td>→ <code>workflows/library-browse.md</code></td>
+</tr>
+<tr>
+<td>Manage channel subscriptions, list/sub/unsub, RSS preview</td>
+<td>→ <code>workflows/channels-manage.md</code></td>
+</tr>
+<tr>
+<td>What's new across my subscriptions, latest feed, daily digest</td>
+<td>→ <code>workflows/feed-latest.md</code></td>
+</tr>
+<tr>
+<td>Manage collections, list/create/share saved videos as a set</td>
+<td>→ <code>workflows/collections-manage.md</code></td>
+</tr>
+<tr>
+<td>Manage personal notes on saved videos, edit summaries</td>
+<td>→ <code>workflows/notes-manage.md</code></td>
+</tr>
+<tr>
+<td>Generate mindmap, visual analysis, custom-prompt summary, Notion export, collection chat</td>
+<td>→ <code>workflows/advanced-tools.md</code></td>
+</tr>
+<tr>
+<td><strong>HTTP 402 / "需要付款" / Alipay AI 钱包 / no token + China user</strong></td>
+<td>→ <code>references/billing-aipay.md</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Disambiguation</h2>
+<ul>
+<li>If the user's intent matches <strong>more than one</strong> workflow, ask <strong>one</strong> clarifying question before routing.</li>
+<li>If it matches <strong>none</strong>, ask what they are trying to accomplish. <strong>Do not guess.</strong></li>
+<li>If the user just pastes a URL with no context, default to <code>workflows/quick-summary.md</code>.</li>
+</ul>
+<h2>Local File Support</h2>
+<p>The <code>bibi</code> CLI directly accepts local file paths (no upload needed):</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">bibi summarize <span class="token string">"/path/to/video.mp4"</span>
+</span><span class="code-line">bibi summarize <span class="token string">"/path/to/podcast.mp3"</span>
+</span></code></pre>
+<p>For API mode (no CLI), guide the user to upload the file to a publicly accessible URL (OSS, S3, etc.) first, then pass that URL to the API. See <code>references/supported-platforms.md</code> for details.</p>
+<h2>Direct CLI Operations</h2>
+<p>Use progressive help to discover options: <code>bibi --help</code> → <code>bibi summarize --help</code> → run.</p>
+<p>For simple, single-command requests that don't need a full workflow:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">bibi summarize <span class="token string">"&lt;URL&gt;"</span>              <span class="token comment"># Quick summary (URL or local file path)</span>
+</span><span class="code-line">bibi summarize <span class="token string">"&lt;URL&gt;"</span> <span class="token parameter variable">--chapter</span>    <span class="token comment"># Chapter summary</span>
+</span><span class="code-line">bibi summarize <span class="token string">"&lt;URL&gt;"</span> <span class="token parameter variable">--subtitle</span>   <span class="token comment"># Transcript only</span>
+</span><span class="code-line">bibi summarize <span class="token string">"&lt;URL&gt;"</span> <span class="token parameter variable">--json</span>       <span class="token comment"># Full JSON response</span>
+</span><span class="code-line">bibi auth check                     <span class="token comment"># Check auth status</span>
+</span><span class="code-line">bibi me                             <span class="token comment"># Get account, plan, remaining minutes</span>
+</span><span class="code-line">bibi commands                       <span class="token comment"># List all manifest-driven commands</span>
+</span></code></pre>
+<p>See <code>references/cli.md</code> for all commands and flags.</p>
+<h2>References</h2>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>references/cli.md</code></td>
+<td>All CLI commands, flags, output formats</td>
+</tr>
+<tr>
+<td><code>references/api.md</code></td>
+<td>OpenAPI endpoints, curl examples, response schemas</td>
+</tr>
+<tr>
+<td><code>references/installation.md</code></td>
+<td>Desktop app install, skill install, auth setup, MCP config</td>
+</tr>
+<tr>
+<td><code>references/supported-platforms.md</code></td>
+<td>Supported URL types, platform notes, duration limits</td>
+</tr>
+<tr>
+<td><code>references/billing-aipay.md</code></td>
+<td>Alipay AI收 (HTTP 402) per-call payment fallback for China users</td>
+</tr>
+</tbody>
+</table></div>

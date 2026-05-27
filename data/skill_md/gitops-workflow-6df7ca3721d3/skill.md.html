@@ -1,0 +1,226 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>GitOps Workflow</h1>
+<p>Complete guide to implementing GitOps workflows with ArgoCD and Flux for automated Kubernetes deployments.</p>
+<h2>Purpose</h2>
+<p>Implement declarative, Git-based continuous delivery for Kubernetes using ArgoCD or Flux CD, following OpenGitOps principles.</p>
+<h2>When to Use This Skill</h2>
+<ul>
+<li>Set up GitOps for Kubernetes clusters</li>
+<li>Automate application deployments from Git</li>
+<li>Implement progressive delivery strategies</li>
+<li>Manage multi-cluster deployments</li>
+<li>Configure automated sync policies</li>
+<li>Set up secret management in GitOps</li>
+</ul>
+<h2>OpenGitOps Principles</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li><strong>Declarative</strong> - Entire system described declaratively</li>
+<li><strong>Versioned and Immutable</strong> - Desired state stored in Git</li>
+<li><strong>Pulled Automatically</strong> - Software agents pull desired state</li>
+<li><strong>Continuously Reconciled</strong> - Agents reconcile actual vs desired state</li>
+</ol>
+<h2>ArgoCD Setup</h2>
+<h3>1. Installation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Create namespace</span>
+</span><span class="code-line">kubectl create namespace argocd
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install ArgoCD</span>
+</span><span class="code-line">kubectl apply <span class="token parameter variable">-n</span> argocd <span class="token parameter variable">-f</span> https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Get admin password</span>
+</span><span class="code-line">kubectl <span class="token parameter variable">-n</span> argocd get secret argocd-initial-admin-secret <span class="token parameter variable">-o</span> <span class="token assign-left variable">jsonpath</span><span class="token operator">=</span><span class="token string">"{.data.password}"</span> <span class="token operator">|</span> base64 <span class="token parameter variable">-d</span>
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>references/argocd-setup.md</code> for detailed setup</p>
+<h3>2. Repository Structure</h3>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">gitops-repo/
+</span><span class="code-line">├── apps/
+</span><span class="code-line">│   ├── production/
+</span><span class="code-line">│   │   ├── app1/
+</span><span class="code-line">│   │   │   ├── kustomization.yaml
+</span><span class="code-line">│   │   │   └── deployment.yaml
+</span><span class="code-line">│   │   └── app2/
+</span><span class="code-line">│   └── staging/
+</span><span class="code-line">├── infrastructure/
+</span><span class="code-line">│   ├── ingress-nginx/
+</span><span class="code-line">│   ├── cert-manager/
+</span><span class="code-line">│   └── monitoring/
+</span><span class="code-line">└── argocd/
+</span><span class="code-line">    ├── applications/
+</span><span class="code-line">    └── projects/
+</span></code></pre>
+<h3>3. Create Application</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token comment"># argocd/applications/my-app.yaml</span>
+</span><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> argoproj.io/v1alpha1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Application
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> argocd
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">project</span><span class="token punctuation">:</span> default
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">repoURL</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//github.com/org/gitops<span class="token punctuation">-</span>repo
+</span><span class="code-line">    <span class="token key atrule">targetRevision</span><span class="token punctuation">:</span> main
+</span><span class="code-line">    <span class="token key atrule">path</span><span class="token punctuation">:</span> apps/production/my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">destination</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">server</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//kubernetes.default.svc
+</span><span class="code-line">    <span class="token key atrule">namespace</span><span class="token punctuation">:</span> production
+</span><span class="code-line">  <span class="token key atrule">syncPolicy</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">automated</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">prune</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">      <span class="token key atrule">selfHeal</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">    <span class="token key atrule">syncOptions</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token punctuation">-</span> CreateNamespace=true
+</span></code></pre>
+<h3>4. App of Apps Pattern</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> argoproj.io/v1alpha1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Application
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> applications
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> argocd
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">project</span><span class="token punctuation">:</span> default
+</span><span class="code-line">  <span class="token key atrule">source</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">repoURL</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//github.com/org/gitops<span class="token punctuation">-</span>repo
+</span><span class="code-line">    <span class="token key atrule">targetRevision</span><span class="token punctuation">:</span> main
+</span><span class="code-line">    <span class="token key atrule">path</span><span class="token punctuation">:</span> argocd/applications
+</span><span class="code-line">  <span class="token key atrule">destination</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">server</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//kubernetes.default.svc
+</span><span class="code-line">    <span class="token key atrule">namespace</span><span class="token punctuation">:</span> argocd
+</span><span class="code-line">  <span class="token key atrule">syncPolicy</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">automated</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Flux CD Setup</h2>
+<h3>1. Installation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Install Flux CLI</span>
+</span><span class="code-line"><span class="token function">curl</span> <span class="token parameter variable">-s</span> https://fluxcd.io/install.sh <span class="token operator">|</span> <span class="token function">sudo</span> <span class="token function">bash</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Bootstrap Flux</span>
+</span><span class="code-line">flux bootstrap github <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--owner</span><span class="token operator">=</span>org <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--repository</span><span class="token operator">=</span>gitops-repo <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--branch</span><span class="token operator">=</span>main <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--path</span><span class="token operator">=</span>clusters/production <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--personal</span>
+</span></code></pre>
+<h3>2. Create GitRepository</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> source.toolkit.fluxcd.io/v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> GitRepository
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> flux<span class="token punctuation">-</span>system
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">interval</span><span class="token punctuation">:</span> 1m
+</span><span class="code-line">  <span class="token key atrule">url</span><span class="token punctuation">:</span> https<span class="token punctuation">:</span>//github.com/org/my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">ref</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">branch</span><span class="token punctuation">:</span> main
+</span></code></pre>
+<h3>3. Create Kustomization</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> kustomize.toolkit.fluxcd.io/v1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Kustomization
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line">  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> flux<span class="token punctuation">-</span>system
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">interval</span><span class="token punctuation">:</span> 5m
+</span><span class="code-line">  <span class="token key atrule">path</span><span class="token punctuation">:</span> ./deploy
+</span><span class="code-line">  <span class="token key atrule">prune</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">sourceRef</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">kind</span><span class="token punctuation">:</span> GitRepository
+</span><span class="code-line">    <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span></code></pre>
+<h2>Sync Policies</h2>
+<h3>Auto-Sync Configuration</h3>
+<p><strong>ArgoCD:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">syncPolicy</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">automated</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">prune</span><span class="token punctuation">:</span> <span class="token boolean important">true</span> <span class="token comment"># Delete resources not in Git</span>
+</span><span class="code-line">    <span class="token key atrule">selfHeal</span><span class="token punctuation">:</span> <span class="token boolean important">true</span> <span class="token comment"># Reconcile manual changes</span>
+</span><span class="code-line">    <span class="token key atrule">allowEmpty</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span><span class="code-line">  <span class="token key atrule">retry</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">limit</span><span class="token punctuation">:</span> <span class="token number">5</span>
+</span><span class="code-line">    <span class="token key atrule">backoff</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">duration</span><span class="token punctuation">:</span> 5s
+</span><span class="code-line">      <span class="token key atrule">factor</span><span class="token punctuation">:</span> <span class="token number">2</span>
+</span><span class="code-line">      <span class="token key atrule">maxDuration</span><span class="token punctuation">:</span> 3m
+</span></code></pre>
+<p><strong>Flux:</strong></p>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">interval</span><span class="token punctuation">:</span> 1m
+</span><span class="code-line">  <span class="token key atrule">prune</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">wait</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</span><span class="code-line">  <span class="token key atrule">timeout</span><span class="token punctuation">:</span> 5m
+</span></code></pre>
+<p><strong>Reference:</strong> See <code>references/sync-policies.md</code></p>
+<h2>Progressive Delivery</h2>
+<h3>Canary Deployment with ArgoCD Rollouts</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> argoproj.io/v1alpha1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> Rollout
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">replicas</span><span class="token punctuation">:</span> <span class="token number">5</span>
+</span><span class="code-line">  <span class="token key atrule">strategy</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">canary</span><span class="token punctuation">:</span>
+</span><span class="code-line">      <span class="token key atrule">steps</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">setWeight</span><span class="token punctuation">:</span> <span class="token number">20</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">pause</span><span class="token punctuation">:</span> <span class="token punctuation">{</span> <span class="token key atrule">duration</span><span class="token punctuation">:</span> 1m <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">setWeight</span><span class="token punctuation">:</span> <span class="token number">50</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">pause</span><span class="token punctuation">:</span> <span class="token punctuation">{</span> <span class="token key atrule">duration</span><span class="token punctuation">:</span> 2m <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">-</span> <span class="token key atrule">setWeight</span><span class="token punctuation">:</span> <span class="token number">100</span>
+</span></code></pre>
+<h3>Blue-Green Deployment</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">strategy</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">blueGreen</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">activeService</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app
+</span><span class="code-line">    <span class="token key atrule">previewService</span><span class="token punctuation">:</span> my<span class="token punctuation">-</span>app<span class="token punctuation">-</span>preview
+</span><span class="code-line">    <span class="token key atrule">autoPromotionEnabled</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
+</span></code></pre>
+<h2>Secret Management</h2>
+<h3>External Secrets Operator</h3>
+<pre class="language-yaml"><code class="language-yaml code-highlight"><span class="code-line"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> external<span class="token punctuation">-</span>secrets.io/v1beta1
+</span><span class="code-line"><span class="token key atrule">kind</span><span class="token punctuation">:</span> ExternalSecret
+</span><span class="code-line"><span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">name</span><span class="token punctuation">:</span> db<span class="token punctuation">-</span>credentials
+</span><span class="code-line"><span class="token key atrule">spec</span><span class="token punctuation">:</span>
+</span><span class="code-line">  <span class="token key atrule">refreshInterval</span><span class="token punctuation">:</span> 1h
+</span><span class="code-line">  <span class="token key atrule">secretStoreRef</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">name</span><span class="token punctuation">:</span> aws<span class="token punctuation">-</span>secrets<span class="token punctuation">-</span>manager
+</span><span class="code-line">    <span class="token key atrule">kind</span><span class="token punctuation">:</span> SecretStore
+</span><span class="code-line">  <span class="token key atrule">target</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token key atrule">name</span><span class="token punctuation">:</span> db<span class="token punctuation">-</span>credentials
+</span><span class="code-line">  <span class="token key atrule">data</span><span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token punctuation">-</span> <span class="token key atrule">secretKey</span><span class="token punctuation">:</span> password
+</span><span class="code-line">      <span class="token key atrule">remoteRef</span><span class="token punctuation">:</span>
+</span><span class="code-line">        <span class="token key atrule">key</span><span class="token punctuation">:</span> prod/db/password
+</span></code></pre>
+<h3>Sealed Secrets</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Encrypt secret</span>
+</span><span class="code-line">kubeseal <span class="token parameter variable">--format</span> yaml <span class="token operator">&lt;</span> secret.yaml <span class="token operator">&gt;</span> sealed-secret.yaml
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Commit sealed-secret.yaml to Git</span>
+</span></code></pre>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Use separate repos or branches</strong> for different environments</li>
+<li><strong>Implement RBAC</strong> for Git repositories</li>
+<li><strong>Enable notifications</strong> for sync failures</li>
+<li><strong>Use health checks</strong> for custom resources</li>
+<li><strong>Implement approval gates</strong> for production</li>
+<li><strong>Keep secrets out of Git</strong> (use External Secrets)</li>
+<li><strong>Use App of Apps pattern</strong> for organization</li>
+<li><strong>Tag releases</strong> for easy rollback</li>
+<li><strong>Monitor sync status</strong> with alerts</li>
+<li><strong>Test changes</strong> in staging first</li>
+</ol>
+<h2>Troubleshooting</h2>
+<p><strong>Sync failures:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">argocd app get my-app
+</span><span class="code-line">argocd app <span class="token function">sync</span> my-app <span class="token parameter variable">--prune</span>
+</span></code></pre>
+<p><strong>Out of sync status:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">argocd app <span class="token function">diff</span> my-app
+</span><span class="code-line">argocd app <span class="token function">sync</span> my-app <span class="token parameter variable">--force</span>
+</span></code></pre>
+<h2>Related Skills</h2>
+<ul>
+<li><code>k8s-manifest-generator</code> - For creating manifests</li>
+<li><code>helm-chart-scaffolding</code> - For packaging applications</li>
+</ul></div>

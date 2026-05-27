@@ -1,0 +1,556 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Prisma 7 Driver Adapter Implementation Guide</h1>
+<p>This skill provides everything needed to implement a Prisma ORM v7 driver adapter for any database.</p>
+<h2>Architecture Overview</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><pre class="language-text"><code class="language-text code-highlight"><span class="code-line">┌─────────────────────────────────────────────────────────────────┐
+</span><span class="code-line">│                         PrismaClient                            │
+</span><span class="code-line">│                    (requires adapter factory)                   │
+</span><span class="code-line">└─────────────────────────────────────────────────────────────────┘
+</span><span class="code-line">                                │
+</span><span class="code-line">                                ▼
+</span><span class="code-line">┌─────────────────────────────────────────────────────────────────┐
+</span><span class="code-line">│            SqlMigrationAwareDriverAdapterFactory                │
+</span><span class="code-line">│   ┌─────────────────────┐    ┌─────────────────────────────┐    │
+</span><span class="code-line">│   │ connect()           │    │ connectToShadowDb()         │    │
+</span><span class="code-line">│   │ → SqlDriverAdapter  │    │ → SqlDriverAdapter          │    │
+</span><span class="code-line">│   └─────────────────────┘    └─────────────────────────────┘    │
+</span><span class="code-line">└─────────────────────────────────────────────────────────────────┘
+</span><span class="code-line">                                │
+</span><span class="code-line">                                ▼
+</span><span class="code-line">┌─────────────────────────────────────────────────────────────────┐
+</span><span class="code-line">│                      SqlDriverAdapter                           │
+</span><span class="code-line">│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
+</span><span class="code-line">│  │ queryRaw()   │ │ executeRaw() │ │ startTransaction()       │ │
+</span><span class="code-line">│  │ → ResultSet  │ │ → number     │ │ → Transaction            │ │
+</span><span class="code-line">│  └──────────────┘ └──────────────┘ └──────────────────────────┘ │
+</span><span class="code-line">│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
+</span><span class="code-line">│  │executeScript │ │ dispose()    │ │ getConnectionInfo()      │ │
+</span><span class="code-line">│  └──────────────┘ └──────────────┘ └──────────────────────────┘ │
+</span><span class="code-line">└─────────────────────────────────────────────────────────────────┘
+</span><span class="code-line">                                │
+</span><span class="code-line">                                ▼
+</span><span class="code-line">┌─────────────────────────────────────────────────────────────────┐
+</span><span class="code-line">│                        Transaction                              │
+</span><span class="code-line">│  Extends SqlQueryable + commit() + rollback() + options         │
+</span><span class="code-line">│  (lifecycle hooks only — Prisma sends SQL via executeRaw)       │
+</span><span class="code-line">└─────────────────────────────────────────────────────────────────┘
+</span></code></pre>
+<h2>Required Interfaces</h2>
+<p>Import from <code>@prisma/driver-adapter-utils</code>:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token keyword">type</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  ColumnType<span class="token punctuation">,</span>
+</span><span class="code-line">  IsolationLevel<span class="token punctuation">,</span>
+</span><span class="code-line">  SqlDriverAdapter<span class="token punctuation">,</span>
+</span><span class="code-line">  SqlMigrationAwareDriverAdapterFactory<span class="token punctuation">,</span>
+</span><span class="code-line">  SqlQuery<span class="token punctuation">,</span>
+</span><span class="code-line">  SqlQueryable<span class="token punctuation">,</span>
+</span><span class="code-line">  SqlResultSet<span class="token punctuation">,</span>
+</span><span class="code-line">  Transaction<span class="token punctuation">,</span>
+</span><span class="code-line">  TransactionOptions<span class="token punctuation">,</span>
+</span><span class="code-line">  ArgType<span class="token punctuation">,</span>
+</span><span class="code-line">  ConnectionInfo<span class="token punctuation">,</span>
+</span><span class="code-line">  MappedError<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@prisma/driver-adapter-utils"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  ColumnTypeEnum<span class="token punctuation">,</span>
+</span><span class="code-line">  DriverAdapterError<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@prisma/driver-adapter-utils"</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Interface Definitions</h2>
+<h3>SqlQuery (input to queryRaw/executeRaw)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">SqlQuery</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  sql<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span> <span class="token comment">// Parameterized SQL with placeholders</span>
+</span><span class="code-line">  args<span class="token operator">:</span> <span class="token builtin">Array</span><span class="token operator">&lt;</span><span class="token builtin">unknown</span><span class="token operator">&gt;</span><span class="token punctuation">;</span> <span class="token comment">// Bound parameter values</span>
+</span><span class="code-line">  argTypes<span class="token operator">:</span> <span class="token builtin">Array</span><span class="token operator">&lt;</span>ArgType<span class="token operator">&gt;</span><span class="token punctuation">;</span> <span class="token comment">// Type hints for each argument</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">ArgType</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  scalarType<span class="token operator">:</span> ArgScalarType<span class="token punctuation">;</span> <span class="token comment">// 'string' | 'int' | 'bigint' | 'float' | 'decimal' | 'boolean' | 'enum' | 'uuid' | 'json' | 'datetime' | 'bytes' | 'unknown'</span>
+</span><span class="code-line">  dbType<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  arity<span class="token operator">:</span> <span class="token string">"scalar"</span> <span class="token operator">|</span> <span class="token string">"list"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>SqlResultSet (output from queryRaw)</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">SqlResultSet</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  columnNames<span class="token operator">:</span> <span class="token builtin">Array</span><span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token operator">&gt;</span><span class="token punctuation">;</span> <span class="token comment">// Column names in order</span>
+</span><span class="code-line">  columnTypes<span class="token operator">:</span> <span class="token builtin">Array</span><span class="token operator">&lt;</span>ColumnType<span class="token operator">&gt;</span><span class="token punctuation">;</span> <span class="token comment">// Column types matching columnNames</span>
+</span><span class="code-line">  rows<span class="token operator">:</span> <span class="token builtin">Array</span><span class="token operator">&lt;</span><span class="token builtin">Array</span><span class="token operator">&lt;</span><span class="token builtin">unknown</span><span class="token operator">&gt;&gt;</span><span class="token punctuation">;</span> <span class="token comment">// Row data as arrays</span>
+</span><span class="code-line">  lastInsertId<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span> <span class="token comment">// For INSERT without RETURNING</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>ColumnTypeEnum values</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">const</span> ColumnTypeEnum <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  Int32<span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Int64<span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Float<span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Double<span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Numeric<span class="token operator">:</span> <span class="token number">4</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Boolean<span class="token operator">:</span> <span class="token number">5</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Character<span class="token operator">:</span> <span class="token number">6</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Text<span class="token operator">:</span> <span class="token number">7</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Date<span class="token operator">:</span> <span class="token number">8</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Time<span class="token operator">:</span> <span class="token number">9</span><span class="token punctuation">,</span>
+</span><span class="code-line">  DateTime<span class="token operator">:</span> <span class="token number">10</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Json<span class="token operator">:</span> <span class="token number">11</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Enum<span class="token operator">:</span> <span class="token number">12</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Bytes<span class="token operator">:</span> <span class="token number">13</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Set<span class="token operator">:</span> <span class="token number">14</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Uuid<span class="token operator">:</span> <span class="token number">15</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Int32Array<span class="token operator">:</span> <span class="token number">64</span><span class="token punctuation">,</span>
+</span><span class="code-line">  Int64Array<span class="token operator">:</span> <span class="token number">65</span><span class="token punctuation">,</span>
+</span><span class="code-line">  FloatArray<span class="token operator">:</span> <span class="token number">66</span><span class="token punctuation">,</span>
+</span><span class="code-line">  DoubleArray<span class="token operator">:</span> <span class="token number">67</span><span class="token punctuation">,</span>
+</span><span class="code-line">  NumericArray<span class="token operator">:</span> <span class="token number">68</span><span class="token punctuation">,</span>
+</span><span class="code-line">  BooleanArray<span class="token operator">:</span> <span class="token number">69</span><span class="token punctuation">,</span>
+</span><span class="code-line">  CharacterArray<span class="token operator">:</span> <span class="token number">70</span><span class="token punctuation">,</span>
+</span><span class="code-line">  TextArray<span class="token operator">:</span> <span class="token number">71</span><span class="token punctuation">,</span>
+</span><span class="code-line">  DateArray<span class="token operator">:</span> <span class="token number">72</span><span class="token punctuation">,</span>
+</span><span class="code-line">  TimeArray<span class="token operator">:</span> <span class="token number">73</span><span class="token punctuation">,</span>
+</span><span class="code-line">  DateTimeArray<span class="token operator">:</span> <span class="token number">74</span><span class="token punctuation">,</span>
+</span><span class="code-line">  JsonArray<span class="token operator">:</span> <span class="token number">75</span><span class="token punctuation">,</span>
+</span><span class="code-line">  EnumArray<span class="token operator">:</span> <span class="token number">76</span><span class="token punctuation">,</span>
+</span><span class="code-line">  BytesArray<span class="token operator">:</span> <span class="token number">77</span><span class="token punctuation">,</span>
+</span><span class="code-line">  UuidArray<span class="token operator">:</span> <span class="token number">78</span><span class="token punctuation">,</span>
+</span><span class="code-line">  UnknownNumber<span class="token operator">:</span> <span class="token number">128</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>SqlDriverAdapter</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">SqlDriverAdapter</span> <span class="token keyword">extends</span> <span class="token class-name">SqlQueryable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">executeScript</span><span class="token punctuation">(</span>script<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">startTransaction</span><span class="token punctuation">(</span>isolationLevel<span class="token operator">?</span><span class="token operator">:</span> IsolationLevel<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>Transaction<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">  getConnectionInfo<span class="token operator">?</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> ConnectionInfo<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Transaction</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">Transaction</span> <span class="token keyword">extends</span> <span class="token class-name">SqlQueryable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> options<span class="token operator">:</span> TransactionOptions<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">commit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">rollback</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">type</span> <span class="token class-name">TransactionOptions</span> <span class="token operator">=</span> <span class="token punctuation">{</span> usePhantomQuery<span class="token operator">:</span> <span class="token builtin">boolean</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>SqlMigrationAwareDriverAdapterFactory</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">interface</span> <span class="token class-name">SqlMigrationAwareDriverAdapterFactory</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> provider<span class="token operator">:</span> <span class="token string">"mysql"</span> <span class="token operator">|</span> <span class="token string">"postgres"</span> <span class="token operator">|</span> <span class="token string">"sqlite"</span> <span class="token operator">|</span> <span class="token string">"sqlserver"</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> adapterName<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">connect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>SqlDriverAdapter<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token function">connectToShadowDb</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>SqlDriverAdapter<span class="token operator">&gt;</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Implementation Steps</h2>
+<h3>Step 1: Create the Queryable base class</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">MyQueryable<span class="token operator">&lt;</span>TClient<span class="token operator">&gt;</span></span> <span class="token keyword">implements</span> <span class="token class-name">SqlQueryable</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> provider <span class="token operator">=</span> <span class="token string">"postgres"</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">;</span> <span class="token comment">// or 'sqlite' | 'mysql' | 'sqlserver'</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> adapterName <span class="token operator">=</span> <span class="token string">"@my-org/adapter-mydb"</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token keyword">protected</span> <span class="token keyword">readonly</span> client<span class="token operator">:</span> TClient<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token function">queryRaw</span><span class="token punctuation">(</span>query<span class="token operator">:</span> SqlQuery<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>SqlResultSet<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">const</span> args <span class="token operator">=</span> query<span class="token punctuation">.</span>args<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span>arg<span class="token punctuation">,</span> i<span class="token punctuation">)</span> <span class="token operator">=&gt;</span>
+</span><span class="code-line">        <span class="token function">mapArg</span><span class="token punctuation">(</span>arg<span class="token punctuation">,</span> query<span class="token punctuation">.</span>argTypes<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">??</span> <span class="token punctuation">{</span> scalarType<span class="token operator">:</span> <span class="token string">"unknown"</span><span class="token punctuation">,</span> arity<span class="token operator">:</span> <span class="token string">"scalar"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Execute query with your driver</span>
+</span><span class="code-line">      <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>client<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span>query<span class="token punctuation">.</span>sql<span class="token punctuation">,</span> args<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Extract column metadata</span>
+</span><span class="code-line">      <span class="token keyword">const</span> columnNames <span class="token operator">=</span> <span class="token comment">/* get from result */</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">const</span> columnTypes <span class="token operator">=</span> <span class="token comment">/* map to ColumnTypeEnum */</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token comment">// Map rows to ResultValue arrays</span>
+</span><span class="code-line">      <span class="token keyword">const</span> rows <span class="token operator">=</span> result<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span>row <span class="token operator">=&gt;</span> <span class="token function">mapRow</span><span class="token punctuation">(</span>row<span class="token punctuation">,</span> columnTypes<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> columnNames<span class="token punctuation">,</span> columnTypes<span class="token punctuation">,</span> rows <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onError</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token function">executeRaw</span><span class="token punctuation">(</span>query<span class="token operator">:</span> SqlQuery<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token builtin">number</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">const</span> args <span class="token operator">=</span> query<span class="token punctuation">.</span>args<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token punctuation">(</span>arg<span class="token punctuation">,</span> i<span class="token punctuation">)</span> <span class="token operator">=&gt;</span>
+</span><span class="code-line">        <span class="token function">mapArg</span><span class="token punctuation">(</span>arg<span class="token punctuation">,</span> query<span class="token punctuation">.</span>argTypes<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">??</span> <span class="token punctuation">{</span> scalarType<span class="token operator">:</span> <span class="token string">"unknown"</span><span class="token punctuation">,</span> arity<span class="token operator">:</span> <span class="token string">"scalar"</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+</span><span class="code-line">      <span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>client<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span>query<span class="token punctuation">.</span>sql<span class="token punctuation">,</span> args<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">return</span> result<span class="token punctuation">.</span>affectedRows <span class="token operator">??</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onError</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">protected</span> <span class="token function">onError</span><span class="token punctuation">(</span>error<span class="token operator">:</span> <span class="token builtin">unknown</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">never</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">DriverAdapterError</span><span class="token punctuation">(</span><span class="token function">convertDriverError</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Step 2: Create the Transaction class</h3>
+<p><strong>Critical</strong>: <code>commit()</code> and <code>rollback()</code> are <strong>lifecycle hooks only</strong>. They must NOT issue SQL. Prisma sends <code>COMMIT</code>/<code>ROLLBACK</code> via <code>executeRaw</code> on the transaction object.</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">MyTransaction</span> <span class="token keyword">extends</span> <span class="token class-name">MyQueryable<span class="token operator">&lt;</span>TClient<span class="token operator">&gt;</span></span> <span class="token keyword">implements</span> <span class="token class-name">Transaction</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> options<span class="token operator">:</span> TransactionOptions<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> <span class="token function-variable function">#release</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">constructor</span><span class="token punctuation">(</span>
+</span><span class="code-line">    client<span class="token operator">:</span> TClient<span class="token punctuation">,</span>
+</span><span class="code-line">    options<span class="token operator">:</span> TransactionOptions<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function-variable function">release</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token keyword">void</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">super</span><span class="token punctuation">(</span>client<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">this</span><span class="token punctuation">.</span>options <span class="token operator">=</span> options<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">this</span><span class="token punctuation">.</span>#release <span class="token operator">=</span> release<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">commit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// DO NOT issue COMMIT SQL here — Prisma does it via executeRaw</span>
+</span><span class="code-line">    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">#release</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// Release connection/resources</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">rollback</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// DO NOT issue ROLLBACK SQL here — Prisma does it via executeRaw</span>
+</span><span class="code-line">    <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">#release</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Step 3: Create the Adapter class</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">class</span> <span class="token class-name">MyAdapter</span> <span class="token keyword">extends</span> <span class="token class-name">MyQueryable<span class="token operator">&lt;</span>TClient<span class="token operator">&gt;</span></span> <span class="token keyword">implements</span> <span class="token class-name">SqlDriverAdapter</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  #transactionDepth <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">constructor</span><span class="token punctuation">(</span>client<span class="token operator">:</span> TClient<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">super</span><span class="token punctuation">(</span>client<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token function">executeScript</span><span class="token punctuation">(</span>script<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// For SQLite: split on ';' and run each statement</span>
+</span><span class="code-line">    <span class="token comment">// For Postgres: use multi-statement execution</span>
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token comment">// Implementation depends on driver capabilities</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onError</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token function">startTransaction</span><span class="token punctuation">(</span>
+</span><span class="code-line">    isolationLevel<span class="token operator">?</span><span class="token operator">:</span> IsolationLevel<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>Transaction<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Validate isolation level for your database</span>
+</span><span class="code-line">    <span class="token keyword">const</span> validLevels <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Set<span class="token operator">&lt;</span>IsolationLevel<span class="token operator">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+</span><span class="code-line">      <span class="token string">"READ UNCOMMITTED"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string">"READ COMMITTED"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string">"REPEATABLE READ"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token string">"SERIALIZABLE"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>isolationLevel <span class="token operator">!==</span> <span class="token keyword">undefined</span> <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>validLevels<span class="token punctuation">.</span><span class="token function">has</span><span class="token punctuation">(</span>isolationLevel<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">DriverAdapterError</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">        kind<span class="token operator">:</span> <span class="token string">"InvalidIsolationLevel"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        level<span class="token operator">:</span> isolationLevel<span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> options<span class="token operator">:</span> TransactionOptions <span class="token operator">=</span> <span class="token punctuation">{</span> usePhantomQuery<span class="token operator">:</span> <span class="token boolean">false</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">this</span><span class="token punctuation">.</span>#transactionDepth <span class="token operator">+=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> depth <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>#transactionDepth<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">if</span> <span class="token punctuation">(</span>depth <span class="token operator">===</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Issue BEGIN (with isolation level if specified)</span>
+</span><span class="code-line">        <span class="token keyword">const</span> beginSql <span class="token operator">=</span> isolationLevel
+</span><span class="code-line">          <span class="token operator">?</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">BEGIN ISOLATION LEVEL </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>isolationLevel<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span>
+</span><span class="code-line">          <span class="token operator">:</span> <span class="token string">"BEGIN"</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>client<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span>beginSql<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token comment">// Nested: use savepoints</span>
+</span><span class="code-line">        <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>client<span class="token punctuation">.</span><span class="token function">query</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">SAVEPOINT sp_</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>depth<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">this</span><span class="token punctuation">.</span>#transactionDepth <span class="token operator">-=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">onError</span><span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> <span class="token function-variable function">release</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">this</span><span class="token punctuation">.</span>#transactionDepth <span class="token operator">-=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">MyTransaction</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>client<span class="token punctuation">,</span> options<span class="token punctuation">,</span> release<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">getConnectionInfo</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> ConnectionInfo <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token punctuation">{</span> supportsRelationJoins<span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">async</span> <span class="token function">dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span>client<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Step 4: Create the Factory class</h3>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">MyAdapterConfig</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">type</span> <span class="token class-name">MyAdapterOptions</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  shadowDatabaseUrl<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">MyAdapterFactory</span> <span class="token keyword">implements</span> <span class="token class-name">SqlMigrationAwareDriverAdapterFactory</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> provider <span class="token operator">=</span> <span class="token string">"postgres"</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">readonly</span> adapterName <span class="token operator">=</span> <span class="token string">"@my-org/adapter-mydb"</span> <span class="token keyword">as</span> <span class="token keyword">const</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">constructor</span><span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">readonly</span> config<span class="token operator">:</span> MyAdapterConfig<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token keyword">private</span> <span class="token keyword">readonly</span> options<span class="token operator">?</span><span class="token operator">:</span> MyAdapterOptions<span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">connect</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>SqlDriverAdapter<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">MyAdapter</span><span class="token punctuation">(</span><span class="token function">openConnection</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>config<span class="token punctuation">.</span>url<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">connectToShadowDb</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span>SqlDriverAdapter<span class="token operator">&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>options<span class="token operator">?.</span>shadowDatabaseUrl <span class="token operator">??</span> <span class="token keyword">this</span><span class="token punctuation">.</span>config<span class="token punctuation">.</span>url<span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">MyAdapter</span><span class="token punctuation">(</span><span class="token function">openConnection</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Conversion Helpers</h2>
+<h3>Argument Mapping (input)</h3>
+<p>Convert Prisma argument values to driver-native types:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">mapArg</span><span class="token punctuation">(</span>arg<span class="token operator">:</span> <span class="token builtin">unknown</span><span class="token punctuation">,</span> argType<span class="token operator">:</span> ArgType<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">unknown</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>arg <span class="token operator">===</span> <span class="token keyword">null</span> <span class="token operator">||</span> arg <span class="token operator">===</span> <span class="token keyword">undefined</span><span class="token punctuation">)</span> <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// String → number for int columns</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> arg <span class="token operator">===</span> <span class="token string">"string"</span> <span class="token operator">&amp;&amp;</span> argType<span class="token punctuation">.</span>scalarType <span class="token operator">===</span> <span class="token string">"int"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Number<span class="token punctuation">.</span><span class="token function">parseInt</span><span class="token punctuation">(</span>arg<span class="token punctuation">,</span> <span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// String → number for float columns</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> arg <span class="token operator">===</span> <span class="token string">"string"</span> <span class="token operator">&amp;&amp;</span> argType<span class="token punctuation">.</span>scalarType <span class="token operator">===</span> <span class="token string">"float"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Number<span class="token punctuation">.</span><span class="token function">parseFloat</span><span class="token punctuation">(</span>arg<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// String → BigInt for bigint columns</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> arg <span class="token operator">===</span> <span class="token string">"string"</span> <span class="token operator">&amp;&amp;</span> argType<span class="token punctuation">.</span>scalarType <span class="token operator">===</span> <span class="token string">"bigint"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> <span class="token function">BigInt</span><span class="token punctuation">(</span>arg<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Base64 string → Buffer for bytes columns</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> arg <span class="token operator">===</span> <span class="token string">"string"</span> <span class="token operator">&amp;&amp;</span> argType<span class="token punctuation">.</span>scalarType <span class="token operator">===</span> <span class="token string">"bytes"</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> Buffer<span class="token punctuation">.</span><span class="token function">from</span><span class="token punctuation">(</span>arg<span class="token punctuation">,</span> <span class="token string">"base64"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token comment">// Boolean → 0/1 for SQLite</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> arg <span class="token operator">===</span> <span class="token string">"boolean"</span> <span class="token operator">&amp;&amp;</span> <span class="token comment">/* SQLite */</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">return</span> arg <span class="token operator">?</span> <span class="token number">1</span> <span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> arg<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Row Mapping (output)</h3>
+<p>Convert driver result values to Prisma-expected types:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">mapRow</span><span class="token punctuation">(</span>row<span class="token operator">:</span> <span class="token builtin">unknown</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span> columnTypes<span class="token operator">:</span> ColumnType<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> ResultValue<span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> result<span class="token operator">:</span> ResultValue<span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> row<span class="token punctuation">.</span>length<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> value <span class="token operator">=</span> row<span class="token punctuation">[</span>i<span class="token punctuation">]</span> <span class="token operator">??</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> colType <span class="token operator">=</span> columnTypes<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token operator">===</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      result<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">continue</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// bigint → string for Int64 (JSON-safe)</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"bigint"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      result<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>value<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">continue</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// Date → ISO 8601 string for DateTime</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token keyword">instanceof</span> <span class="token class-name">Date</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      result<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>value<span class="token punctuation">.</span><span class="token function">toISOString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">continue</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// JSON objects → stringified</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>colType <span class="token operator">===</span> ColumnTypeEnum<span class="token punctuation">.</span>Json <span class="token operator">&amp;&amp;</span> <span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"object"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      result<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token keyword">continue</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    result<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span>value <span class="token keyword">as</span> ResultValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> result<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Column Type Inference</h3>
+<p>When the driver doesn't provide type metadata, infer from JS values:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">inferColumnType</span><span class="token punctuation">(</span>value<span class="token operator">:</span> NonNullable<span class="token operator">&lt;</span><span class="token builtin">unknown</span><span class="token operator">&gt;</span><span class="token punctuation">)</span><span class="token operator">:</span> ColumnType <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"boolean"</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>Boolean<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"bigint"</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>Int64<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token keyword">instanceof</span> <span class="token class-name">Uint8Array</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>Bytes<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>value <span class="token keyword">instanceof</span> <span class="token class-name">Date</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>DateTime<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token builtin">Array</span><span class="token punctuation">.</span><span class="token function">isArray</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>Text<span class="token punctuation">;</span> <span class="token comment">// fallback</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"object"</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>Json<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> value <span class="token operator">===</span> <span class="token string">"number"</span><span class="token punctuation">)</span> <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>UnknownNumber<span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">return</span> ColumnTypeEnum<span class="token punctuation">.</span>Text<span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Error Handling</h2>
+<p>Map driver errors to <code>MappedError</code> for Prisma to handle correctly:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">function</span> <span class="token function">convertDriverError</span><span class="token punctuation">(</span>error<span class="token operator">:</span> <span class="token builtin">unknown</span><span class="token punctuation">)</span><span class="token operator">:</span> MappedError <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">if</span> <span class="token punctuation">(</span>error <span class="token keyword">instanceof</span> <span class="token class-name">Error</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token comment">// Database-specific error mapping</span>
+</span><span class="code-line">    <span class="token keyword">const</span> dbError <span class="token operator">=</span> error <span class="token keyword">as</span> Error <span class="token operator">&amp;</span> <span class="token punctuation">{</span> code<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span> errno<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// PostgreSQL example</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>dbError<span class="token punctuation">.</span>code <span class="token operator">===</span> <span class="token string">"23505"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> kind<span class="token operator">:</span> <span class="token string">"UniqueConstraintViolation"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>dbError<span class="token punctuation">.</span>code <span class="token operator">===</span> <span class="token string">"23502"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> kind<span class="token operator">:</span> <span class="token string">"NullConstraintViolation"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>dbError<span class="token punctuation">.</span>code <span class="token operator">===</span> <span class="token string">"23503"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> kind<span class="token operator">:</span> <span class="token string">"ForeignKeyConstraintViolation"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>dbError<span class="token punctuation">.</span>code <span class="token operator">===</span> <span class="token string">"42P01"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span> kind<span class="token operator">:</span> <span class="token string">"TableDoesNotExist"</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// SQLite example</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>error<span class="token punctuation">.</span>name <span class="token operator">===</span> <span class="token string">"SQLiteError"</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        kind<span class="token operator">:</span> <span class="token string">"sqlite"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        extendedCode<span class="token operator">:</span> dbError<span class="token punctuation">.</span>errno <span class="token operator">??</span> <span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">        message<span class="token operator">:</span> error<span class="token punctuation">.</span>message<span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token comment">// PostgreSQL raw error</span>
+</span><span class="code-line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>dbError<span class="token punctuation">.</span>code<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token keyword">return</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        kind<span class="token operator">:</span> <span class="token string">"postgres"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        code<span class="token operator">:</span> dbError<span class="token punctuation">.</span>code<span class="token punctuation">,</span>
+</span><span class="code-line">        severity<span class="token operator">:</span> <span class="token string">"ERROR"</span><span class="token punctuation">,</span>
+</span><span class="code-line">        message<span class="token operator">:</span> error<span class="token punctuation">.</span>message<span class="token punctuation">,</span>
+</span><span class="code-line">        detail<span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+</span><span class="code-line">        column<span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+</span><span class="code-line">        hint<span class="token operator">:</span> <span class="token keyword">undefined</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token keyword">return</span> <span class="token punctuation">{</span> kind<span class="token operator">:</span> <span class="token string">"GenericJs"</span><span class="token punctuation">,</span> id<span class="token operator">:</span> <span class="token number">0</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Database-Specific Notes</h2>
+<h3>SQLite</h3>
+<ul>
+<li>Set <code>safeIntegers: true</code> when opening the database to get <code>bigint</code> for large integers</li>
+<li>Only <code>SERIALIZABLE</code> isolation level is valid</li>
+<li><code>executeScript</code>: split on <code>;</code> and run each statement individually</li>
+<li>Boolean values: store as 0/1, return as boolean</li>
+</ul>
+<h3>PostgreSQL</h3>
+<ul>
+<li>All standard isolation levels are valid</li>
+<li>For connection pooling (PgBouncer), use <code>prepare: false</code></li>
+<li>Transactions require a dedicated connection (<code>reserve()</code> pattern)</li>
+<li><code>executeScript</code>: use multi-statement execution (<code>.simple()</code> in some drivers)</li>
+<li><code>int8</code> columns may return as string (already stringified by driver)</li>
+<li><code>numeric</code> columns return as string to preserve precision</li>
+</ul>
+<h3>MySQL/MariaDB</h3>
+<ul>
+<li>Supports <code>READ UNCOMMITTED</code>, <code>READ COMMITTED</code>, <code>REPEATABLE READ</code>, <code>SERIALIZABLE</code></li>
+<li>Use <code>?</code> placeholders for parameters</li>
+<li>Handle <code>BIGINT</code> as string for large values</li>
+</ul>
+<h2>Testing Strategy</h2>
+<h3>Unit Tests (no PrismaClient)</h3>
+<p>Test the adapter directly with the raw database driver:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">"queryRaw"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">test</span><span class="token punctuation">(</span><span class="token string">"returns column names and types"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> adapter <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">MyAdapter</span><span class="token punctuation">(</span><span class="token function">createTestConnection</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> result <span class="token operator">=</span> <span class="token keyword">await</span> adapter<span class="token punctuation">.</span><span class="token function">queryRaw</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      sql<span class="token operator">:</span> <span class="token string">"SELECT id, name FROM users"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      args<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      argTypes<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>columnNames<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toEqual</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">,</span> <span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span>columnTypes<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span>ColumnTypeEnum<span class="token punctuation">.</span>Int32<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">"startTransaction"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token function">test</span><span class="token punctuation">(</span><span class="token string">"commit persists changes"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> adapter <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">MyAdapter</span><span class="token punctuation">(</span><span class="token function">createTestConnection</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">const</span> tx <span class="token operator">=</span> <span class="token keyword">await</span> adapter<span class="token punctuation">.</span><span class="token function">startTransaction</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">await</span> tx<span class="token punctuation">.</span><span class="token function">executeRaw</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">      sql<span class="token operator">:</span> <span class="token string">"INSERT INTO users (name) VALUES (?)"</span><span class="token punctuation">,</span>
+</span><span class="code-line">      args<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"Alice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">      argTypes<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token comment">// Prisma sends COMMIT via executeRaw</span>
+</span><span class="code-line">    <span class="token keyword">await</span> tx<span class="token punctuation">.</span><span class="token function">executeRaw</span><span class="token punctuation">(</span><span class="token punctuation">{</span> sql<span class="token operator">:</span> <span class="token string">"COMMIT"</span><span class="token punctuation">,</span> args<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span> argTypes<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token keyword">await</span> tx<span class="token punctuation">.</span><span class="token function">commit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// lifecycle hook only</span>
+</span><span class="code-line">    <span class="token comment">// Verify data persisted</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>E2E Tests (with PrismaClient)</h3>
+<p>Test the full integration:</p>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token function">describe</span><span class="token punctuation">(</span><span class="token string">"E2E"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">let</span> prisma<span class="token operator">:</span> PrismaClient<span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">beforeEach</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> factory <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">MyAdapterFactory</span><span class="token punctuation">(</span><span class="token punctuation">{</span> url<span class="token operator">:</span> <span class="token constant">TEST_DB_URL</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    prisma <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">PrismaClient</span><span class="token punctuation">(</span><span class="token punctuation">{</span> adapter<span class="token operator">:</span> factory <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">test</span><span class="token punctuation">(</span><span class="token string">"CRUD operations"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">const</span> user <span class="token operator">=</span> <span class="token keyword">await</span> prisma<span class="token punctuation">.</span>user<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">"Alice"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>id<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBeGreaterThan</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token keyword">const</span> found <span class="token operator">=</span> <span class="token keyword">await</span> prisma<span class="token punctuation">.</span>user<span class="token punctuation">.</span><span class="token function">findUnique</span><span class="token punctuation">(</span><span class="token punctuation">{</span> where<span class="token operator">:</span> <span class="token punctuation">{</span> id<span class="token operator">:</span> user<span class="token punctuation">.</span>id <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span>found<span class="token operator">?.</span>name<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span><span class="token string">"Alice"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">  <span class="token function">test</span><span class="token punctuation">(</span><span class="token string">"transactions roll back on error"</span><span class="token punctuation">,</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token keyword">await</span> <span class="token function">expect</span><span class="token punctuation">(</span>
+</span><span class="code-line">      prisma<span class="token punctuation">.</span><span class="token function">$transaction</span><span class="token punctuation">(</span><span class="token keyword">async</span> <span class="token punctuation">(</span>tx<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token keyword">await</span> tx<span class="token punctuation">.</span>user<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span><span class="token punctuation">{</span> data<span class="token operator">:</span> <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">"Bob"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">        <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token string">"Rollback!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span><span class="token punctuation">.</span>rejects<span class="token punctuation">.</span><span class="token function">toThrow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line">    <span class="token function">expect</span><span class="token punctuation">(</span><span class="token keyword">await</span> prisma<span class="token punctuation">.</span>user<span class="token punctuation">.</span><span class="token function">count</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toBe</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Usage Example</h2>
+<pre class="language-typescript"><code class="language-typescript code-highlight"><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> PrismaClient <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"./generated/prisma/client"</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token keyword">import</span> <span class="token punctuation">{</span> MyAdapterFactory <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"@my-org/adapter-mydb"</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> factory <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">MyAdapterFactory</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">  url<span class="token operator">:</span> process<span class="token punctuation">.</span>env<span class="token punctuation">.</span><span class="token constant">DATABASE_URL</span><span class="token operator">!</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">const</span> prisma <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">PrismaClient</span><span class="token punctuation">(</span><span class="token punctuation">{</span> adapter<span class="token operator">:</span> factory <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Use prisma normally</span>
+</span><span class="code-line"><span class="token keyword">const</span> users <span class="token operator">=</span> <span class="token keyword">await</span> prisma<span class="token punctuation">.</span>user<span class="token punctuation">.</span><span class="token function">findMany</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Checklist</h2>
+<p>Before considering the adapter complete:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>SqlMigrationAwareDriverAdapterFactory</code> implemented with <code>connect()</code> and <code>connectToShadowDb()</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>SqlDriverAdapter</code> implements <code>queryRaw</code>, <code>executeRaw</code>, <code>executeScript</code>, <code>startTransaction</code>, <code>dispose</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>Transaction</code> implements <code>queryRaw</code>, <code>executeRaw</code>, <code>commit</code>, <code>rollback</code> with <code>options: { usePhantomQuery: false }</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>commit()</code> and <code>rollback()</code> are lifecycle hooks only (no SQL issued)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> <code>startTransaction</code> issues <code>BEGIN</code> (depth 1) or <code>SAVEPOINT sp_N</code> (nested)</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Argument mapping handles: string→int, string→bigint, string→float, base64→bytes</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Row mapping handles: bigint→string, Date→ISO string, JSON→string</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Column types correctly mapped to <code>ColumnTypeEnum</code></li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Errors wrapped in <code>DriverAdapterError</code> with proper <code>MappedError</code> kind</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Isolation level validation for the target database</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> Unit tests pass for queryRaw, executeRaw, executeScript, transactions</li>
+<li class="task-list-item"><input type="checkbox" disabled=""> E2E tests pass with real PrismaClient</li>
+</ul></div>

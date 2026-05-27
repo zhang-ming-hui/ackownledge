@@ -1,0 +1,446 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>/legal-response -- Generate Response from Templates</h1>
+<blockquote>
+<p>If you see unfamiliar placeholders or need to check which tools are connected, see <a href="https://github.com/anthropics/knowledge-work-plugins/blob/HEAD/legal/skills/legal-response/../../CONNECTORS.md" target="_blank" rel="ugc nofollow noopener">CONNECTORS.md</a>.</p>
+</blockquote>
+<p>Generate a response to a common legal inquiry using configured templates. Customizes the response with specific details and includes escalation triggers for situations that should not use a templated response.</p>
+<p><strong>Important</strong>: This command assists with legal workflows but does not provide legal advice. Generated responses should be reviewed by qualified legal professionals before being sent, especially for regulated communications.</p>
+<h2>Invocation</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/legal-response [inquiry-type]
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Common inquiry types:</p>
+<ul>
+<li><code>dsr</code> or <code>data-subject-request</code> -- Data subject access/deletion/correction requests</li>
+<li><code>hold</code> or <code>discovery-hold</code> -- Litigation hold notices</li>
+<li><code>vendor</code> or <code>vendor-question</code> -- Vendor legal questions</li>
+<li><code>nda</code> or <code>nda-request</code> -- NDA requests from business teams</li>
+<li><code>privacy</code> or <code>privacy-inquiry</code> -- Privacy-related questions</li>
+<li><code>subpoena</code> -- Subpoena or legal process responses</li>
+<li><code>insurance</code> -- Insurance claim notifications</li>
+<li><code>custom</code> -- Use a custom template</li>
+</ul>
+<p>If no inquiry type is provided, ask the user what type of response they need and show available categories.</p>
+<h2>Workflow</h2>
+<h3>Step 1: Identify Inquiry Type</h3>
+<p>Accept the inquiry type from the user. If the type is ambiguous, show available categories and ask for clarification.</p>
+<h3>Step 2: Load Template</h3>
+<p>Look for templates in local settings (e.g., <code>legal.local.md</code> or a templates directory).</p>
+<p><strong>If templates are configured:</strong></p>
+<ul>
+<li>Load the appropriate template for the inquiry type</li>
+<li>Identify required variables (recipient name, dates, specific details)</li>
+</ul>
+<p><strong>If no templates are configured:</strong></p>
+<ul>
+<li>Inform the user that no templates were found for this inquiry type</li>
+<li>Offer to help create a template (see Template Creation Guide below)</li>
+<li>Provide a reasonable default response structure based on the inquiry type</li>
+</ul>
+<h3>Step 3: Check Escalation Triggers</h3>
+<p>Before generating any response, evaluate whether this situation has characteristics that should NOT use a templated response.</p>
+<h4>Universal Escalation Triggers (Apply to All Categories)</h4>
+<ul>
+<li>The matter involves potential litigation or regulatory investigation</li>
+<li>The inquiry is from a regulator, government agency, or law enforcement</li>
+<li>The response could create a binding legal commitment or waiver</li>
+<li>The matter involves potential criminal liability</li>
+<li>Media attention is involved or likely</li>
+<li>The situation is unprecedented (no prior handling by the team)</li>
+<li>Multiple jurisdictions are involved with conflicting requirements</li>
+<li>The matter involves executive leadership or board members</li>
+</ul>
+<h4>Data Subject Request Escalation Triggers</h4>
+<ul>
+<li>Request involves a minor's data, or is from/on behalf of a minor</li>
+<li>Request is from a regulatory authority (not an individual)</li>
+<li>Request involves data that is subject to a litigation hold</li>
+<li>Requester is a current or former employee with an active dispute or HR matter</li>
+<li>Request scope is unusually broad or appears to be a fishing expedition</li>
+<li>Request involves data processed in a jurisdiction with unique requirements</li>
+<li>Request involves special category data (health, biometric, genetic)</li>
+</ul>
+<h4>Discovery Hold Escalation Triggers</h4>
+<ul>
+<li>The matter involves potential criminal liability</li>
+<li>The preservation scope is unclear, disputed, or potentially overbroad</li>
+<li>There are questions about whether certain data is within scope</li>
+<li>Prior holds for the same or related matter exist</li>
+<li>The hold may affect ongoing business operations significantly</li>
+<li>Hold conflicts with regulatory deletion requirements</li>
+<li>Custodian objects to the hold scope</li>
+</ul>
+<h4>Vendor Question Escalation Triggers</h4>
+<ul>
+<li>The question involves a dispute or potential breach</li>
+<li>The vendor is threatening litigation or termination</li>
+<li>The question involves regulatory compliance (not just contract terms)</li>
+<li>The response could create a binding commitment or waiver</li>
+<li>Response could affect ongoing negotiation</li>
+</ul>
+<h4>NDA Request Escalation Triggers</h4>
+<ul>
+<li>The counterparty is a competitor</li>
+<li>The NDA involves government classified information</li>
+<li>The business context suggests the NDA is for a potential M&amp;A transaction</li>
+<li>The request involves unusual subject matter (AI training data, biometric data, etc.)</li>
+</ul>
+<h4>Subpoena / Legal Process Escalation Triggers</h4>
+<ul>
+<li><strong>ALWAYS requires counsel review</strong> (templates are starting points only)</li>
+<li>Privilege issues identified</li>
+<li>Third-party data involved</li>
+<li>Cross-border production issues</li>
+<li>Unreasonable timeline</li>
+</ul>
+<p><strong>When an escalation trigger is detected:</strong></p>
+<ol>
+<li><strong>Stop</strong>: Do not generate a templated response</li>
+<li><strong>Alert</strong>: Inform the user that an escalation trigger has been detected</li>
+<li><strong>Explain</strong>: Describe which trigger was detected and why it matters</li>
+<li><strong>Recommend</strong>: Suggest the appropriate escalation path (senior counsel, outside counsel, specific team member)</li>
+<li><strong>Offer</strong>: Provide a draft for counsel review (clearly marked as "DRAFT - FOR COUNSEL REVIEW ONLY") rather than a final response</li>
+</ol>
+<h3>Step 4: Gather Specific Details</h3>
+<p>Prompt the user for the details needed to customize the response:</p>
+<p><strong>Data Subject Request:</strong></p>
+<ul>
+<li>Requester name and contact information</li>
+<li>Type of request (access, deletion, correction, portability, opt-out)</li>
+<li>What data is involved</li>
+<li>Applicable regulation (GDPR, CCPA, CPRA, other)</li>
+<li>Response deadline</li>
+</ul>
+<p><strong>Discovery Hold:</strong></p>
+<ul>
+<li>Matter name and reference number</li>
+<li>Custodians (who needs to preserve)</li>
+<li>Scope of preservation (date range, data types, systems)</li>
+<li>Outside counsel contact</li>
+<li>Effective date</li>
+</ul>
+<p><strong>Vendor Question:</strong></p>
+<ul>
+<li>Vendor name</li>
+<li>Reference agreement (if applicable)</li>
+<li>Specific question being addressed</li>
+<li>Relevant contract provisions</li>
+</ul>
+<p><strong>NDA Request:</strong></p>
+<ul>
+<li>Requesting business team and contact</li>
+<li>Counterparty name</li>
+<li>Purpose of the NDA</li>
+<li>Mutual or unilateral</li>
+<li>Any special requirements</li>
+</ul>
+<h3>Step 5: Generate Response</h3>
+<p>Populate the template with the gathered details. Ensure the response:</p>
+<ul>
+<li>Uses appropriate tone (professional, clear, not overly legalistic for business audiences)</li>
+<li>Includes all required legal elements for the response type</li>
+<li>References specific dates, deadlines, and obligations</li>
+<li>Provides clear next steps for the recipient</li>
+<li>Includes appropriate disclaimers or caveats</li>
+</ul>
+<p>Present the draft response to the user for review before sending.</p>
+<h4>Customization Guidelines</h4>
+<p><strong>Required customization</strong> — Every templated response MUST be customized with:</p>
+<ul>
+<li>Correct names, dates, and reference numbers</li>
+<li>Specific facts of the situation</li>
+<li>Applicable jurisdiction and regulation</li>
+<li>Correct response deadlines based on when the inquiry was received</li>
+<li>Appropriate signature block and contact information</li>
+</ul>
+<p><strong>Tone adjustment</strong> — Adjust tone based on:</p>
+<ul>
+<li><strong>Audience</strong>: Internal vs. external, business vs. legal, individual vs. regulatory authority</li>
+<li><strong>Relationship</strong>: New counterparty vs. existing partner vs. adversarial party</li>
+<li><strong>Sensitivity</strong>: Routine inquiry vs. contentious matter vs. regulatory investigation</li>
+<li><strong>Urgency</strong>: Standard timeline vs. expedited response needed</li>
+</ul>
+<p><strong>Jurisdiction-specific adjustments:</strong></p>
+<ul>
+<li>Verify that cited regulations are correct for the requester's jurisdiction</li>
+<li>Adjust timelines to match applicable law</li>
+<li>Include jurisdiction-specific rights information</li>
+<li>Use jurisdiction-appropriate legal terminology</li>
+</ul>
+<h3>Step 6: Template Creation (If No Template Exists)</h3>
+<p>If the user wants to create a new template, walk through the Template Creation Guide (see below) and present the finished template for review. Suggest the user save the approved template to their local settings for future use.</p>
+<h2>Response Categories</h2>
+<h3>1. Data Subject Requests (DSRs)</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Acknowledgment of receipt</li>
+<li>Identity verification request</li>
+<li>Fulfillment response (access, deletion, correction)</li>
+<li>Partial denial with explanation</li>
+<li>Full denial with explanation</li>
+<li>Extension notification</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Reference to applicable regulation (GDPR, CCPA, etc.)</li>
+<li>Specific timeline for response</li>
+<li>Identity verification requirements</li>
+<li>Rights of the data subject (including right to complain to supervisory authority)</li>
+<li>Contact information for follow-up</li>
+</ul>
+<p><strong>Example template structure</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Subject: Your Data [Access/Deletion/Correction] Request - Reference {{request_id}}
+</span><span class="code-line">
+</span><span class="code-line">Dear {{requester_name}},
+</span><span class="code-line">
+</span><span class="code-line">We have received your request dated {{request_date}} to [access/delete/correct] your personal data under [applicable regulation].
+</span><span class="code-line">
+</span><span class="code-line">[Acknowledgment / verification request / fulfillment details / denial basis]
+</span><span class="code-line">
+</span><span class="code-line">We will respond substantively by {{response_deadline}}.
+</span><span class="code-line">
+</span><span class="code-line">[Contact information]
+</span><span class="code-line">[Rights information]
+</span></code></pre>
+<h3>2. Discovery Holds (Litigation Holds)</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Initial hold notice to custodians</li>
+<li>Hold reminder / periodic reaffirmation</li>
+<li>Hold modification (scope change)</li>
+<li>Hold release</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Matter name and reference number</li>
+<li>Clear preservation obligations</li>
+<li>Scope of preservation (date range, data types, systems, communication types)</li>
+<li>Prohibition on spoliation</li>
+<li>Contact for questions</li>
+<li>Acknowledgment requirement</li>
+</ul>
+<p><strong>Example template structure</strong>:</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">Subject: LEGAL HOLD NOTICE - {{matter_name}} - Action Required
+</span><span class="code-line">
+</span><span class="code-line">PRIVILEGED AND CONFIDENTIAL
+</span><span class="code-line">ATTORNEY-CLIENT COMMUNICATION
+</span><span class="code-line">
+</span><span class="code-line">Dear {{custodian_name}},
+</span><span class="code-line">
+</span><span class="code-line">You are receiving this notice because you may possess documents, communications, or data relevant to the matter referenced above.
+</span><span class="code-line">
+</span><span class="code-line">PRESERVATION OBLIGATION:
+</span><span class="code-line">Effective immediately, you must preserve all documents and electronically stored information (ESI) related to:
+</span><span class="code-line">- Subject matter: {{hold_scope}}
+</span><span class="code-line">- Date range: {{start_date}} to present
+</span><span class="code-line">- Document types: {{document_types}}
+</span><span class="code-line">
+</span><span class="code-line">DO NOT delete, destroy, modify, or discard any potentially relevant materials.
+</span><span class="code-line">
+</span><span class="code-line">[Specific instructions for systems, email, chat, local files]
+</span><span class="code-line">
+</span><span class="code-line">Please acknowledge receipt of this notice by {{acknowledgment_deadline}}.
+</span><span class="code-line">
+</span><span class="code-line">Contact {{legal_contact}} with any questions.
+</span></code></pre>
+<h3>3. Privacy Inquiries</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Cookie/tracking inquiry responses</li>
+<li>Privacy policy questions</li>
+<li>Data sharing practice inquiries</li>
+<li>Children's data inquiries</li>
+<li>Cross-border transfer questions</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Reference to the organization's privacy notice</li>
+<li>Specific answers based on current practices</li>
+<li>Links to relevant privacy documentation</li>
+<li>Contact information for the privacy team</li>
+</ul>
+<h3>4. Vendor Legal Questions</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Contract status inquiry response</li>
+<li>Amendment request response</li>
+<li>Compliance certification requests</li>
+<li>Audit request responses</li>
+<li>Insurance certificate requests</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Reference to the applicable agreement</li>
+<li>Specific response to the vendor's question</li>
+<li>Any required caveats or limitations</li>
+<li>Next steps and timeline</li>
+</ul>
+<h3>5. NDA Requests</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Sending the organization's standard form NDA</li>
+<li>Accepting a counterparty's NDA (with markup)</li>
+<li>Declining an NDA request with explanation</li>
+<li>NDA renewal or extension</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Purpose of the NDA</li>
+<li>Standard terms summary</li>
+<li>Execution instructions</li>
+<li>Timeline expectations</li>
+</ul>
+<h3>6. Subpoena / Legal Process</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Acknowledgment of receipt</li>
+<li>Objection letter</li>
+<li>Request for extension</li>
+<li>Compliance cover letter</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Case reference and jurisdiction</li>
+<li>Specific objections (if any)</li>
+<li>Preservation confirmation</li>
+<li>Timeline for compliance</li>
+<li>Privilege log reference (if applicable)</li>
+</ul>
+<p><strong>Critical note</strong>: Subpoena responses almost always require individualized counsel review. Templates serve as starting frameworks, not final responses.</p>
+<h3>7. Insurance Notifications</h3>
+<p><strong>Sub-categories</strong>:</p>
+<ul>
+<li>Initial claim notification</li>
+<li>Supplemental information</li>
+<li>Reservation of rights response</li>
+</ul>
+<p><strong>Key template elements</strong>:</p>
+<ul>
+<li>Policy number and coverage period</li>
+<li>Description of the matter or incident</li>
+<li>Timeline of events</li>
+<li>Requested coverage confirmation</li>
+</ul>
+<h2>Template Management Methodology</h2>
+<h3>Template Organization</h3>
+<p>Templates should be organized by category and maintained in the team's local settings. Each template should include:</p>
+<ol>
+<li><strong>Category</strong>: The type of inquiry the template addresses</li>
+<li><strong>Template name</strong>: A descriptive identifier</li>
+<li><strong>Use case</strong>: When this template is appropriate</li>
+<li><strong>Escalation triggers</strong>: When this template should NOT be used</li>
+<li><strong>Required variables</strong>: Information that must be customized for each use</li>
+<li><strong>Template body</strong>: The response text with variable placeholders</li>
+<li><strong>Follow-up actions</strong>: Standard steps after sending the response</li>
+<li><strong>Last reviewed date</strong>: When the template was last verified for accuracy</li>
+</ol>
+<h3>Template Lifecycle</h3>
+<ol>
+<li><strong>Creation</strong>: Draft template based on best practices and team input</li>
+<li><strong>Review</strong>: Legal team review and approval of template content</li>
+<li><strong>Publication</strong>: Add to template library with metadata</li>
+<li><strong>Use</strong>: Generate responses using the template</li>
+<li><strong>Feedback</strong>: Track when templates are modified during use to identify improvement opportunities</li>
+<li><strong>Update</strong>: Revise templates when laws, policies, or best practices change</li>
+<li><strong>Retirement</strong>: Archive templates that are no longer applicable</li>
+</ol>
+<h2>Template Creation Guide</h2>
+<p>When helping users create new templates:</p>
+<h3>1. Define the Use Case</h3>
+<ul>
+<li>What type of inquiry does this address?</li>
+<li>How frequently does this come up?</li>
+<li>Who is the typical audience?</li>
+<li>What is the typical urgency level?</li>
+</ul>
+<h3>2. Identify Required Elements</h3>
+<ul>
+<li>What information must be included in every response?</li>
+<li>What regulatory requirements apply?</li>
+<li>What organizational policies govern this type of response?</li>
+</ul>
+<h3>3. Define Variables</h3>
+<ul>
+<li>What changes with each use? (names, dates, specifics)</li>
+<li>What stays the same? (legal requirements, standard language)</li>
+<li>Use clear variable names: <code>{{requester_name}}</code>, <code>{{response_deadline}}</code>, <code>{{matter_reference}}</code></li>
+</ul>
+<h3>4. Draft the Template</h3>
+<ul>
+<li>Write in clear, professional language</li>
+<li>Avoid unnecessary legal jargon for business audiences</li>
+<li>Include all legally required elements</li>
+<li>Add placeholders for all variable content</li>
+<li>Include a subject line template if for email use</li>
+</ul>
+<h3>5. Define Escalation Triggers</h3>
+<ul>
+<li>What situations should NOT use this template?</li>
+<li>What characteristics indicate the matter needs individualized attention?</li>
+<li>Be specific: vague triggers are not useful</li>
+</ul>
+<h3>6. Add Metadata</h3>
+<ul>
+<li>Template name and category</li>
+<li>Version number and last reviewed date</li>
+<li>Author and approver</li>
+<li>Follow-up actions checklist</li>
+</ul>
+<h3>Template Format</h3>
+<pre class="language-markdown"><code class="language-markdown code-highlight"><span class="code-line"><span class="token title important"><span class="token punctuation">##</span> Template: {{template_name}}</span>
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Category</span><span class="token punctuation">**</span></span>: {{category}}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Version</span><span class="token punctuation">**</span></span>: {{version}} | <span class="token bold"><span class="token punctuation">**</span><span class="token content">Last Reviewed</span><span class="token punctuation">**</span></span>: {{date}}
+</span><span class="code-line"><span class="token bold"><span class="token punctuation">**</span><span class="token content">Approved By</span><span class="token punctuation">**</span></span>: {{approver}}
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Use When</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> [Condition 1]
+</span><span class="code-line"><span class="token list punctuation">-</span> [Condition 2]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Do NOT Use When (Escalation Triggers)</span>
+</span><span class="code-line"><span class="token list punctuation">-</span> [Trigger 1]
+</span><span class="code-line"><span class="token list punctuation">-</span> [Trigger 2]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Variables</span>
+</span><span class="code-line"><span class="token table"><span class="token table-header-row"><span class="token punctuation">|</span><span class="token table-header important"> Variable </span><span class="token punctuation">|</span><span class="token table-header important"> Description </span><span class="token punctuation">|</span><span class="token table-header important"> Example </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-header-row"></span><span class="token table-line"><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span><span class="token punctuation">---</span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-line"></span><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> {{var1}} </span><span class="token punctuation">|</span><span class="token table-data"> [what it is] </span><span class="token punctuation">|</span><span class="token table-data"> [example value] </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"><span class="token punctuation">|</span><span class="token table-data"> {{var2}} </span><span class="token punctuation">|</span><span class="token table-data"> [what it is] </span><span class="token punctuation">|</span><span class="token table-data"> [example value] </span><span class="token punctuation">|</span>
+</span></span></span><span class="code-line"><span class="token table"><span class="token table-data-rows"></span></span>
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Subject Line</span>
+</span><span class="code-line">[Subject template with {{variables}}]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Body</span>
+</span><span class="code-line">[Response body with {{variables}}]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Follow-Up Actions</span>
+</span><span class="code-line"><span class="token list punctuation">1.</span> [Action 1]
+</span><span class="code-line"><span class="token list punctuation">2.</span> [Action 2]
+</span><span class="code-line">
+</span><span class="code-line"><span class="token title important"><span class="token punctuation">###</span> Notes</span>
+</span><span class="code-line">[Any special instructions for users of this template]
+</span></code></pre>
+<h2>Output Format</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">## Generated Response: [Inquiry Type]
+</span><span class="code-line">
+</span><span class="code-line">**To**: [recipient]
+</span><span class="code-line">**Subject**: [subject line]
+</span><span class="code-line">
+</span><span class="code-line">---
+</span><span class="code-line">
+</span><span class="code-line">[Response body]
+</span><span class="code-line">
+</span><span class="code-line">---
+</span><span class="code-line">
+</span><span class="code-line">### Escalation Check
+</span><span class="code-line">[Confirmation that no escalation triggers were detected, OR flagged triggers with recommendations]
+</span><span class="code-line">
+</span><span class="code-line">### Follow-Up Actions
+</span><span class="code-line">1. [Post-send actions]
+</span><span class="code-line">2. [Calendar reminders to set]
+</span><span class="code-line">3. [Tracking or logging requirements]
+</span></code></pre>
+<h2>Notes</h2>
+<ul>
+<li>Always present the draft response for user review before suggesting it be sent</li>
+<li>If connected to email via MCP, offer to create a draft email with the response</li>
+<li>Track response deadlines and offer to set calendar reminders</li>
+<li>For regulated responses (DSRs, subpoenas), always note the applicable deadline and regulatory requirements</li>
+<li>Templates should be living documents; suggest updates when the user modifies a templated response, so the template can be improved over time</li>
+</ul></div>

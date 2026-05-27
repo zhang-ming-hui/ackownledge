@@ -1,0 +1,65 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><p>Use this skill for the <code>tzst</code> command-line interface. Default to execution when the user clearly wants a real archive action and the required paths or archive names are already known.</p>
+<p>This skill is CLI-only. If the user is asking about Python code such as <code>from tzst import ...</code>, treat that as a general Python library or API documentation task instead of using this skill as the main guide.</p>
+<h2>When to Use</h2>
+<p>Use this skill when the user:</p>
+<ul>
+<li>mentions <code>.tzst</code> or <code>.tar.zst</code> archives</li>
+<li>wants to create, extract, flatten, list, or test a <code>tzst</code> archive</li>
+<li>needs help installing <code>tzst</code> or choosing CLI flags</li>
+<li>wants machine-readable <code>tzst</code> output for scripting or automation</li>
+<li>needs safe conflict handling or extraction filter guidance</li>
+</ul>
+<p>Do not use this skill for generic <code>tar</code>, <code>zip</code>, or Python API questions unless <code>tzst</code> is actually part of the request.</p>
+<h2>Preflight</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ol>
+<li>Check whether <code>tzst</code> is available with <code>tzst --version</code> or <code>tzst --help</code>.</li>
+<li>If it is missing, prefer one of these installation paths:
+<ul>
+<li><code>uv tool install tzst</code></li>
+<li><code>pip install tzst</code></li>
+<li>a standalone release binary from <a href="https://github.com/xixu-me/tzst/releases/latest" target="_blank" rel="ugc nofollow noopener">https://github.com/xixu-me/tzst/releases/latest</a> when the user does not want a Python installation</li>
+</ul>
+</li>
+<li>Re-run <code>tzst --version</code> or <code>tzst --help</code> before doing real work.</li>
+</ol>
+<h2>Workflow</h2>
+<ol>
+<li>Decide whether the request is execution or guidance.
+Requests like "archive these files", "extract this backup", "list what is inside", "test this archive", or "install tzst" are execution intent.</li>
+<li>Choose the command that matches the request:
+<ul>
+<li><code>a</code>, <code>add</code>, <code>create</code> for archive creation</li>
+<li><code>x</code>, <code>extract</code> for normal extraction with directory structure preserved</li>
+<li><code>e</code>, <code>extract-flat</code> only when the user explicitly wants flattened output</li>
+<li><code>l</code>, <code>list</code> for archive inspection</li>
+<li><code>t</code>, <code>test</code> for integrity checks</li>
+</ul>
+</li>
+<li>If the user wants to extract only a few members and the member names are uncertain, list first.</li>
+<li>Load <a href="https://github.com/xixu-me/skills/blob/HEAD/skills/tzst/./references/cli-reference.md" target="_blank" rel="ugc nofollow noopener"><code>references/cli-reference.md</code></a> when you need the command matrix, exact flag names, or copy-paste examples.</li>
+</ol>
+<h2>Safe Defaults</h2>
+<ul>
+<li>Prefer <code>x</code> over <code>e</code> unless flattening is explicitly requested.</li>
+<li>Keep <code>--filter data</code> as the default extraction mode.</li>
+<li>Use <code>--filter tar</code> only when the user needs standard tar-style compatibility.</li>
+<li>Use <code>--filter fully_trusted</code> only when the user explicitly says the archive source is completely trusted.</li>
+<li>Keep atomic archive creation enabled. Only reach for <code>--no-atomic</code> when the user explicitly wants it.</li>
+<li>Prefer <code>--streaming</code> for large archives or memory-constrained environments.</li>
+<li>For automation or pipelines, prefer <code>tzst --json --no-banner ...</code>.</li>
+<li>For automated extraction, require an explicit non-interactive <code>--conflict-resolution</code> choice such as <code>replace_all</code>, <code>skip_all</code>, or <code>auto_rename_all</code>.</li>
+<li>Do not combine <code>--json</code> with interactive conflict prompting.</li>
+</ul>
+<h2>Scripting Notes</h2>
+<ul>
+<li>Put global flags before the subcommand in examples, such as <code>tzst --json --no-banner l archive.tzst</code>.</li>
+<li>Use exit codes in scripts: <code>0</code> for success, <code>1</code> for operation errors, <code>2</code> for argument parsing errors, and <code>130</code> for interruption.</li>
+<li>When archive naming matters, tell the user that <code>tzst</code> may normalize a creation target to <code>.tzst</code> or <code>.tar.zst</code>.</li>
+</ul>
+<h2>Common Mistakes</h2>
+<ul>
+<li>Using <code>e</code> when the user expected the original directory structure to be preserved</li>
+<li>Recommending <code>fully_trusted</code> for archives from an unknown or untrusted source</li>
+<li>Forgetting an explicit conflict strategy for non-interactive extraction</li>
+<li>Treating a Python API question as a CLI question</li>
+<li>Guessing flags from <code>tar</code> habits instead of checking the bundled reference or the installed CLI help</li>
+</ul></div>

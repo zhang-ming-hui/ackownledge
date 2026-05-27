@@ -1,0 +1,371 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>SQL Queries Skill</h1>
+<p>Write correct, performant, readable SQL across all major data warehouse dialects.</p>
+<h2>Dialect-Specific Reference</h2>
+<h3>PostgreSQL (including Aurora, RDS, Supabase, Neon)</h3>
+<p><strong>Date/time:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Current date/time</span>
+</span><span class="code-line"><span class="token keyword">CURRENT_DATE</span><span class="token punctuation">,</span> <span class="token keyword">CURRENT_TIMESTAMP</span><span class="token punctuation">,</span> <span class="token function">NOW</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Date arithmetic</span>
+</span><span class="code-line">date_column <span class="token operator">+</span> <span class="token keyword">INTERVAL</span> <span class="token string">'7 days'</span>
+</span><span class="code-line">date_column <span class="token operator">-</span> <span class="token keyword">INTERVAL</span> <span class="token string">'1 month'</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Truncate to period</span>
+</span><span class="code-line">DATE_TRUNC<span class="token punctuation">(</span><span class="token string">'month'</span><span class="token punctuation">,</span> created_at<span class="token punctuation">)</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>-- Extract parts
+EXTRACT(YEAR FROM created_at)
+EXTRACT(DOW FROM created_at)  -- 0=Sunday</p>
+<p>-- Format
+TO_CHAR(created_at, 'YYYY-MM-DD')</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">**String functions:**
+</span><span class="code-line">```sql
+</span><span class="code-line">-- Concatenation
+</span><span class="code-line">first_name || ' ' || last_name
+</span><span class="code-line">CONCAT(first_name, ' ', last_name)
+</span><span class="code-line">
+</span><span class="code-line">-- Pattern matching
+</span><span class="code-line">column ILIKE '%pattern%'  -- case-insensitive
+</span><span class="code-line">column ~ '^regex_pattern$'  -- regex
+</span><span class="code-line">
+</span><span class="code-line">-- String manipulation
+</span><span class="code-line">LEFT(str, n), RIGHT(str, n)
+</span><span class="code-line">SPLIT_PART(str, delimiter, position)
+</span><span class="code-line">REGEXP_REPLACE(str, pattern, replacement)
+</span></code></pre>
+<p><strong>Arrays and JSON:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- JSON access</span>
+</span><span class="code-line"><span class="token keyword">data</span><span class="token operator">-</span><span class="token operator">&gt;&gt;</span><span class="token string">'key'</span>  <span class="token comment">-- text</span>
+</span><span class="code-line"><span class="token keyword">data</span><span class="token operator">-</span><span class="token operator">&gt;</span><span class="token string">'nested'</span><span class="token operator">-</span><span class="token operator">&gt;</span><span class="token string">'key'</span>  <span class="token comment">-- json</span>
+</span><span class="code-line"><span class="token keyword">data</span><span class="token comment">#&gt;&gt;'{path,to,key}'  -- nested text</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Array operations</span>
+</span><span class="code-line">ARRAY_AGG<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">ANY</span><span class="token punctuation">(</span>array_column<span class="token punctuation">)</span>
+</span><span class="code-line">array_column @<span class="token operator">&gt;</span> ARRAY<span class="token punctuation">[</span><span class="token string">'value'</span><span class="token punctuation">]</span>
+</span></code></pre>
+<p><strong>Performance tips:</strong></p>
+<ul>
+<li>Use <code>EXPLAIN ANALYZE</code> to profile queries</li>
+<li>Create indexes on frequently filtered/joined columns</li>
+<li>Use <code>EXISTS</code> over <code>IN</code> for correlated subqueries</li>
+<li>Partial indexes for common filter conditions</li>
+<li>Use connection pooling for concurrent access</li>
+</ul>
+<hr>
+<h3>Snowflake</h3>
+<p><strong>Date/time:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Current date/time</span>
+</span><span class="code-line"><span class="token keyword">CURRENT_DATE</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">CURRENT_TIMESTAMP</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> SYSDATE<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Date arithmetic</span>
+</span><span class="code-line">DATEADD<span class="token punctuation">(</span><span class="token keyword">day</span><span class="token punctuation">,</span> <span class="token number">7</span><span class="token punctuation">,</span> date_column<span class="token punctuation">)</span>
+</span><span class="code-line">DATEDIFF<span class="token punctuation">(</span><span class="token keyword">day</span><span class="token punctuation">,</span> start_date<span class="token punctuation">,</span> end_date<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Truncate to period</span>
+</span><span class="code-line">DATE_TRUNC<span class="token punctuation">(</span><span class="token string">'month'</span><span class="token punctuation">,</span> created_at<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Extract parts</span>
+</span><span class="code-line"><span class="token keyword">YEAR</span><span class="token punctuation">(</span>created_at<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">MONTH</span><span class="token punctuation">(</span>created_at<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">DAY</span><span class="token punctuation">(</span>created_at<span class="token punctuation">)</span>
+</span><span class="code-line">DAYOFWEEK<span class="token punctuation">(</span>created_at<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Format</span>
+</span><span class="code-line">TO_CHAR<span class="token punctuation">(</span>created_at<span class="token punctuation">,</span> <span class="token string">'YYYY-MM-DD'</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>String functions:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Case-insensitive by default (depends on collation)</span>
+</span><span class="code-line"><span class="token keyword">column</span> <span class="token operator">ILIKE</span> <span class="token string">'%pattern%'</span>
+</span><span class="code-line">REGEXP_LIKE<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">,</span> <span class="token string">'pattern'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Parse JSON</span>
+</span><span class="code-line"><span class="token keyword">column</span>:<span class="token keyword">key</span>::string  <span class="token comment">-- dot notation for VARIANT</span>
+</span><span class="code-line">PARSE_JSON<span class="token punctuation">(</span><span class="token string">'{"key": "value"}'</span><span class="token punctuation">)</span>
+</span><span class="code-line">GET_PATH<span class="token punctuation">(</span>variant_col<span class="token punctuation">,</span> <span class="token string">'path.to.key'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Flatten arrays/objects</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> f<span class="token punctuation">.</span><span class="token keyword">value</span> <span class="token keyword">FROM</span> <span class="token keyword">table</span><span class="token punctuation">,</span> LATERAL FLATTEN<span class="token punctuation">(</span>input <span class="token operator">=</span><span class="token operator">&gt;</span> array_col<span class="token punctuation">)</span> f
+</span></code></pre>
+<p><strong>Semi-structured data:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- VARIANT type access</span>
+</span><span class="code-line"><span class="token keyword">data</span>:customer:name::STRING
+</span><span class="code-line"><span class="token keyword">data</span>:items<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>:price::NUMBER
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Flatten nested structures</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span>
+</span><span class="code-line">    t<span class="token punctuation">.</span>id<span class="token punctuation">,</span>
+</span><span class="code-line">    item<span class="token punctuation">.</span><span class="token keyword">value</span>:name::STRING <span class="token keyword">as</span> item_name<span class="token punctuation">,</span>
+</span><span class="code-line">    item<span class="token punctuation">.</span><span class="token keyword">value</span>:qty::NUMBER <span class="token keyword">as</span> quantity
+</span><span class="code-line"><span class="token keyword">FROM</span> my_table t<span class="token punctuation">,</span>
+</span><span class="code-line">LATERAL FLATTEN<span class="token punctuation">(</span>input <span class="token operator">=</span><span class="token operator">&gt;</span> t<span class="token punctuation">.</span><span class="token keyword">data</span>:items<span class="token punctuation">)</span> item
+</span></code></pre>
+<p><strong>Performance tips:</strong></p>
+<ul>
+<li>Use clustering keys on large tables (not traditional indexes)</li>
+<li>Filter on clustering key columns for partition pruning</li>
+<li>Set appropriate warehouse size for query complexity</li>
+<li>Use <code>RESULT_SCAN(LAST_QUERY_ID())</code> to avoid re-running expensive queries</li>
+<li>Use transient tables for staging/temp data</li>
+</ul>
+<hr>
+<h3>BigQuery (Google Cloud)</h3>
+<p><strong>Date/time:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Current date/time</span>
+</span><span class="code-line"><span class="token keyword">CURRENT_DATE</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">CURRENT_TIMESTAMP</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Date arithmetic</span>
+</span><span class="code-line">DATE_ADD<span class="token punctuation">(</span>date_column<span class="token punctuation">,</span> <span class="token keyword">INTERVAL</span> <span class="token number">7</span> <span class="token keyword">DAY</span><span class="token punctuation">)</span>
+</span><span class="code-line">DATE_SUB<span class="token punctuation">(</span>date_column<span class="token punctuation">,</span> <span class="token keyword">INTERVAL</span> <span class="token number">1</span> <span class="token keyword">MONTH</span><span class="token punctuation">)</span>
+</span><span class="code-line">DATE_DIFF<span class="token punctuation">(</span>end_date<span class="token punctuation">,</span> start_date<span class="token punctuation">,</span> <span class="token keyword">DAY</span><span class="token punctuation">)</span>
+</span><span class="code-line">TIMESTAMP_DIFF<span class="token punctuation">(</span>end_ts<span class="token punctuation">,</span> start_ts<span class="token punctuation">,</span> <span class="token keyword">HOUR</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Truncate to period</span>
+</span><span class="code-line">DATE_TRUNC<span class="token punctuation">(</span>created_at<span class="token punctuation">,</span> <span class="token keyword">MONTH</span><span class="token punctuation">)</span>
+</span><span class="code-line">TIMESTAMP_TRUNC<span class="token punctuation">(</span>created_at<span class="token punctuation">,</span> <span class="token keyword">HOUR</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Extract parts</span>
+</span><span class="code-line">EXTRACT<span class="token punctuation">(</span><span class="token keyword">YEAR</span> <span class="token keyword">FROM</span> created_at<span class="token punctuation">)</span>
+</span><span class="code-line">EXTRACT<span class="token punctuation">(</span>DAYOFWEEK <span class="token keyword">FROM</span> created_at<span class="token punctuation">)</span>  <span class="token comment">-- 1=Sunday</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Format</span>
+</span><span class="code-line">FORMAT_DATE<span class="token punctuation">(</span><span class="token string">'%Y-%m-%d'</span><span class="token punctuation">,</span> date_column<span class="token punctuation">)</span>
+</span><span class="code-line">FORMAT_TIMESTAMP<span class="token punctuation">(</span><span class="token string">'%Y-%m-%d %H:%M:%S'</span><span class="token punctuation">,</span> ts_column<span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>String functions:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- No ILIKE, use LOWER()</span>
+</span><span class="code-line">LOWER<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">)</span> <span class="token operator">LIKE</span> <span class="token string">'%pattern%'</span>
+</span><span class="code-line">REGEXP_CONTAINS<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">,</span> r<span class="token string">'pattern'</span><span class="token punctuation">)</span>
+</span><span class="code-line">REGEXP_EXTRACT<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">,</span> r<span class="token string">'pattern'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- String manipulation</span>
+</span><span class="code-line">SPLIT<span class="token punctuation">(</span>str<span class="token punctuation">,</span> <span class="token keyword">delimiter</span><span class="token punctuation">)</span>  <span class="token comment">-- returns ARRAY</span>
+</span><span class="code-line">ARRAY_TO_STRING<span class="token punctuation">(</span>array<span class="token punctuation">,</span> <span class="token keyword">delimiter</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Arrays and structs:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Array operations</span>
+</span><span class="code-line">ARRAY_AGG<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">)</span>
+</span><span class="code-line">UNNEST<span class="token punctuation">(</span>array_column<span class="token punctuation">)</span>
+</span><span class="code-line">ARRAY_LENGTH<span class="token punctuation">(</span>array_column<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">value</span> <span class="token operator">IN</span> UNNEST<span class="token punctuation">(</span>array_column<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Struct access</span>
+</span><span class="code-line">struct_column<span class="token punctuation">.</span>field_name
+</span></code></pre>
+<p><strong>Performance tips:</strong></p>
+<ul>
+<li>Always filter on partition columns (usually date) to reduce bytes scanned</li>
+<li>Use clustering for frequently filtered columns within partitions</li>
+<li>Use <code>APPROX_COUNT_DISTINCT()</code> for large-scale cardinality estimates</li>
+<li>Avoid <code>SELECT *</code> -- billing is per-byte scanned</li>
+<li>Use <code>DECLARE</code> and <code>SET</code> for parameterized scripts</li>
+<li>Preview query cost with dry run before executing large queries</li>
+</ul>
+<hr>
+<h3>Redshift (Amazon)</h3>
+<p><strong>Date/time:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Current date/time</span>
+</span><span class="code-line"><span class="token keyword">CURRENT_DATE</span><span class="token punctuation">,</span> GETDATE<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> SYSDATE
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Date arithmetic</span>
+</span><span class="code-line">DATEADD<span class="token punctuation">(</span><span class="token keyword">day</span><span class="token punctuation">,</span> <span class="token number">7</span><span class="token punctuation">,</span> date_column<span class="token punctuation">)</span>
+</span><span class="code-line">DATEDIFF<span class="token punctuation">(</span><span class="token keyword">day</span><span class="token punctuation">,</span> start_date<span class="token punctuation">,</span> end_date<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Truncate to period</span>
+</span><span class="code-line">DATE_TRUNC<span class="token punctuation">(</span><span class="token string">'month'</span><span class="token punctuation">,</span> created_at<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Extract parts</span>
+</span><span class="code-line">EXTRACT<span class="token punctuation">(</span><span class="token keyword">YEAR</span> <span class="token keyword">FROM</span> created_at<span class="token punctuation">)</span>
+</span><span class="code-line">DATE_PART<span class="token punctuation">(</span><span class="token string">'dow'</span><span class="token punctuation">,</span> created_at<span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>String functions:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Case-insensitive</span>
+</span><span class="code-line"><span class="token keyword">column</span> <span class="token operator">ILIKE</span> <span class="token string">'%pattern%'</span>
+</span><span class="code-line">REGEXP_INSTR<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">,</span> <span class="token string">'pattern'</span><span class="token punctuation">)</span> <span class="token operator">&gt;</span> <span class="token number">0</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- String manipulation</span>
+</span><span class="code-line">SPLIT_PART<span class="token punctuation">(</span>str<span class="token punctuation">,</span> <span class="token keyword">delimiter</span><span class="token punctuation">,</span> position<span class="token punctuation">)</span>
+</span><span class="code-line">LISTAGG<span class="token punctuation">(</span><span class="token keyword">column</span><span class="token punctuation">,</span> <span class="token string">', '</span><span class="token punctuation">)</span> <span class="token keyword">WITHIN</span> <span class="token keyword">GROUP</span> <span class="token punctuation">(</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> <span class="token keyword">column</span><span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Performance tips:</strong></p>
+<ul>
+<li>Design distribution keys for collocated joins (DISTKEY)</li>
+<li>Use sort keys for frequently filtered columns (SORTKEY)</li>
+<li>Use <code>EXPLAIN</code> to check query plan</li>
+<li>Avoid cross-node data movement (watch for DS_BCAST and DS_DIST)</li>
+<li><code>ANALYZE</code> and <code>VACUUM</code> regularly</li>
+<li>Use late-binding views for schema flexibility</li>
+</ul>
+<hr>
+<h3>Databricks SQL</h3>
+<p><strong>Date/time:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Current date/time</span>
+</span><span class="code-line"><span class="token keyword">CURRENT_DATE</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">CURRENT_TIMESTAMP</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Date arithmetic</span>
+</span><span class="code-line">DATE_ADD<span class="token punctuation">(</span>date_column<span class="token punctuation">,</span> <span class="token number">7</span><span class="token punctuation">)</span>
+</span><span class="code-line">DATEDIFF<span class="token punctuation">(</span>end_date<span class="token punctuation">,</span> start_date<span class="token punctuation">)</span>
+</span><span class="code-line">ADD_MONTHS<span class="token punctuation">(</span>date_column<span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Truncate to period</span>
+</span><span class="code-line">DATE_TRUNC<span class="token punctuation">(</span><span class="token string">'MONTH'</span><span class="token punctuation">,</span> created_at<span class="token punctuation">)</span>
+</span><span class="code-line">TRUNC<span class="token punctuation">(</span>date_column<span class="token punctuation">,</span> <span class="token string">'MM'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Extract parts</span>
+</span><span class="code-line"><span class="token keyword">YEAR</span><span class="token punctuation">(</span>created_at<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">MONTH</span><span class="token punctuation">(</span>created_at<span class="token punctuation">)</span>
+</span><span class="code-line">DAYOFWEEK<span class="token punctuation">(</span>created_at<span class="token punctuation">)</span>
+</span></code></pre>
+<p><strong>Delta Lake features:</strong></p>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Time travel</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> <span class="token operator">*</span> <span class="token keyword">FROM</span> my_table <span class="token keyword">TIMESTAMP</span> <span class="token keyword">AS</span> <span class="token keyword">OF</span> <span class="token string">'2024-01-15'</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> <span class="token operator">*</span> <span class="token keyword">FROM</span> my_table VERSION <span class="token keyword">AS</span> <span class="token keyword">OF</span> <span class="token number">42</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Describe history</span>
+</span><span class="code-line"><span class="token keyword">DESCRIBE</span> HISTORY my_table
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Merge (upsert)</span>
+</span><span class="code-line"><span class="token keyword">MERGE</span> <span class="token keyword">INTO</span> target <span class="token keyword">USING</span> source
+</span><span class="code-line"><span class="token keyword">ON</span> target<span class="token punctuation">.</span>id <span class="token operator">=</span> source<span class="token punctuation">.</span>id
+</span><span class="code-line"><span class="token keyword">WHEN</span> <span class="token keyword">MATCHED</span> <span class="token keyword">THEN</span> <span class="token keyword">UPDATE</span> <span class="token keyword">SET</span> <span class="token operator">*</span>
+</span><span class="code-line"><span class="token keyword">WHEN</span> <span class="token operator">NOT</span> <span class="token keyword">MATCHED</span> <span class="token keyword">THEN</span> <span class="token keyword">INSERT</span> <span class="token operator">*</span>
+</span></code></pre>
+<p><strong>Performance tips:</strong></p>
+<ul>
+<li>Use Delta Lake's <code>OPTIMIZE</code> and <code>ZORDER</code> for query performance</li>
+<li>Leverage Photon engine for compute-intensive queries</li>
+<li>Use <code>CACHE TABLE</code> for frequently accessed datasets</li>
+<li>Partition by low-cardinality date columns</li>
+</ul>
+<hr>
+<h2>Common SQL Patterns</h2>
+<h3>Window Functions</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Ranking</span>
+</span><span class="code-line">ROW_NUMBER<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> user_id <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> created_at <span class="token keyword">DESC</span><span class="token punctuation">)</span>
+</span><span class="code-line">RANK<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> category <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> revenue <span class="token keyword">DESC</span><span class="token punctuation">)</span>
+</span><span class="code-line">DENSE_RANK<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> score <span class="token keyword">DESC</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Running totals / moving averages</span>
+</span><span class="code-line"><span class="token function">SUM</span><span class="token punctuation">(</span>revenue<span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> date_col <span class="token keyword">ROWS</span> <span class="token operator">BETWEEN</span> <span class="token keyword">UNBOUNDED</span> <span class="token keyword">PRECEDING</span> <span class="token operator">AND</span> <span class="token keyword">CURRENT</span> <span class="token keyword">ROW</span><span class="token punctuation">)</span> <span class="token keyword">as</span> running_total
+</span><span class="code-line"><span class="token function">AVG</span><span class="token punctuation">(</span>revenue<span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> date_col <span class="token keyword">ROWS</span> <span class="token operator">BETWEEN</span> <span class="token number">6</span> <span class="token keyword">PRECEDING</span> <span class="token operator">AND</span> <span class="token keyword">CURRENT</span> <span class="token keyword">ROW</span><span class="token punctuation">)</span> <span class="token keyword">as</span> moving_avg_7d
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Lag / Lead</span>
+</span><span class="code-line">LAG<span class="token punctuation">(</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> entity <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> date_col<span class="token punctuation">)</span> <span class="token keyword">as</span> prev_value
+</span><span class="code-line">LEAD<span class="token punctuation">(</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> entity <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> date_col<span class="token punctuation">)</span> <span class="token keyword">as</span> next_value
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- First / Last value</span>
+</span><span class="code-line">FIRST_VALUE<span class="token punctuation">(</span><span class="token keyword">status</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> user_id <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> created_at <span class="token keyword">ROWS</span> <span class="token operator">BETWEEN</span> <span class="token keyword">UNBOUNDED</span> <span class="token keyword">PRECEDING</span> <span class="token operator">AND</span> <span class="token keyword">UNBOUNDED</span> <span class="token keyword">FOLLOWING</span><span class="token punctuation">)</span>
+</span><span class="code-line">LAST_VALUE<span class="token punctuation">(</span><span class="token keyword">status</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> user_id <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> created_at <span class="token keyword">ROWS</span> <span class="token operator">BETWEEN</span> <span class="token keyword">UNBOUNDED</span> <span class="token keyword">PRECEDING</span> <span class="token operator">AND</span> <span class="token keyword">UNBOUNDED</span> <span class="token keyword">FOLLOWING</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Percent of total</span>
+</span><span class="code-line">revenue <span class="token operator">/</span> <span class="token function">SUM</span><span class="token punctuation">(</span>revenue<span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> pct_of_total
+</span><span class="code-line">revenue <span class="token operator">/</span> <span class="token function">SUM</span><span class="token punctuation">(</span>revenue<span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> category<span class="token punctuation">)</span> <span class="token keyword">as</span> pct_of_category
+</span></code></pre>
+<h3>CTEs for Readability</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">WITH</span>
+</span><span class="code-line"><span class="token comment">-- Step 1: Define the base population</span>
+</span><span class="code-line">base_users <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span> user_id<span class="token punctuation">,</span> created_at<span class="token punctuation">,</span> plan_type
+</span><span class="code-line">    <span class="token keyword">FROM</span> users
+</span><span class="code-line">    <span class="token keyword">WHERE</span> created_at <span class="token operator">&gt;=</span> <span class="token keyword">DATE</span> <span class="token string">'2024-01-01'</span>
+</span><span class="code-line">      <span class="token operator">AND</span> <span class="token keyword">status</span> <span class="token operator">=</span> <span class="token string">'active'</span>
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Step 2: Calculate user-level metrics</span>
+</span><span class="code-line">user_metrics <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span>
+</span><span class="code-line">        u<span class="token punctuation">.</span>user_id<span class="token punctuation">,</span>
+</span><span class="code-line">        u<span class="token punctuation">.</span>plan_type<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token keyword">DISTINCT</span> e<span class="token punctuation">.</span>session_id<span class="token punctuation">)</span> <span class="token keyword">as</span> session_count<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">SUM</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>revenue<span class="token punctuation">)</span> <span class="token keyword">as</span> total_revenue
+</span><span class="code-line">    <span class="token keyword">FROM</span> base_users u
+</span><span class="code-line">    <span class="token keyword">LEFT</span> <span class="token keyword">JOIN</span> events e <span class="token keyword">ON</span> u<span class="token punctuation">.</span>user_id <span class="token operator">=</span> e<span class="token punctuation">.</span>user_id
+</span><span class="code-line">    <span class="token keyword">GROUP</span> <span class="token keyword">BY</span> u<span class="token punctuation">.</span>user_id<span class="token punctuation">,</span> u<span class="token punctuation">.</span>plan_type
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">-- Step 3: Aggregate to summary level</span>
+</span><span class="code-line">summary <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span>
+</span><span class="code-line">        plan_type<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token punctuation">)</span> <span class="token keyword">as</span> user_count<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">AVG</span><span class="token punctuation">(</span>session_count<span class="token punctuation">)</span> <span class="token keyword">as</span> avg_sessions<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">SUM</span><span class="token punctuation">(</span>total_revenue<span class="token punctuation">)</span> <span class="token keyword">as</span> total_revenue
+</span><span class="code-line">    <span class="token keyword">FROM</span> user_metrics
+</span><span class="code-line">    <span class="token keyword">GROUP</span> <span class="token keyword">BY</span> plan_type
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">SELECT</span> <span class="token operator">*</span> <span class="token keyword">FROM</span> summary <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> total_revenue <span class="token keyword">DESC</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Cohort Retention</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">WITH</span> cohorts <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span>
+</span><span class="code-line">        user_id<span class="token punctuation">,</span>
+</span><span class="code-line">        DATE_TRUNC<span class="token punctuation">(</span><span class="token string">'month'</span><span class="token punctuation">,</span> first_activity_date<span class="token punctuation">)</span> <span class="token keyword">as</span> cohort_month
+</span><span class="code-line">    <span class="token keyword">FROM</span> users
+</span><span class="code-line"><span class="token punctuation">)</span><span class="token punctuation">,</span>
+</span><span class="code-line">activity <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span>
+</span><span class="code-line">        user_id<span class="token punctuation">,</span>
+</span><span class="code-line">        DATE_TRUNC<span class="token punctuation">(</span><span class="token string">'month'</span><span class="token punctuation">,</span> activity_date<span class="token punctuation">)</span> <span class="token keyword">as</span> activity_month
+</span><span class="code-line">    <span class="token keyword">FROM</span> user_activity
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span>
+</span><span class="code-line">    c<span class="token punctuation">.</span>cohort_month<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token keyword">DISTINCT</span> c<span class="token punctuation">.</span>user_id<span class="token punctuation">)</span> <span class="token keyword">as</span> cohort_size<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token keyword">DISTINCT</span> <span class="token keyword">CASE</span>
+</span><span class="code-line">        <span class="token keyword">WHEN</span> a<span class="token punctuation">.</span>activity_month <span class="token operator">=</span> c<span class="token punctuation">.</span>cohort_month <span class="token keyword">THEN</span> a<span class="token punctuation">.</span>user_id
+</span><span class="code-line">    <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> month_0<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token keyword">DISTINCT</span> <span class="token keyword">CASE</span>
+</span><span class="code-line">        <span class="token keyword">WHEN</span> a<span class="token punctuation">.</span>activity_month <span class="token operator">=</span> c<span class="token punctuation">.</span>cohort_month <span class="token operator">+</span> <span class="token keyword">INTERVAL</span> <span class="token string">'1 month'</span> <span class="token keyword">THEN</span> a<span class="token punctuation">.</span>user_id
+</span><span class="code-line">    <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> month_1<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token keyword">DISTINCT</span> <span class="token keyword">CASE</span>
+</span><span class="code-line">        <span class="token keyword">WHEN</span> a<span class="token punctuation">.</span>activity_month <span class="token operator">=</span> c<span class="token punctuation">.</span>cohort_month <span class="token operator">+</span> <span class="token keyword">INTERVAL</span> <span class="token string">'3 months'</span> <span class="token keyword">THEN</span> a<span class="token punctuation">.</span>user_id
+</span><span class="code-line">    <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> month_3
+</span><span class="code-line"><span class="token keyword">FROM</span> cohorts c
+</span><span class="code-line"><span class="token keyword">LEFT</span> <span class="token keyword">JOIN</span> activity a <span class="token keyword">ON</span> c<span class="token punctuation">.</span>user_id <span class="token operator">=</span> a<span class="token punctuation">.</span>user_id
+</span><span class="code-line"><span class="token keyword">GROUP</span> <span class="token keyword">BY</span> c<span class="token punctuation">.</span>cohort_month
+</span><span class="code-line"><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> c<span class="token punctuation">.</span>cohort_month<span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Funnel Analysis</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token keyword">WITH</span> funnel <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span>
+</span><span class="code-line">        user_id<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">MAX</span><span class="token punctuation">(</span><span class="token keyword">CASE</span> <span class="token keyword">WHEN</span> event <span class="token operator">=</span> <span class="token string">'page_view'</span> <span class="token keyword">THEN</span> <span class="token number">1</span> <span class="token keyword">ELSE</span> <span class="token number">0</span> <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> step_1_view<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">MAX</span><span class="token punctuation">(</span><span class="token keyword">CASE</span> <span class="token keyword">WHEN</span> event <span class="token operator">=</span> <span class="token string">'signup_start'</span> <span class="token keyword">THEN</span> <span class="token number">1</span> <span class="token keyword">ELSE</span> <span class="token number">0</span> <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> step_2_start<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">MAX</span><span class="token punctuation">(</span><span class="token keyword">CASE</span> <span class="token keyword">WHEN</span> event <span class="token operator">=</span> <span class="token string">'signup_complete'</span> <span class="token keyword">THEN</span> <span class="token number">1</span> <span class="token keyword">ELSE</span> <span class="token number">0</span> <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> step_3_complete<span class="token punctuation">,</span>
+</span><span class="code-line">        <span class="token function">MAX</span><span class="token punctuation">(</span><span class="token keyword">CASE</span> <span class="token keyword">WHEN</span> event <span class="token operator">=</span> <span class="token string">'first_purchase'</span> <span class="token keyword">THEN</span> <span class="token number">1</span> <span class="token keyword">ELSE</span> <span class="token number">0</span> <span class="token keyword">END</span><span class="token punctuation">)</span> <span class="token keyword">as</span> step_4_purchase
+</span><span class="code-line">    <span class="token keyword">FROM</span> events
+</span><span class="code-line">    <span class="token keyword">WHERE</span> event_date <span class="token operator">&gt;=</span> <span class="token keyword">CURRENT_DATE</span> <span class="token operator">-</span> <span class="token keyword">INTERVAL</span> <span class="token string">'30 days'</span>
+</span><span class="code-line">    <span class="token keyword">GROUP</span> <span class="token keyword">BY</span> user_id
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span>
+</span><span class="code-line">    <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token punctuation">)</span> <span class="token keyword">as</span> total_users<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">SUM</span><span class="token punctuation">(</span>step_1_view<span class="token punctuation">)</span> <span class="token keyword">as</span> viewed<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">SUM</span><span class="token punctuation">(</span>step_2_start<span class="token punctuation">)</span> <span class="token keyword">as</span> started_signup<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">SUM</span><span class="token punctuation">(</span>step_3_complete<span class="token punctuation">)</span> <span class="token keyword">as</span> completed_signup<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">SUM</span><span class="token punctuation">(</span>step_4_purchase<span class="token punctuation">)</span> <span class="token keyword">as</span> purchased<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">ROUND</span><span class="token punctuation">(</span><span class="token number">100.0</span> <span class="token operator">*</span> <span class="token function">SUM</span><span class="token punctuation">(</span>step_2_start<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token keyword">NULLIF</span><span class="token punctuation">(</span><span class="token function">SUM</span><span class="token punctuation">(</span>step_1_view<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">as</span> view_to_start_pct<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">ROUND</span><span class="token punctuation">(</span><span class="token number">100.0</span> <span class="token operator">*</span> <span class="token function">SUM</span><span class="token punctuation">(</span>step_3_complete<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token keyword">NULLIF</span><span class="token punctuation">(</span><span class="token function">SUM</span><span class="token punctuation">(</span>step_2_start<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">as</span> start_to_complete_pct<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token function">ROUND</span><span class="token punctuation">(</span><span class="token number">100.0</span> <span class="token operator">*</span> <span class="token function">SUM</span><span class="token punctuation">(</span>step_4_purchase<span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token keyword">NULLIF</span><span class="token punctuation">(</span><span class="token function">SUM</span><span class="token punctuation">(</span>step_3_complete<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">as</span> complete_to_purchase_pct
+</span><span class="code-line"><span class="token keyword">FROM</span> funnel<span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Deduplication</h3>
+<pre class="language-sql"><code class="language-sql code-highlight"><span class="code-line"><span class="token comment">-- Keep the most recent record per key</span>
+</span><span class="code-line"><span class="token keyword">WITH</span> ranked <span class="token keyword">AS</span> <span class="token punctuation">(</span>
+</span><span class="code-line">    <span class="token keyword">SELECT</span>
+</span><span class="code-line">        <span class="token operator">*</span><span class="token punctuation">,</span>
+</span><span class="code-line">        ROW_NUMBER<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">OVER</span> <span class="token punctuation">(</span>
+</span><span class="code-line">            <span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> entity_id
+</span><span class="code-line">            <span class="token keyword">ORDER</span> <span class="token keyword">BY</span> updated_at <span class="token keyword">DESC</span>
+</span><span class="code-line">        <span class="token punctuation">)</span> <span class="token keyword">as</span> rn
+</span><span class="code-line">    <span class="token keyword">FROM</span> source_table
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">SELECT</span> <span class="token operator">*</span> <span class="token keyword">FROM</span> ranked <span class="token keyword">WHERE</span> rn <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Error Handling and Debugging</h2>
+<p>When a query fails:</p>
+<ol>
+<li><strong>Syntax errors</strong>: Check for dialect-specific syntax (e.g., <code>ILIKE</code> not available in BigQuery, <code>SAFE_DIVIDE</code> only in BigQuery)</li>
+<li><strong>Column not found</strong>: Verify column names against schema -- check for typos, case sensitivity (PostgreSQL is case-sensitive for quoted identifiers)</li>
+<li><strong>Type mismatches</strong>: Cast explicitly when comparing different types (<code>CAST(col AS DATE)</code>, <code>col::DATE</code>)</li>
+<li><strong>Division by zero</strong>: Use <code>NULLIF(denominator, 0)</code> or dialect-specific safe division</li>
+<li><strong>Ambiguous columns</strong>: Always qualify column names with table alias in JOINs</li>
+<li><strong>Group by errors</strong>: All non-aggregated columns must be in GROUP BY (except in BigQuery which allows grouping by alias)</li>
+</ol></div>

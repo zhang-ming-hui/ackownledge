@@ -1,0 +1,416 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Kimodo Motion Diffusion</h1>
+<blockquote>
+<p>Skill by <a href="https://ara.so" target="_blank" rel="ugc nofollow noopener">ara.so</a> — Daily 2026 Skills collection.</p>
+</blockquote>
+<p>Kimodo is a kinematic motion diffusion model trained on 700 hours of commercially-friendly optical mocap data. It generates high-quality 3D human and humanoid robot motions controlled through text prompts and kinematic constraints (full-body keyframes, end-effector positions/rotations, 2D paths, 2D waypoints).</p>
+<h2>Installation</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Clone the repository</span>
+</span><span class="code-line"><span class="token function">git</span> clone https://github.com/nv-tlabs/kimodo.git
+</span><span class="code-line"><span class="token builtin class-name">cd</span> kimodo
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Install with pip (creates kimodo_gen and kimodo_demo CLI commands)</span>
+</span><span class="code-line">pip <span class="token function">install</span> <span class="token parameter variable">-e</span> <span class="token builtin class-name">.</span>
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><h1>Or with Docker (recommended for Windows or clean environments)</h1>
+<p>docker build -t kimodo .
+docker run --gpus all -p 7860:7860 kimodo</p>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">
+</span><span class="code-line">**Requirements:**
+</span><span class="code-line">- ~17GB VRAM (GPU: RTX 3090/4090, A100 recommended)
+</span><span class="code-line">- Linux (Windows supported via Docker)
+</span><span class="code-line">- Models download automatically on first use from Hugging Face
+</span><span class="code-line">
+</span><span class="code-line">## Available Models
+</span><span class="code-line">
+</span><span class="code-line">| Model | Skeleton | Dataset | Use Case |
+</span><span class="code-line">|-------|----------|---------|----------|
+</span><span class="code-line">| `Kimodo-SOMA-RP-v1` | SOMA (human) | Bones Rigplay 1 (700h) | General human motion |
+</span><span class="code-line">| `Kimodo-G1-RP-v1` | Unitree G1 (robot) | Bones Rigplay 1 (700h) | Humanoid robot motion |
+</span><span class="code-line">| `Kimodo-SOMA-SEED-v1` | SOMA | BONES-SEED (288h) | Benchmarking |
+</span><span class="code-line">| `Kimodo-G1-SEED-v1` | Unitree G1 | BONES-SEED (288h) | Benchmarking |
+</span><span class="code-line">| `Kimodo-SMPLX-RP-v1` | SMPL-X | Bones Rigplay 1 (700h) | Retargeting/AMASS export |
+</span><span class="code-line">
+</span><span class="code-line">## CLI: `kimodo_gen`
+</span><span class="code-line">
+</span><span class="code-line">### Basic Text-to-Motion
+</span><span class="code-line">
+</span><span class="code-line">```bash
+</span><span class="code-line"># Generate a single motion with a text prompt (uses SOMA model by default)
+</span><span class="code-line">kimodo_gen "a person walks forward at a moderate pace"
+</span><span class="code-line">
+</span><span class="code-line"># Specify duration and number of samples
+</span><span class="code-line">kimodo_gen "a person jogs in a circle" --duration 5.0 --num_samples 3
+</span><span class="code-line">
+</span><span class="code-line"># Use the G1 robot model
+</span><span class="code-line">kimodo_gen "a robot walks forward" --model Kimodo-G1-RP-v1 --duration 4.0
+</span><span class="code-line">
+</span><span class="code-line"># Use SMPL-X model (for AMASS-compatible export)
+</span><span class="code-line">kimodo_gen "a person waves their right hand" --model Kimodo-SMPLX-RP-v1
+</span><span class="code-line">
+</span><span class="code-line"># Set a seed for reproducibility
+</span><span class="code-line">kimodo_gen "a person sits down slowly" --seed 42
+</span><span class="code-line">
+</span><span class="code-line"># Control diffusion steps (more = slower but higher quality)
+</span><span class="code-line">kimodo_gen "a person does a jumping jack" --diffusion_steps 50
+</span></code></pre>
+<h3>Output Formats</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Default: saves NPZ file compatible with web demo</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks"</span> <span class="token parameter variable">--output</span> ./outputs/walk.npz
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># G1 robot: save MuJoCo qpos CSV</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"robot walks forward"</span> <span class="token parameter variable">--model</span> Kimodo-G1-RP-v1 <span class="token parameter variable">--output</span> ./outputs/walk.csv
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># SMPL-X: saves AMASS-compatible NPZ (stem_amass.npz)</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person waves"</span> <span class="token parameter variable">--model</span> Kimodo-SMPLX-RP-v1 <span class="token parameter variable">--output</span> ./outputs/wave.npz
+</span><span class="code-line"><span class="token comment"># Also writes: ./outputs/wave_amass.npz</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Disable post-processing (foot skate correction, constraint cleanup)</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks"</span> --no-postprocess
+</span></code></pre>
+<h3>Multi-Prompt Sequences</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Sequence of text prompts for transitions</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person stands still"</span> <span class="token string">"a person walks forward"</span> <span class="token string">"a person stops and turns"</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># With timing control per segment</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person jogs"</span> <span class="token string">"a person slows to a walk"</span> <span class="token string">"a person stops"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--duration</span> <span class="token number">8.0</span> <span class="token parameter variable">--num_samples</span> <span class="token number">2</span>
+</span></code></pre>
+<h3>Constraint-Based Generation</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Load constraints saved from the interactive demo</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks to a table and picks something up"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--constraints</span> ./my_constraints.json
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Combine text and constraints</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person performs a complex motion"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--constraints</span> ./keyframe_constraints.json <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--model</span> Kimodo-SOMA-RP-v1 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--num_samples</span> <span class="token number">5</span>
+</span></code></pre>
+<h2>Interactive Demo</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Launch the web-based demo at http://127.0.0.1:7860</span>
+</span><span class="code-line">kimodo_demo
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Access remotely (server setup)</span>
+</span><span class="code-line">kimodo_demo --server-name <span class="token number">0.0</span>.0.0 --server-port <span class="token number">7860</span>
+</span></code></pre>
+<p>The demo provides:</p>
+<ul>
+<li>Timeline editor for text prompts and constraints</li>
+<li>Full-body keyframe constraints</li>
+<li>2D root path/waypoint editor</li>
+<li>End-effector position/rotation control</li>
+<li>Real-time 3D visualization with skeleton and skinned mesh</li>
+<li>Export of constraints as JSON and motions as NPZ</li>
+</ul>
+<h2>Low-Level Python API</h2>
+<h3>Basic Model Inference</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>model <span class="token keyword">import</span> Kimodo
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Initialize model (downloads automatically)</span>
+</span><span class="code-line">model <span class="token operator">=</span> Kimodo<span class="token punctuation">(</span>model_name<span class="token operator">=</span><span class="token string">"Kimodo-SOMA-RP-v1"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Simple text-to-motion generation</span>
+</span><span class="code-line">result <span class="token operator">=</span> model<span class="token punctuation">(</span>
+</span><span class="code-line">    prompts<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"a person walks forward at a moderate pace"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    duration<span class="token operator">=</span><span class="token number">4.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_samples<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">    seed<span class="token operator">=</span><span class="token number">42</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Result contains posed joints, rotation matrices, foot contacts</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"posed_joints"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>shape<span class="token punctuation">)</span>       <span class="token comment"># [T, J, 3]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"global_rot_mats"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>shape<span class="token punctuation">)</span>    <span class="token comment"># [T, J, 3, 3]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"local_rot_mats"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>shape<span class="token punctuation">)</span>     <span class="token comment"># [T, J, 3, 3]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"foot_contacts"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>shape<span class="token punctuation">)</span>      <span class="token comment"># [T, 4]</span>
+</span><span class="code-line"><span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"root_positions"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>shape<span class="token punctuation">)</span>     <span class="token comment"># [T, 3]</span>
+</span></code></pre>
+<h3>Advanced API with Guidance and Constraints</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>model <span class="token keyword">import</span> Kimodo
+</span><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line">
+</span><span class="code-line">model <span class="token operator">=</span> Kimodo<span class="token punctuation">(</span>model_name<span class="token operator">=</span><span class="token string">"Kimodo-SOMA-RP-v1"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Multi-prompt with classifier-free guidance control</span>
+</span><span class="code-line">result <span class="token operator">=</span> model<span class="token punctuation">(</span>
+</span><span class="code-line">    prompts<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"a person stands"</span><span class="token punctuation">,</span> <span class="token string">"a person walks forward"</span><span class="token punctuation">,</span> <span class="token string">"a person sits"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    duration<span class="token operator">=</span><span class="token number">9.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    num_samples<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">,</span>
+</span><span class="code-line">    diffusion_steps<span class="token operator">=</span><span class="token number">50</span><span class="token punctuation">,</span>
+</span><span class="code-line">    guidance_scale<span class="token operator">=</span><span class="token number">7.5</span><span class="token punctuation">,</span>           <span class="token comment"># classifier-free guidance weight</span>
+</span><span class="code-line">    seed<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Access per-sample results</span>
+</span><span class="code-line"><span class="token keyword">for</span> i <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    joints <span class="token operator">=</span> result<span class="token punctuation">[</span><span class="token string">"posed_joints"</span><span class="token punctuation">]</span><span class="token punctuation">[</span>i<span class="token punctuation">]</span>   <span class="token comment"># [T, J, 3]</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Sample </span><span class="token interpolation"><span class="token punctuation">{</span>i<span class="token punctuation">}</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">{</span>joints<span class="token punctuation">.</span>shape<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Working with Constraints Programmatically</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>model <span class="token keyword">import</span> Kimodo
+</span><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>constraints <span class="token keyword">import</span> ConstraintSet<span class="token punctuation">,</span> FullBodyKeyframe<span class="token punctuation">,</span> EndEffectorConstraint
+</span><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line">
+</span><span class="code-line">model <span class="token operator">=</span> Kimodo<span class="token punctuation">(</span>model_name<span class="token operator">=</span><span class="token string">"Kimodo-SOMA-RP-v1"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Create constraint set</span>
+</span><span class="code-line">constraints <span class="token operator">=</span> ConstraintSet<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add a full-body keyframe at frame 30 (1 second at 30fps)</span>
+</span><span class="code-line"><span class="token comment"># keyframe_pose: [J, 3] joint positions</span>
+</span><span class="code-line">keyframe_pose <span class="token operator">=</span> np<span class="token punctuation">.</span>zeros<span class="token punctuation">(</span><span class="token punctuation">(</span>model<span class="token punctuation">.</span>num_joints<span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span>  <span class="token comment"># replace with actual pose</span>
+</span><span class="code-line">constraints<span class="token punctuation">.</span>add_full_body_keyframe<span class="token punctuation">(</span>frame<span class="token operator">=</span><span class="token number">30</span><span class="token punctuation">,</span> joint_positions<span class="token operator">=</span>keyframe_pose<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add end-effector constraints for right hand</span>
+</span><span class="code-line">constraints<span class="token punctuation">.</span>add_end_effector<span class="token punctuation">(</span>
+</span><span class="code-line">    joint_name<span class="token operator">=</span><span class="token string">"right_hand"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    frame_start<span class="token operator">=</span><span class="token number">45</span><span class="token punctuation">,</span>
+</span><span class="code-line">    frame_end<span class="token operator">=</span><span class="token number">60</span><span class="token punctuation">,</span>
+</span><span class="code-line">    position<span class="token operator">=</span>np<span class="token punctuation">.</span>array<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token number">0.5</span><span class="token punctuation">,</span> <span class="token number">1.2</span><span class="token punctuation">,</span> <span class="token number">0.3</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>   <span class="token comment"># [x, y, z] in meters</span>
+</span><span class="code-line">    rotation<span class="token operator">=</span><span class="token boolean">None</span><span class="token punctuation">,</span>                           <span class="token comment"># optional rotation matrix [3,3]</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Add 2D waypoints for root path</span>
+</span><span class="code-line">constraints<span class="token punctuation">.</span>add_root_waypoints<span class="token punctuation">(</span>
+</span><span class="code-line">    waypoints<span class="token operator">=</span>np<span class="token punctuation">.</span>array<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>  <span class="token comment"># [N, 2] in meters</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Generate with constraints</span>
+</span><span class="code-line">result <span class="token operator">=</span> model<span class="token punctuation">(</span>
+</span><span class="code-line">    prompts<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"a person walks in a square"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    duration<span class="token operator">=</span><span class="token number">6.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    constraints<span class="token operator">=</span>constraints<span class="token punctuation">,</span>
+</span><span class="code-line">    num_samples<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Loading and Using Saved Constraints</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>model <span class="token keyword">import</span> Kimodo
+</span><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>constraints <span class="token keyword">import</span> ConstraintSet
+</span><span class="code-line"><span class="token keyword">import</span> json
+</span><span class="code-line">
+</span><span class="code-line">model <span class="token operator">=</span> Kimodo<span class="token punctuation">(</span>model_name<span class="token operator">=</span><span class="token string">"Kimodo-SOMA-RP-v1"</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load constraints saved from web demo</span>
+</span><span class="code-line"><span class="token keyword">with</span> <span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"constraints.json"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> f<span class="token punctuation">:</span>
+</span><span class="code-line">    constraint_data <span class="token operator">=</span> json<span class="token punctuation">.</span>load<span class="token punctuation">(</span>f<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">constraints <span class="token operator">=</span> ConstraintSet<span class="token punctuation">.</span>from_dict<span class="token punctuation">(</span>constraint_data<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">result <span class="token operator">=</span> model<span class="token punctuation">(</span>
+</span><span class="code-line">    prompts<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"a person performs a choreographed sequence"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">    duration<span class="token operator">=</span><span class="token number">8.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    constraints<span class="token operator">=</span>constraints<span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Saving and Loading Generated Motions</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Save result</span>
+</span><span class="code-line">result <span class="token operator">=</span> model<span class="token punctuation">(</span>prompts<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"a person walks"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> duration<span class="token operator">=</span><span class="token number">4.0</span><span class="token punctuation">)</span>
+</span><span class="code-line">np<span class="token punctuation">.</span>savez<span class="token punctuation">(</span><span class="token string">"walk_motion.npz"</span><span class="token punctuation">,</span> <span class="token operator">**</span>result<span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load and inspect saved motion</span>
+</span><span class="code-line">data <span class="token operator">=</span> np<span class="token punctuation">.</span>load<span class="token punctuation">(</span><span class="token string">"walk_motion.npz"</span><span class="token punctuation">)</span>
+</span><span class="code-line">posed_joints <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"posed_joints"</span><span class="token punctuation">]</span>       <span class="token comment"># [T, J, 3] global joint positions</span>
+</span><span class="code-line">global_rot_mats <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"global_rot_mats"</span><span class="token punctuation">]</span> <span class="token comment"># [T, J, 3, 3]</span>
+</span><span class="code-line">local_rot_mats <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"local_rot_mats"</span><span class="token punctuation">]</span>   <span class="token comment"># [T, J, 3, 3]</span>
+</span><span class="code-line">foot_contacts <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"foot_contacts"</span><span class="token punctuation">]</span>     <span class="token comment"># [T, 4] [L-heel, L-toe, R-heel, R-toe]</span>
+</span><span class="code-line">root_positions <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"root_positions"</span><span class="token punctuation">]</span>   <span class="token comment"># [T, 3] actual root joint trajectory</span>
+</span><span class="code-line">smooth_root_pos <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"smooth_root_pos"</span><span class="token punctuation">]</span> <span class="token comment"># [T, 3] smoothed root from model</span>
+</span><span class="code-line">global_root_heading <span class="token operator">=</span> data<span class="token punctuation">[</span><span class="token string">"global_root_heading"</span><span class="token punctuation">]</span>  <span class="token comment"># [T, 2] heading direction</span>
+</span></code></pre>
+<h2>Robotics Integration</h2>
+<h3>MuJoCo Visualization (G1 Robot)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Generate G1 motion and save as MuJoCo qpos CSV</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a robot walks forward and waves"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--model</span> Kimodo-G1-RP-v1 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> ./robot_walk.csv <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--duration</span> <span class="token number">5.0</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Visualize in MuJoCo (edit script to point to your CSV)</span>
+</span><span class="code-line">python <span class="token parameter variable">-m</span> kimodo.scripts.mujoco_load
+</span></code></pre>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token comment"># mujoco_load.py customization pattern</span>
+</span><span class="code-line"><span class="token keyword">import</span> mujoco
+</span><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Edit these paths in the script</span>
+</span><span class="code-line">CSV_PATH <span class="token operator">=</span> <span class="token string">"./robot_walk.csv"</span>
+</span><span class="code-line">MJCF_PATH <span class="token operator">=</span> <span class="token string">"./assets/g1/g1.xml"</span>  <span class="token comment"># path to G1 MuJoCo model</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Load qpos data</span>
+</span><span class="code-line">qpos_data <span class="token operator">=</span> np<span class="token punctuation">.</span>loadtxt<span class="token punctuation">(</span>CSV_PATH<span class="token punctuation">,</span> delimiter<span class="token operator">=</span><span class="token string">","</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Standard MuJoCo playback loop</span>
+</span><span class="code-line">model <span class="token operator">=</span> mujoco<span class="token punctuation">.</span>MjModel<span class="token punctuation">.</span>from_xml_path<span class="token punctuation">(</span>MJCF_PATH<span class="token punctuation">)</span>
+</span><span class="code-line">data <span class="token operator">=</span> mujoco<span class="token punctuation">.</span>MjData<span class="token punctuation">(</span>model<span class="token punctuation">)</span>
+</span><span class="code-line"><span class="token keyword">with</span> mujoco<span class="token punctuation">.</span>viewer<span class="token punctuation">.</span>launch_passive<span class="token punctuation">(</span>model<span class="token punctuation">,</span> data<span class="token punctuation">)</span> <span class="token keyword">as</span> viewer<span class="token punctuation">:</span>
+</span><span class="code-line">    <span class="token keyword">for</span> frame_qpos <span class="token keyword">in</span> qpos_data<span class="token punctuation">:</span>
+</span><span class="code-line">        data<span class="token punctuation">.</span>qpos<span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token punctuation">]</span> <span class="token operator">=</span> frame_qpos
+</span><span class="code-line">        mujoco<span class="token punctuation">.</span>mj_forward<span class="token punctuation">(</span>model<span class="token punctuation">,</span> data<span class="token punctuation">)</span>
+</span><span class="code-line">        viewer<span class="token punctuation">.</span>sync<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>ProtoMotions Integration</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Generate motion with Kimodo</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person runs and jumps"</span> <span class="token parameter variable">--model</span> Kimodo-SOMA-RP-v1 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> ./run_jump.npz <span class="token parameter variable">--duration</span> <span class="token number">5.0</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Then follow ProtoMotions docs to import:</span>
+</span><span class="code-line"><span class="token comment"># https://github.com/NVlabs/ProtoMotions#motion-authoring-with-kimodo</span>
+</span></code></pre>
+<h3>GMR Retargeting (SMPL-X to Other Robots)</h3>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Generate SMPL-X motion (saves stem_amass.npz automatically)</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person performs a cartwheel"</span> <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--model</span> Kimodo-SMPLX-RP-v1 <span class="token punctuation">\</span>
+</span><span class="code-line">  <span class="token parameter variable">--output</span> ./cartwheel.npz
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use cartwheel_amass.npz with GMR for retargeting</span>
+</span><span class="code-line"><span class="token comment"># https://github.com/YanjieZe/GMR</span>
+</span></code></pre>
+<h2>NPZ Output Format Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Shape</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>posed_joints</code></td>
+<td><code>[T, J, 3]</code></td>
+<td>Global joint positions in meters</td>
+</tr>
+<tr>
+<td><code>global_rot_mats</code></td>
+<td><code>[T, J, 3, 3]</code></td>
+<td>Global joint rotation matrices</td>
+</tr>
+<tr>
+<td><code>local_rot_mats</code></td>
+<td><code>[T, J, 3, 3]</code></td>
+<td>Parent-relative joint rotation matrices</td>
+</tr>
+<tr>
+<td><code>foot_contacts</code></td>
+<td><code>[T, 4]</code></td>
+<td>Contact labels: [L-heel, L-toe, R-heel, R-toe]</td>
+</tr>
+<tr>
+<td><code>smooth_root_pos</code></td>
+<td><code>[T, 3]</code></td>
+<td>Smoothed root trajectory from model</td>
+</tr>
+<tr>
+<td><code>root_positions</code></td>
+<td><code>[T, 3]</code></td>
+<td>Actual root joint (pelvis) trajectory</td>
+</tr>
+<tr>
+<td><code>global_root_heading</code></td>
+<td><code>[T, 2]</code></td>
+<td>Heading direction (2D unit vector)</td>
+</tr>
+</tbody>
+</table>
+<p><code>T</code> = number of frames (30fps), <code>J</code> = number of joints (skeleton-dependent)</p>
+<h2>Scripts Reference</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Direct script execution (alternative to CLI)</span>
+</span><span class="code-line">python scripts/generate.py <span class="token string">"a person walks"</span> <span class="token parameter variable">--duration</span> <span class="token number">4.0</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># MuJoCo visualization for G1 outputs</span>
+</span><span class="code-line">python <span class="token parameter variable">-m</span> kimodo.scripts.mujoco_load
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># All kimodo_gen flags</span>
+</span><span class="code-line">kimodo_gen <span class="token parameter variable">--help</span>
+</span></code></pre>
+<h2>Common Patterns</h2>
+<h3>Batch Generation Pipeline</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>model <span class="token keyword">import</span> Kimodo
+</span><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line"><span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+</span><span class="code-line">
+</span><span class="code-line">model <span class="token operator">=</span> Kimodo<span class="token punctuation">(</span>model_name<span class="token operator">=</span><span class="token string">"Kimodo-SOMA-RP-v1"</span><span class="token punctuation">)</span>
+</span><span class="code-line">output_dir <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"./batch_outputs"</span><span class="token punctuation">)</span>
+</span><span class="code-line">output_dir<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line">prompts <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token string">"a person walks forward"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"a person runs"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"a person jumps in place"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"a person sits down"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token string">"a person picks up an object from the floor"</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">for</span> i<span class="token punctuation">,</span> prompt <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>prompts<span class="token punctuation">)</span><span class="token punctuation">:</span>
+</span><span class="code-line">    result <span class="token operator">=</span> model<span class="token punctuation">(</span>
+</span><span class="code-line">        prompts<span class="token operator">=</span><span class="token punctuation">[</span>prompt<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">        duration<span class="token operator">=</span><span class="token number">4.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">        num_samples<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>
+</span><span class="code-line">        seed<span class="token operator">=</span>i<span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    out_path <span class="token operator">=</span> output_dir <span class="token operator">/</span> <span class="token string-interpolation"><span class="token string">f"motion_</span><span class="token interpolation"><span class="token punctuation">{</span>i<span class="token punctuation">:</span><span class="token format-spec">03d</span><span class="token punctuation">}</span></span><span class="token string">.npz"</span></span>
+</span><span class="code-line">    np<span class="token punctuation">.</span>savez<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>out_path<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token operator">**</span>result<span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Saved: </span><span class="token interpolation"><span class="token punctuation">{</span>out_path<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h3>Comparing Model Variants</h3>
+<pre class="language-python"><code class="language-python code-highlight"><span class="code-line"><span class="token keyword">from</span> kimodo<span class="token punctuation">.</span>model <span class="token keyword">import</span> Kimodo
+</span><span class="code-line"><span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+</span><span class="code-line">
+</span><span class="code-line">prompt <span class="token operator">=</span> <span class="token string">"a person walks forward"</span>
+</span><span class="code-line">models <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">"Kimodo-SOMA-RP-v1"</span><span class="token punctuation">,</span> <span class="token string">"Kimodo-SOMA-SEED-v1"</span><span class="token punctuation">]</span>
+</span><span class="code-line">
+</span><span class="code-line">results <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token keyword">for</span> model_name <span class="token keyword">in</span> models<span class="token punctuation">:</span>
+</span><span class="code-line">    model <span class="token operator">=</span> Kimodo<span class="token punctuation">(</span>model_name<span class="token operator">=</span>model_name<span class="token punctuation">)</span>
+</span><span class="code-line">    results<span class="token punctuation">[</span>model_name<span class="token punctuation">]</span> <span class="token operator">=</span> model<span class="token punctuation">(</span>
+</span><span class="code-line">        prompts<span class="token operator">=</span><span class="token punctuation">[</span>prompt<span class="token punctuation">]</span><span class="token punctuation">,</span>
+</span><span class="code-line">        duration<span class="token operator">=</span><span class="token number">4.0</span><span class="token punctuation">,</span>
+</span><span class="code-line">        seed<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">{</span>model_name<span class="token punctuation">}</span></span><span class="token string">: joints shape = </span><span class="token interpolation"><span class="token punctuation">{</span>results<span class="token punctuation">[</span>model_name<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'posed_joints'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>shape<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Troubleshooting</h2>
+<p><strong>Out of VRAM (~17GB required):</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Check available VRAM</span>
+</span><span class="code-line">nvidia-smi
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Use fewer samples to reduce peak VRAM</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks"</span> <span class="token parameter variable">--num_samples</span> <span class="token number">1</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Reduce diffusion steps to speed up (less quality)</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks"</span> <span class="token parameter variable">--diffusion_steps</span> <span class="token number">20</span>
+</span></code></pre>
+<p><strong>Model download issues:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Models download from Hugging Face automatically</span>
+</span><span class="code-line"><span class="token comment"># If behind a proxy, set:</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">HF_ENDPOINT</span><span class="token operator">=</span>https://huggingface.co
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">HUGGINGFACE_HUB_VERBOSITY</span><span class="token operator">=</span>debug
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Or manually specify cache directory</span>
+</span><span class="code-line"><span class="token builtin class-name">export</span> <span class="token assign-left variable">HF_HOME</span><span class="token operator">=</span>/path/to/your/cache
+</span></code></pre>
+<p><strong>Motion quality issues:</strong></p>
+<ul>
+<li>Be specific in prompts: "a person walks forward at a moderate pace" &gt; "walking"</li>
+<li>For complex motions, use the interactive demo to add keyframe constraints</li>
+<li>Increase <code>--diffusion_steps</code> (default ~20-30, try 50 for higher quality)</li>
+<li>Generate multiple samples (<code>--num_samples 5</code>) and select the best</li>
+<li>Avoid prompts with extremely fast or physically impossible actions</li>
+<li>The model operates at 30fps; very short durations (&lt;1s) may yield poor results</li>
+</ul>
+<p><strong>Foot skating artifacts:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Post-processing is enabled by default; only disable for debugging</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks"</span> <span class="token comment"># post-processing ON (default)</span>
+</span><span class="code-line">kimodo_gen <span class="token string">"a person walks"</span> --no-postprocess  <span class="token comment"># post-processing OFF</span>
+</span></code></pre>
+<p><strong>Interactive demo not loading:</strong></p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token comment"># Ensure port 7860 is available</span>
+</span><span class="code-line"><span class="token function">lsof</span> <span class="token parameter variable">-i</span> :7860
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Launch on a different port</span>
+</span><span class="code-line">kimodo_demo --server-port <span class="token number">7861</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># For remote server access</span>
+</span><span class="code-line">kimodo_demo --server-name <span class="token number">0.0</span>.0.0 --server-port <span class="token number">7860</span>
+</span><span class="code-line"><span class="token comment"># Then use SSH port forwarding: ssh -L 7860:localhost:7860 user@server</span>
+</span></code></pre></div>

@@ -1,0 +1,293 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>posterskill — Academic Poster Generator</h1>
+<blockquote>
+<p>Skill by <a href="https://ara.so" target="_blank" rel="ugc nofollow noopener">ara.so</a> — Daily 2026 Skills collection.</p>
+</blockquote>
+<p>posterskill is a Claude Code skill that generates print-ready, interactive conference posters from your Overleaf paper source. It produces a single self-contained HTML file with a built-in drag-and-drop visual editor — no build step, no server required.</p>
+<h2>Installation &amp; Setup</h2>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line"><span class="token function">git</span> clone git@github.com:ethanweber/posterskill.git poster
+</span><span class="code-line"><span class="token builtin class-name">cd</span> poster
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Clone your Overleaf paper source</span>
+</span><span class="code-line"><span class="token function">git</span> clone https://git.overleaf.com/YOUR_PROJECT_ID overleaf
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment"># Optional: add reference posters for style matching</span>
+</span><span class="code-line"><span class="token function">cp</span> ~/Downloads/some_reference_poster.pdf references/
+</span></code></pre></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><p>Start Claude Code and trigger the skill:</p>
+<pre class="language-bash"><code class="language-bash code-highlight"><span class="code-line">claude
+</span></code></pre>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">/make-poster
+</span></code></pre>
+<p>Claude will ask for your project website URL and any formatting specs, then generate a <code>poster/</code> directory with <code>index.html</code>.</p>
+<h2>Directory Structure</h2>
+<pre class="language-text"><code class="language-text code-highlight"><span class="code-line">poster/                  # this repo
+</span><span class="code-line">├── .claude/
+</span><span class="code-line">│   └── commands/
+</span><span class="code-line">│       └── make-poster.md   # the skill command
+</span><span class="code-line">├── overleaf/            # your cloned Overleaf project
+</span><span class="code-line">├── references/          # optional reference PDFs for style matching
+</span><span class="code-line">└── poster/              # generated output
+</span><span class="code-line">    ├── index.html       # the poster (self-contained)
+</span><span class="code-line">    └── logos/           # downloaded institutional logos
+</span></code></pre>
+<h2>What Gets Generated</h2>
+<p>The output <code>poster/index.html</code> is a React app (loaded via CDN) containing:</p>
+<ul>
+<li><strong><code>CARD_REGISTRY</code></strong> — each card's title, color, and JSX body content</li>
+<li><strong><code>DEFAULT_LAYOUT</code></strong> — column structure and card ordering</li>
+<li><strong><code>DEFAULT_LOGOS</code></strong> — institutional logos for the header</li>
+<li><strong><code>window.posterAPI</code></strong> — programmatic API for layout automation</li>
+</ul>
+<h2>Visual Editor Features</h2>
+<p>Open <code>poster/index.html</code> in Chrome to access the built-in editor:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>How to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Resize columns</td>
+<td>Drag column dividers left/right</td>
+</tr>
+<tr>
+<td>Resize cards</td>
+<td>Drag row dividers up/down within a column</td>
+</tr>
+<tr>
+<td>Swap cards</td>
+<td>Click one diamond handle, then another</td>
+</tr>
+<tr>
+<td>Move/insert cards</td>
+<td>Click a handle, then click a drop zone</td>
+</tr>
+<tr>
+<td>Adjust font size</td>
+<td>Click <strong>A-</strong> / <strong>A+</strong> buttons in toolbar</td>
+</tr>
+<tr>
+<td>Preview print layout</td>
+<td>Click <strong>Preview</strong> button</td>
+</tr>
+<tr>
+<td>Export layout</td>
+<td>Click <strong>Copy Config</strong> to get JSON</td>
+</tr>
+</tbody>
+</table>
+<h2>Programmatic API (<code>window.posterAPI</code>)</h2>
+<p>Available in the browser console or via Playwright automation:</p>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token comment">// Swap two cards by ID</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">swapCards</span><span class="token punctuation">(</span><span class="token string">'method'</span><span class="token punctuation">,</span> <span class="token string">'results'</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Move a card to a specific column and position</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">moveCard</span><span class="token punctuation">(</span><span class="token string">'quant'</span><span class="token punctuation">,</span> <span class="token string">'col1'</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Resize a column (in mm)</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">setColumnWidth</span><span class="token punctuation">(</span><span class="token string">'col1'</span><span class="token punctuation">,</span> <span class="token number">280</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Set a specific card's height (in mm)</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">setCardHeight</span><span class="token punctuation">(</span><span class="token string">'method'</span><span class="token punctuation">,</span> <span class="token number">150</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Scale all text globally</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">setFontScale</span><span class="token punctuation">(</span><span class="token number">1.5</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Measure whitespace waste (lower = better layout)</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">getWaste</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Get the current layout as an object</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">getLayout</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Get the full config as JSON (paste back to Claude)</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">getConfig</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token comment">// Reset to default layout</span>
+</span><span class="code-line">posterAPI<span class="token punctuation">.</span><span class="token method function property-access">resetLayout</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</span></code></pre>
+<h2>Iteration Workflow</h2>
+<p>The core loop for refining your poster:</p>
+<ol>
+<li><strong>Claude generates</strong> first draft, opens <code>poster/index.html</code> in your browser</li>
+<li><strong>You edit</strong> in the browser — drag dividers, swap cards, resize columns</li>
+<li><strong>Click "Copy Config"</strong> in the toolbar to export your layout as JSON</li>
+<li><strong>Paste the JSON back to Claude</strong> — it updates <code>DEFAULT_LAYOUT</code> in the HTML</li>
+<li><strong>Repeat</strong> until the layout is perfect</li>
+<li><strong>Print to PDF</strong>: File → Print → Margins: None, Background Graphics: On</li>
+</ol>
+<h2>Playwright Automation (used internally by Claude)</h2>
+<p>Claude uses Playwright to automate layout verification. You can use it too:</p>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token keyword">const</span> <span class="token punctuation">{</span> chromium <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'playwright'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">
+</span><span class="code-line"><span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">optimizePoster</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token keyword">const</span> browser <span class="token operator">=</span> <span class="token keyword control-flow">await</span> chromium<span class="token punctuation">.</span><span class="token method function property-access">launch</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token keyword">const</span> page <span class="token operator">=</span> <span class="token keyword control-flow">await</span> browser<span class="token punctuation">.</span><span class="token method function property-access">newPage</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">goto</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">file://</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>__dirname<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/poster/index.html</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment">// Use the posterAPI to adjust layout programmatically</span>
+</span><span class="code-line">  <span class="token keyword">const</span> waste <span class="token operator">=</span> <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">evaluate</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> posterAPI<span class="token punctuation">.</span><span class="token method function property-access">getWaste</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  <span class="token console class-name">console</span><span class="token punctuation">.</span><span class="token method function property-access">log</span><span class="token punctuation">(</span><span class="token string">'Whitespace waste:'</span><span class="token punctuation">,</span> waste<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment">// Resize a column</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">evaluate</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token arrow operator">=&gt;</span> posterAPI<span class="token punctuation">.</span><span class="token method function property-access">setColumnWidth</span><span class="token punctuation">(</span><span class="token string">'col1'</span><span class="token punctuation">,</span> <span class="token number">300</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment">// Take a screenshot for visual verification</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">screenshot</span><span class="token punctuation">(</span><span class="token punctuation">{</span> <span class="token literal-property property">path</span><span class="token operator">:</span> <span class="token string">'poster-preview.png'</span><span class="token punctuation">,</span> <span class="token literal-property property">fullPage</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token comment">// Generate PDF at print resolution</span>
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> page<span class="token punctuation">.</span><span class="token method function property-access">pdf</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">path</span><span class="token operator">:</span> <span class="token string">'poster.pdf'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">width</span><span class="token operator">:</span> <span class="token string">'841mm'</span><span class="token punctuation">,</span>   <span class="token comment">// A0 landscape width</span>
+</span><span class="code-line">    <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token string">'1189mm'</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">printBackground</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line">  
+</span><span class="code-line">  <span class="token keyword control-flow">await</span> browser<span class="token punctuation">.</span><span class="token method function property-access">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<h2>Card Registry Structure</h2>
+<p>Each card in the poster is defined in <code>CARD_REGISTRY</code>:</p>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token keyword">const</span> <span class="token constant">CARD_REGISTRY</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">abstract</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">"Abstract"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">"#f0f4ff"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;p&gt;Your abstract text here. Supports full JSX including
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;strong&gt;bold&lt;/strong&gt;, &lt;em&gt;italic&lt;/em&gt;, and inline math.&lt;/p&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    </span><span class="token template-punctuation string">`</span></span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">method</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">"Method"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">"#fff8f0"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;img src="figures/pipeline.png" style={{width:'100%'}} /&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;p&gt;Caption describing the pipeline above.&lt;/p&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    </span><span class="token template-punctuation string">`</span></span>
+</span><span class="code-line">  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">results</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">    <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">"Results"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">"#f0fff4"</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;table&gt;...&lt;/table&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    </span><span class="token template-punctuation string">`</span></span>
+</span><span class="code-line">  <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Default Layout Structure</h2>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token keyword">const</span> <span class="token constant">DEFAULT_LAYOUT</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">columns</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'col1'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">widthMm</span><span class="token operator">:</span> <span class="token number">280</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">cards</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'abstract'</span><span class="token punctuation">,</span> <span class="token string">'method'</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'col2'</span><span class="token punctuation">,</span> 
+</span><span class="code-line">      <span class="token literal-property property">widthMm</span><span class="token operator">:</span> <span class="token number">320</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">cards</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'results'</span><span class="token punctuation">,</span> <span class="token string">'quant'</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">    <span class="token punctuation">{</span>
+</span><span class="code-line">      <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'col3'</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">widthMm</span><span class="token operator">:</span> <span class="token number">280</span><span class="token punctuation">,</span>
+</span><span class="code-line">      <span class="token literal-property property">cards</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'conclusion'</span><span class="token punctuation">,</span> <span class="token string">'references'</span><span class="token punctuation">]</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">  <span class="token punctuation">]</span>
+</span><span class="code-line"><span class="token punctuation">}</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h2>Inputs Claude Uses</h2>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Where It Comes From</th>
+<th align="right">Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paper content</td>
+<td><code>overleaf/</code> directory</td>
+<td align="right">Yes</td>
+</tr>
+<tr>
+<td>Project website</td>
+<td>URL (asked at runtime)</td>
+<td align="right">Yes</td>
+</tr>
+<tr>
+<td>Reference posters</td>
+<td><code>references/*.pdf</code></td>
+<td align="right">No</td>
+</tr>
+<tr>
+<td>Author website</td>
+<td>URL for brand matching</td>
+<td align="right">No</td>
+</tr>
+<tr>
+<td>Formatting specs</td>
+<td>Conference URL or text</td>
+<td align="right">Asked if missing</td>
+</tr>
+<tr>
+<td>Logos</td>
+<td>Auto-downloaded to <code>poster/logos/</code></td>
+<td align="right">Auto</td>
+</tr>
+</tbody>
+</table>
+<h2>Common Patterns</h2>
+<h3>Adding a custom figure card</h3>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token comment">// In CARD_REGISTRY, add a new card</span>
+</span><span class="code-line"><span class="token literal-property property">custom_fig</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+</span><span class="code-line">  <span class="token literal-property property">title</span><span class="token operator">:</span> <span class="token string">"Qualitative Results"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">color</span><span class="token operator">:</span> <span class="token string">"#fafafa"</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    &lt;div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;img src="figures/result1.png" style={{width:'100%'}} /&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      &lt;img src="figures/result2.png" style={{width:'100%'}} /&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    &lt;/div&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    &lt;p style={{fontSize:'0.85em', textAlign:'center'}}&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">      Comparison on held-out test scenes.
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">    &lt;/p&gt;
+</span></span></span><span class="code-line"><span class="token template-string"><span class="token string">  </span><span class="token template-punctuation string">`</span></span>
+</span><span class="code-line"><span class="token punctuation">}</span>
+</span></code></pre>
+<p>Then add it to <code>DEFAULT_LAYOUT</code>:</p>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token punctuation">{</span> <span class="token literal-property property">id</span><span class="token operator">:</span> <span class="token string">'col2'</span><span class="token punctuation">,</span> <span class="token literal-property property">widthMm</span><span class="token operator">:</span> <span class="token number">320</span><span class="token punctuation">,</span> <span class="token literal-property property">cards</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">'results'</span><span class="token punctuation">,</span> <span class="token string">'custom_fig'</span><span class="token punctuation">]</span> <span class="token punctuation">}</span>
+</span></code></pre>
+<h3>Logos configuration</h3>
+<pre class="language-js"><code class="language-js code-highlight"><span class="code-line"><span class="token keyword">const</span> <span class="token constant">DEFAULT_LOGOS</span> <span class="token operator">=</span> <span class="token punctuation">[</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token literal-property property">src</span><span class="token operator">:</span> <span class="token string">'logos/university.png'</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">60</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token literal-property property">src</span><span class="token operator">:</span> <span class="token string">'logos/lab.png'</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">50</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line">  <span class="token punctuation">{</span> <span class="token literal-property property">src</span><span class="token operator">:</span> <span class="token string">'logos/sponsor.png'</span><span class="token punctuation">,</span> <span class="token literal-property property">height</span><span class="token operator">:</span> <span class="token number">45</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+</span><span class="code-line"><span class="token punctuation">]</span><span class="token punctuation">;</span>
+</span></code></pre>
+<h3>Printing to PDF</h3>
+<p>In Chrome:</p>
+<ol>
+<li>Open <code>poster/index.html</code></li>
+<li>Click <strong>Preview</strong> to verify layout</li>
+<li><code>Ctrl+P</code> / <code>Cmd+P</code></li>
+<li>Set <strong>Margins: None</strong></li>
+<li>Enable <strong>Background graphics</strong></li>
+<li>Set paper size to your conference spec (A0, 36×48in, etc.)</li>
+<li>Save as PDF</li>
+</ol>
+<h2>Troubleshooting</h2>
+<p><strong>Poster looks different in print vs browser</strong>
+→ Use Chrome (not Firefox/Safari). Enable "Background graphics" in print dialog.</p>
+<p><strong>Figures not loading</strong>
+→ Ensure figure paths in the HTML are relative to <code>poster/index.html</code>. Claude copies figures to <code>poster/figures/</code> — verify the directory exists.</p>
+<p><strong>Logos not fetched</strong>
+→ Claude uses Playwright to download logos from your project website. If it fails, manually copy logo files to <code>poster/logos/</code> and update <code>DEFAULT_LOGOS</code> paths.</p>
+<p><strong>Layout config not updating after paste</strong>
+→ Make sure you paste the full JSON from <strong>Copy Config</strong> — Claude looks for the complete <code>DEFAULT_LAYOUT</code> and <code>DEFAULT_LOGOS</code> objects to replace.</p>
+<p><strong>Font too small/large for poster size</strong>
+→ Use <code>posterAPI.setFontScale(1.2)</code> in the browser console, or click <strong>A+</strong> / <strong>A-</strong> buttons, then Copy Config and paste to Claude.</p>
+<p><strong>Whitespace gaps between cards</strong>
+→ Run <code>posterAPI.getWaste()</code> in console to quantify. Use <code>posterAPI.setCardHeight('cardId', heightMm)</code> to tune card heights, or drag row dividers manually.</p>
+<h2>Example Output</h2>
+<p>See the <a href="http://ethanweber.me/fillerbuster-poster" target="_blank" rel="ugc nofollow noopener">Fillerbuster poster</a> (<a href="https://github.com/ethanweber/fillerbuster-poster" target="_blank" rel="ugc nofollow noopener">repo</a>) as a live example of posterskill output.</p></div>

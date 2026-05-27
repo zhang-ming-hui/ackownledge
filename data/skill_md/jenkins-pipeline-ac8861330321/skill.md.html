@@ -1,0 +1,82 @@
+<div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]"><h1>Jenkins Pipeline</h1>
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#overview" target="_blank" rel="ugc nofollow noopener">Overview</a></li>
+<li><a href="#when-to-use" target="_blank" rel="ugc nofollow noopener">When to Use</a></li>
+<li><a href="#quick-start" target="_blank" rel="ugc nofollow noopener">Quick Start</a></li>
+<li><a href="#reference-guides" target="_blank" rel="ugc nofollow noopener">Reference Guides</a></li>
+<li><a href="#best-practices" target="_blank" rel="ugc nofollow noopener">Best Practices</a></li>
+</ul>
+<h2>Overview</h2>
+<p>Create enterprise-grade Jenkins pipelines using declarative and scripted approaches to automate building, testing, and deploying with advanced control flow.</p>
+<h2>When to Use</h2></div><div class="prose prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-4xl prose-h1:mb-2 prose-h2:text-2xl prose-h2:mb-2 prose-h3:text-lg prose-h3:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-code:bg-muted prose-code:text-foreground prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border prose-pre:rounded-md [&amp;_table]:!border-[color:var(--border)] [&amp;_th]:!border-[color:var(--border)] [&amp;_td]:!border-[color:var(--border)]" data-nosnippet=""><ul>
+<li>Enterprise CI/CD infrastructure</li>
+<li>Complex multi-stage builds</li>
+<li>On-premise deployment automation</li>
+<li>Parameterized builds</li>
+</ul>
+<h2>Quick Start</h2>
+<p>Minimal working example:</p>
+<pre class="language-groovy"><code class="language-groovy code-highlight"><span class="code-line">pipeline <span class="token punctuation">{</span>
+</span><span class="code-line">    agent <span class="token punctuation">{</span> label <span class="token string">'linux-docker'</span> <span class="token punctuation">}</span>
+</span><span class="code-line">    environment <span class="token punctuation">{</span>
+</span><span class="code-line">        REGISTRY <span class="token operator">=</span> <span class="token string">'docker.io'</span>
+</span><span class="code-line">        IMAGE_NAME <span class="token operator">=</span> <span class="token string">'myapp'</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    parameters <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">string</span><span class="token punctuation">(</span>name<span class="token punctuation">:</span> <span class="token string">'DEPLOY_ENV'</span><span class="token punctuation">,</span> defaultValue<span class="token punctuation">:</span> <span class="token string">'staging'</span><span class="token punctuation">)</span>
+</span><span class="code-line">    <span class="token punctuation">}</span>
+</span><span class="code-line">    stages <span class="token punctuation">{</span>
+</span><span class="code-line">        <span class="token function">stage</span><span class="token punctuation">(</span><span class="token string">'Checkout'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> steps <span class="token punctuation">{</span> checkout scm <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token function">stage</span><span class="token punctuation">(</span><span class="token string">'Install'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> steps <span class="token punctuation">{</span> sh <span class="token string">'npm ci'</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token function">stage</span><span class="token punctuation">(</span><span class="token string">'Lint'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> steps <span class="token punctuation">{</span> sh <span class="token string">'npm run lint'</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token function">stage</span><span class="token punctuation">(</span><span class="token string">'Test'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            steps <span class="token punctuation">{</span>
+</span><span class="code-line">                sh <span class="token string">'npm run test:coverage'</span>
+</span><span class="code-line">                junit <span class="token string">'test-results.xml'</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token function">stage</span><span class="token punctuation">(</span><span class="token string">'Build'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+</span><span class="code-line">            steps <span class="token punctuation">{</span>
+</span><span class="code-line">                sh <span class="token string">'npm run build'</span>
+</span><span class="code-line">                archiveArtifacts artifacts<span class="token punctuation">:</span> <span class="token string">'dist/**/*'</span>
+</span><span class="code-line">            <span class="token punctuation">}</span>
+</span><span class="code-line">        <span class="token punctuation">}</span>
+</span><span class="code-line"><span class="token comment">// ... (see reference guides for full implementation)</span>
+</span></code></pre>
+<h2>Reference Guides</h2>
+<p>Detailed implementations in the <code>references/</code> directory:</p>
+<table>
+<thead>
+<tr>
+<th>Guide</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/jenkins-pipeline/references/declarative-pipeline-jenkinsfile.md" target="_blank" rel="ugc nofollow noopener">Declarative Pipeline (Jenkinsfile)</a></td>
+<td>Declarative Pipeline (Jenkinsfile)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/aj-geddes/useful-ai-prompts/blob/HEAD/skills/jenkins-pipeline/references/scripted-pipeline.md" target="_blank" rel="ugc nofollow noopener">Scripted Pipeline</a></td>
+<td>Scripted Pipeline (Groovy), Multi-Branch Pipeline, Parameterized Pipeline, Pipeline with Credentials</td>
+</tr>
+</tbody>
+</table>
+<h2>Best Practices</h2>
+<h3>✅ DO</h3>
+<ul>
+<li>Use declarative pipelines for clarity</li>
+<li>Use credentials plugin for secrets</li>
+<li>Archive artifacts and reports</li>
+<li>Implement approval gates for production</li>
+<li>Keep pipelines modular and reusable</li>
+</ul>
+<h3>❌ DON'T</h3>
+<ul>
+<li>Store credentials in pipeline code</li>
+<li>Ignore pipeline errors</li>
+<li>Skip test coverage reporting</li>
+<li>Use deprecated plugins</li>
+</ul></div>
