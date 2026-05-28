@@ -1,23 +1,14 @@
-'''
-从技能描述文本中抽取出平台、语言、动作类型、目标领域、输出格式、指标等结构化信息，
-并记录每条提取的证据（规则来源、匹配文本、上下文等）。
-它还支持生成报告、搜索提取结果以及保存数据。
-下面分模块详细讲解其逻辑。
-'''
+"""Structured information extraction for skill descriptions."""
+
 from __future__ import annotations
 
 import json
 import re
 from collections import Counter, defaultdict
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 from .config import IEConfig
 from .state import save_json_atomic, utc_now_iso
-
-# 抽取器的核心思路是“规则命中 + 证据保留”：
-# 每个字段不只输出抽取值，还会记录规则来源、命中文本和上下文，
-# 方便人工复核、误差分析和自动评测。
 
 ACTION_ALIAS_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:analysis|analytics|analyzer|analyst)\b", re.IGNORECASE), "analyze"),
@@ -36,6 +27,7 @@ ACTION_ALIAS_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:extraction|extractor)\b", re.IGNORECASE), "extract"),
     (re.compile(r"\b(?:parsing|parser)\b", re.IGNORECASE), "parse"),
     (re.compile(r"\b(?:evaluation|evaluator)\b", re.IGNORECASE), "evaluate"),
+    (re.compile(r"\b(?:design|designer|designing)\b", re.IGNORECASE), "design"),
 ]
 
 EXTRACTED_FIELDS = [
@@ -47,12 +39,44 @@ EXTRACTED_FIELDS = [
     "metrics",
 ]
 
+ENUM_FIELDS = [
+    "platforms",
+    "languages",
+    "action_types",
+    "target_domains",
+    "output_formats",
+]
+
+FIELD_PATTERN_ATTRS = {
+    "platforms": "_platform_patterns",
+    "languages": "_language_patterns",
+    "action_types": "_action_patterns",
+    "target_domains": "_domain_patterns",
+    "output_formats": "_format_patterns",
+}
+
+VOCAB_CANONICAL_OVERRIDES: Dict[str, Dict[str, str]] = {
+    "platforms": {
+        "jd": "jd.com",
+        "x.com": "twitter",
+        "vip": "vip.com",
+    },
+    "languages": {
+        "golang": "go",
+        "nextjs": "next.js",
+        "nodejs": "node.js",
+        "postgres": "postgresql",
+    },
+    "target_domains": {
+        "ecommerce": "e-commerce",
+    },
+}
+
 
 class SkillsIESystem:
-    """Rule-based information extraction system for skill descriptions."""
+    """Information extraction system with rule baseline and GLiNER-backed enhanced mode."""
 
     def __init__(self, config: IEConfig, variant: str = "enhanced") -> None:
-        """初始化关键字模式、动作别名模式和指标模式。"""
         self.config = config
         self.variant = variant
         self.use_action_aliases = variant != "baseline"
@@ -77,18 +101,78 @@ class SkillsIESystem:
             ),
         ]
 
+        self._field_vocabs = {
+            "platforms": config.platform_keywords,
+            "languages": config.language_keywords,
+            "action_types": config.action_keywords,
+            "target_domains": config.domain_keywords,
+            "output_formats": config.output_format_keywords,
+        }
+        self._field_exact_maps: Dict[str, Dict[str, str]] = {}
+        self._field_folded_maps: Dict[str, Dict[str, str]] = {}
+        self._field_alias_maps: Dict[str, Dict[str, str]] = {}
+        self._field_allowed_values: Dict[str, set[str]] = {}
+        self._field_folded_allowed_values: Dict[str, Dict[str, str]] = {}
+        self._initialize_normalization_catalogs()
+
+        self._label_to_field = {
+            label.lower(): field for label, field in self.config.gliner.label_map.items()
+        }
+        self._gliner_labels = list(self.config.gliner.label_map.keys())
+        self._gliner_thresholds = dict(self.config.gliner.field_thresholds)
+        self._gliner_min_threshold = min(self._gliner_thresholds.values() or [0.0])
+        self._gliner_model: Any | None = None
+        self._gliner_checked = False
+        self._gliner_load_error: str | None = None
+
     @staticmethod
-    def _build_keyword_patterns(keywords: List[str]) -> List[Tuple[re.Pattern[str], str]]:
-        """把关键字列表编译成正则模式，供字段抽取复用。"""
+    def _build_keyword_patterns(keywords: Sequence[str]) -> List[Tuple[re.Pattern[str], str]]:
         patterns: List[Tuple[re.Pattern[str], str]] = []
         for keyword in keywords:
             escaped = re.escape(keyword)
             patterns.append((re.compile(r"\b" + escaped + r"\b", re.IGNORECASE), keyword.lower()))
         return patterns
 
+    def _initialize_normalization_catalogs(self) -> None:
+        for field, keywords in self._field_vocabs.items():
+            exact_map: Dict[str, str] = {}
+            folded_map: Dict[str, str] = {}
+            allowed_values: set[str] = set()
+
+            for keyword in keywords:
+                canonical = self._canonicalize_vocab_value(field, keyword)
+                clean_keyword = self._normalize_surface(keyword)
+                exact_map[clean_keyword] = canonical
+                folded_map[self._fold_lookup(clean_keyword)] = canonical
+                clean_canonical = self._normalize_surface(canonical)
+                exact_map[clean_canonical] = canonical
+                folded_map[self._fold_lookup(clean_canonical)] = canonical
+                allowed_values.add(canonical)
+
+            alias_map: Dict[str, str] = {}
+            for alias, canonical in self.config.gliner.aliases.get(field, {}).items():
+                clean_alias = self._normalize_surface(alias)
+                alias_map[clean_alias] = canonical
+                alias_map[self._fold_lookup(clean_alias)] = canonical
+                allowed_values.add(canonical)
+                clean_canonical = self._normalize_surface(canonical)
+                exact_map.setdefault(clean_canonical, canonical)
+                folded_map.setdefault(self._fold_lookup(clean_canonical), canonical)
+
+            self._field_exact_maps[field] = exact_map
+            self._field_folded_maps[field] = folded_map
+            self._field_alias_maps[field] = alias_map
+            self._field_allowed_values[field] = allowed_values
+            self._field_folded_allowed_values[field] = {
+                self._fold_lookup(value): value for value in allowed_values
+            }
+
+    def _canonicalize_vocab_value(self, field: str, value: str) -> str:
+        clean_value = self._normalize_surface(value)
+        return VOCAB_CANONICAL_OVERRIDES.get(field, {}).get(clean_value, clean_value)
+
     @staticmethod
     def _empty_extraction() -> Dict[str, Any]:
-        """构造一个字段齐全但内容为空的抽取结果骨架。"""
         extraction = {field: [] for field in EXTRACTED_FIELDS}
         extraction["evidence"] = {field: [] for field in EXTRACTED_FIELDS}
         return extraction
@@ -103,7 +187,6 @@ class SkillsIESystem:
         context: str,
         extra: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        """生成统一结构的证据记录。"""
         entry: Dict[str, Any] = {
             "field": field,
             "value": value,
@@ -118,32 +201,92 @@ class SkillsIESystem:
 
     @staticmethod
     def _context_snippet(text: str, start: int, end: int, window: int = 48) -> str:
-        """截取命中片段周边的上下文，提升可解释性。"""
         left = max(0, start - window)
         right = min(len(text), end + window)
         snippet = " ".join(text[left:right].split())
         if left > 0:
-            snippet = f"…{snippet}"
+            snippet = f"...{snippet}"
         if right < len(text):
-            snippet = f"{snippet}…"
+            snippet = f"{snippet}..."
         return snippet
 
     @staticmethod
     def _short_text(value: str, limit: int = 220) -> str:
-        """生成适合报告展示的短文本预览。"""
         value = " ".join(value.split())
         if len(value) <= limit:
             return value
-        return value[: limit - 1] + "…"
+        return value[: limit - 3] + "..."
+
+    @staticmethod
+    def _normalize_whitespace(value: str) -> str:
+        return " ".join((value or "").split())
+
+    @staticmethod
+    def _normalize_surface(value: str) -> str:
+        value = (value or "").lower()
+        value = value.translate(
+            str.maketrans(
+                {
+                    "’": "'",
+                    "‘": "'",
+                    "“": '"',
+                    "”": '"',
+                    "–": "-",
+                    "—": "-",
+                    "／": "/",
+                    "，": ",",
+                    "。": ".",
+                    "：": ":",
+                    "；": ";",
+                    "（": "(",
+                    "）": ")",
+                }
+            )
+        )
+        value = re.sub(r"\s+", " ", value).strip()
+        return value.strip(" \t\r\n.,;:!?()[]{}<>\"'")
+
+    @classmethod
+    def _fold_lookup(cls, value: str) -> str:
+        clean_value = cls._normalize_surface(value)
+        clean_value = clean_value.replace("&", "and")
+        return re.sub(r"[^a-z0-9+#]+", "", clean_value)
+
+    @staticmethod
+    def _dedupe_preserve_order(values: Iterable[Any]) -> List[Any]:
+        seen: set[str] = set()
+        deduped: List[Any] = []
+        for value in values:
+            key = json.dumps(value, ensure_ascii=False, sort_keys=True) if isinstance(value, dict) else str(value)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(value)
+        return deduped
+
+    @staticmethod
+    def _count_cjk(text: str) -> int:
+        return len(re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]", text))
+
+    @staticmethod
+    def _count_ascii_alpha(text: str) -> int:
+        return len(re.findall(r"[A-Za-z]", text))
+
+    def _is_english_dominant(self, text: str) -> bool:
+        ascii_letters = self._count_ascii_alpha(text)
+        cjk_chars = self._count_cjk(text)
+        if ascii_letters == 0 and cjk_chars == 0:
+            return True
+        if cjk_chars == 0:
+            return True
+        return ascii_letters >= cjk_chars * 1.5
 
     def load_data(self) -> int:
-        """加载共享技能数据集。"""
         with self.config.paths.data_file.open("r", encoding="utf-8") as file:
             self.documents = json.load(file)
         return len(self.documents)
 
     def _read_external_skill_text(self, doc: Dict[str, Any]) -> str:
-        """优先读取外部 skill_md 文本文件，获取更完整的抽取语料。"""
         data_dir = self.config.paths.data_file.parent
         raw_path = str(doc.get("skill_md_raw_text_path") or "").strip()
         text_path = str(doc.get("skill_md_text_path") or "").strip()
@@ -159,26 +302,68 @@ class SkillsIESystem:
                     continue
         return ""
 
+    def _prepare_focus_text(
+        self,
+        skill_name: str,
+        category: str,
+        description: str,
+        extraction_text: str,
+    ) -> str:
+        skill_name = self._normalize_whitespace(skill_name)
+        category = self._normalize_whitespace(category)
+        description = self._normalize_whitespace(description)
+        extraction_text = self._normalize_whitespace(extraction_text)
+
+        parts = [part for part in [skill_name, category, description] if part]
+        focus_text = " ".join(parts)
+        if len(description.split()) < 40 and extraction_text:
+            head = extraction_text[:1400]
+            if description and head.lower().startswith(description.lower()[:80]):
+                pass
+            else:
+                focus_text = " ".join(part for part in [focus_text, head] if part)
+        return focus_text or extraction_text or description or skill_name
+
+    def _build_text_bundle(
+        self,
+        skill_name: str,
+        category: str,
+        description: str,
+        extraction_text: str,
+    ) -> Dict[str, Any]:
+        full_text = self._normalize_whitespace(
+            " ".join(part for part in [skill_name, category, extraction_text] if part)
+        )
+        focus_text = self._prepare_focus_text(skill_name, category, description, extraction_text)
+        english_dominant = self._is_english_dominant(full_text or focus_text)
+        fallback_text = focus_text if english_dominant and focus_text else full_text
+        gliner_eligible = (
+            self.config.gliner.enabled
+            and (not self.config.gliner.english_only_bias or english_dominant)
+            and bool(focus_text)
+        )
+        return {
+            "full_text": full_text,
+            "gliner_text": focus_text or full_text,
+            "fallback_text": fallback_text or full_text,
+            "english_dominant": english_dominant,
+            "gliner_eligible": gliner_eligible,
+        }
+
     def extract_from_text(self, text: str) -> Dict[str, Any]:
-        """按当前实例默认变体执行抽取。"""
-        return self._extract_structured(text, use_action_aliases=self.use_action_aliases)
+        return self.extract_from_text_variant(text, variant=self.variant)
 
     def extract_from_text_variant(self, text: str, variant: str = "enhanced") -> Dict[str, Any]:
-        """按指定变体执行抽取。"""
-        return self._extract_structured(text, use_action_aliases=(variant != "baseline"))
+        extraction, _ = self._extract_text_variant(text, variant=variant, collect_debug=False)
+        return extraction
 
     def extract_debug_payload(self, text: str, variant: str = "enhanced") -> Dict[str, Any]:
-        """返回包含证据和摘要的调试结构。"""
-        extraction = self.extract_from_text_variant(text, variant=variant)
+        extraction, debug_payload = self._extract_text_variant(text, variant=variant, collect_debug=True)
         evidence_map = extraction.get("evidence", {}) if isinstance(extraction, dict) else {}
         evidence_count = 0
         if isinstance(evidence_map, dict):
             evidence_count = sum(len(items or []) for items in evidence_map.values())
-        nonempty_fields = [
-            field
-            for field in ["platforms", "languages", "action_types", "target_domains", "output_formats", "metrics"]
-            if extraction.get(field, [])
-        ]
+        nonempty_fields = [field for field in EXTRACTED_FIELDS if extraction.get(field, [])]
         return {
             "variant": variant,
             "input_text": text,
@@ -189,17 +374,37 @@ class SkillsIESystem:
                 "nonempty_fields": nonempty_fields,
                 "info_point_count": len(nonempty_fields),
             },
+            "gliner": debug_payload,
         }
 
-    def _extract_structured(self, text: str, use_action_aliases: bool) -> Dict[str, Any]:
-        """执行完整的结构化抽取流程。"""
+    def _extract_text_variant(
+        self,
+        text: str,
+        variant: str,
+        collect_debug: bool,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any] | None]:
         if not text:
-            return self._empty_extraction()
+            return self._empty_extraction(), self._build_gliner_debug_stub({}, reason="empty_text")
 
+        if variant == "baseline":
+            extraction = self._extract_structured_baseline(text, use_action_aliases=False)
+            return extraction, self._build_gliner_debug_stub({}, reason="baseline_variant")
+
+        bundle = self._build_text_bundle("", "", text, text)
+        gliner_predictions: List[Dict[str, Any]] | None = None
+        if bundle["gliner_eligible"]:
+            gliner_predictions = self._predict_gliner_single(bundle["gliner_text"])
+        extraction, debug_payload = self._extract_structured_enhanced(
+            bundle=bundle,
+            gliner_predictions=gliner_predictions,
+            collect_debug=collect_debug,
+        )
+        return extraction, debug_payload
+
+    def _extract_structured_baseline(self, text: str, use_action_aliases: bool) -> Dict[str, Any]:
         extraction = self._empty_extraction()
         evidence = extraction["evidence"]
 
-        # 每个字段都同时生成“值”和“证据”，后续可以直接用于解释与评测。
         extraction["platforms"], evidence["platforms"] = self._extract_keywords_with_evidence(
             text, self._platform_patterns, field="platforms", rule_source="exact_keyword"
         )
@@ -210,7 +415,12 @@ class SkillsIESystem:
             text, self._action_patterns, field="action_types", rule_source="exact_keyword"
         )
         if use_action_aliases:
-            action_values, alias_evidence = self._expand_action_aliases_with_evidence(text, action_values)
+            action_values, alias_evidence = self._expand_action_aliases_with_evidence(
+                text,
+                action_values,
+                rule_source="alias_pattern",
+                normalize_to_vocab=False,
+            )
             action_evidence.extend(alias_evidence)
         extraction["action_types"] = action_values
         evidence["action_types"] = action_evidence
@@ -223,15 +433,96 @@ class SkillsIESystem:
         extraction["metrics"], evidence["metrics"] = self._extract_metrics_with_evidence(text)
         return extraction
 
-    def _extract_keywords(self, text: str, patterns: List[Tuple[re.Pattern[str], str]]) -> List[str]:
-        """仅提取命中的关键字值，不保留证据。"""
-        seen = set()
-        values: List[str] = []
-        for pattern, keyword in patterns:
-            if pattern.search(text) and keyword not in seen:
-                seen.add(keyword)
-                values.append(keyword)
-        return values
+    def _extract_structured_enhanced(
+        self,
+        bundle: Dict[str, Any],
+        gliner_predictions: List[Dict[str, Any]] | None,
+        collect_debug: bool,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any] | None]:
+        extraction = self._empty_extraction()
+        evidence = extraction["evidence"]
+        debug_payload = self._build_gliner_debug_stub(bundle)
+
+        full_text = bundle.get("full_text", "") or ""
+        gliner_text = bundle.get("gliner_text", "") or full_text
+        fallback_text = bundle.get("fallback_text", "") or full_text
+        gliner_mode = "disabled"
+        gliner_available = False
+
+        if bundle.get("gliner_eligible"):
+            gliner_available = self._ensure_gliner_model()
+            gliner_mode = "gliner" if gliner_available else "gliner_unavailable"
+        elif self.config.gliner.enabled and self.config.gliner.english_only_bias and not bundle.get("english_dominant"):
+            gliner_mode = "non_english_rule_bias"
+
+        if gliner_mode == "gliner" and gliner_predictions is None:
+            gliner_mode = "gliner_inference_failed"
+            projected = self._empty_gliner_projection()
+            debug_payload["used"] = False
+        elif gliner_predictions is not None and gliner_mode == "gliner":
+            projected = self._project_gliner_predictions(gliner_text, gliner_predictions)
+            debug_payload["used"] = True
+        else:
+            projected = self._empty_gliner_projection()
+            debug_payload["used"] = False
+
+        debug_payload["available"] = gliner_available
+        debug_payload["mode"] = gliner_mode
+        debug_payload["model_error"] = self._gliner_load_error
+        debug_payload["raw_hits"] = projected["all_raw_hits"]
+
+        for field in ENUM_FIELDS:
+            state = projected["fields"][field]
+            field_values: List[str] = []
+            field_evidence: List[Dict[str, Any]] = []
+            fallback_reason = "not_needed"
+
+            if gliner_mode == "gliner":
+                field_evidence.extend(state["unknown_evidence"])
+                if state["values"]:
+                    field_values.extend(state["values"])
+                    field_evidence.extend(state["evidence"])
+                    supplement_values, supplement_evidence = self._extract_field_fallback(field, fallback_text)
+                    field_values, field_evidence = self._merge_field_values_and_evidence(
+                        field_values,
+                        field_evidence,
+                        supplement_values,
+                        supplement_evidence,
+                    )
+                else:
+                    fallback_reason = state["fallback_reason"]
+                    fallback_values, fallback_evidence = self._extract_field_fallback(field, fallback_text)
+                    field_values.extend(fallback_values)
+                    field_evidence.extend(fallback_evidence)
+            else:
+                fallback_reason = gliner_mode
+                fallback_values, fallback_evidence = self._extract_field_fallback(field, fallback_text)
+                field_values.extend(fallback_values)
+                field_evidence.extend(fallback_evidence)
+
+            extraction[field] = self._dedupe_preserve_order(field_values)
+            evidence[field] = field_evidence
+            debug_payload["normalized_hits"][field] = state["accepted_hits"]
+            debug_payload["fallback"][field] = {
+                "reason": fallback_reason,
+                "used": fallback_reason != "not_needed",
+                "result_count": len(extraction[field]),
+            }
+
+        metric_candidates = projected["fields"]["metrics"]["threshold_hits"] if gliner_mode == "gliner" else []
+        metrics, metric_evidence, metric_debug = self._extract_metrics_for_enhanced(
+            text=full_text,
+            candidate_hits=metric_candidates,
+            gliner_mode=gliner_mode,
+        )
+        extraction["metrics"] = metrics
+        evidence["metrics"] = metric_evidence
+        debug_payload["normalized_hits"]["metrics"] = metric_debug["parsed_metrics"]
+        debug_payload["fallback"]["metrics"] = metric_debug["fallback"]
+
+        if not collect_debug:
+            return extraction, None
+        return extraction, debug_payload
 
     def _extract_keywords_with_evidence(
         self,
@@ -240,7 +531,6 @@ class SkillsIESystem:
         field: str,
         rule_source: str,
     ) -> Tuple[List[str], List[Dict[str, Any]]]:
-        """提取关键字并记录每次命中的证据。"""
         seen = set()
         values: List[str] = []
         evidence: List[Dict[str, Any]] = []
@@ -262,34 +552,93 @@ class SkillsIESystem:
                 )
         return values, evidence
 
-    def _expand_action_aliases(self, text: str, action_types: List[str]) -> List[str]:
-        """通过动作别名模式补充动作类型。"""
-        seen = set(action_types)
-        expanded = list(action_types)
-        for pattern, canonical_action in ACTION_ALIAS_PATTERNS:
-            if pattern.search(text) and canonical_action not in seen:
-                seen.add(canonical_action)
-                expanded.append(canonical_action)
-        return expanded
+    def _extract_field_fallback(self, field: str, text: str) -> Tuple[List[Any], List[Dict[str, Any]]]:
+        if field == "action_types":
+            values, evidence = self._extract_keywords_with_normalization(
+                text,
+                self._action_patterns,
+                field=field,
+                rule_source="keyword_fallback",
+            )
+            values, alias_evidence = self._expand_action_aliases_with_evidence(
+                text,
+                values,
+                rule_source="alias_fallback",
+                normalize_to_vocab=True,
+            )
+            evidence.extend(alias_evidence)
+            return values, evidence
+
+        patterns = getattr(self, FIELD_PATTERN_ATTRS[field])
+        return self._extract_keywords_with_normalization(
+            text,
+            patterns,
+            field=field,
+            rule_source="keyword_fallback",
+        )
+
+    def _extract_keywords_with_normalization(
+        self,
+        text: str,
+        patterns: List[Tuple[re.Pattern[str], str]],
+        field: str,
+        rule_source: str,
+    ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        seen = set()
+        values: List[str] = []
+        evidence: List[Dict[str, Any]] = []
+        for pattern, _ in patterns:
+            for match in pattern.finditer(text):
+                matched_text = match.group(0).strip()
+                normalized, normalization_kind = self._normalize_to_vocab(matched_text, field)
+                if not normalized:
+                    continue
+                if normalized not in seen:
+                    seen.add(normalized)
+                    values.append(normalized)
+                extra: Dict[str, Any] = {}
+                if normalization_kind and normalization_kind != "exact":
+                    extra["normalized_from"] = matched_text
+                evidence.append(
+                    self._build_evidence_entry(
+                        field=field,
+                        value=normalized,
+                        rule_source=rule_source,
+                        pattern_source=pattern.pattern,
+                        matched_text=matched_text,
+                        context=self._context_snippet(text, match.start(), match.end()),
+                        extra=extra or None,
+                    )
+                )
+        return values, evidence
 
     def _expand_action_aliases_with_evidence(
-        self, text: str, action_types: List[str]
+        self,
+        text: str,
+        action_types: List[str],
+        rule_source: str,
+        normalize_to_vocab: bool,
     ) -> Tuple[List[str], List[Dict[str, Any]]]:
-        """补充动作别名，并把别名命中纳入证据。"""
         seen = set(action_types)
         expanded = list(action_types)
         evidence: List[Dict[str, Any]] = []
         for pattern, canonical_action in ACTION_ALIAS_PATTERNS:
             for match in pattern.finditer(text):
-                if canonical_action not in seen:
-                    seen.add(canonical_action)
-                    expanded.append(canonical_action)
+                value = canonical_action
+                if normalize_to_vocab:
+                    normalized, _ = self._normalize_to_vocab(canonical_action, "action_types")
+                    if not normalized:
+                        continue
+                    value = normalized
+                if value not in seen:
+                    seen.add(value)
+                    expanded.append(value)
                 matched_text = match.group(0).strip()
                 evidence.append(
                     self._build_evidence_entry(
                         field="action_types",
-                        value=canonical_action,
-                        rule_source="alias_pattern",
+                        value=value,
+                        rule_source=rule_source,
                         pattern_source=pattern.pattern,
                         matched_text=matched_text,
                         context=self._context_snippet(text, match.start(), match.end()),
@@ -297,15 +646,136 @@ class SkillsIESystem:
                 )
         return expanded, evidence
 
+    def _normalize_to_vocab(self, raw_span: str, field: str) -> Tuple[str | None, str | None]:
+        clean_span = self._normalize_surface(raw_span)
+        if not clean_span:
+            return None, None
+
+        exact_map = self._field_exact_maps[field]
+        if clean_span in exact_map:
+            return exact_map[clean_span], "exact"
+
+        folded = self._fold_lookup(clean_span)
+        if folded in self._field_folded_maps[field]:
+            return self._field_folded_maps[field][folded], "exact"
+
+        alias_map = self._field_alias_maps[field]
+        if clean_span in alias_map:
+            return alias_map[clean_span], "alias"
+        if folded in alias_map:
+            return alias_map[folded], "alias"
+
+        if len(folded) >= 5:
+            best_match: Tuple[int, str] | None = None
+            for candidate_folded, canonical in self._field_folded_allowed_values[field].items():
+                distance = self._bounded_edit_distance(folded, candidate_folded, max_distance=2)
+                if distance is None:
+                    continue
+                if best_match is None or distance < best_match[0]:
+                    best_match = (distance, canonical)
+            if best_match is not None:
+                return best_match[1], "fuzzy"
+
+        return None, None
+
+    def _normalize_span_candidates(self, raw_span: str, field: str) -> List[Tuple[str, str]]:
+        candidates: List[Tuple[str, str]] = []
+        seen: set[Tuple[str, str]] = set()
+
+        def add_candidate(value: str | None, normalization_kind: str | None) -> None:
+            if not value or not normalization_kind:
+                return
+            key = (value, normalization_kind)
+            if key in seen:
+                return
+            seen.add(key)
+            candidates.append(key)
+
+        normalized, normalization_kind = self._normalize_to_vocab(raw_span, field)
+        add_candidate(normalized, normalization_kind)
+        if candidates:
+            return candidates
+
+        clean_span = self._normalize_surface(raw_span)
+        if not clean_span:
+            return candidates
+
+        split_parts = [
+            part.strip()
+            for part in re.split(r"(?:,|/|&|\band\b|\bor\b|\+|with)", clean_span)
+            if part and part.strip()
+        ]
+        for part in split_parts:
+            normalized_part, part_kind = self._normalize_to_vocab(part, field)
+            add_candidate(normalized_part, f"split_{part_kind}" if part_kind else None)
+        if candidates:
+            return candidates
+
+        for value in sorted(self._field_allowed_values[field], key=len, reverse=True):
+            pattern = re.compile(rf"(?<![a-z0-9]){re.escape(value)}(?![a-z0-9])", re.IGNORECASE)
+            if pattern.search(clean_span):
+                add_candidate(value, "substring")
+        if candidates:
+            return candidates
+
+        for alias_key, canonical in self._field_alias_maps[field].items():
+            if len(alias_key) < 4 or alias_key != self._normalize_surface(alias_key):
+                continue
+            pattern = re.compile(rf"(?<![a-z0-9]){re.escape(alias_key)}(?![a-z0-9])", re.IGNORECASE)
+            if pattern.search(clean_span):
+                add_candidate(canonical, "substring_alias")
+
+        return candidates
+
+    def _merge_field_values_and_evidence(
+        self,
+        base_values: List[str],
+        base_evidence: List[Dict[str, Any]],
+        supplement_values: List[str],
+        supplement_evidence: List[Dict[str, Any]],
+    ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        merged_values = list(base_values)
+        merged_evidence = list(base_evidence)
+        seen = set(base_values)
+        for value in supplement_values:
+            if value in seen:
+                continue
+            seen.add(value)
+            merged_values.append(value)
+        merged_evidence.extend(supplement_evidence)
+        return merged_values, merged_evidence
+
+    @staticmethod
+    def _bounded_edit_distance(left: str, right: str, max_distance: int) -> int | None:
+        if abs(len(left) - len(right)) > max_distance:
+            return None
+        previous = list(range(len(right) + 1))
+        for i, char_left in enumerate(left, start=1):
+            current = [i]
+            min_current = current[0]
+            for j, char_right in enumerate(right, start=1):
+                insert_cost = current[j - 1] + 1
+                delete_cost = previous[j] + 1
+                replace_cost = previous[j - 1] + (char_left != char_right)
+                score = min(insert_cost, delete_cost, replace_cost)
+                current.append(score)
+                min_current = min(min_current, score)
+            if min_current > max_distance:
+                return None
+            previous = current
+        return previous[-1] if previous[-1] <= max_distance else None
+
     def _extract_metrics(self, text: str) -> List[Dict[str, str]]:
-        """仅提取指标项，不返回证据。"""
         metrics, _ = self._extract_metrics_with_evidence(text)
         return metrics
 
     def _extract_metrics_with_evidence(
-        self, text: str
+        self,
+        text: str,
+        rule_source: str = "metric_regex",
+        pattern_source_prefix: str = "",
+        context_override: str | None = None,
     ) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
-        """通过正则模式抽取数值/量纲型指标，并记录证据。"""
         word_to_num = {
             "two": "2",
             "three": "3",
@@ -340,130 +810,479 @@ class SkillsIESystem:
                 metric_item = {
                     "value": value,
                     "unit": unit.lower(),
-                    "context": matched_text,
+                    "context": context_override or matched_text,
                     "field": "metrics",
-                    "rule_source": "metric_regex",
-                    "pattern_source": pattern.pattern,
+                    "rule_source": rule_source,
+                    "pattern_source": f"{pattern_source_prefix}{pattern.pattern}",
                     "matched_text": matched_text,
                 }
                 metrics.append(metric_item)
                 evidence.append(dict(metric_item))
         return metrics, evidence
 
-    def build_event_records(self, variant: str = "enhanced") -> List[Dict[str, Any]]:
-        """把原始文档集转换为评测和比较使用的事件记录。"""
+    def _extract_metrics_for_enhanced(
+        self,
+        text: str,
+        candidate_hits: List[Dict[str, Any]],
+        gliner_mode: str,
+    ) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]], Dict[str, Any]]:
+        debug_payload = {
+            "parsed_metrics": [],
+            "fallback": {"reason": "metric_regex", "used": False, "result_count": 0},
+        }
+
+        if gliner_mode != "gliner":
+            metrics, evidence = self._extract_metrics_with_evidence(text)
+            debug_payload["fallback"] = {
+                "reason": gliner_mode,
+                "used": True,
+                "result_count": len(metrics),
+            }
+            debug_payload["parsed_metrics"] = metrics
+            return metrics, evidence, debug_payload
+
+        if not candidate_hits:
+            metrics, evidence = self._extract_metrics_with_evidence(text)
+            debug_payload["fallback"] = {
+                "reason": "no_hits",
+                "used": True,
+                "result_count": len(metrics),
+            }
+            debug_payload["parsed_metrics"] = metrics
+            return metrics, evidence, debug_payload
+
+        candidate_evidence = []
+        parsed_metrics: List[Dict[str, str]] = []
+        parsed_evidence: List[Dict[str, Any]] = []
+        seen_metric_keys = set()
+        any_parse_success = False
+
+        for candidate in candidate_hits:
+            candidate_evidence.append(
+                self._build_evidence_entry(
+                    field="metrics",
+                    value=candidate["text"],
+                    rule_source="gliner_direct",
+                    pattern_source=candidate["label"],
+                    matched_text=candidate["text"],
+                    context=candidate["context"],
+                    extra={"score": candidate["score"]},
+                )
+            )
+            metrics, evidence = self._extract_metrics_with_evidence(
+                candidate["text"],
+                rule_source="metric_regex",
+                pattern_source_prefix="candidate:",
+                context_override=candidate["context"],
+            )
+            if metrics:
+                any_parse_success = True
+            for metric_item, metric_evidence in zip(metrics, evidence):
+                key = f"{metric_item['value']}-{metric_item['unit']}"
+                if key in seen_metric_keys:
+                    continue
+                seen_metric_keys.add(key)
+                parsed_metrics.append(metric_item)
+                parsed_evidence.append(metric_evidence)
+
+        debug_payload["parsed_metrics"] = parsed_metrics
+        if any_parse_success:
+            debug_payload["fallback"] = {
+                "reason": "not_needed",
+                "used": False,
+                "result_count": len(parsed_metrics),
+            }
+        else:
+            debug_payload["fallback"] = {
+                "reason": "candidate_parse_failed",
+                "used": False,
+                "result_count": 0,
+            }
+        return parsed_metrics, candidate_evidence + parsed_evidence, debug_payload
+
+    def _build_gliner_debug_stub(self, bundle: Dict[str, Any], reason: str = "disabled") -> Dict[str, Any]:
+        return {
+            "enabled": self.config.gliner.enabled,
+            "available": False,
+            "used": False,
+            "mode": reason,
+            "model_name": self.config.gliner.model_name,
+            "device": self.config.gliner.device,
+            "english_dominant": bundle.get("english_dominant") if bundle else None,
+            "raw_hits": [],
+            "normalized_hits": {field: [] for field in EXTRACTED_FIELDS},
+            "fallback": {
+                field: {"reason": reason, "used": reason not in {"baseline_variant", "empty_text"}, "result_count": 0}
+                for field in EXTRACTED_FIELDS
+            },
+            "model_error": self._gliner_load_error,
+        }
+
+    def _empty_gliner_projection(self) -> Dict[str, Any]:
+        fields = {}
+        for field in EXTRACTED_FIELDS:
+            fields[field] = {
+                "raw_hits": [],
+                "threshold_hits": [],
+                "values": [],
+                "evidence": [],
+                "unknown_evidence": [],
+                "accepted_hits": [],
+                "fallback_reason": "no_hits",
+            }
+        return {"fields": fields, "all_raw_hits": []}
+
+    def _project_gliner_predictions(
+        self,
+        text: str,
+        predictions: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        projection = self._empty_gliner_projection()
+        all_raw_hits: List[Dict[str, Any]] = []
+
+        for prediction in predictions:
+            label = str(prediction.get("label") or prediction.get("entity") or "").strip()
+            field = self._label_to_field.get(label.lower())
+            if not field:
+                continue
+
+            start, end = self._resolve_prediction_offsets(text, prediction)
+            raw_text = self._resolve_prediction_text(text, prediction, start, end)
+            score = float(prediction.get("score", 0.0) or 0.0)
+            context = self._context_snippet(text, start, end)
+            debug_entry = {
+                "field": field,
+                "label": label,
+                "text": raw_text,
+                "score": round(score, 4),
+                "start": start,
+                "end": end,
+                "context": context,
+            }
+            projection["fields"][field]["raw_hits"].append(debug_entry)
+            all_raw_hits.append(debug_entry)
+
+            threshold = self._gliner_thresholds.get(field, self._gliner_min_threshold)
+            if score < threshold:
+                continue
+
+            projection["fields"][field]["threshold_hits"].append(debug_entry)
+
+            if field == "metrics":
+                projection["fields"][field]["accepted_hits"].append(
+                    {
+                        "text": raw_text,
+                        "label": label,
+                        "score": round(score, 4),
+                        "context": context,
+                    }
+                )
+                continue
+
+            normalized_candidates = self._normalize_span_candidates(raw_text, field)
+            if normalized_candidates:
+                for normalized, normalization_kind in normalized_candidates:
+                    rule_source = "gliner_direct"
+                    extra: Dict[str, Any] = {"score": round(score, 4)}
+                    if normalization_kind != "exact" or self._fold_lookup(raw_text) != self._fold_lookup(normalized):
+                        rule_source = "gliner_normalized"
+                        extra["normalized_from"] = raw_text
+                    projection["fields"][field]["values"].append(normalized)
+                    projection["fields"][field]["evidence"].append(
+                        self._build_evidence_entry(
+                            field=field,
+                            value=normalized,
+                            rule_source=rule_source,
+                            pattern_source=label,
+                            matched_text=raw_text,
+                            context=context,
+                            extra=extra,
+                        )
+                    )
+                    projection["fields"][field]["accepted_hits"].append(
+                        {
+                            "value": normalized,
+                            "label": label,
+                            "score": round(score, 4),
+                            "matched_text": raw_text,
+                            "normalization_kind": normalization_kind,
+                        }
+                    )
+            else:
+                projection["fields"][field]["unknown_evidence"].append(
+                    self._build_evidence_entry(
+                        field=field,
+                        value=raw_text,
+                        rule_source="gliner_unknown",
+                        pattern_source=label,
+                        matched_text=raw_text,
+                        context=context,
+                        extra={"score": round(score, 4)},
+                    )
+                )
+
+        for field in EXTRACTED_FIELDS:
+            raw_hits = projection["fields"][field]["raw_hits"]
+            threshold_hits = projection["fields"][field]["threshold_hits"]
+            values = projection["fields"][field]["values"]
+            if not raw_hits:
+                fallback_reason = "no_hits"
+            elif not threshold_hits:
+                fallback_reason = "below_threshold"
+            elif field != "metrics" and not values:
+                fallback_reason = "normalization_failed"
+            else:
+                fallback_reason = "not_needed"
+            projection["fields"][field]["values"] = self._dedupe_preserve_order(values)
+            projection["fields"][field]["fallback_reason"] = fallback_reason
+
+        projection["all_raw_hits"] = all_raw_hits
+        return projection
+
+    def _resolve_prediction_offsets(
+        self,
+        text: str,
+        prediction: Dict[str, Any],
+    ) -> Tuple[int, int]:
+        start = prediction.get("start")
+        end = prediction.get("end")
+        if isinstance(start, int) and isinstance(end, int) and 0 <= start <= end <= len(text):
+            return start, end
+        raw_text = str(prediction.get("text") or prediction.get("span") or "").strip()
+        if raw_text:
+            match_start = text.lower().find(raw_text.lower())
+            if match_start >= 0:
+                return match_start, match_start + len(raw_text)
+        return 0, min(len(text), len(raw_text))
+
+    def _resolve_prediction_text(
+        self,
+        text: str,
+        prediction: Dict[str, Any],
+        start: int,
+        end: int,
+    ) -> str:
+        raw_text = str(prediction.get("text") or prediction.get("span") or "").strip()
+        if raw_text:
+            return raw_text
+        if 0 <= start <= end <= len(text):
+            return text[start:end].strip()
+        return ""
+
+    def _ensure_gliner_model(self) -> bool:
+        if not self.config.gliner.enabled:
+            return False
+        if self._gliner_checked:
+            return self._gliner_model is not None
+        self._gliner_checked = True
+
+        try:
+            from gliner import GLiNER
+        except Exception as exc:  # pragma: no cover - import path depends on runtime env
+            self._gliner_load_error = f"gliner import failed: {exc}"
+            self._gliner_model = None
+            return False
+
+        try:
+            kwargs: Dict[str, Any] = {}
+            if self.config.gliner.cache_dir is not None:
+                kwargs["cache_dir"] = str(self.config.gliner.cache_dir)
+            model = GLiNER.from_pretrained(self.config.gliner.model_name, **kwargs)
+            device = self.config.gliner.device.strip().lower()
+            if device and device != "auto" and hasattr(model, "to"):
+                model = model.to(device)
+            self._gliner_model = model
+            self._gliner_load_error = None
+            return True
+        except Exception as exc:  # pragma: no cover - model loading depends on runtime env
+            self._gliner_load_error = f"gliner load failed: {exc}"
+            self._gliner_model = None
+            return False
+
+    def _predict_gliner_single(self, text: str) -> List[Dict[str, Any]] | None:
+        batch_predictions = self._predict_gliner_batch([text])
+        return batch_predictions[0] if batch_predictions else None
+
+    def _predict_gliner_batch(self, texts: Sequence[str]) -> List[List[Dict[str, Any]]] | None:
+        if not texts:
+            return []
+        if not self._ensure_gliner_model():
+            return None
+
+        assert self._gliner_model is not None
+        model = self._gliner_model
+        kwargs: Dict[str, Any] = {
+            "threshold": self._gliner_min_threshold,
+            "multi_label": True,
+            "flat_ner": False,
+            "batch_size": self.config.gliner.batch_size,
+        }
+        try:
+            if hasattr(model, "batch_predict_entities"):
+                predictions = model.batch_predict_entities(list(texts), self._gliner_labels, **kwargs)
+            else:
+                predictions = model.inference(list(texts), self._gliner_labels, **kwargs)
+        except TypeError:
+            kwargs.pop("batch_size", None)
+            try:
+                if hasattr(model, "batch_predict_entities"):
+                    predictions = model.batch_predict_entities(list(texts), self._gliner_labels, **kwargs)
+                else:
+                    predictions = model.inference(list(texts), self._gliner_labels, **kwargs)
+            except Exception as exc:  # pragma: no cover - runtime API mismatch
+                self._gliner_load_error = f"gliner inference failed: {exc}"
+                return None
+        except Exception as exc:  # pragma: no cover - runtime model failure
+            self._gliner_load_error = f"gliner inference failed: {exc}"
+            return None
+
+        normalized_predictions: List[List[Dict[str, Any]]] = []
+        for batch_item in predictions or []:
+            if isinstance(batch_item, list):
+                normalized_predictions.append([dict(item) for item in batch_item if isinstance(item, dict)])
+            else:
+                normalized_predictions.append([])
+
+        while len(normalized_predictions) < len(texts):
+            normalized_predictions.append([])
+        return normalized_predictions
+
+    def _prepare_document_inputs(self) -> List[Dict[str, Any]]:
         if not self.documents:
             self.load_data()
 
-        events: List[Dict[str, Any]] = []
+        prepared_docs: List[Dict[str, Any]] = []
         for doc in self.documents:
-            skill_id = doc.get("skill_id", "")
             skill_name = doc.get("skill_name", "")
             description = doc.get("description", "")
             external_skill_text = self._read_external_skill_text(doc)
             skill_md_raw_text = doc.get("skill_md_raw_text", "")
             skill_md = doc.get("skill_md", "")
             category = doc.get("category", "")
-            # 优先选择更长、更原始的 skill_md 文本，以提升规则覆盖率。
             extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
-            full_text = f"{skill_name} {category} {extraction_text}"
-            extraction = self.extract_from_text_variant(full_text, variant=variant)
-            event = {
-                "skill_id": skill_id,
-                "skill_name": skill_name,
-                "owner": doc.get("owner", ""),
-                "category": category,
-                "detail_url": doc.get("detail_url", ""),
-                "description_preview": self._short_text(description, 200) if description else "",
-                "variant": variant,
-                "evidence_count": sum(
-                    len(items or [])
-                    for items in extraction.get("evidence", {}).values()
-                ),
-                "extraction": extraction,
-                "event_summary": self._build_event_summary(skill_name, extraction),
-                "info_point_count": sum(
-                    1 for field in ["platforms", "languages", "action_types", "target_domains", "output_formats", "metrics"]
-                    if extraction.get(field, [])
-                ),
-            }
-            events.append(event)
-        return events
+            bundle = self._build_text_bundle(skill_name, category, description, extraction_text)
+            prepared_docs.append(
+                {
+                    "doc": doc,
+                    "bundle": bundle,
+                    "description_preview": self._short_text(description, 200) if description else "",
+                }
+            )
+        return prepared_docs
+
+    def _extract_documents_variant(
+        self,
+        prepared_docs: Sequence[Dict[str, Any]],
+        variant: str,
+    ) -> List[Dict[str, Any]]:
+        if variant == "baseline":
+            return [
+                self._extract_structured_baseline(item["bundle"]["full_text"], use_action_aliases=False)
+                for item in prepared_docs
+            ]
+
+        predictions_by_index: List[List[Dict[str, Any]] | None] = [None] * len(prepared_docs)
+        eligible_indices = [
+            index for index, item in enumerate(prepared_docs) if item["bundle"].get("gliner_eligible")
+        ]
+        if eligible_indices:
+            texts = [prepared_docs[index]["bundle"]["gliner_text"] for index in eligible_indices]
+            batch_predictions = self._predict_gliner_batch(texts)
+            if batch_predictions is not None:
+                for index, predictions in zip(eligible_indices, batch_predictions):
+                    predictions_by_index[index] = predictions
+
+        extractions: List[Dict[str, Any]] = []
+        for index, item in enumerate(prepared_docs):
+            extraction, _ = self._extract_structured_enhanced(
+                bundle=item["bundle"],
+                gliner_predictions=predictions_by_index[index],
+                collect_debug=False,
+            )
+            extractions.append(extraction)
+        return extractions
+
+    def _build_event_from_doc(
+        self,
+        doc: Dict[str, Any],
+        description_preview: str,
+        extraction: Dict[str, Any],
+        variant: str,
+    ) -> Dict[str, Any]:
+        return {
+            "skill_id": doc.get("skill_id", ""),
+            "skill_name": doc.get("skill_name", ""),
+            "owner": doc.get("owner", ""),
+            "category": doc.get("category", ""),
+            "detail_url": doc.get("detail_url", ""),
+            "description_preview": description_preview,
+            "variant": variant,
+            "evidence_count": sum(len(items or []) for items in extraction.get("evidence", {}).values()),
+            "extraction": extraction,
+            "event_summary": self._build_event_summary(doc.get("skill_name", ""), extraction),
+            "info_point_count": sum(1 for field in EXTRACTED_FIELDS if extraction.get(field, [])),
+        }
+
+    def build_event_records(self, variant: str = "enhanced") -> List[Dict[str, Any]]:
+        prepared_docs = self._prepare_document_inputs()
+        extractions = self._extract_documents_variant(prepared_docs, variant=variant)
+        return [
+            self._build_event_from_doc(
+                doc=item["doc"],
+                description_preview=item["description_preview"],
+                extraction=extraction,
+                variant=variant,
+            )
+            for item, extraction in zip(prepared_docs, extractions)
+        ]
 
     def extract_all(self) -> List[Dict[str, Any]]:
-        """对当前数据集执行整批抽取，并缓存结果。"""
-        if not self.documents:
-            self.load_data()
-
-        self.extraction_results = []
-        for doc in self.documents:
-            skill_id = doc.get("skill_id", "")
-            skill_name = doc.get("skill_name", "")
-            description = doc.get("description", "")
-            external_skill_text = self._read_external_skill_text(doc)
-            skill_md_raw_text = doc.get("skill_md_raw_text", "")
-            skill_md = doc.get("skill_md", "")
-            category = doc.get("category", "")
-            extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
-            full_text = f"{skill_name} {category} {extraction_text}"
-            extraction = self.extract_from_text(full_text)
-            event = {
-                "skill_id": skill_id,
-                "skill_name": skill_name,
-                "owner": doc.get("owner", ""),
-                "category": category,
-                "detail_url": doc.get("detail_url", ""),
-                "description_preview": self._short_text(description, 200) if description else "",
-                "variant": self.variant,
-                "evidence_count": sum(
-                    len(items or [])
-                    for items in extraction.get("evidence", {}).values()
-                ),
-                "extraction": extraction,
-                "event_summary": self._build_event_summary(skill_name, extraction),
-                "info_point_count": sum(
-                    1 for field in ["platforms", "languages", "action_types", "target_domains", "output_formats", "metrics"]
-                    if extraction.get(field, [])
-                ),
-            }
-            self.extraction_results.append(event)
+        prepared_docs = self._prepare_document_inputs()
+        extractions = self._extract_documents_variant(prepared_docs, variant=self.variant)
+        self.extraction_results = [
+            self._build_event_from_doc(
+                doc=item["doc"],
+                description_preview=item["description_preview"],
+                extraction=extraction,
+                variant=self.variant,
+            )
+            for item, extraction in zip(prepared_docs, extractions)
+        ]
         return self.extraction_results
 
     @staticmethod
     def _build_event_summary(skill_name: str, extraction: Dict[str, Any]) -> str:
-        """把抽取结果压缩为一段便于阅读的摘要。"""
         parts = [f"[{skill_name}]"]
 
         actions = extraction.get("action_types", [])
         if actions:
-            parts.append(f"能够 {'/'.join(actions[:3])}")
+            parts.append(f"actions={'/'.join(actions[:3])}")
 
         domains = extraction.get("target_domains", [])
         if domains:
-            parts.append(f"服务于 {'/'.join(domains[:2])} 领域")
+            parts.append(f"domains={'/'.join(domains[:2])}")
 
         platforms = extraction.get("platforms", [])
         if platforms:
-            parts.append(f"支持 {'/'.join(platforms[:3])} 平台")
+            parts.append(f"platforms={'/'.join(platforms[:3])}")
 
         languages = extraction.get("languages", [])
         if languages:
-            parts.append(f"使用 {'/'.join(languages[:3])} 技术")
+            parts.append(f"tech={'/'.join(languages[:3])}")
 
         formats = extraction.get("output_formats", [])
         if formats:
-            parts.append(f"输出 {'/'.join(formats[:2])} 格式")
+            parts.append(f"formats={'/'.join(formats[:2])}")
 
         metrics = extraction.get("metrics", [])
         if metrics:
             metric_strs = [f"{m['value']}{m['unit']}" for m in metrics[:2]]
-            parts.append(f"涉及 {', '.join(metric_strs)}")
+            parts.append(f"metrics={', '.join(metric_strs)}")
 
-        return "，".join(parts) + "。"
+        return " | ".join(parts)
 
     @staticmethod
     def _compact_evidence_sample(event: Dict[str, Any], evidence_entry: Dict[str, Any]) -> Dict[str, Any]:
-        """把完整证据记录压缩成报告友好的样本结构。"""
         return {
             "skill_name": event.get("skill_name", ""),
             "skill_id": event.get("skill_id", ""),
@@ -476,7 +1295,6 @@ class SkillsIESystem:
         }
 
     def _summarize_explainability(self) -> Dict[str, Any]:
-        """按字段汇总证据覆盖率和证据来源分布。"""
         total = len(self.extraction_results)
         field_docs = Counter()
         field_items = Counter()
@@ -528,7 +1346,6 @@ class SkillsIESystem:
         }
 
     def generate_report(self) -> Dict[str, Any]:
-        """生成抽取覆盖率、值分布与证据统计报告。"""
         if not self.extraction_results:
             self.extract_all()
 
@@ -540,7 +1357,7 @@ class SkillsIESystem:
         for event in self.extraction_results:
             extraction = event["extraction"]
             info_point_distribution[event["info_point_count"]] += 1
-            for field_name in ["platforms", "languages", "action_types", "target_domains", "output_formats", "metrics"]:
+            for field_name in EXTRACTED_FIELDS:
                 values = extraction.get(field_name, [])
                 if values:
                     field_counts[field_name] += 1
@@ -560,26 +1377,20 @@ class SkillsIESystem:
                     "count": field_counts[field],
                     "rate": round(field_counts[field] / max(total, 1), 4),
                 }
-                for field in ["platforms", "languages", "action_types", "target_domains", "output_formats", "metrics"]
+                for field in EXTRACTED_FIELDS
             },
             "top_values_per_field": {
-                field: counter.most_common(15)
-                for field, counter in field_value_counts.items()
+                field: counter.most_common(15) for field, counter in field_value_counts.items()
             },
             "info_point_distribution": dict(sorted(info_point_distribution.items())),
-            "documents_with_all_fields": sum(
-                1 for e in self.extraction_results if e["info_point_count"] >= 5
-            ),
-            "documents_with_no_extraction": sum(
-                1 for e in self.extraction_results if e["info_point_count"] == 0
-            ),
+            "documents_with_all_fields": sum(1 for e in self.extraction_results if e["info_point_count"] >= 5),
+            "documents_with_no_extraction": sum(1 for e in self.extraction_results if e["info_point_count"] == 0),
             "total_evidence_items": sum(e.get("evidence_count", 0) for e in self.extraction_results),
             "explainability": self._summarize_explainability(),
         }
         return report
 
     def save_results(self) -> Dict[str, str]:
-        """保存抽取结果、报告与项目状态文件。"""
         self.config.ensure_runtime_dirs()
         results_path = self.config.paths.extraction_results_file
         save_json_atomic(
@@ -614,27 +1425,19 @@ class SkillsIESystem:
     def search_extractions(
         self, query: str, field: str | None = None, top_k: int = 10
     ) -> List[Dict[str, Any]]:
-        """在抽取结果上做轻量字段检索。"""
         if not self.extraction_results:
             self.extract_all()
 
-        # 这里使用启发式打分而非复杂排序，目标是便于人工浏览抽取结果。
         query_lower = query.lower().strip()
         scored: List[Tuple[float, Dict[str, Any]]] = []
-        fields_to_search = [field] if field else [
-            "platforms",
-            "languages",
-            "action_types",
-            "target_domains",
-            "output_formats",
-        ]
+        fields_to_search = [field] if field else ENUM_FIELDS
 
         for event in self.extraction_results:
             extraction = event["extraction"]
             score = 0.0
 
-            for f in fields_to_search:
-                values = extraction.get(f, [])
+            for current_field in fields_to_search:
+                values = extraction.get(current_field, [])
                 for value in values:
                     value_text = str(value).lower()
                     if query_lower == value_text:
@@ -659,23 +1462,22 @@ class SkillsIESystem:
 
 
 def print_extraction_results(results: List[Dict[str, Any]], limit: int = 10) -> None:
-    """把抽取结果打印为终端可读格式。"""
     for i, event in enumerate(results[:limit], 1):
         print(f"\n[{i}] {event['skill_name']}  (category: {event.get('category', '')})")
         extraction = event["extraction"]
         if extraction["platforms"]:
-            print(f"    平台: {', '.join(extraction['platforms'])}")
+            print(f"    Platforms: {', '.join(extraction['platforms'])}")
         if extraction["languages"]:
-            print(f"    技术: {', '.join(extraction['languages'])}")
+            print(f"    Languages: {', '.join(extraction['languages'])}")
         if extraction["action_types"]:
-            print(f"    功能: {', '.join(extraction['action_types'])}")
+            print(f"    Actions: {', '.join(extraction['action_types'])}")
         if extraction["target_domains"]:
-            print(f"    领域: {', '.join(extraction['target_domains'])}")
+            print(f"    Domains: {', '.join(extraction['target_domains'])}")
         if extraction["output_formats"]:
-            print(f"    格式: {', '.join(extraction['output_formats'])}")
+            print(f"    Formats: {', '.join(extraction['output_formats'])}")
         if extraction["metrics"]:
             metrics_str = ", ".join(f"{m['value']} {m['unit']}" for m in extraction["metrics"])
-            print(f"    指标: {metrics_str}")
+            print(f"    Metrics: {metrics_str}")
 
         evidence_map = extraction.get("evidence", {})
         evidence_lines: List[str] = []
@@ -692,7 +1494,7 @@ def print_extraction_results(results: List[Dict[str, Any]], limit: int = 10) -> 
                 if len(evidence_lines) >= 2:
                     break
         if evidence_lines:
-            print(f"    证据: {' ; '.join(evidence_lines)}")
-        print(f"    事件: {event.get('event_summary', '')}")
+            print(f"    Evidence: {' ; '.join(evidence_lines)}")
+        print(f"    Event: {event.get('event_summary', '')}")
         if "match_score" in event:
-            print(f"    匹配分: {event['match_score']:.2f}")
+            print(f"    Match Score: {event['match_score']:.2f}")
