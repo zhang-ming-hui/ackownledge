@@ -1,0 +1,53 @@
+digraph paqu_flow {
+  graph [
+    rankdir=LR,
+    splines=ortho,
+    nodesep=0.42,
+    ranksep=0.70,
+    pad=0.18,
+    bgcolor="white"
+  ];
+
+  node [
+    shape=rect,
+    style="rounded,filled",
+    fontname="Microsoft YaHei",
+    fontsize=12,
+    margin="0.20,0.12",
+    penwidth=1.6,
+    color="#57789A",
+    fontcolor="#203040",
+    fillcolor="#EEF3F7"
+  ];
+
+  edge [
+    color="#667788",
+    penwidth=1.7,
+    arrowsize=0.75
+  ];
+
+  collect [label="1. 收集详情页 URL\n首页滚动抓取"];
+  fetch   [label="2. 拉取详情页 HTML\ncurl / urllib"];
+  parse   [label="3. 解析字段\nSSR 片段与 label block"];
+  skillmd [label="4. 补抓 SKILL.md\n必要时展开折叠区"];
+  persist [label="5. 规范化落盘\nJSON / CSV + 外置文本"];
+
+  collect -> fetch -> parse -> skillmd -> persist;
+
+  checkpoint [
+    shape=note,
+    style="filled",
+    color="#9DB4C6",
+    fillcolor="#FFFFFF",
+    fontcolor="#42576A",
+    margin="0.18,0.12",
+    label="checkpoint\nrecords / failed_urls\n失败可重试，支持断点续跑"
+  ];
+
+  { rank=same; fetch; checkpoint; }
+
+  fetch   -> checkpoint [style=dashed, arrowhead=none];
+  parse   -> checkpoint [style=dashed, arrowhead=none];
+  skillmd -> checkpoint [style=dashed, arrowhead=none];
+  persist -> checkpoint [style=dashed, arrowhead=none];
+}

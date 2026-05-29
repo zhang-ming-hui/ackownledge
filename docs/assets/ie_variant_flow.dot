@@ -1,0 +1,55 @@
+digraph ie_variant_flow {
+  graph [
+    rankdir=TB,
+    splines=ortho,
+    nodesep=0.40,
+    ranksep=0.52,
+    pad=0.18,
+    bgcolor="white"
+  ];
+
+  node [
+    shape=rect,
+    style="rounded,filled",
+    fontname="Microsoft YaHei",
+    fontsize=12,
+    margin="0.22,0.12",
+    penwidth=1.6,
+    color="#57789A",
+    fontcolor="#203040",
+    fillcolor="#EEF3F7"
+  ];
+
+  edge [
+    color="#667788",
+    penwidth=1.7,
+    arrowsize=0.75
+  ];
+
+  input  [label="输入文本包\nfull_text / gliner_text / fallback_text"];
+  base   [label="Stage 1\nbaseline\n精确关键字 + metrics 正则"];
+  regex  [label="Stage 2\nenhanced-regex\nalias 扩展 + 词表归一化 + fallback"];
+  gate   [shape=diamond, style="filled", fillcolor="#FFFFFF", color="#57789A", label="英文主导且\nGLiNER可用?"];
+  gliner [label="Stage 3\nenhanced-gliner\nGLiNER 候选 + 阈值过滤"];
+  merge  [label="结果合并\n归一化 / 回退 / 证据保留"];
+  output [label="结构化输出\n字段结果 + evidence"];
+
+  input -> base -> regex -> gate;
+  gate -> gliner [label="是", fontname="Microsoft YaHei", fontsize=11];
+  gate -> merge  [label="否", fontname="Microsoft YaHei", fontsize=11];
+  gliner -> merge;
+  merge -> output;
+
+  note [
+    shape=note,
+    style="filled",
+    color="#9DB4C6",
+    fillcolor="#FFFFFF",
+    fontcolor="#42576A",
+    margin="0.18,0.12",
+    label="Stage 3 不是替代规则层，\n而是先给候选 span，\n再交给词表和 fallback 决定是否收下。"
+  ];
+
+  { rank=same; gliner; note; }
+  note -> gliner [style=dashed, arrowhead=none];
+}
