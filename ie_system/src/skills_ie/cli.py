@@ -24,6 +24,7 @@ from collections import Counter
 from pathlib import Path
 
 from .config import DEFAULT_CONFIG_PATH, load_config
+from .diagnostics import build_eval_diagnostic_report, render_eval_diagnostic_markdown
 from .evaluation import (
     compare_extraction_variants,
     evaluate_extraction,
@@ -198,6 +199,12 @@ def _build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--variant", choices=["baseline", "enhanced"], default="enhanced")
 
     # serve-web: 启动 Web 界面
+    diag_parser = subparsers.add_parser("diagnose-eval", help="Run expanded evaluation diagnostics")
+    diag_parser.add_argument("--eval-set", default="ground_truth_expanded.json", help="Primary eval set name")
+    diag_parser.add_argument("--compare-eval-set", default="ground_truth.json", help="Secondary eval set name")
+    diag_parser.add_argument("--skip-full-compare", action="store_true", help="Skip full 1000-doc regex vs gliner comparison")
+    diag_parser.add_argument("--no-cache-full-gliner", action="store_true", help="Rebuild full enhanced extraction instead of using cached output")
+
     web_parser = subparsers.add_parser("serve-web", help="Start the Web UI")
     web_parser.add_argument("--host", default="127.0.0.1", help="Host")
     web_parser.add_argument("--port", type=int, default=5001, help="Port")
@@ -311,6 +318,35 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # ── serve-web ──
+    if args.command == "diagnose-eval":
+        primary_eval_path = config.resolve_eval_path(args.eval_set)
+        secondary_eval_path = (
+            config.resolve_eval_path(args.compare_eval_set) if args.compare_eval_set else None
+        )
+        if not primary_eval_path.exists():
+            print(f"Primary evaluation set not found: {primary_eval_path}")
+            return 1
+        if secondary_eval_path is not None and not secondary_eval_path.exists():
+            print(f"Secondary evaluation set not found: {secondary_eval_path}")
+            return 1
+
+        report = build_eval_diagnostic_report(
+            config,
+            primary_eval_path=primary_eval_path,
+            secondary_eval_path=secondary_eval_path,
+            include_full_compare=not args.skip_full_compare,
+            use_cached_full_gliner=not args.no_cache_full_gliner,
+        )
+        config.ensure_runtime_dirs()
+        report_path = config.paths.state_dir / "eval_diagnostic_report.json"
+        summary_path = config.paths.state_dir / "eval_diagnostic_summary.md"
+        save_json_atomic(report_path, report)
+        save_text_atomic(summary_path, render_eval_diagnostic_markdown(report))
+        _print_json(report)
+        print(f"\nSaved: {report_path}")
+        print(f"Saved: {summary_path}")
+        return 0
+
     if args.command == "serve-web":
         serve_web(config_path=Path(args.config), host=args.host, port=args.port, debug=args.debug)
         return 0

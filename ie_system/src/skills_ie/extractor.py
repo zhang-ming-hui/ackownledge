@@ -69,6 +69,11 @@ ACTION_ALIAS_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:parsing|parser)\b", re.IGNORECASE), "parse"),
     (re.compile(r"\b(?:evaluation|evaluator)\b", re.IGNORECASE), "evaluate"),
     (re.compile(r"\b(?:design|designer|designing)\b", re.IGNORECASE), "design"),
+    (re.compile(r"\b(?:authentication)\b", re.IGNORECASE), "authenticate"),
+    (re.compile(r"\b(?:authorization)\b", re.IGNORECASE), "authorize"),
+    (re.compile(r"\b(?:migration|migrations)\b", re.IGNORECASE), "migrate"),
+    (re.compile(r"\b(?:refactoring)\b", re.IGNORECASE), "refactor"),
+    (re.compile(r"\b(?:synchronization|synchronisation)\b", re.IGNORECASE), "sync"),
 ]
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -126,6 +131,72 @@ VOCAB_CANONICAL_OVERRIDES: Dict[str, Dict[str, str]] = {
     "target_domains": {
         "ecommerce": "e-commerce",
     },
+}
+
+GLINER_PLATFORM_BOUNDARY_TO_DOMAIN: Dict[str, str] = {
+    "ios": "mobile",
+    "android": "mobile",
+}
+
+GLINER_PLATFORM_BOUNDARY_FILTER = {
+    "macos",
+    "linux",
+    "windows",
+}
+
+GLINER_PLATFORM_OUT_OF_SCHEMA = {
+    "mcp",
+    "claude",
+    "claude code",
+    "gemini",
+    "chatgpt",
+    "perplexity",
+    "codex",
+    "chrome",
+    "prisma",
+}
+
+GLINER_LANGUAGE_OUT_OF_SCHEMA = {
+    "llm",
+}
+
+GLINER_GENERIC_ACTION_NOUNS = {
+    "actions",
+    "advanced patterns",
+    "autonomy",
+    "actionability",
+    "cookie management",
+    "crawlability",
+    "data loading",
+    "error handling",
+    "form filling",
+    "interactions",
+    "navigation",
+    "payments",
+    "pre-built actions",
+    "pretooluse",
+    "queries",
+    "rate limiting",
+    "reactivity",
+    "resource management",
+    "server actions",
+    "skill loading",
+    "state management",
+    "voice cloning",
+}
+
+GLINER_GENERIC_OUTPUT_META = {
+    "output format",
+    "coverage",
+    "field-level",
+    "minimal",
+    "quick chat display",
+    "visual-style.md",
+    "design.md",
+    "stdin",
+    "br",
+    "string",
+    "urls",
 }
 
 
@@ -869,6 +940,68 @@ class SkillsIESystem:
 
         return candidates
 
+    def _redirect_gliner_span(
+        self,
+        raw_span: str,
+        field: str,
+    ) -> List[Tuple[str, str, str]]:
+        clean_span = self._normalize_surface(raw_span)
+        if not clean_span:
+            return []
+
+        redirects: List[Tuple[str, str, str]] = []
+
+        def add_redirect(
+            target_field: str,
+            normalized: str | None,
+            normalization_kind: str | None,
+        ) -> None:
+            if not normalized or not normalization_kind:
+                return
+            redirects.append((target_field, normalized, normalization_kind))
+
+        if field == "platforms":
+            mobile_domain = GLINER_PLATFORM_BOUNDARY_TO_DOMAIN.get(clean_span)
+            if mobile_domain:
+                redirects.append(("target_domains", mobile_domain, "schema_boundary"))
+                return redirects
+            normalized, normalization_kind = self._normalize_to_vocab(raw_span, "languages")
+            add_redirect("languages", normalized, normalization_kind)
+            return redirects
+
+        if field == "languages":
+            normalized, normalization_kind = self._normalize_to_vocab(raw_span, "platforms")
+            add_redirect("platforms", normalized, normalization_kind)
+            if redirects:
+                return redirects
+            normalized, normalization_kind = self._normalize_to_vocab(raw_span, "output_formats")
+            add_redirect("output_formats", normalized, normalization_kind)
+            return redirects
+
+        if field == "output_formats":
+            normalized, normalization_kind = self._normalize_to_vocab(raw_span, "languages")
+            add_redirect("languages", normalized, normalization_kind)
+            return redirects
+
+        return redirects
+
+    def _should_filter_gliner_unknown(self, raw_span: str, field: str) -> bool:
+        clean_span = self._normalize_surface(raw_span)
+        if not clean_span:
+            return True
+
+        if field == "platforms" and clean_span in GLINER_PLATFORM_BOUNDARY_FILTER:
+            return True
+        if field == "platforms" and clean_span in GLINER_PLATFORM_OUT_OF_SCHEMA:
+            return True
+        if field == "languages" and clean_span in GLINER_LANGUAGE_OUT_OF_SCHEMA:
+            return True
+        if field == "action_types" and clean_span in GLINER_GENERIC_ACTION_NOUNS:
+            return True
+        if field == "output_formats" and clean_span in GLINER_GENERIC_OUTPUT_META:
+            return True
+        return False
+
     def _merge_field_values_and_evidence(
         self,
         base_values: List[str],
@@ -1091,6 +1224,40 @@ class SkillsIESystem:
         projection = self._empty_gliner_projection()
         all_raw_hits: List[Dict[str, Any]] = []
 
+        def append_projected_value(
+            target_field: str,
+            normalized: str,
+            raw_text: str,
+            label: str,
+            score: float,
+            context: str,
+            normalization_kind: str,
+            rule_source: str,
+            extra: Dict[str, Any] | None = None,
+        ) -> None:
+            payload = dict(extra or {})
+            projection["fields"][target_field]["values"].append(normalized)
+            projection["fields"][target_field]["evidence"].append(
+                self._build_evidence_entry(
+                    field=target_field,
+                    value=normalized,
+                    rule_source=rule_source,
+                    pattern_source=label,
+                    matched_text=raw_text,
+                    context=context,
+                    extra=payload or None,
+                )
+            )
+            projection["fields"][target_field]["accepted_hits"].append(
+                {
+                    "value": normalized,
+                    "label": label,
+                    "score": round(score, 4),
+                    "matched_text": raw_text,
+                    "normalization_kind": normalization_kind,
+                }
+            )
+
         for prediction in predictions:
             label = str(prediction.get("label") or prediction.get("entity") or "").strip()
             field = self._label_to_field.get(label.lower())
@@ -1138,28 +1305,41 @@ class SkillsIESystem:
                     if normalization_kind != "exact" or self._fold_lookup(raw_text) != self._fold_lookup(normalized):
                         rule_source = "gliner_normalized"
                         extra["normalized_from"] = raw_text
-                    projection["fields"][field]["values"].append(normalized)
-                    projection["fields"][field]["evidence"].append(
-                        self._build_evidence_entry(
-                            field=field,
-                            value=normalized,
-                            rule_source=rule_source,
-                            pattern_source=label,
-                            matched_text=raw_text,
-                            context=context,
-                            extra=extra,
-                        )
-                    )
-                    projection["fields"][field]["accepted_hits"].append(
-                        {
-                            "value": normalized,
-                            "label": label,
-                            "score": round(score, 4),
-                            "matched_text": raw_text,
-                            "normalization_kind": normalization_kind,
-                        }
+                    append_projected_value(
+                        target_field=field,
+                        normalized=normalized,
+                        raw_text=raw_text,
+                        label=label,
+                        score=score,
+                        context=context,
+                        normalization_kind=normalization_kind,
+                        rule_source=rule_source,
+                        extra=extra,
                     )
             else:
+                redirected = self._redirect_gliner_span(raw_text, field)
+                if redirected:
+                    for target_field, normalized, normalization_kind in redirected:
+                        append_projected_value(
+                            target_field=target_field,
+                            normalized=normalized,
+                            raw_text=raw_text,
+                            label=label,
+                            score=score,
+                            context=context,
+                            normalization_kind=f"redirect_{normalization_kind}",
+                            rule_source="gliner_reassigned",
+                            extra={
+                                "score": round(score, 4),
+                                "reassigned_from_field": field,
+                                "normalized_from": raw_text,
+                            },
+                        )
+                    continue
+
+                if self._should_filter_gliner_unknown(raw_text, field):
+                    continue
+
                 projection["fields"][field]["unknown_evidence"].append(
                     self._build_evidence_entry(
                         field=field,
@@ -1176,7 +1356,9 @@ class SkillsIESystem:
             raw_hits = projection["fields"][field]["raw_hits"]
             threshold_hits = projection["fields"][field]["threshold_hits"]
             values = projection["fields"][field]["values"]
-            if not raw_hits:
+            if field != "metrics" and values:
+                fallback_reason = "not_needed"
+            elif not raw_hits:
                 fallback_reason = "no_hits"
             elif not threshold_hits:
                 fallback_reason = "below_threshold"
@@ -1262,37 +1444,60 @@ class SkillsIESystem:
 
         assert self._gliner_model is not None
         model = self._gliner_model
-        kwargs: Dict[str, Any] = {
+        base_kwargs: Dict[str, Any] = {
             "threshold": self._gliner_min_threshold,
             "multi_label": True,
             "flat_ner": False,
             "batch_size": self.config.gliner.batch_size,
         }
-        try:
-            if hasattr(model, "batch_predict_entities"):
-                predictions = model.batch_predict_entities(list(texts), self._gliner_labels, **kwargs)
-            else:
-                predictions = model.inference(list(texts), self._gliner_labels, **kwargs)
-        except TypeError:
-            kwargs.pop("batch_size", None)
+
+        def run_chunk(chunk_texts: List[str]) -> List[List[Dict[str, Any]]] | None:
+            kwargs = dict(base_kwargs)
             try:
                 if hasattr(model, "batch_predict_entities"):
-                    predictions = model.batch_predict_entities(list(texts), self._gliner_labels, **kwargs)
+                    predictions = model.batch_predict_entities(chunk_texts, self._gliner_labels, **kwargs)
                 else:
-                    predictions = model.inference(list(texts), self._gliner_labels, **kwargs)
-            except Exception as exc:  # pragma: no cover - runtime API mismatch
+                    predictions = model.inference(chunk_texts, self._gliner_labels, **kwargs)
+            except TypeError:
+                kwargs.pop("batch_size", None)
+                try:
+                    if hasattr(model, "batch_predict_entities"):
+                        predictions = model.batch_predict_entities(chunk_texts, self._gliner_labels, **kwargs)
+                    else:
+                        predictions = model.inference(chunk_texts, self._gliner_labels, **kwargs)
+                except Exception as exc:  # pragma: no cover - runtime API mismatch
+                    self._gliner_load_error = f"gliner inference failed: {exc}"
+                    return None
+            except Exception as exc:  # pragma: no cover - runtime model failure
                 self._gliner_load_error = f"gliner inference failed: {exc}"
                 return None
-        except Exception as exc:  # pragma: no cover - runtime model failure
-            self._gliner_load_error = f"gliner inference failed: {exc}"
-            return None
 
+            normalized_chunk: List[List[Dict[str, Any]]] = []
+            for batch_item in predictions or []:
+                if isinstance(batch_item, list):
+                    normalized_chunk.append([dict(item) for item in batch_item if isinstance(item, dict)])
+                else:
+                    normalized_chunk.append([])
+            while len(normalized_chunk) < len(chunk_texts):
+                normalized_chunk.append([])
+            return normalized_chunk
+
+        batch_size = max(1, int(self.config.gliner.batch_size))
         normalized_predictions: List[List[Dict[str, Any]]] = []
-        for batch_item in predictions or []:
-            if isinstance(batch_item, list):
-                normalized_predictions.append([dict(item) for item in batch_item if isinstance(item, dict)])
-            else:
-                normalized_predictions.append([])
+        for start in range(0, len(texts), batch_size):
+            chunk_texts = list(texts[start : start + batch_size])
+            chunk_predictions = run_chunk(chunk_texts)
+            if chunk_predictions is not None:
+                normalized_predictions.extend(chunk_predictions)
+                continue
+
+            # If one batch fails, fall back to per-document inference instead of dropping the whole corpus.
+            for text in chunk_texts:
+                single_predictions = run_chunk([text])
+                if single_predictions is not None and single_predictions:
+                    normalized_predictions.append(single_predictions[0])
+                else:
+                    normalized_predictions.append([])
 
         while len(normalized_predictions) < len(texts):
             normalized_predictions.append([])
