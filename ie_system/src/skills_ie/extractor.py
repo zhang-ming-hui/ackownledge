@@ -1,4 +1,38 @@
-"""Structured information extraction for skill descriptions."""
+"""
+结构化信息抽取引擎 —— IE 子系统的核心。
+
+从技能描述文本中自动抽取 6 个结构化字段：
+  platforms      — 支持的平台/工具（如 github, slack, google）
+  languages      — 使用的编程语言/框架（如 python, react, pytorch）
+  action_types   — 执行的动作类型（如 analyze, generate, monitor）
+  target_domains — 面向的应用领域（如 e-commerce, ai, seo）
+  output_formats — 输出格式（如 json, pdf, markdown）
+  metrics        — 量化指标（如 "5 criteria", "10-point scale"）
+
+支持的抽取变体：
+  baseline  — 纯规则引擎：关键词精确匹配 + metrics 正则
+  enhanced  — 规则 + GLiNER 联合：GLiNER NER 模型先抽取实体，规则作为回退和补充
+
+架构概览：
+  1. 文本准备（_prepare_document_inputs）:
+     - 拼接 skill_name + description + external skill text
+     - 判断英语主导性（english_dominant），决定是否启用 GLiNER
+  
+  2. 抽取流程（_extract_structured_enhanced）:
+     - GLiNER 阶段：GLiNER 模型批量预测实体 → 词汇规范化 → 分类到对应字段
+     - 回退阶段：对 GLiNER 未命中的字段，用关键词正则 + 动作别名做补充
+     - metrics 单独处理：先用 GLiNER 找到的数字候选再做正则解析
+  
+  3. 输出（_build_event_from_doc）:
+     - 构建含 extraction + evidence + event_summary 的事件记录
+     - evidence 记录每条结果来自哪个规则/模型，用于可解释性
+
+关键设计决策：
+  - VOCAB_CANONICAL_OVERRIDES：处理缩写到全称的规范化（如 jd → jd.com）
+  - ACTION_ALIAS_PATTERNS：将名词形式映射到动词原形（如 analysis → analyze）
+  - _normalize_span_candidates：多级匹配策略（精确 → 别名 → 子串 → 模糊编辑距离）
+  - english_only_bias：非英文文本跳过 GLiNER（避免模型对中文的误判）
+"""
 
 from __future__ import annotations
 
@@ -10,6 +44,13 @@ from typing import Any, Dict, Iterable, List, Sequence, Tuple
 from .config import IEConfig
 from .state import save_json_atomic, utc_now_iso
 
+# ═══════════════════════════════════════════════════════════════════════
+# 动作别名映射（enhanced 变体使用）
+# ═══════════════════════════════════════════════════════════════════════
+# 将动作的名词/形容词形式规范化到动词原形。
+# 例如 description 中含 "analysis" → 抽取 action_types=["analyze"]
+# 每个元组是 (匹配正则, 规范化动作名)
+# 在 enhanced 变体的回退阶段和 alias 扩展阶段都会使用
 ACTION_ALIAS_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:analysis|analytics|analyzer|analyst)\b", re.IGNORECASE), "analyze"),
     (re.compile(r"\b(?:optimization|optimizer|optimized)\b", re.IGNORECASE), "optimize"),
@@ -30,6 +71,11 @@ ACTION_ALIAS_PATTERNS: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:design|designer|designing)\b", re.IGNORECASE), "design"),
 ]
 
+# ═══════════════════════════════════════════════════════════════════════
+# 字段定义
+# ═══════════════════════════════════════════════════════════════════════
+
+# 全部 6 个抽取字段（含 metrics）
 EXTRACTED_FIELDS = [
     "platforms",
     "languages",
@@ -39,6 +85,8 @@ EXTRACTED_FIELDS = [
     "metrics",
 ]
 
+# 5 个枚举字段（不含 metrics，metrics 用独立的正则匹配）
+# GLiNER 和关键词匹配都针对 ENUM_FIELDS 工作
 ENUM_FIELDS = [
     "platforms",
     "languages",
@@ -47,6 +95,8 @@ ENUM_FIELDS = [
     "output_formats",
 ]
 
+# 字段名 → 实例属性名的映射
+# 用于根据字段名动态获取对应的关键词正则列表
 FIELD_PATTERN_ATTRS = {
     "platforms": "_platform_patterns",
     "languages": "_language_patterns",
@@ -55,6 +105,12 @@ FIELD_PATTERN_ATTRS = {
     "output_formats": "_format_patterns",
 }
 
+# ═══════════════════════════════════════════════════════════════════════
+# 词汇规范化覆盖表
+# ═══════════════════════════════════════════════════════════════════════
+# 处理缩写/简写 → 全称的映射。
+# 例如 "jd" → "jd.com"（防止缩写与其他实体的 JD 混淆）
+# 这些覆盖在 _canonicalize_vocab_value 中应用，优先级高于 GLiNER 别名。
 VOCAB_CANONICAL_OVERRIDES: Dict[str, Dict[str, str]] = {
     "platforms": {
         "jd": "jd.com",
@@ -73,21 +129,49 @@ VOCAB_CANONICAL_OVERRIDES: Dict[str, Dict[str, str]] = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# SkillsIESystem — 核心信息抽取引擎
+# ═══════════════════════════════════════════════════════════════════════
+
 class SkillsIESystem:
-    """Information extraction system with rule baseline and GLiNER-backed enhanced mode."""
+    """
+    信息抽取系统 —— 支持规则 baseline 和 GLiNER 增强 enhanced 两种变体。
+    
+    初始化时预编译所有关键词正则、构建词汇规范化目录、配置 GLiNER 参数。
+    主要 API:
+      load_data()           — 加载数据集
+      extract_all()         — 全量抽取，结果存入 self.extraction_results
+      extract_debug_payload(text) — 抽取单条文本并返回完整调试信息
+      search_extractions(query)   — 搜索已抽取结果
+      generate_report()     — 生成字段覆盖率统计报告
+      save_results()        — 保存结果 + 报告 + 状态文件
+    
+    内部方法分为多个层次：
+      (a) 文本预处理 —— _build_text_bundle, _prepare_focus_text, _read_external_skill_text
+      (b) 规则匹配    —— _extract_keywords_with_evidence, _extract_metrics_with_evidence
+      (c) GLiNER 集成 —— _ensure_gliner_model, _predict_gliner_batch, _project_gliner_predictions
+      (d) 词汇规范化  —— _normalize_to_vocab, _normalize_span_candidates, _initialize_normalization_catalogs
+      (e) 组装与输出  —— _extract_structured_enhanced, _build_event_from_doc, generate_report
+    """
 
     def __init__(self, config: IEConfig, variant: str = "enhanced") -> None:
         self.config = config
         self.variant = variant
+        # baseline 变体不使用动作别名扩展（保持纯关键词匹配）
         self.use_action_aliases = variant != "baseline"
         self.documents: List[Dict[str, Any]] = []
         self.extraction_results: List[Dict[str, Any]] = []
 
+        # ── 预编译所有关键词正则 ──
+        #  对 ie_config.json 中的 keywords 数组，逐词编译为 \bkeyword\b 形式的正则。\b 单词边界保证 "java" 不会误匹配到 "javascript"。
         self._platform_patterns = self._build_keyword_patterns(config.platform_keywords)
         self._language_patterns = self._build_keyword_patterns(config.language_keywords)
         self._action_patterns = self._build_keyword_patterns(config.action_keywords)
         self._domain_patterns = self._build_keyword_patterns(config.domain_keywords)
         self._format_patterns = self._build_keyword_patterns(config.output_format_keywords)
+
+        # ── 预编译 metrics 正则 ──
+        # metrics 不依赖关键词列表，而是用正则从文本中直接匹配 "数字+单位" 模式
         self._metric_patterns = [
             re.compile(
                 r"(\d+)[\-\s]*(signal|criteria|item|point|step|dimension|layer|level|module|metric|check|rule|test|factor)",
@@ -101,6 +185,12 @@ class SkillsIESystem:
             ),
         ]
 
+        # ── 词汇规范化目录 ──
+        # _field_vocabs: 每个字段的关键词列表（来自配置）
+        # exact_map: cleaned_keyword → canonical（如 lowercase）
+        # folded_map: 去除特殊字符后的 key → canonical（如 "node.js" → "nodejs" → "node.js"）
+        # alias_map: 别名 → canonical（如 "github.com" → "github"）
+        # allowed_values: 该字段所有合法规范值集合
         self._field_vocabs = {
             "platforms": config.platform_keywords,
             "languages": config.language_keywords,
@@ -108,13 +198,24 @@ class SkillsIESystem:
             "target_domains": config.domain_keywords,
             "output_formats": config.output_format_keywords,
         }
+        # 直接匹配
         self._field_exact_maps: Dict[str, Dict[str, str]] = {}
+        # 大小字符更改之后匹配
         self._field_folded_maps: Dict[str, Dict[str, str]] = {}
+        # 别名匹配，比如github.com -> github
         self._field_alias_maps: Dict[str, Dict[str, str]] = {}
+        # 距离 <= 2 的fuzzy匹配，比如githu -> github，这个匹配只有在字符串长度大于或等于5的时候才会启用
+        # 避免出现距离匹配过于激进，比如将go匹配到任何go之外的东西
         self._field_allowed_values: Dict[str, set[str]] = {}
         self._field_folded_allowed_values: Dict[str, Dict[str, str]] = {}
+        # 为每个字段构建 5 个查找结构
         self._initialize_normalization_catalogs()
 
+        # ── GLiNER 初始化 ──
+        # label_to_field: GLiNER 标签 → IE 字段映射（来自配置的 label_map）
+        # gliner_labels: GLiNER 推理时使用的全部标签列表
+        # gliner_thresholds: 每个字段的置信度阈值
+        # gliner_min_threshold: _gliner_min_threshold 是用来传给 GLiNER API 的，低于这个值的预测 GLiNER 直接不会返回
         self._label_to_field = {
             label.lower(): field for label, field in self.config.gliner.label_map.items()
         }
@@ -125,6 +226,10 @@ class SkillsIESystem:
         self._gliner_checked = False
         self._gliner_load_error: str | None = None
 
+    # ────────────────────────────────────────────────────────────────
+    # (A) 关键词正则构建
+    # ────────────────────────────────────────────────────────────────
+
     @staticmethod
     def _build_keyword_patterns(keywords: Sequence[str]) -> List[Tuple[re.Pattern[str], str]]:
         patterns: List[Tuple[re.Pattern[str], str]] = []
@@ -132,6 +237,10 @@ class SkillsIESystem:
             escaped = re.escape(keyword)
             patterns.append((re.compile(r"\b" + escaped + r"\b", re.IGNORECASE), keyword.lower()))
         return patterns
+
+    # ────────────────────────────────────────────────────────────────
+    # (B) 词汇规范化目录与规范化工具
+    # ────────────────────────────────────────────────────────────────
 
     def _initialize_normalization_catalogs(self) -> None:
         for field, keywords in self._field_vocabs.items():
@@ -173,9 +282,15 @@ class SkillsIESystem:
 
     @staticmethod
     def _empty_extraction() -> Dict[str, Any]:
+        """构建空的抽取结果模板，每个字段都是空列表，evidence 同理。"""
         extraction = {field: [] for field in EXTRACTED_FIELDS}
         extraction["evidence"] = {field: [] for field in EXTRACTED_FIELDS}
         return extraction
+    # 先标准化表面形式，再查覆盖表。例如 "JD" → lowercase → "jd" → override → "jd.com"。
+
+    # ────────────────────────────────────────────────────────────────
+    # (C) Evidence 与文本工具方法
+    # ────────────────────────────────────────────────────────────────
 
     @staticmethod
     def _build_evidence_entry(
@@ -221,9 +336,11 @@ class SkillsIESystem:
     def _normalize_whitespace(value: str) -> str:
         return " ".join((value or "").split())
 
+    # "Hello World's BEST—Python！"
     @staticmethod
     def _normalize_surface(value: str) -> str:
         value = (value or "").lower()
+        # "hello world's best—python！"
         value = value.translate(
             str.maketrans(
                 {
@@ -243,14 +360,18 @@ class SkillsIESystem:
                 }
             )
         )
+        # "hello world's best-python!"
         value = re.sub(r"\s+", " ", value).strip()
+        # "hello world's best-python!"
         return value.strip(" \t\r\n.,;:!?()[]{}<>\"'")
+        # "hello world's best-python"
 
     @classmethod
     def _fold_lookup(cls, value: str) -> str:
         clean_value = cls._normalize_surface(value)
         clean_value = clean_value.replace("&", "and")
         return re.sub(r"[^a-z0-9+#]+", "", clean_value)
+    # 去掉所有非字母数字字符
 
     @staticmethod
     def _dedupe_preserve_order(values: Iterable[Any]) -> List[Any]:
@@ -281,6 +402,10 @@ class SkillsIESystem:
             return True
         return ascii_letters >= cjk_chars * 1.5
 
+    # ────────────────────────────────────────────────────────────────
+    # (D) 数据加载与文本准备
+    # ────────────────────────────────────────────────────────────────
+
     def load_data(self) -> int:
         with self.config.paths.data_file.open("r", encoding="utf-8") as file:
             self.documents = json.load(file)
@@ -302,6 +427,7 @@ class SkillsIESystem:
                     continue
         return ""
 
+    # GLiNER 模型输入有长度限制，所以要构造一个聚焦文本
     def _prepare_focus_text(
         self,
         skill_name: str,
@@ -349,6 +475,10 @@ class SkillsIESystem:
             "english_dominant": english_dominant,
             "gliner_eligible": gliner_eligible,
         }
+
+    # ────────────────────────────────────────────────────────────────
+    # (E) 抽取入口（extract / extract-one / extract_debug_payload）
+    # ────────────────────────────────────────────────────────────────
 
     def extract_from_text(self, text: str) -> Dict[str, Any]:
         return self.extract_from_text_variant(text, variant=self.variant)
@@ -400,6 +530,10 @@ class SkillsIESystem:
             collect_debug=collect_debug,
         )
         return extraction, debug_payload
+
+    # ────────────────────────────────────────────────────────────────
+    # (F) 规则匹配 —— Baseline & Enhanced 核心抽取逻辑
+    # ────────────────────────────────────────────────────────────────
 
     def _extract_structured_baseline(self, text: str, use_action_aliases: bool) -> Dict[str, Any]:
         extraction = self._empty_extraction()
@@ -524,6 +658,10 @@ class SkillsIESystem:
             return extraction, None
         return extraction, debug_payload
 
+    # ────────────────────────────────────────────────────────────────
+    # (G) 关键词与正则匹配（含 Evidence 记录）
+    # ────────────────────────────────────────────────────────────────
+
     def _extract_keywords_with_evidence(
         self,
         text: str,
@@ -646,6 +784,10 @@ class SkillsIESystem:
                 )
         return expanded, evidence
 
+    # ────────────────────────────────────────────────────────────────
+    # (H) 词汇规范化匹配（多级匹配策略）
+    # ────────────────────────────────────────────────────────────────
+
     def _normalize_to_vocab(self, raw_span: str, field: str) -> Tuple[str | None, str | None]:
         clean_span = self._normalize_surface(raw_span)
         if not clean_span:
@@ -745,6 +887,7 @@ class SkillsIESystem:
         merged_evidence.extend(supplement_evidence)
         return merged_values, merged_evidence
 
+    # 标准的 Levenshtein 编辑距离，加了一个提前退出优化：如果当前行的最小编辑距离已经超过 max_distance，直接返回 None。这样对于长串的 fuzzy 匹配不会做无用的全表扫描。
     @staticmethod
     def _bounded_edit_distance(left: str, right: str, max_distance: int) -> int | None:
         if abs(len(left) - len(right)) > max_distance:
@@ -764,6 +907,10 @@ class SkillsIESystem:
                 return None
             previous = current
         return previous[-1] if previous[-1] <= max_distance else None
+
+    # ────────────────────────────────────────────────────────────────
+    # (I) Metrics 抽取（独立正则流水线）
+    # ────────────────────────────────────────────────────────────────
 
     def _extract_metrics(self, text: str) -> List[Dict[str, str]]:
         metrics, _ = self._extract_metrics_with_evidence(text)
@@ -899,6 +1046,10 @@ class SkillsIESystem:
                 "result_count": 0,
             }
         return parsed_metrics, candidate_evidence + parsed_evidence, debug_payload
+
+    # ────────────────────────────────────────────────────────────────
+    # (J) GLiNER 模型生命周期（加载/预测/投影）
+    # ────────────────────────────────────────────────────────────────
 
     def _build_gliner_debug_stub(self, bundle: Dict[str, Any], reason: str = "disabled") -> Dict[str, Any]:
         return {
@@ -1147,20 +1298,25 @@ class SkillsIESystem:
             normalized_predictions.append([])
         return normalized_predictions
 
+    # ────────────────────────────────────────────────────────────────
+    # (K) 批量文档处理（全量抽取流程）
+    # ────────────────────────────────────────────────────────────────
+
     def _prepare_document_inputs(self) -> List[Dict[str, Any]]:
         if not self.documents:
             self.load_data()
 
         prepared_docs: List[Dict[str, Any]] = []
+        # 逐条读取 doc 的 skill_name / description / category
         for doc in self.documents:
             skill_name = doc.get("skill_name", "")
             description = doc.get("description", "")
-            external_skill_text = self._read_external_skill_text(doc)
+            external_skill_text = self._read_external_skill_text(doc) # 加载外部完整 skill_md 文本
             skill_md_raw_text = doc.get("skill_md_raw_text", "")
             skill_md = doc.get("skill_md", "")
             category = doc.get("category", "")
             extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
-            bundle = self._build_text_bundle(skill_name, category, description, extraction_text)
+            bundle = self._build_text_bundle(skill_name, category, description, extraction_text) # 组装 + 语言判断
             prepared_docs.append(
                 {
                     "doc": doc,
@@ -1201,6 +1357,10 @@ class SkillsIESystem:
             )
             extractions.append(extraction)
         return extractions
+
+    # ────────────────────────────────────────────────────────────────
+    # (L) 事件构建与输出（extract_all, generate_report, save_results, search）
+    # ────────────────────────────────────────────────────────────────
 
     def _build_event_from_doc(
         self,
@@ -1460,6 +1620,10 @@ class SkillsIESystem:
         scored.sort(key=lambda item: item[0], reverse=True)
         return [{**event, "match_score": score} for score, event in scored[:top_k]]
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# 顶层工具函数
+# ═══════════════════════════════════════════════════════════════════════
 
 def print_extraction_results(results: List[Dict[str, Any]], limit: int = 10) -> None:
     for i, event in enumerate(results[:limit], 1):

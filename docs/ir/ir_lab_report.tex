@@ -1,0 +1,445 @@
+\begin{filecontents*}{ir_refs.bib}
+@book{manning2008ir,
+  author    = {Christopher D. Manning and Prabhakar Raghavan and Hinrich Sch\"utze},
+  title     = {Introduction to Information Retrieval},
+  publisher = {Cambridge University Press},
+  address   = {Cambridge},
+  year      = {2008}
+}
+
+@article{robertson2009bm25,
+  author  = {Stephen Robertson and Hugo Zaragoza},
+  title   = {The Probabilistic Relevance Framework: BM25 and Beyond},
+  journal = {Foundations and Trends in Information Retrieval},
+  year    = {2009},
+  volume  = {3},
+  number  = {4},
+  pages   = {333--389}
+}
+\end{filecontents*}
+
+\documentclass[UTF8,a4paper,12pt]{ctexart}
+
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepgfplotslibrary{groupplots}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,backgrounds}
+\pgfplotsset{compat=1.18}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!45!black,
+  citecolor=blue!45!black,
+  urlcolor=blue!45!black
+}
+
+\definecolor{IRBlue}{RGB}{55,101,153}
+\definecolor{IRGray}{RGB}{88,94,102}
+\definecolor{IRLight}{RGB}{237,242,247}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  columns=fullflexible,
+  backgroundcolor=\color{IRLight},
+  rulecolor=\color{black!15}
+}
+
+\SetKwInput{KwIn}{输入}
+\SetKwInput{KwOut}{输出}
+\SetKw{KwRet}{return}
+\DontPrintSemicolon
+\SetAlFnt{\small}
+\renewcommand{\algorithmcfname}{算法}
+
+\title{信息检索实验报告\\基于 TF-IDF 与 BM25 的技能检索系统}
+\author{acknowledge 项目实验记录}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+这次实验围绕 skills.sh 上的 1000 条 AI 技能描述做了一个离线检索系统。数据先由 \texttt{paqu.py} 抓下来，再把标题、描述、仓库信息和外置 \texttt{SKILL.md} 统一规整到同一份数据集里。检索部分没有走重模型路线，而是把 TF-IDF 余弦相似度、BM25 和一组后置 boost 规则叠在一起，目标很直接：查询里既有英文短词，也有中文任务描述，结果还得能解释为什么排成这样。
+
+按当前仓库里的真实运行结果，索引覆盖 1000 篇文档、15543 个 term，索引文件大小约 9.10\,MB。对 \texttt{core\_relevance.json} 中 42 条查询做评测时，纯 TF-IDF 的 \texttt{MRR@5} 最好，为 0.9107；混合检索的 \texttt{P@5} 和 \texttt{nDCG@5} 稍高，分别达到 0.2810 和 0.8988。固定权重扫描也说明 BM25 更像补分项，权重压在 0.02 到 0.05 一段时效果最稳。
+\end{abstract}
+
+\section{引言}
+这个项目面对的问题不复杂：给一条任务需求，尽量快地从技能库里找出合适的 skill。难点不在规模，而在文本形态很杂。查询既可能是 \texttt{API design} 这种英文短语，也可能是“前端页面设计”“向量搜索 Qdrant”这种中文或中英混合表达。只靠标题精确匹配会漏召回，只靠模糊匹配又容易把一堆相关但不对题的 skill 推上来。
+
+数据来自 skills.sh 的 1000 条 skill 记录，主文件是 \texttt{data/skills\_data.json}。每条记录至少包含 \texttt{skill\_name}、\texttt{owner}、\texttt{repo}、\texttt{description}、\texttt{category}、\texttt{detail\_url}、\texttt{repo\_url}、\texttt{first\_seen}、\texttt{weekly\_installs\_num}、\texttt{github\_stars\_num} 等字段；较长的 \texttt{SKILL.md} 文本被外置到 \texttt{data/skill\_md/} 目录，主数据里只保留路径。当前快照里一共有 917 条记录带外置 \texttt{SKILL.md}，203 条记录缺 \texttt{description}，所以检索不能只盯着一个字段看。
+
+这次实验的目标有三件事：第一，把爬虫、清洗、索引这条链路说明白；第二，把 TF-IDF、BM25、动态融合和 boost 规则写清楚，不只报几个分数；第三，用真实评测结果看一下哪一部分真的在起作用，哪一部分只是看起来很合理。
+
+\section{数据获取与预处理}
+\subsection{爬虫与落盘流程}
+\texttt{paqu.py} 做的是一条偏工程化的抓取链路。首页靠滚动收集详情页 URL，详情页再用 \texttt{curl}/\texttt{urllib} 拉 HTML，之后从 SSR 文本和 \texttt{\_\_next\_f.push} 片段里拆出字段。如果页面里有 \texttt{Show more}，脚本会退到 Selenium，把完整 \texttt{SKILL.md} 展开后再提取。抓取过程中所有中间结果都会写进 checkpoint，失败 URL 也会单独记录，后面可以重试。整个流程见图 \ref{fig:paqu-flow}。
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=8mm and 10mm,
+  box/.style={rounded corners, draw=IRBlue!65, fill=IRLight, minimum width=27mm, minimum height=8mm, align=center},
+  line/.style={-{Latex[length=2.5mm]}, thick, draw=IRGray}
+]
+\node[box] (home) {滚动首页\\收集详情页 URL};
+\node[box, right=of home] (detail) {抓取详情页 HTML\\\texttt{curl}/\texttt{urllib}};
+\node[box, right=of detail] (parse) {解析标签字段\\和 Next.js SSR 片段};
+\node[box, below=of parse] (skillmd) {补抓 \texttt{SKILL.md}\\必要时用 Selenium};
+\node[box, left=of skillmd] (normalize) {规范化字段\\数值与 URL};
+\node[box, left=of normalize] (save) {写入 JSON / CSV\\外置 \texttt{skill\_md} 文本};
+\node[box, below=of detail] (ckpt) {checkpoint\\记录 records / failed\_urls};
+
+\draw[line] (home) -- (detail);
+\draw[line] (detail) -- (parse);
+\draw[line] (parse) -- (skillmd);
+\draw[line] (skillmd) -- (normalize);
+\draw[line] (normalize) -- (save);
+\draw[line] (detail) -- (ckpt);
+\draw[line] (parse) -- (ckpt);
+\draw[line] (save) |- (ckpt);
+\draw[line] (ckpt.west) -| ([xshift=-8mm]home.west) |- (home.south);
+\end{tikzpicture}
+\caption{数据抓取与落盘流程：URL 先由首页滚动收集，详情页字段与 \texttt{SKILL.md} 再分层解析，checkpoint 贯穿整个过程，用来承接失败重试和断点续跑。}
+\label{fig:paqu-flow}
+\end{figure}
+
+\subsection{数据字段与完整性}
+表 \ref{tab:data-fields} 列了检索阶段最常用的字段。这里我没有把所有原始键都摊开，只保留对排序和结果解释最有用的部分。
+
+\begin{table}[H]
+\centering
+\caption{检索系统使用的主要字段与当前数据完整性统计}
+\label{tab:data-fields}
+\begin{tabular}{p{3.2cm}p{7.0cm}r}
+\toprule
+字段名 & 含义 & 非空条数 \\
+\midrule
+\texttt{skill\_name} & 技能名，标题 boost 的核心字段 & 1000 \\
+\texttt{description} & 简介文本，检索主语料之一 & 797 \\
+\texttt{category} & 规则推断或原始类别，用于轻量补分 & 1000 \\
+\texttt{repo\_url} & GitHub 仓库链接，辅助说明结果来源 & 1000 \\
+\texttt{weekly\_installs\_num} & 周安装量，参与热度修正 & 992 \\
+\texttt{github\_stars\_num} & GitHub star 数，参与热度修正 & 984 \\
+\texttt{skill\_md\_text\_path} & 外置 \texttt{SKILL.md} 纯文本路径 & 917 \\
+\texttt{skill\_md\_raw\_text\_path} & 外置原始文本路径 & 917 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+这批数据有两个特点。第一，文本主体几乎全是英文，标题和描述同时含 CJK 的记录只有 5 条，说明“中英混合”更多出现在查询侧，不是文档侧。第二，\texttt{SKILL.md} 的补齐价值很高。主数据只有 797 条带 \texttt{description}，但有 917 条能读到外置技能文档，后面做检索时如果只用标题和简介，很多长文档里的关键术语根本进不了索引。
+
+\subsection{文本预处理}
+IR 子系统的预处理在 \texttt{ir\_system/src/skills\_ir/text.py}。它没有接第三方分词器，而是自己做了一套轻量规则：
+\begin{itemize}
+  \item 英文 token 用正则抓取后，再生成若干变体，例如把连字符和下划线拆开，把复数还原成词干。
+  \item 中文片段同时保留整段、单字和双字切片，用来弥补没有中文分词器时的召回损失。
+  \item 文档建模时按字段权重累计词频，标题权重 4.0，描述权重 3.0，类别权重 2.5，仓库 owner / repo 各 1.2。
+  \item 查询阶段还会查配置里的扩展词典，例如“前端”会扩成 \texttt{frontend/ui/ux/react/vue/css}，“向量数据库”会扩成 \texttt{vector/database/qdrant/embedding/retrieval}。
+\end{itemize}
+
+这种做法不精致，但对当前数据集足够实用。它的优点是可控、可解释、重建成本低；缺点也很明显，中文 token 会被切得比较碎，所以后面混合检索里我会专门把中文查询的 BM25 权重压低。
+
+\section{核心算法}
+\subsection{TF-IDF 与余弦相似度}
+文档先被映射到带字段权重的词频向量。设 $tf_{t,d}$ 表示 term $t$ 在文档 $d$ 里的加权词频，$N$ 为文档总数，$df_t$ 为 term 的文档频次，那么代码里采用的逆文档频率是
+\begin{equation}
+\label{eq:idf}
+\operatorname{idf}(t)=\log \frac{N+1}{df_t+1}+1.
+\end{equation}
+
+文档向量中的 term 权重写成
+\begin{equation}
+\label{eq:tfidf-weight}
+w_{t,d}=\bigl(1+\log tf_{t,d}\bigr)\cdot \operatorname{idf}(t).
+\end{equation}
+
+查询向量沿用同一套权重定义，最后的余弦相似度为
+\begin{equation}
+\label{eq:cosine}
+s_{\cos}(d,q)=\frac{\sum_{t\in q\cap d} w_{t,q}\,w_{t,d}}{\lVert q\rVert_2\lVert d\rVert_2}.
+\end{equation}
+
+这里选对数词频而不是原始词频，主要是想压一压长 \texttt{SKILL.md} 里高频重复术语的影响。当前数据里长文档不少，直接堆原始词频会把“模板化重复描述”推得太高。
+
+\subsection{BM25}
+BM25 部分采用 Robertson 和 Zaragoza 总结过的标准写法\cite{robertson2009bm25}。对查询 $q$ 和文档 $d$，得分为
+\begin{equation}
+\label{eq:bm25}
+s_{\mathrm{bm25}}(d,q)=
+\sum_{t\in q}
+\operatorname{idf}_{\mathrm{bm25}}(t)\cdot
+\frac{tf_{t,d}(k_1+1)}{tf_{t,d}+k_1\left(1-b+b\frac{|d|}{\mathrm{avgdl}}\right)},
+\end{equation}
+其中
+\begin{equation}
+\label{eq:bm25-idf}
+\operatorname{idf}_{\mathrm{bm25}}(t)=
+\log\left(\frac{N-df_t+0.5}{df_t+0.5}+1\right).
+\end{equation}
+
+项目里固定 $k_1=1.5$、$b=0.75$。这个选择比较保守：$k_1$ 留出一定词频增益，但不会把重复堆词推得太夸张；$b=0.75$ 则保留了常见的长度归一化强度。因为文档平均长度已经达到 331.83 个 token，长度归一化如果太弱，长 \texttt{SKILL.md} 会吃掉不少短 skill 的位置。
+
+\subsection{混合融合与动态权重}
+BM25 原始分数和余弦分数不在同一量纲上，代码先做最大值归一化：
+\begin{equation}
+\label{eq:bm25-norm}
+\tilde{s}_{\mathrm{bm25}}(d,q)=
+\frac{s_{\mathrm{bm25}}(d,q)}{\max_{d'} s_{\mathrm{bm25}}(d',q)}.
+\end{equation}
+
+然后按式 \eqref{eq:hybrid} 融合：
+\begin{equation}
+\label{eq:hybrid}
+s_{\mathrm{hyb}}(d,q)=
+(1-\alpha_q)\,s_{\cos}(d,q)+\alpha_q\,\tilde{s}_{\mathrm{bm25}}(d,q).
+\end{equation}
+
+这里最关键的是 $\alpha_q$ 不是固定常数，而是按查询形态动态设定：
+\begin{equation}
+\label{eq:alpha}
+\alpha_q=
+\begin{cases}
+0.02, & q \text{ 含 CJK 字符},\\
+0.08, & q \text{ 不含 CJK 且有效 token 数}\le 2,\\
+0.10, & 3\le \text{token 数}\le 4,\\
+0.12, & 5\le \text{token 数}\le 8,\\
+0.14, & \text{token 数}>8.
+\end{cases}
+\end{equation}
+
+这样设计的原因很直接。当前文档侧几乎全英文，中文查询主要靠扩展词典把语义桥接到英文术语上。如果这时把 BM25 权重给高了，细碎的中文 token 反而容易制造噪声；英文短查询则更适合让 BM25 补一点“词面直击”的分。
+
+\subsection{后置 boost 规则}
+只靠式 \eqref{eq:hybrid} 还不够。很多用户更在乎“标题是不是直接对上了”“这个 skill 是不是很热”，这些东西单纯的向量分数感知得不强，所以代码又做了一层加法 boost：
+\begin{equation}
+\label{eq:boost}
+s(d,q)=s_{\mathrm{hyb}}(d,q)+
+\Delta_{\text{title}}+
+\Delta_{\text{desc}}+
+\Delta_{\text{category}}+
+\Delta_{\text{coverage}}+
+\Delta_{\text{phrase}}+
+\Delta_{\text{pop}}.
+\end{equation}
+
+各项的具体含义如下。
+\begin{itemize}
+  \item 查询完整串落在标题中时，$+0.25$；落在描述中时，$+0.12$。
+  \item 查询 token 命中 category 时，$+0.05$。
+  \item 对短查询或中文查询，如果某个 token 与标题完全相同，再额外 $+0.22$。
+  \item 标题命中的 token 每个加 $0.12$，上限 $0.36$；description 追加命中的 token 每个加 $0.02$，上限 $0.12$。
+  \item token 覆盖率按比例折算，最高再给 $0.30$。
+  \item 配置文件里还写了若干领域短语规则，例如 \texttt{Qdrant}、\texttt{PDF}、\texttt{video translation} 等。
+  \item 热度修正采用
+  \begin{equation}
+  \label{eq:popularity}
+  \Delta_{\text{pop}}=
+  0.006\log (1+\texttt{installs})+
+  0.005\log (1+\texttt{stars}).
+  \end{equation}
+\end{itemize}
+
+我比较认可这里的取舍。boost 不是拿来替代主排序的，而是补统计模型不擅长表达的那一点偏好。真正决定底盘的还是 TF-IDF 和 BM25；热度项最多只是把两个相关度接近的结果再拉开一点。
+
+\subsection{倒排索引结构}
+索引最终会写到 \texttt{ir\_system/runtime/skills\_ir\_index.json}。表 \ref{tab:index-structure} 给出了主要字段和当前规模。
+
+\begin{table}[H]
+\centering
+\caption{IR 倒排索引的核心字段与当前规模}
+\label{tab:index-structure}
+\begin{tabular}{p{3.2cm}p{7.1cm}r}
+\toprule
+字段 & 含义 & 当前规模 \\
+\midrule
+\texttt{documents} & 原始文档数组，保留排序后回填所需字段 & 1000 \\
+\texttt{postings} & TF-IDF 倒排表：term $\rightarrow$ \{doc: weight\} & 15543 个 term \\
+\texttt{idf} & 余弦空间的 IDF 表 & 15543 \\
+\texttt{doc\_norms} & 文档向量二范数 & 1000 \\
+\texttt{bm25\_idf} & BM25 的 IDF 表 & 15543 \\
+\texttt{bm25\_tf} & BM25 词频表：term $\rightarrow$ \{doc: tf\} & 84696 个 posting 对 \\
+\texttt{doc\_lengths} & 文档长度表 & 1000 \\
+\texttt{avg\_doc\_length} & 语料平均长度 & 331.83 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+索引文件总大小约 9.10\,MB，84696 个 posting 对平均下来每个 term 连接 5.45 篇文档，说明词表还是挺稀疏的。对这种规模的数据，JSON 落盘虽然不算最省空间，但调试时直接能看，性价比很高。
+
+\subsection{检索流程伪代码}
+算法 \ref{alg:ir-search} 把实际搜索流程压缩成了几个关键步骤。代码里还有结果去重、snippet 生成等细节，这里先不展开。
+
+\begin{algorithm}[H]
+\caption{混合检索主流程}
+\label{alg:ir-search}
+\KwIn{查询 $q$，返回条数 $k$}
+\KwOut{排序后的结果列表 $R$}
+
+$T \leftarrow \textsc{Tokenize}(q)$\;
+$T' \leftarrow \textsc{ExpandQuery}(T)$\;
+\If{$T'$ 为空}{
+  \KwRet $[\ ]$\;
+}
+$Q \leftarrow \textsc{BuildQueryWeights}(T')$ using Eq.\,\eqref{eq:tfidf-weight}\;
+$S_{\cos} \leftarrow \textsc{SparseCosineAccumulate}(Q,\texttt{postings})$\;
+$S_{\mathrm{bm25}} \leftarrow \textsc{BM25Score}(T',\texttt{bm25\_tf},\texttt{doc\_lengths})$\;
+$\alpha_q \leftarrow \textsc{ChooseAlpha}(q,T')$ using Eq.\,\eqref{eq:alpha}\;
+\ForEach{候选文档 $d$}{
+  $\tilde{s}_{\mathrm{bm25}}(d,q)\leftarrow S_{\mathrm{bm25}}(d,q) / \max S_{\mathrm{bm25}}$\;
+  $s_{\mathrm{hyb}}(d,q)\leftarrow (1-\alpha_q)S_{\cos}(d,q)+\alpha_q\tilde{s}_{\mathrm{bm25}}(d,q)$\;
+  $s(d,q)\leftarrow \textsc{ApplyBoosts}(d,q,s_{\mathrm{hyb}})$\;
+}
+按 $s(d,q)$ 降序排序\;
+按标准化标题去重，保留每个 skill name 的最高分结果\;
+\KwRet top-$k$ 结果\;
+\end{algorithm}
+
+\section{实验设计与过程}
+\subsection{实验环境}
+实验在 Windows 10（\texttt{10.0.26100}）上完成，conda 环境名是 \texttt{yolov82}，Python 解释器为 \texttt{D:\textbackslash anaconda\textbackslash envs\textbackslash yolov82\textbackslash python.exe}，版本 3.11.5。LaTeX 编译器是 XeTeX 0.999996，来自 TeX Live 2024。检索部分本身不依赖 GPU。
+
+\subsection{评测集与指标}
+主评测集使用 \texttt{ir\_system/eval/core\_relevance.json}，共 42 条查询，其中英文 24 条、中文 6 条、mixed 12 条。CLI 代码里原生实现了 Hit@K、Top1 Accuracy、MRR@K、Recall@K、Precision@K；为了把排序位置区分得更细，我额外补算了 \texttt{nDCG@5}。这里的折扣累计增益采用二值相关性：
+\begin{equation}
+\label{eq:ndcg}
+\operatorname{nDCG@}k=
+\frac{\sum_{i=1}^{k}\frac{rel_i}{\log_2(i+1)}}{\sum_{i=1}^{\min(k,|G|)}\frac{1}{\log_2(i+1)}},
+\end{equation}
+其中 $G$ 为当前查询的相关 skill 集合。
+
+除了主评测集，我还看了 \texttt{multilingual.json}，主要用来观察中文和 mixed 查询在不同模式下的差别。它不是主表的来源，但对解释动态 $\alpha$ 很有帮助。
+
+\subsection{运行命令}
+实验里实际用到的命令如下：
+
+\begin{lstlisting}[language=bash,caption={IR 子系统的主要运行命令}]
+python ir_system/skills_ir_system.py build-index
+python ir_system/skills_ir_system.py evaluate --eval-set core_relevance.json
+python ir_system/skills_ir_system.py compare-modes --eval-set core_relevance.json
+python ir_system/skills_ir_system.py search "Qdrant vector search" --top-k 5
+\end{lstlisting}
+
+索引写到 \texttt{ir\_system/runtime/skills\_ir\_index.json}，评测结果和模式对比分别写到 \texttt{metrics\_report.json} 与 \texttt{comparison\_report.json}。
+
+\section{实验结果与对比分析}
+\subsection{三种检索模式对比}
+表 \ref{tab:mode-compare} 汇总了 \texttt{core\_relevance.json} 上的主要结果。Hit@5 三种模式都是 1.0，说明相关结果至少都能进前五；真正拉开差别的是排序位置和前五名里相关结果的占比。
+
+\begin{table}[H]
+\centering
+\caption{三种检索模式在 \texttt{core\_relevance.json} 上的表现对比}
+\label{tab:mode-compare}
+\begin{tabular}{lcccc}
+\toprule
+模式 & P@5 & nDCG@5 & MRR@5 & Hit@5 \\
+\midrule
+TF-IDF & 0.2762 & 0.8962 & 0.9107 & 1.0000 \\
+BM25 & 0.2714 & 0.8671 & 0.8996 & 1.0000 \\
+Hybrid & \textbf{0.2810} & \textbf{0.8988} & 0.9087 & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+这个结果挺符合直觉。纯 TF-IDF 的 \texttt{MRR@5} 最高，说明在把最相关结果顶到第 1 位这件事上，向量空间模型还是主力。BM25 单独跑时不算差，但在这批数据上没有超过 TF-IDF。混合检索的作用更像“保守补分”：它没有把 MRR 再抬高，但把 \texttt{P@5} 和 \texttt{nDCG@5} 稍微往前推了一点，前五名整体更整齐。
+
+\subsection{BM25 权重扫描}
+为了看清楚 $\alpha$ 该压在什么区间，我把 BM25 权重固定后重新扫了一遍。图 \ref{fig:alpha-sweep} 给了 \texttt{P@5} 和 \texttt{nDCG@5} 随 $\alpha$ 的变化。
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 1, horizontal sep=1.9cm},
+  width=0.43\textwidth,
+  height=0.30\textwidth,
+  xmin=0, xmax=1.0,
+  grid=major,
+  grid style={draw=black!10},
+  xlabel={固定 BM25 权重 $\alpha$},
+  tick label style={font=\small},
+  label style={font=\small},
+  title style={font=\small}
+]
+\nextgroupplot[
+  ylabel={P@5},
+  ymin=0.268, ymax=0.283,
+  title={P@5 随 $\alpha$ 的变化}
+]
+\addplot+[mark=*, thick, color=IRBlue] coordinates {
+  (0.00,0.2762) (0.02,0.2810) (0.05,0.2810) (0.08,0.2810)
+  (0.10,0.2810) (0.12,0.2810) (0.14,0.2810) (0.18,0.2810)
+  (0.25,0.2810) (1.00,0.2714)
+};
+
+\nextgroupplot[
+  ylabel={nDCG@5},
+  ymin=0.86, ymax=0.905,
+  title={nDCG@5 随 $\alpha$ 的变化}
+]
+\addplot+[mark=square*, thick, color=black!65] coordinates {
+  (0.00,0.8962) (0.02,0.9005) (0.05,0.9005) (0.08,0.8957)
+  (0.10,0.8957) (0.12,0.8957) (0.14,0.8957) (0.18,0.8945)
+  (0.25,0.8937) (1.00,0.8671)
+};
+\end{groupplot}
+\end{tikzpicture}
+\caption{固定 BM25 权重扫描结果：在当前评测集上，$\alpha=0.02\sim0.05$ 一段最稳；继续加大 BM25 占比后，排序质量开始缓慢下滑，纯 BM25 退化最明显。}
+\label{fig:alpha-sweep}
+\end{figure}
+
+这张图说明了两件事。第一，BM25 确实能帮一点忙，但只适合少量掺进去。第二，当前代码里那套“中文/短查询权重更低，长英文查询再稍微提高”的策略不是拍脑袋定的，它刚好落在最稳的一段附近。
+
+\subsection{中文、英文与 mixed 查询差异}
+表 \ref{tab:type-breakdown} 是 hybrid 模式按查询类型拆开的结果。英文查询的平均 $\alpha$ 为 0.0942，中文和 mixed 查询都压到 0.02。
+
+\begin{table}[H]
+\centering
+\caption{Hybrid 模式按查询类型拆开的表现与平均 BM25 权重}
+\label{tab:type-breakdown}
+\begin{tabular}{lccccc}
+\toprule
+查询类型 & 数量 & 平均 $\alpha$ & P@5 & nDCG@5 & MRR@5 \\
+\midrule
+English & 24 & 0.0942 & 0.2750 & 0.9174 & 0.9410 \\
+Chinese & 6 & 0.0200 & 0.2667 & 0.9385 & 0.9167 \\
+Mixed & 12 & 0.0200 & 0.3000 & 0.8419 & 0.8403 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+这里最有意思的是中文查询。虽然它们的 BM25 权重最低，\texttt{nDCG@5} 反而不差。这和数据分布有关：文档主体几乎全英文，中文查询能命中，主要靠扩展词典把“前端”“结构化数据”“向量检索”映到对应英文术语上。这一步成功以后，TF-IDF 的向量相似度已经能把主相关结果推上来；BM25 再往上加，只会让零散中文 token 和局部词面匹配掺进更多噪声。
+
+我又用 \texttt{multilingual.json} 做了交叉检查。那套评测里中文查询只有 4 条，纯 TF-IDF 和 hybrid 的 \texttt{nDCG@5} 都是 0.6577，BM25 则掉到 0.5886。这和式 \eqref{eq:alpha} 的方向是一致的：中文部分先别让 BM25 说太多话。
+
+\subsection{失败案例}
+虽然三种模式的 Hit@5 都是 100\%，但还有几个典型问题值得记一下。
+\begin{itemize}
+  \item \texttt{copywriting for marketing}：相关 skill 在前五里，但 \texttt{marketing-skills-collection} 和 \texttt{marketing-automation} 这类泛化程度高的结果会抢到更前面，说明领域词过宽时，主题相关性和“任务是否对题”还没有完全拆开。
+  \item \texttt{browser automation}：相关结果有多个，\texttt{actionbook} 常常排不进更靠前的位置，说明标题和描述里直说“browser automation”的 skill 更占便宜，隐式相关项吃亏。
+  \item \texttt{SEO audit}：\texttt{seo-audit} 往往能到第 1，但另一个期望结果 \texttt{domain-authority-auditor} 不够靠前，暴露出多相关文档场景下的覆盖问题。
+  \item \texttt{SQL queries}：\texttt{supabase-postgres-best-practices}、\texttt{database-optimizer} 这类近邻文档有时会把 \texttt{sql-queries} 挤到第 3 或第 4，说明“强相关概念邻居”对纯词法模型还是个老问题。
+\end{itemize}
+
+\section{总结与展望}
+这套 IR 系统跑下来，最大的感受是“简单模型不等于简单处理”。真正有用的不是单独的 TF-IDF 或 BM25，而是整套围绕数据特征做的小修补：字段加权、查询扩展、动态 $\alpha$、标题和热度 boost。当前数据上，TF-IDF 还是主骨架；BM25 更适合做轻量补分，权重大了反而坏事。
+
+局限也很清楚。第一，文档侧英文占绝对多数，中文检索基本靠手工扩展词典兜着。第二，评测脚本里还没有原生 \texttt{nDCG}，想看排序细节得另外补算。第三，规则 boost 现在是手调常数，还没有学到更细的排序偏好。后面如果继续做，我会优先补三件事：扩中文扩展词典、把 \texttt{nDCG} 正式纳入 CLI 评测、再加一层轻量 reranker，把“概念相关但不是答案”的结果往后压一点。
+
+\bibliographystyle{gbt7714-numerical}
+\bibliography{ir_refs}
+
+\end{document}

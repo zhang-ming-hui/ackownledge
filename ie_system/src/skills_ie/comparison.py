@@ -1,4 +1,16 @@
-"""IE 变体比较与说明性报告生成工具。"""
+"""
+IE 变体比较与说明性报告生成工具。
+
+提供对 baseline 与 enhanced 两个抽取变体的全面对比：
+  - 覆盖率统计：各字段的抽取命中率
+  - 证据分布：每种规则来源（keyword/alias/gliner_direct 等）的贡献
+  - 评估对比：对 ground truth 的 P/R/F1 差异
+  - 报告输出：终端摘要 + Markdown 文件
+
+与 evaluation.py 中的 compare_extraction_variants() 不同，
+这里的 compare_extraction_variants() 接受 SkillsIESystem 实例，
+自行驱动两种变体的抽取和评估流程，并对覆盖率与证据做更细致的汇总。
+"""
 
 from __future__ import annotations
 
@@ -11,7 +23,12 @@ from .evaluation import evaluate_extraction
 
 
 def _save_text_atomic(path: Path, text: str) -> None:
-    """以原子方式写入文本报告。"""
+    """
+    以原子方式写入文本报告。
+    
+    先写入临时文件，完成后用 os.replace() 原子替换。
+    防止并发读取者看到不完整的文件。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         "w",
@@ -27,11 +44,23 @@ def _save_text_atomic(path: Path, text: str) -> None:
 
 
 def _summarize_events(events: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """从事件记录中汇总覆盖率与证据分布。"""
+    """
+    从事件记录（build_event_records 的输出）中汇总覆盖率与证据分布。
+    
+    分析每个 event 的 extraction 和 evidence 信息：
+      - info_point_distribution: 信息点数量分布直方图
+      - field_coverage: 每个字段被命中的文档数
+      - field_evidence_docs: 有证据的文档数（对应有匹配文本支撑）
+      - field_evidence_items: 证据条目总数
+      - field_sources: 每种 rule_source（如 keyword_fallback / gliner_direct 等）的贡献
+
+    这些数据用于解释"系统从哪里得到了这些信息"。
+    """
     info_point_distribution = Counter()
     field_coverage = Counter()
-    field_evidence_docs = Counter()
-    field_evidence_items = Counter()
+    field_evidence_docs = Counter()     # 有证据的文档数
+    field_evidence_items = Counter()    # 证据条目数
+    # 每个字段每种 rule_source 的计数
     field_sources = {field: Counter() for field in [
         "platforms",
         "languages",
@@ -43,9 +72,11 @@ def _summarize_events(events: List[Dict[str, Any]]) -> Dict[str, Any]:
     global_sources = Counter()
 
     for event in events:
+        # 信息点数量分布（>=5 个字段有值就算 "全字段" 命中）
         info_point_distribution[event.get("info_point_count", 0)] += 1
         extraction = event.get("extraction", {})
         evidence_map = extraction.get("evidence", {}) if isinstance(extraction, dict) else {}
+
         for field in ["platforms", "languages", "action_types", "target_domains", "output_formats", "metrics"]:
             values = extraction.get(field, [])
             if values:
@@ -55,11 +86,15 @@ def _summarize_events(events: List[Dict[str, Any]]) -> Dict[str, Any]:
                 field_evidence_docs[field] += 1
                 field_evidence_items[field] += len(evidence_items)
                 for item in evidence_items:
+                    # rule_source 表示这条证据的来源机制
+                    # 取值例如：exact_keyword, keyword_fallback, alias_pattern, gliner_direct, gliner_unknown ...
                     source = item.get("rule_source") or item.get("pattern_source") or "unknown"
                     field_sources[field][source] += 1
                     global_sources[source] += 1
 
     total_docs = len(events)
+
+    # 构建可解释性统计
     explainability = {
         "total_documents": total_docs,
         "field_summary": {
@@ -67,6 +102,7 @@ def _summarize_events(events: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "documents_with_evidence": field_evidence_docs[field],
                 "coverage_rate": round(field_evidence_docs[field] / max(total_docs, 1), 4),
                 "evidence_items": field_evidence_items[field],
+                # 平均每条有证据文档的证据条数
                 "evidence_per_document": round(
                     field_evidence_items[field] / max(field_evidence_docs[field], 1), 4
                 )
@@ -100,11 +136,31 @@ def compare_extraction_variants(
     eval_path: Path,
     variants: Iterable[str] = ("baseline", "enhanced"),
 ) -> Dict[str, Any]:
-    """比较多个 IE 抽取变体。"""
+    """
+    比较多个 IE 抽取变体。
+    
+    参数：
+      ie_system   — SkillsIESystem 实例（已加载数据）
+      eval_path   — ground truth 评测集路径
+      variants    — 要比较的变体列表，默认 ["baseline", "enhanced"]
+    
+    流程：
+      1. 对每个变体，调用 build_event_records() 执行抽取
+      2. 对每个变体，调用 evaluate_extraction() 做自动评估
+      3. 计算字段级和总体级的 Δ 值
+      4. 汇总覆盖率与证据分布
+    
+    返回结构包含：
+      - variant_reports：各变体的评估报告
+      - variant_summaries：覆盖率/证据汇总
+      - field_deltas / overall_delta：Δ 值
+      - findings：面向报告撰写的发现摘要
+    """
     variants = list(variants)
     variant_reports: Dict[str, Dict[str, Any]] = {}
     variant_summaries: Dict[str, Dict[str, Any]] = {}
 
+    # 逐变体评估
     for variant in variants:
         events = ie_system.build_event_records(variant=variant)
         report = evaluate_extraction(events, eval_path)
@@ -112,6 +168,7 @@ def compare_extraction_variants(
         variant_reports[variant] = report
         variant_summaries[variant] = _summarize_events(events)
 
+    # 计算差值（enhanced - baseline）
     baseline = variant_reports.get("baseline")
     enhanced = variant_reports.get("enhanced")
     field_deltas: Dict[str, Dict[str, float]] = {}
@@ -124,6 +181,7 @@ def compare_extraction_variants(
                 "f1_delta": round(metrics["avg_f1"] - base_metrics.get("avg_f1", 0.0), 4),
             }
 
+    # 总体差值
     overall_delta = {}
     if baseline and enhanced:
         overall_delta = {
@@ -134,6 +192,7 @@ def compare_extraction_variants(
             "f1_delta": round(enhanced["overall"]["f1"] - baseline["overall"]["f1"], 4),
         }
 
+    # 各变体最佳字段
     best_field_by_variant = {}
     for variant, report in variant_reports.items():
         field_metrics = report.get("field_metrics", {})
@@ -143,6 +202,7 @@ def compare_extraction_variants(
                 key=lambda field: field_metrics[field].get("avg_f1", 0.0),
             )
 
+    # 生成发现摘要
     findings = [
         "baseline keeps exact keyword matching only, while enhanced adds action alias expansion",
         "enhanced extraction is the preferred report candidate when F1 and coverage both improve",
@@ -167,7 +227,17 @@ def compare_extraction_variants(
 
 
 def render_comparison_markdown(report: Dict[str, Any], title: str = "IE rule comparison report") -> str:
-    """将 IE 规则比较结果渲染为 Markdown。"""
+    """
+    将 IE 规则比较结果渲染为 Markdown 格式。
+    
+    表格内容：
+      - 总体指标对比（P/R/F1 + 覆盖率）
+      - 字段级差值
+      - 可解释性统计（证据来源分布）
+      - 创新说明
+    
+    输出可直接用作课程报告的一部分。
+    """
     lines: List[str] = []
     lines.append(f"# {title}")
     lines.append("")
@@ -225,7 +295,11 @@ def render_comparison_markdown(report: Dict[str, Any], title: str = "IE rule com
 
 
 def print_comparison_report(report: Dict[str, Any]) -> None:
-    """打印 IE 规则比较摘要。"""
+    """
+    打印 IE 规则比较摘要到终端。
+    
+    简洁输出适合命令行快速查看对比结果。
+    """
     print(f"Eval file: {Path(report.get('eval_path', '')).name}")
     print(f"Variants: {', '.join(report.get('variants', []))}")
     if report.get("overall_delta"):

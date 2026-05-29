@@ -1,3 +1,10 @@
+"""skills.sh 数据抓取与规范化入口脚本。
+
+主要流程：
+1) 抓取详情页并解析核心字段；
+2) 规范化记录并外置 SKILL.md 大文本；
+3) 通过 checkpoint 做断点续跑与失败重试。
+"""
 import csv
 import argparse
 import hashlib
@@ -14,6 +21,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
+# 数据目录与输出约定（JSON/CSV 主数据 + checkpoint + skill_md 外置文本）。
 REPO_ROOT = Path(__file__).resolve().parent
 DATA_DIR = REPO_ROOT / "data"
 SKILL_MD_DIR = DATA_DIR / "skill_md"
@@ -629,6 +637,7 @@ def parse_skill_detail(detail_url: str) -> Dict:
     )
     first_seen = extract_field_by_label(page_text, "First Seen", ["Security Audits", "Installed on"])
     github_stars = extract_field_by_label(page_text, "GitHub Stars", ["First Seen", "Security Audits", "Installed on"])
+    # SKILL.md 可能有多个来源，后续按“内容更完整优先”进行覆盖。
     skill_md_sections = extract_skill_markdown_sections(page_html)
     block_skill_md = extract_skill_md_from_html_block(page_html)
     if block_skill_md.get("skill_md") and len(block_skill_md["skill_md"]) > len(skill_md_sections["skill_md"]):
@@ -902,6 +911,7 @@ def backfill_skill_md_records(
             failed_count += 1
 
         if index % max(flush_every, 1) == 0:
+            # 长任务定期落盘，避免中断时丢失回填进度。
             _persist_records(
                 original_records=records,
                 original_checkpoint_records=checkpoint_records,
@@ -1111,6 +1121,7 @@ def crawl_skills(
         except Exception as exc:
             safe_print(f"[DETAIL ERROR] {detail_url} -> {exc}")
             failed_urls.add(detail_url)
+            # 单条失败也立即写 checkpoint，便于后续重试恢复。
             checkpoint["detail_urls"] = detail_url_list
             checkpoint["records"] = records
             checkpoint["failed_urls"] = sorted(failed_urls)
@@ -1152,6 +1163,7 @@ def crawl_skills(
 
 
 if __name__ == "__main__":
+    # CLI 子命令分发入口。
     args = _build_parser().parse_args()
 
     if args.command == "sync":
