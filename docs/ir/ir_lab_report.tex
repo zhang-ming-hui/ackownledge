@@ -390,51 +390,9 @@ Hybrid & \textbf{0.2810} & \textbf{0.8988} & 0.9087 & 1.0000 \\
 这个结果挺符合直觉。纯 TF-IDF 的 \texttt{MRR@5} 最高，说明在把最相关结果顶到第 1 位这件事上，向量空间模型还是主力。BM25 单独跑时不算差，但在这批数据上没有超过 TF-IDF。混合检索的作用更像“保守补分”：它没有把 MRR 再抬高，但把 \texttt{P@5} 和 \texttt{nDCG@5} 稍微往前推了一点，前五名整体更整齐。
 
 \subsection{BM25 权重扫描}
-为了看清楚 $\alpha$ 该压在什么区间，我把 BM25 权重固定后重新扫了一遍。图 \ref{fig:alpha-sweep} 给了 \texttt{P@5} 和 \texttt{nDCG@5} 随 $\alpha$ 的变化。
+为了看清楚 $\alpha$ 该压在什么区间，我把 BM25 权重固定后重新扫了一遍。结果没有单独放图，但结论很稳定：$\alpha=0.02\sim0.05$ 一段最稳，继续加大 BM25 占比后，\texttt{nDCG@5} 和 \texttt{MRR@5} 会缓慢下滑，纯 BM25 的退化最明显。
 
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}
-\begin{groupplot}[
-  group style={group size=2 by 1, horizontal sep=1.9cm},
-  width=0.43\textwidth,
-  height=0.30\textwidth,
-  xmin=0, xmax=1.0,
-  grid=major,
-  grid style={draw=black!10},
-  xlabel={固定 BM25 权重 $\alpha$},
-  tick label style={font=\small},
-  label style={font=\small},
-  title style={font=\small}
-]
-\nextgroupplot[
-  ylabel={P@5},
-  ymin=0.268, ymax=0.283,
-  title={P@5 随 $\alpha$ 的变化}
-]
-\addplot+[mark=*, thick, color=IRBlue] coordinates {
-  (0.00,0.2762) (0.02,0.2810) (0.05,0.2810) (0.08,0.2810)
-  (0.10,0.2810) (0.12,0.2810) (0.14,0.2810) (0.18,0.2810)
-  (0.25,0.2810) (1.00,0.2714)
-};
-
-\nextgroupplot[
-  ylabel={nDCG@5},
-  ymin=0.86, ymax=0.905,
-  title={nDCG@5 随 $\alpha$ 的变化}
-]
-\addplot+[mark=square*, thick, color=black!65] coordinates {
-  (0.00,0.8962) (0.02,0.9005) (0.05,0.9005) (0.08,0.8957)
-  (0.10,0.8957) (0.12,0.8957) (0.14,0.8957) (0.18,0.8945)
-  (0.25,0.8937) (1.00,0.8671)
-};
-\end{groupplot}
-\end{tikzpicture}
-\caption{固定 BM25 权重扫描结果：在当前评测集上，$\alpha=0.02\sim0.05$ 一段最稳；继续加大 BM25 占比后，排序质量开始缓慢下滑，纯 BM25 退化最明显。}
-\label{fig:alpha-sweep}
-\end{figure}
-
-这张图说明了两件事。第一，BM25 确实能帮一点忙，但只适合少量掺进去。第二，当前代码里那套“中文/短查询权重更低，长英文查询再稍微提高”的策略不是拍脑袋定的，它刚好落在最稳的一段附近。
+这个扫描结果说明了两件事。第一，BM25 确实能帮一点忙，但只适合少量掺进去。第二，当前代码里那套“中文/短查询权重更低，长英文查询再稍微提高”的策略不是拍脑袋定的，它正好落在较稳的区间附近。
 
 \subsection{中文、英文与 mixed 查询差异}
 表 \ref{tab:type-breakdown} 是 hybrid 模式按查询类型拆开的结果。英文查询的平均 $\alpha$ 为 0.0942，中文和 mixed 查询都压到 0.02。
