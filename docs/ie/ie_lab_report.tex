@@ -391,8 +391,6 @@ conda run -n yolov82 python ie_system/skills_ie_system.py diagnose-eval \
 
 \texttt{--skip-full-compare} 跳过 1000 条全量 enhanced 的 regex vs gliner 逐条对比（省时间），只保留评测集上的交叉比较和 \texttt{gliner\_unknown} 分类。输出写入 \path{ie_system/runtime/eval_diagnostic_report.json} 和 \path{ie_system/runtime/eval_diagnostic_summary.md}，后者可以直接当误差分析的起点读。
 
-这条命令必须用 \texttt{conda run -n yolov82} 是因为 GLiNER 的 \texttt{torch} 依赖只在这个环境里正常——base 环境会报 \texttt{c10.dll} 初始化失败，导致 GLiNER 路径退化。命令名前面挂 \texttt{conda run} 不是规范做法，但在当前环境下是最可靠的保证。
-
 \section{实验结果与对比分析}
 \subsection{三阶段总表}
 表 \ref{tab:ie-overall} 把两套评测集一起列出来。为了不被单一口径带偏，我同时保留了 macro 和 micro 两组指标。macro 更强调样本级平均，micro 更强调所有字段值累积后的整体得失。
@@ -415,12 +413,15 @@ expanded 24 & enhanced-gliner & \textbf{0.7046} & \textbf{0.8083} & \textbf{0.75
 \end{tabular}
 \end{table}
 
-这张表正好说明，小评测集确实会影响结论。10 条种子集上，GLiNER 的 macro F1 比 regex 低 0.59 个百分点；但扩到 24 条以后，enhanced-gliner 的 macro F1 到了 75.29\%，比 enhanced-regex 高 1.66 个百分点，micro F1 也高 0.64 个百分点。也就是说，原来那句“GLiNER 没提升”并不稳，它更像是小样本条件下的局部现象。
+从这张表当中可以看出，小测评集当中，GLiNER的 macro F1 比 regex 还要低 0.59 个百分点；但是扩到 24 条以后，enhanced-gliner 的 macro F1 到了 75.29\%，比enhanced-regex 高 1.66 个百分点
+，micro F1 也高 0.64 个百分点。这个应该主要是小样本当中出现的局部现象，当数据更多时，GLiNER 的表现更好一些。
 
-不过另一半结论也要保留：baseline $\rightarrow$ regex 的跃升才是主干，regex $\rightarrow$ gliner 的提升比较窄，不是所有字段都一起涨。
+相较于regex $\rightarrow$ gliner的较小的提升：baseline $\rightarrow$ regex 的跃升才是主干，regex $\rightarrow$ gliner 的提升比较窄，不是所有字段都一起涨。
 
 \subsection{分字段 F1 对比}
-图 \ref{fig:ie-field-f1} 用的是 expanded 24 条评测集上的分字段 F1。这里能看出 GLiNER 到底补了什么：平台和语言字段在 regex 阶段已经很高，GLiNER 基本不再改动；动作和目标领域也几乎不动；真正被它拉起来的是 \texttt{output\_formats}，从 0.6154 提到 0.6969。
+图 \ref{fig:ie-field-f1} 用的是 expanded 24 条评测集上的分字段 F1。这里能看出 GLiNER 到底补了什么：
+平台和语言字段在 regex 阶段已经很高，GLiNER 基本不再改动；动作和目标领域也几乎不动；真正被它拉起来的是 \texttt{output\_formats}，从 0.6154 提到 0.6969。
+
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
@@ -462,7 +463,7 @@ expanded 24 & enhanced-gliner & \textbf{0.7046} & \textbf{0.8083} & \textbf{0.75
 \legend{baseline, enhanced-regex, enhanced-gliner}
 \end{axis}
 \end{tikzpicture}
-\caption{expanded 24 条评测集上的分字段 F1：regex 阶段已经把大部分字段抬到较高水平，GLiNER 的新增收益集中在 \texttt{output\_formats}，其余字段基本保持不变。}
+\caption{expanded 24 条评测集上的分字段 F1}
 \label{fig:ie-field-f1}
 \end{figure}
 
