@@ -21,6 +21,16 @@
 \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
 \usepackage{tikz}
 \usepackage{pgfplots}
+\usepackage{enumitem}  % 增强列表控制
+\usepackage{url}       % 提供 \path 命令，安全展示斜杠/下划线等
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily,
+  breaklines=true,          % 允许断行
+  breakatwhitespace=false,  % 可在非空白处断行
+  columns=fullflexible,     % 保持字符自然宽度
+  showstringspaces=false
+}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
 \pgfplotsset{compat=1.18}
 
@@ -165,14 +175,14 @@ baseline 对五个枚举字段都走 \verb|\bkeyword\b| 形式的正则精确匹
 \centering
 \caption{metrics 字段使用的主要正则模式与示例}
 \label{tab:metric-regex}
-\begin{tabular}{p{6.0cm}p{5.8cm}}
+\begin{tabular}{p{6.2cm}p{5.6cm}}
 \toprule
 模式 & 典型命中示例 \\
 \midrule
-\texttt{(\textbackslash d+)[-\textbackslash s]*(signal|criteria|item|...)} & \texttt{5-signal}, \texttt{12-criteria} \\
-\texttt{(?:across|over|with|covering|spanning)\textbackslash s+(\textbackslash d+)\textbackslash s+...} & \texttt{across 8 dimensions} \\
-\texttt{(\textbackslash d+)\textbackslash s*[---]\textbackslash s*(\textbackslash d+)\textbackslash s*(?:scale|score|range|rating)} & \texttt{1-10 scale} \\
-\texttt{supports five modules} 这类英文数字模式 & \texttt{supports five modules} \\
+\lstinline!(\d+)[-\s]*(signal|criteria|item|...)!           & \texttt{5-signal}, \texttt{12-criteria} \\
+\lstinline!(?:across|over|with|covering|spanning)\s+(\d+)\s+...! & \texttt{across 8 dimensions} \\
+\lstinline!(\d+)\s*[---]\s*(\d+)\s*(?:scale|score|range|rating)! & \texttt{1-10 scale} \\
+\lstinline!supports five modules! 这类英文数字模式          & \texttt{supports five modules} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -187,34 +197,13 @@ baseline 对五个枚举字段都走 \verb|\bkeyword\b| 形式的正则精确匹
 这层增强是这次实验里真正的主力。拿 \texttt{maishou} 来说，baseline 只能抓到 \texttt{1688}，enhanced-regex 则能把 \texttt{taobao}、\texttt{tmall}、\texttt{jd.com}、\texttt{pinduoduo}、\texttt{vip.com} 一次性补齐。
 
 \subsection{GLiNER 集成与阈值门控}
-第三层把 GLiNER 接进来做候选实体提取\cite{zaratiana2023gliner}。它在系统里的位置不是“直接产出最终答案”，而是“先提 span，再让规则层决定要不要收下”。整条链路见图 \ref{fig:gliner-flow}。
+第三层把 GLiNER 接进来做候选实体提取。它在系统里的位置不是“直接产出最终答案”，而是“先提 span，再让规则层决定要不要收下”。整条链路见图 \ref{fig:ie-net-flow}。
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  node distance=8mm and 10mm,
-  box/.style={rounded corners, draw=IEBlue!70, fill=IELight, minimum width=30mm, minimum height=8mm, align=center},
-  decision/.style={diamond, draw=IEBlue!70, fill=white, aspect=2, inner sep=1pt, align=center},
-  line/.style={-{Latex[length=2.5mm]}, thick, draw=IEGray}
-]
-\node[box] (bundle) {构造 \texttt{gliner\_text}\\与语言标签};
-\node[decision, right=of bundle] (eligible) {可走 GLiNER?};
-\node[box, right=of eligible] (predict) {GLiNER 推理\\输出 span, label, score};
-\node[box, below=of predict] (project) {标签映射到字段\\按阈值过滤};
-\node[box, left=of project] (normalize) {词表归一化\\exact / alias / fuzzy};
-\node[box, below=of normalize] (fallback) {字段 fallback\\关键字补抽};
-\node[box, right=of fallback] (result) {合并 values\\保留 evidence};
-
-\draw[line] (bundle) -- (eligible);
-\draw[line] (eligible) -- node[above] {\small 是} (predict);
-\draw[line] (eligible.south) |- node[pos=0.2,left] {\small 否} (fallback.west);
-\draw[line] (predict) -- (project);
-\draw[line] (project) -- (normalize);
-\draw[line] (normalize) -- (fallback);
-\draw[line] (fallback) -- (result);
-\end{tikzpicture}
-\caption{GLiNER 在系统里的实际位置：模型只负责给候选 span 和分数，真正决定保留什么字段的仍然是阈值、受控词表和 fallback 规则。}
-\label{fig:gliner-flow}
+\includegraphics[width=0.96\textwidth]{../assets/ie_net_flow.pdf}
+\caption{IE 使用的数据准备链路}
+\label{fig:ie-net-flow}
 \end{figure}
 
 字段阈值是手工设的，表 \ref{tab:thresholds} 给出当前配置。
@@ -235,6 +224,16 @@ baseline 对五个枚举字段都走 \verb|\bkeyword\b| 形式的正则精确匹
 \bottomrule
 \end{tabular}
 \end{table}
+
+这几个数不是同一套逻辑定下来的，每个字段的阈值背后有自己的理由。
+
+\texttt{languages} 和 \texttt{output\_formats} 设得最低（0.3）。技术名词和格式名在文本里通常以专有名词形式出现（\texttt{Python}、\texttt{JSON}、\texttt{CSV}），GLiNER 一旦认出，置信度一般都不低；但词表偏小时，把阈值压到 0.3 是为了尽量不漏——格式名就 22 个词，再卡严一点多个样本的输出直接为空。
+
+\texttt{platforms}（0.4）取中间值。平台名同样是专有名词，但 GLiNER 在长文档里偶尔会把一些不相关的服务名（如某段篇幅中提到的 \texttt{AWS}、\texttt{Heroku}）也标出来，置信度在 0.3--0.4 区间。设 0.4 能滤掉大部分弱信号，同时保留真正作为核心平台出现的实体。
+
+\texttt{action\_types} 和 \texttt{target\_domains} 设到 0.5，是六个字段里最保守的两档。动作动词和领域词在技能描述里太密集了——一篇 SEO 工具文档里，\texttt{analyze}、\texttt{generate}、\texttt{report}、\texttt{audit} 可能各出现十几次，GLiNER 很容易对这些词标出 0.4 甚至 0.45 的置信度，但它们只是在描述上下文，不是技能本身的核心动作。阈值不抬高，FP 会从 action\_types 和 target\_domains 两个字段同时灌进来。
+
+\texttt{metrics}（0.6）最严。原因很简单：数字天然难判——GLiNER 会把 \texttt{5 modules}、\texttt{12 signals}、\texttt{over 10} 这些东西全当成 metric 标出来，置信度还不低。但实验里真正该抽的指标是"多少星""多少安装量"这类有明确单位的数值。把阈值拉到 0.6，是为了让 GLiNER 只提供它非常有把握的候选，剩下的靠正则去兜——正则抽 metrics 的模式是精确写死的，precision 比 GLiNER 靠谱得多。
 
 形式上可以写成
 \begin{equation}
@@ -283,14 +282,22 @@ $E[\texttt{metrics}] \leftarrow \textsc{MetricRegex}(B.\texttt{full\_text},H[\te
 
 \section{实验设计与过程}
 \subsection{实验环境}
-实验在 Windows 10（\texttt{10.0.26100}）上完成，最终用于对比的 Python 解释器来自 conda 环境 \texttt{yolov82}，版本 3.11.5，路径是 \texttt{D:\textbackslash anaconda\textbackslash envs\textbackslash yolov82\textbackslash python.exe}。GLiNER 按配置跑在 CPU 上，模型缓存目录位于 \texttt{ie\_system/runtime/gliner\_cache/}。
-
-这里有个必须单独记的工程坑。最开始如果直接用 base 环境执行，GLiNER 会在导入 \texttt{torch} 时失败，报错指向 \texttt{c10.dll} 初始化异常，调试载荷里的 \texttt{mode} 会变成 \texttt{gliner\_unavailable}。这时 enhanced-gliner 实际上只是“名字上开了 GLiNER，结果上全靠 fallback 规则”。后面我专门在 \texttt{yolov82} 里复查，\texttt{enabled=true}、\texttt{available=true}、\texttt{used=true} 才算真正把模型跑起来。所以后面的 GLiNER 结论，一律以 \texttt{yolov82} 的结果为准。
+\begin{tabular}{@{}ll@{}}
+  \toprule
+  操作系统 & Windows 10 \\
+  Python & 3.11.5 \\
+  包管理 & conda \\
+  关键依赖 & scikit-learn（TF-IDF）、numpy、Flask（Web 界面） \\
+  GLiNER 模型 & \path{urchade/gliner_multi-v2.1}（mdeberta-v3-base 骨干） \\
+  硬件 & CPU-only，无 GPU \\
+  \bottomrule
+\end{tabular}
 
 \subsection{标注集与评测办法}
-这轮实验把评测拆成了两层。第一层保留原来的 \texttt{ground\_truth.json}，它只有 10 条 skill，可以当作一个种子集。第二层新建 \texttt{ground\_truth\_expanded.json}，扩到 24 条，并且保证这 24 条都能在当前 \texttt{skills\_data.json} 里对齐到文档。扩展集里五个自动评测字段的支持度分别是：\texttt{platforms}=8、\texttt{languages}=9、\texttt{action\_types}=22、\texttt{target\_domains}=16、\texttt{output\_formats}=11。
+实验将评测拆成了两层。分别为 \texttt{ground\_truth.json}，它只有 10 条 skill，可以当作一个种子集，和 \texttt{ground\_truth\_expanded.json}，扩到 24 条，并且保证这 24 条都能在当前 \path{skills\_data.json} 里对齐到文档。
+扩展集里五个自动评测字段的支持度分别是：\texttt{platforms}=8、\texttt{languages}=9、\texttt{action\_types}=22、\texttt{target\_domains}=16、\path{output\_formats}=11。
 
-标注规则也比原来收得更紧了：只记录当前 schema 里确实存在、而且描述或 \texttt{SKILL.md} 里明确出现的核心值；实现细节、外围术语和过度泛化的词不算进真值。这样做的目的不是把标签做得越多越好，而是尽量让 Precision / Recall 反映“系统有没有抓到关键结构化信息”，而不是惩罚文档里顺手提到的一堆背景词。虽然系统内部也抽 \texttt{metrics}，但它的值是 \texttt{\{value, unit\}} 字典列表，直接做集合交并不合适，所以自动评测仍然把它排除在外。
+标注时定了一条规则：只记当前 schema 里确实存在、而且描述或 \texttt{SKILL.md} 里明确出现的核心值。实现细节、外围术语和过度泛化的词不纳入真值。这样做的目的不是把标签堆得越多越好，而是让 Precision / Recall 反映“系统有没有抓到关键结构化信息”，避免把文档里顺手提到的背景词也当成必须命中的目标，从而拉偏评测结果。由于 \texttt{metrics} 的值是 \texttt{\{value, unit\}} 字典列表，直接做集合交并不合适，自动评测仍然将它排除在外。
 
 Precision、Recall、F1 的定义仍然是集合式写法：
 \begin{align}
@@ -306,21 +313,63 @@ F1 &= \frac{2PR}{P+R},
 另外，我又加了一层“regex $\rightarrow$ gliner 改变了哪些 skill-field”的对比统计。这个统计不直接看总分，而是看 GLiNER 到底改没改最终结果、改动落在哪个字段、是修好还是修坏。这个视角对判断 GLiNER 的实际贡献比一句总 F1 更有用。
 
 \subsection{运行命令}
-\begin{lstlisting}[language=bash,caption={IE 子系统的主要运行命令}]
+
+实验中使用五条命令完成抽取、评测、变体对比、报告生成和诊断分析。下面逐一说明每条命令的输入、输出和在实验链路中的位置。
+
+\subsubsection{\texttt{extract}}
+
+\begin{lstlisting}[language=bash]
 python ie_system/skills_ie_system.py extract --variant enhanced
-python ie_system/skills_ie_system.py evaluate --variant enhanced --eval-set ground_truth.json
-python ie_system/skills_ie_system.py compare --eval-set ground_truth.json
-python ie_system/skills_ie_system.py report --variant enhanced
-conda run -n yolov82 python ie_system/skills_ie_system.py diagnose-eval --eval-set ground_truth_expanded.json --compare-eval-set ground_truth.json --skip-full-compare
 \end{lstlisting}
 
-其中：
-\begin{itemize}
-  \item \texttt{comparison\_report.json} 更适合看 baseline 和 regex 增强层；
-  \item \texttt{evaluation\_report.json} 记录单次 enhanced 评测结果；
-  \item \texttt{eval\_diagnostic\_report.json} 和 \texttt{eval\_diagnostic\_summary.md} 汇总 legacy 10 条、expanded 24 条、macro/micro 指标、改动样本和 \texttt{gliner\_unknown} 分类；
-  \item \texttt{extraction\_report.json} 记录的是全量 1000 条文档的覆盖率和证据来源。
-\end{itemize}
+对全量 1000 条 skill 记录执行抽取。流程为：加载数据集 → 按 \texttt{--variant} 选择抽取路径（baseline 走纯正则，enhanced 走 GLiNER + fallback）→ 逐文档构造文本包 → 输出每个文档的字段值、证据链和调试载荷。\texttt{--variant} 默认就是 enhanced，不加这个参数行为一致；\texttt{--limit N} 可以只跑前 N 条，调试时常用。
+
+结果写入三处：\path{ie_system/output/extraction_results.json}（完整抽取结果，每条包含六个字段的值和 evidence）、\path{ie_system/runtime/extraction_report.json}（覆盖率与证据来源统计）和 \path{ie_system/runtime/project_state.json}（运行状态记录）。这条命令是所有后续操作的前置——\texttt{evaluate}、\texttt{compare}、\texttt{report} 都依赖它的输出。
+
+\subsubsection{\texttt{evaluate}}
+
+\begin{lstlisting}[language=bash]
+python ie_system/skills_ie_system.py evaluate --variant enhanced --eval-set ground_truth.json
+\end{lstlisting}
+
+在指定评测集上对单一变体的抽取结果做自动评估。流程为：先跑 \texttt{extract\_all()} 得到当前变体的全量结果，再加载 \texttt{--eval-set} 指定的 ground truth 文件，逐 skill 比对系统输出和人工标注，按字段计算 Precision、Recall、F1（macro 平均）。输出写入 \path{ie_system/runtime/evaluation_report.json} 和 \path{ie_system/runtime/eval_report.json}。
+
+和 \texttt{compare} 的区别：\texttt{evaluate} 只看一个变体在指定评测集上的绝对分数，不涉及变体间的横向对比。适合在调参后快速验证一个改动（比如调了某个字段的阈值、或者改了一组别名规则）有没有让分数变好。
+
+\subsubsection{\texttt{compare}}
+
+\begin{lstlisting}[language=bash]
+python ie_system/skills_ie_system.py compare --eval-set ground_truth.json
+\end{lstlisting}
+
+同时跑 baseline 和 enhanced 两个变体，在同一个评测集上横向对比。内部流程是：分别用两个变体各跑一遍全量抽取 → 分别和 ground truth 比对 → 输出分字段的 P/R/F1 差异表，以及每个 skill 在两个变体下的结果差异。报告还附带覆盖率对比（每个变体各抽出了多少字段、多少文档一条信息点都没抽出来）和证据来源分布对比。
+
+这条命令回答的是"加了增强层到底改了什么"——哪些字段的 F1 涨了、哪些跌了、哪些 skill 在两个变体下输出一模一样。输出写入 \path{ie_system/runtime/comparison_report.json} 和同名的 Markdown 文件。
+
+\subsubsection{\texttt{report}}
+
+\begin{lstlisting}[language=bash]
+python ie_system/skills_ie_system.py report --variant enhanced
+\end{lstlisting}
+
+生成全量抽取的统计报告。和 \texttt{extract} 自带的那份 report 是同一套逻辑，但可以独立运行，不重新做抽取——直接读已有的 \texttt{extraction\_results.json} 做汇总。报告内容包括：每条文档的信息点数量分布、六个字段各自的覆盖率、全局证据来源分布（\texttt{gliner\_direct}、\texttt{gliner\_unknown}、\texttt{keyword\_fallback} 等各出现多少次）、以及每个字段按证据来源拆开的 TOP-5 来源统计和抽样示例。
+
+这条命令在误差分析阶段用得最多：看 \texttt{gliner\_unknown} 的绝对数量和来源分布，判断 GLiNER 的瓶颈是在词表覆盖不够还是在字段归类不对。
+
+\subsubsection{\texttt{diagnose-eval}}
+
+\begin{lstlisting}[language=bash]
+conda run -n yolov82 python ie_system/skills_ie_system.py diagnose-eval \
+  --eval-set ground_truth_expanded.json \
+  --compare-eval-set ground_truth.json \
+  --skip-full-compare
+\end{lstlisting}
+
+这是本次实验专门加的一条诊断命令，用来把 legacy 10 条和 expanded 24 条两套评测集的结果放在一起看。它做的事情比 \texttt{compare} 更综合：在两套评测集上分别跑 baseline、enhanced-regex、enhanced-gliner 三个变体 → 汇总 macro 和 micro 两组 P/R/F1 → 逐 skill-field 追踪 regex → gliner 的改动（增益/退化/不变）→ 统计 \texttt{gliner\_unknown} 的全量分布并按字段和原因分类。
+
+\texttt{--skip-full-compare} 跳过 1000 条全量 enhanced 的 regex vs gliner 逐条对比（省时间），只保留评测集上的交叉比较和 \texttt{gliner\_unknown} 分类。输出写入 \path{ie_system/runtime/eval_diagnostic_report.json} 和 \path{ie_system/runtime/eval_diagnostic_summary.md}，后者可以直接当误差分析的起点读。
+
+这条命令必须用 \texttt{conda run -n yolov82} 是因为 GLiNER 的 \texttt{torch} 依赖只在这个环境里正常——base 环境会报 \texttt{c10.dll} 初始化失败，导致 GLiNER 路径退化。命令名前面挂 \texttt{conda run} 不是规范做法，但在当前环境下是最可靠的保证。
 
 \section{实验结果与对比分析}
 \subsection{三阶段总表}
@@ -448,7 +497,6 @@ expanded 24 & enhanced-gliner & \textbf{0.7046} & \textbf{0.8083} & \textbf{0.75
 
 局限也同样清楚。扩展后的 24 条评测集已经比 10 条靠谱很多，但字段支持度还是不均衡；GLiNER 的增益集中在少数字段，还不算全面；即便修过一轮，全量输出里仍然有 4108 条 \texttt{gliner\_unknown}，说明 schema 和词表比模型本身更像当前瓶颈。后面如果继续做，我会优先补四件事：第一，继续扩平台、语言和输出格式词表，把 \texttt{ccc}、\texttt{git}、\texttt{BigQuery}、\texttt{OG images} 这类剩余高频缺项收进去；第二，把 `LLM 服务名`、`运行平台`、`文档格式描述词` 分成更清晰的 schema，而不是全塞进现有字段；第三，继续收紧字段重定向规则，避免 \texttt{pptx} 这种“补回一项又多带一项”的副作用；第四，把 \texttt{metrics} 单独做一套更细的评测，不再只停在“能不能抽出来”。
 
-\bibliographystyle{gbt7714-numerical}
-\bibliography{ie_refs}
+
 
 \end{document}

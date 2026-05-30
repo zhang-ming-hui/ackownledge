@@ -1,0 +1,56 @@
+digraph gliner_flow {
+  // 全局设置
+  graph [
+    rankdir=TB,
+    splines=ortho,
+    nodesep=0.45,
+    ranksep=0.55,
+    pad=0.2,
+    bgcolor="white"
+  ];
+
+  // 默认节点样式（矩形框）
+  node [
+    shape=rect,
+    style="rounded,filled",
+    fontname="Microsoft YaHei",
+    fontsize=12,
+    margin="0.22,0.12",
+    penwidth=1.6,
+    color="#57789A",
+    fontcolor="#203040",
+    fillcolor="#EEF3F7"
+  ];
+
+  // 默认边样式
+  edge [
+    color="#667788",
+    penwidth=1.7,
+    arrowsize=0.75
+  ];
+
+  // 节点定义
+  bundle  [label="构造 gliner_text\n与语言标签"];
+  eligible [shape=diamond, style="filled", fillcolor="#FFFFFF",
+            color="#57789A", fontname="Microsoft YaHei",
+            label="可走 GLiNER?"];
+  predict [label="GLiNER 推理\n输出 span, label, score"];
+  project [label="标签映射到字段\n按阈值过滤"];
+  normalize [label="词表归一化\nexact / alias / fuzzy"];
+  fallback [label="字段 fallback\n关键字补抽"];
+  result  [label="合并 values\n保留 evidence"];
+
+  // 强制三行布局：第一行 3 个，第二行 2 个（normalize 左 project 右），第三行 2 个
+  { rank=same; bundle; eligible; predict; }
+  { rank=same; normalize; project; }
+  { rank=same; fallback; result; }
+
+  // 连线
+  bundle -> eligible;
+  eligible -> predict [label="是", fontname="Microsoft YaHei", fontsize=11];
+  eligible -> fallback [label="否", fontname="Microsoft YaHei", fontsize=11];
+  predict -> project;
+  project -> normalize;
+  normalize -> fallback;
+  fallback -> result;
+}
