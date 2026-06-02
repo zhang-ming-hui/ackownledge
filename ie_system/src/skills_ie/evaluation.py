@@ -195,6 +195,7 @@ def save_manual_judgment(
     field: str,
     label: str,
     value: str = "",
+    variant: str = "",
 ) -> Dict[str, Any]:
     """
     保存一条人工评价，并返回更新后的汇总统计。
@@ -216,12 +217,18 @@ def save_manual_judgment(
     # 去重：移除同一 skill+field+value 的旧记录
     judgments = [
         j for j in judgments
-        if not (j["skill_name"] == skill_name and j["field"] == field and j.get("value", "") == value)
+        if not (
+            j["skill_name"] == skill_name
+            and j["field"] == field
+            and j.get("value", "") == value
+            and j.get("variant", "") == variant
+        )
     ]
     judgments.append({
         "skill_name": skill_name,
         "field": field,
         "value": value,
+        "variant": variant,
         "label": label,   # correct / incorrect / partial
         "timestamp": utc_now_iso(),
     })
