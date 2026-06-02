@@ -42,6 +42,7 @@ from collections import Counter, defaultdict
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 from .config import IEConfig
+from .remote_llm import call_openai_compatible_json
 from .state import save_json_atomic, utc_now_iso
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -357,6 +358,25 @@ class SkillsIESystem:
         extraction = {field: [] for field in EXTRACTED_FIELDS}
         extraction["evidence"] = {field: [] for field in EXTRACTED_FIELDS}
         return extraction
+
+    def _build_api_debug_stub(self, reason: str = "disabled") -> Dict[str, Any]:
+        remote = self.config.remote_llm
+        return {
+            "enabled": remote.enabled,
+            "available": remote.enabled,
+            "used": False,
+            "mode": reason,
+            "provider": remote.provider,
+            "api_base": remote.api_base,
+            "model_name": remote.model,
+            "normalized_hits": {field: [] for field in EXTRACTED_FIELDS},
+            "fallback": {
+                field: {"reason": reason, "used": False, "result_count": 0}
+                for field in EXTRACTED_FIELDS
+            },
+            "raw_response": None,
+            "model_error": None,
+        }
     # 先标准化表面形式，再查覆盖表。例如 "JD" → lowercase → "jd" → override → "jd.com"。
 
     # ────────────────────────────────────────────────────────────────
@@ -591,6 +611,12 @@ class SkillsIESystem:
             extraction = self._extract_structured_baseline(text, use_action_aliases=False)
             return extraction, self._build_gliner_debug_stub({}, reason="baseline_variant")
 
+        if variant == "api":
+            extraction, debug_payload = self._extract_structured_api(text)
+            if not collect_debug:
+                return extraction, None
+            return extraction, debug_payload
+
         bundle = self._build_text_bundle("", "", text, text)
         gliner_predictions: List[Dict[str, Any]] | None = None
         if bundle["gliner_eligible"]:
@@ -600,6 +626,177 @@ class SkillsIESystem:
             gliner_predictions=gliner_predictions,
             collect_debug=collect_debug,
         )
+        return extraction, debug_payload
+
+    def _normalize_llm_enum_values(self, values: Any, field: str) -> List[str]:
+        if not isinstance(values, list):
+            return []
+        normalized_values: List[str] = []
+        for item in values:
+            candidate = str(item).strip()
+            if not candidate:
+                continue
+            normalized, _ = self._normalize_to_vocab(candidate, field)
+            if normalized:
+                normalized_values.append(normalized)
+        return self._dedupe_preserve_order(normalized_values)
+
+    @staticmethod
+    def _normalize_llm_metric_values(values: Any) -> List[Dict[str, str]]:
+        if not isinstance(values, list):
+            return []
+        normalized: List[Dict[str, str]] = []
+        for item in values:
+            if isinstance(item, dict):
+                value = str(item.get("value", "")).strip()
+                unit = str(item.get("unit", "")).strip()
+            else:
+                value = str(item).strip()
+                unit = ""
+            if not value:
+                continue
+            normalized.append({"value": value, "unit": unit})
+        deduped: List[Dict[str, str]] = []
+        seen: set[str] = set()
+        for item in normalized:
+            key = json.dumps(item, ensure_ascii=False, sort_keys=True)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+        return deduped
+
+    def _extract_llm_evidence_items(
+        self,
+        text: str,
+        field: str,
+        items: Any,
+        metrics_mode: bool = False,
+    ) -> List[Dict[str, Any]]:
+        if not isinstance(items, list):
+            return []
+        evidence: List[Dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            value = item.get("value", "")
+            unit = item.get("unit", "") if metrics_mode else ""
+            quote = str(item.get("quote", "")).strip()
+            if metrics_mode:
+                normalized_value = {"value": str(value).strip(), "unit": str(unit).strip()}
+                if not normalized_value["value"]:
+                    continue
+            else:
+                normalized_value_text, _ = self._normalize_to_vocab(str(value).strip(), field)
+                if not normalized_value_text:
+                    continue
+                normalized_value = normalized_value_text
+
+            matched_text = quote or str(value).strip()
+            text_lower = text.lower()
+            matched_lower = matched_text.lower()
+            start = text_lower.find(matched_lower) if matched_text else -1
+            end = start + len(matched_text) if start >= 0 else -1
+            context = self._context_snippet(text, start, end) if start >= 0 else self._short_text(text, 180)
+            evidence.append(
+                self._build_evidence_entry(
+                    field=field,
+                    value=normalized_value,
+                    rule_source="remote_llm",
+                    pattern_source="remote_llm_json",
+                    matched_text=matched_text,
+                    context=context,
+                )
+            )
+        return evidence
+
+    def _build_llm_prompt(self, text: str) -> str:
+        template = self.config.remote_llm.prompt_template
+        schema_hints = ""
+        if self.config.remote_llm.include_schema_hints:
+            schema_hints = (
+                "\nAllowed canonical values hints:\n"
+                f"- platforms: {', '.join(self.config.platform_keywords[:80])}\n"
+                f"- languages: {', '.join(self.config.language_keywords[:80])}\n"
+                f"- action_types: {', '.join(self.config.action_keywords[:80])}\n"
+                f"- target_domains: {', '.join(self.config.domain_keywords[:80])}\n"
+                f"- output_formats: {', '.join(self.config.output_format_keywords[:80])}\n"
+            )
+        return template.format(text=text, schema_hints=schema_hints)
+
+    def _extract_structured_api(self, text: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        debug_payload = self._build_api_debug_stub(reason="disabled")
+        extraction = self._empty_extraction()
+
+        if not self.config.remote_llm.enabled:
+            debug_payload["model_error"] = "remote_llm disabled in config"
+            return extraction, debug_payload
+
+        prompt = self._build_llm_prompt(text)
+        debug_payload["mode"] = "remote_llm"
+        debug_payload["used"] = True
+        try:
+            raw_response = call_openai_compatible_json(self.config.remote_llm, prompt)
+        except Exception as exc:
+            debug_payload["model_error"] = str(exc)
+            return extraction, debug_payload
+
+        debug_payload["raw_response"] = raw_response
+        evidence_section = raw_response.get("evidence", {}) if isinstance(raw_response, dict) else {}
+
+        for field in ENUM_FIELDS:
+            normalized_values = self._normalize_llm_enum_values(raw_response.get(field, []), field)
+            extraction[field] = normalized_values
+            extraction["evidence"][field] = self._extract_llm_evidence_items(
+                text=text,
+                field=field,
+                items=evidence_section.get(field, []),
+            )
+            if not extraction["evidence"][field]:
+                extraction["evidence"][field] = [
+                    self._build_evidence_entry(
+                        field=field,
+                        value=value,
+                        rule_source="remote_llm",
+                        pattern_source="remote_llm_json",
+                        matched_text=value,
+                        context=self._short_text(text, 180),
+                    )
+                    for value in normalized_values
+                ]
+            debug_payload["normalized_hits"][field] = list(normalized_values)
+            debug_payload["fallback"][field] = {
+                "reason": "remote_llm",
+                "used": False,
+                "result_count": len(normalized_values),
+            }
+
+        metrics = self._normalize_llm_metric_values(raw_response.get("metrics", []))
+        extraction["metrics"] = metrics
+        extraction["evidence"]["metrics"] = self._extract_llm_evidence_items(
+            text=text,
+            field="metrics",
+            items=evidence_section.get("metrics", []),
+            metrics_mode=True,
+        )
+        if not extraction["evidence"]["metrics"]:
+            extraction["evidence"]["metrics"] = [
+                self._build_evidence_entry(
+                    field="metrics",
+                    value=item,
+                    rule_source="remote_llm",
+                    pattern_source="remote_llm_json",
+                    matched_text=f"{item['value']} {item['unit']}".strip(),
+                    context=self._short_text(text, 180),
+                )
+                for item in metrics
+            ]
+        debug_payload["normalized_hits"]["metrics"] = list(metrics)
+        debug_payload["fallback"]["metrics"] = {
+            "reason": "remote_llm",
+            "used": False,
+            "result_count": len(metrics),
+        }
         return extraction, debug_payload
 
     # ────────────────────────────────────────────────────────────────
@@ -1539,6 +1736,12 @@ class SkillsIESystem:
         if variant == "baseline":
             return [
                 self._extract_structured_baseline(item["bundle"]["full_text"], use_action_aliases=False)
+                for item in prepared_docs
+            ]
+
+        if variant == "api":
+            return [
+                self._extract_structured_api(item["bundle"]["full_text"])[0]
                 for item in prepared_docs
             ]
 

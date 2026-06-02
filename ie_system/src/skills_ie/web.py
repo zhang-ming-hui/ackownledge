@@ -51,7 +51,8 @@ def create_app(config_path: Path | None = None) -> Flask:
     app = Flask(__name__, template_folder="templates")
 
     # 预加载并完成抽取
-    ie = SkillsIESystem(config)
+    default_variant = "api" if config.remote_llm.enabled else "enhanced"
+    ie = SkillsIESystem(config, variant=default_variant)
     ie.load_data()
     ie.extract_all()
 
@@ -123,9 +124,10 @@ def create_app(config_path: Path | None = None) -> Flask:
         用于测试单条文本的抽取效果。
         """
         text = request.args.get("text", "").strip()
+        variant = request.args.get("variant", "").strip() or ie.variant
         if not text:
             return jsonify({"error": "missing text parameter"}), 400
-        result = ie.extract_debug_payload(text)
+        result = ie.extract_debug_payload(text, variant=variant)
         return jsonify(result)
 
     @app.get("/api/search")

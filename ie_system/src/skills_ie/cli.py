@@ -162,7 +162,7 @@ def _build_parser() -> argparse.ArgumentParser:
     构建 IE CLI 的参数解析器。
     
     所有子命令共享 --config 参数。
-    部分子命令支持 --variant 参数（baseline / enhanced）。
+    部分子命令支持 --variant 参数（baseline / enhanced / api）。
     """
     parser = argparse.ArgumentParser(description="Skills IE CLI")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Config file path")
@@ -171,24 +171,24 @@ def _build_parser() -> argparse.ArgumentParser:
     # extract: 全量抽取
     extract_parser = subparsers.add_parser("extract", help="Run extraction over the whole dataset")
     extract_parser.add_argument("--limit", type=int, default=None, help="Preview top N records")
-    extract_parser.add_argument("--variant", choices=["baseline", "enhanced"], default="enhanced")
+    extract_parser.add_argument("--variant", choices=["baseline", "enhanced", "api"], default="enhanced")
 
     # extract-one: 单条文本抽取（调试用）
     extract_one_parser = subparsers.add_parser("extract-one", help="Extract one input text")
     extract_one_parser.add_argument("text", help="Input text")
-    extract_one_parser.add_argument("--variant", choices=["baseline", "enhanced"], default="enhanced")
+    extract_one_parser.add_argument("--variant", choices=["baseline", "enhanced", "api"], default="enhanced")
 
     # search: 搜索已抽取结果
     search_parser = subparsers.add_parser("search", help="Search extracted events")
     search_parser.add_argument("query", help="Keyword")
     search_parser.add_argument("--field", default=None, help="Optional field filter")
     search_parser.add_argument("--top-k", type=int, default=10, help="Number of results")
-    search_parser.add_argument("--variant", choices=["baseline", "enhanced"], default="enhanced")
+    search_parser.add_argument("--variant", choices=["baseline", "enhanced", "api"], default="enhanced")
 
     # evaluate: 自动评估
     eval_parser = subparsers.add_parser("evaluate", help="Run automatic evaluation")
     eval_parser.add_argument("--eval-set", default="ground_truth.json", help="Eval set name")
-    eval_parser.add_argument("--variant", choices=["baseline", "enhanced"], default="enhanced")
+    eval_parser.add_argument("--variant", choices=["baseline", "enhanced", "api"], default="enhanced")
 
     # compare: 变体对比
     compare_parser = subparsers.add_parser("compare", help="Compare baseline vs enhanced extraction")
@@ -196,7 +196,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # report: 生成报告
     report_parser = subparsers.add_parser("report", help="Generate extraction report")
-    report_parser.add_argument("--variant", choices=["baseline", "enhanced"], default="enhanced")
+    report_parser.add_argument("--variant", choices=["baseline", "enhanced", "api"], default="enhanced")
 
     # serve-web: 启动 Web 界面
     diag_parser = subparsers.add_parser("diagnose-eval", help="Run expanded evaluation diagnostics")

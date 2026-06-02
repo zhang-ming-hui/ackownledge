@@ -309,6 +309,73 @@ class GLiNERConfig:
 
 
 @dataclass(frozen=True)
+class RemoteLLMConfig:
+    enabled: bool
+    provider: str
+    api_base: str
+    api_key_env: str
+    model: str
+    temperature: float
+    max_output_tokens: int
+    timeout_seconds: int
+    system_prompt: str
+    prompt_template: str
+    include_schema_hints: bool
+    extra_headers: Dict[str, str]
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any] | None) -> "RemoteLLMConfig":
+        payload = payload or {}
+        default_prompt_template = (
+            "Extract structured information from the following skill text.\n\n"
+            "Return JSON only with this exact schema:\n"
+            "{\n"
+            '  "platforms": ["..."],\n'
+            '  "languages": ["..."],\n'
+            '  "action_types": ["..."],\n'
+            '  "target_domains": ["..."],\n'
+            '  "output_formats": ["..."],\n'
+            '  "metrics": [{"value": "...", "unit": "..."}],\n'
+            '  "evidence": {\n'
+            '    "platforms": [{"value": "...", "quote": "..."}],\n'
+            '    "languages": [{"value": "...", "quote": "..."}],\n'
+            '    "action_types": [{"value": "...", "quote": "..."}],\n'
+            '    "target_domains": [{"value": "...", "quote": "..."}],\n'
+            '    "output_formats": [{"value": "...", "quote": "..."}],\n'
+            '    "metrics": [{"value": "...", "unit": "...", "quote": "..."}]\n'
+            "  }\n"
+            "}\n\n"
+            "Rules:\n"
+            "- Use empty arrays when a field is absent.\n"
+            "- Keep values concise and canonical.\n"
+            "- Evidence quotes must be short verbatim spans from the input.\n"
+            "- Do not include any commentary outside JSON.\n\n"
+            "Skill text:\n{text}"
+        )
+        default_system_prompt = (
+            "You are an information extraction engine. "
+            "You must return strict JSON and nothing else."
+        )
+        headers = payload.get("extra_headers", {})
+        if not isinstance(headers, dict):
+            headers = {}
+        return cls(
+            enabled=bool(payload.get("enabled", False)),
+            provider=str(payload.get("provider", "openai_compatible")),
+            api_base=str(payload.get("api_base", "https://api.deepseek.com")),
+            api_key_env=str(payload.get("api_key_env", "DEEPSEEK_API_KEY")),
+            model=str(payload.get("model", "deepseek-chat")),
+            temperature=float(payload.get("temperature", 0.0)),
+            max_output_tokens=max(1, int(payload.get("max_output_tokens", 1200))),
+            timeout_seconds=max(1, int(payload.get("timeout_seconds", 60))),
+            system_prompt=str(payload.get("system_prompt", default_system_prompt)),
+            prompt_template=str(payload.get("prompt_template", default_prompt_template)),
+            include_schema_hints=bool(payload.get("include_schema_hints", True)),
+            extra_headers={str(key): str(value) for key, value in headers.items()},
+        )
+
+
+@dataclass(frozen=True)
 class IEConfig:
     """
     IE 子系统顶层配置。
@@ -338,6 +405,7 @@ class IEConfig:
     domain_keywords: List[str]
     output_format_keywords: List[str]
     gliner: GLiNERConfig
+    remote_llm: RemoteLLMConfig
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "IEConfig":
@@ -380,6 +448,7 @@ class IEConfig:
             domain_keywords=payload.get("domain_keywords", []),
             output_format_keywords=payload.get("output_format_keywords", []),
             gliner=GLiNERConfig.from_dict(payload.get("gliner")),
+            remote_llm=RemoteLLMConfig.from_dict(payload.get("remote_llm")),
         )
 
     def ensure_runtime_dirs(self) -> None:
