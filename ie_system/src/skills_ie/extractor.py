@@ -1704,29 +1704,29 @@ class SkillsIESystem:
     # (K) 批量文档处理（全量抽取流程）
     # ────────────────────────────────────────────────────────────────
 
+    def _prepare_document_input(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+        skill_name = doc.get("skill_name", "")
+        description = doc.get("description", "")
+        external_skill_text = self._read_external_skill_text(doc)
+        skill_md_raw_text = doc.get("skill_md_raw_text", "")
+        skill_md = doc.get("skill_md", "")
+        category = doc.get("category", "")
+        extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
+        bundle = self._build_text_bundle(skill_name, category, description, extraction_text)
+        return {
+            "doc": doc,
+            "bundle": bundle,
+            "description_preview": self._short_text(description, 200) if description else "",
+        }
+
+    def get_document_source_text(self, doc: Dict[str, Any]) -> str:
+        return str(self._prepare_document_input(doc)["bundle"].get("full_text", ""))
+
     def _prepare_document_inputs(self) -> List[Dict[str, Any]]:
         if not self.documents:
             self.load_data()
 
-        prepared_docs: List[Dict[str, Any]] = []
-        # 逐条读取 doc 的 skill_name / description / category
-        for doc in self.documents:
-            skill_name = doc.get("skill_name", "")
-            description = doc.get("description", "")
-            external_skill_text = self._read_external_skill_text(doc) # 加载外部完整 skill_md 文本
-            skill_md_raw_text = doc.get("skill_md_raw_text", "")
-            skill_md = doc.get("skill_md", "")
-            category = doc.get("category", "")
-            extraction_text = external_skill_text or skill_md_raw_text or skill_md or description or ""
-            bundle = self._build_text_bundle(skill_name, category, description, extraction_text) # 组装 + 语言判断
-            prepared_docs.append(
-                {
-                    "doc": doc,
-                    "bundle": bundle,
-                    "description_preview": self._short_text(description, 200) if description else "",
-                }
-            )
-        return prepared_docs
+        return [self._prepare_document_input(doc) for doc in self.documents]
 
     def _extract_documents_variant(
         self,
