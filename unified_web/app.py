@@ -119,7 +119,6 @@ _ie_api_summary_cache: dict = {}
 _ie_api_summary_lock = Lock()
 _ie_bootstrap = SkillsIESystem(_ie_config, variant=DEFAULT_VARIANT)
 _ie_bootstrap.load_data()
-_ie_bootstrap.extract_all()
 
 
 def _is_ie_variant_enabled(variant: str) -> bool:
@@ -137,15 +136,22 @@ def _normalize_ie_variant(variant: str | None, *, allow_api_variant: bool = True
     return normalized
 
 
-def _get_ie_variant_bundle(variant: str) -> dict:
-    variant = _normalize_ie_variant(variant)
-    if variant in _ie_variant_cache:
-        return _ie_variant_cache[variant]
-    ie = SkillsIESystem(_ie_config, variant=variant)
-    ie.load_data()
-    ie.extract_all()
+def _parse_bool(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _build_ie_bundle(ie: SkillsIESystem, variant: str) -> dict:
     gt_path = _ie_config.resolve_eval_path(None)
-    bundle = {
+    return {
         "variant": variant,
         "ie": ie,
         "report": ie.generate_report(),
@@ -161,8 +167,52 @@ def _get_ie_variant_bundle(variant: str) -> dict:
             if str(doc.get("skill_id") or "")
         },
     }
-    _ie_variant_cache[variant] = bundle
+
+
+def _set_ie_variant_bundle(bundle: dict) -> dict:
+    _ie_variant_cache[bundle["variant"]] = bundle
     return bundle
+
+
+def _get_ie_variant_bundle(variant: str) -> dict:
+    variant = _normalize_ie_variant(variant)
+    if variant in _ie_variant_cache:
+        return _ie_variant_cache[variant]
+    ie = SkillsIESystem(_ie_config, variant=variant)
+    ie.load_data()
+    ie.load_or_extract_results(persist_cache=True)
+    return _set_ie_variant_bundle(_build_ie_bundle(ie, variant))
+
+
+def _serialize_ie_event_detail(bundle: dict, event: dict) -> dict:
+    skill_id = str(event.get("skill_id") or "")
+    doc = bundle["docs_by_skill_id"].get(skill_id, {})
+    source_text = bundle["ie"].get_document_source_text(doc) if doc else ""
+    return {
+        "skill_id": event.get("skill_id", ""),
+        "skill_name": event.get("skill_name", ""),
+        "owner": event.get("owner", ""),
+        "category": event.get("category", ""),
+        "detail_url": event.get("detail_url", ""),
+        "description_preview": event.get("description_preview", ""),
+        "variant": event.get("variant", ""),
+        "event_summary": event.get("event_summary", ""),
+        "info_point_count": event.get("info_point_count", 0),
+        "evidence_count": event.get("evidence_count", 0),
+        "source_text": source_text,
+        "extraction": _copy_full_extraction(event.get("extraction", {})),
+    }
+
+
+def _invalidate_ie_summary_cache(variant: str, skill_id: str | None = None) -> None:
+    with _ie_api_summary_lock:
+        targets = []
+        if skill_id is not None:
+            targets.append((variant, skill_id))
+        else:
+            targets.extend([key for key in _ie_api_summary_cache if key[0] == variant])
+        for key in targets:
+            _ie_api_summary_cache.pop(key, None)
 
 
 def _normalize_ie_summary_payload(payload: object) -> dict:
@@ -477,23 +527,7 @@ def api_ie_event_detail(skill_id: str):
     event = bundle["events_by_skill_id"].get(skill_id)
     if not event:
         return jsonify({"ok": False, "error": "skill not found"}), 404
-    doc = bundle["docs_by_skill_id"].get(skill_id, {})
-    source_text = bundle["ie"].get_document_source_text(doc) if doc else ""
-    detail = {
-        "skill_id": event.get("skill_id", ""),
-        "skill_name": event.get("skill_name", ""),
-        "owner": event.get("owner", ""),
-        "category": event.get("category", ""),
-        "detail_url": event.get("detail_url", ""),
-        "description_preview": event.get("description_preview", ""),
-        "variant": event.get("variant", ""),
-        "event_summary": event.get("event_summary", ""),
-        "info_point_count": event.get("info_point_count", 0),
-        "evidence_count": event.get("evidence_count", 0),
-        "source_text": source_text,
-        "extraction": _copy_full_extraction(event.get("extraction", {})),
-    }
-    return jsonify({"ok": True, "event": detail})
+    return jsonify({"ok": True, "event": _serialize_ie_event_detail(bundle, event)})
 
 
 @app.get("/api/ie/describe/<skill_id>")
@@ -564,6 +598,76 @@ def api_ie_extract():
     except (ValueError, RuntimeError) as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify(bundle["ie"].extract_debug_payload(text, variant=variant))
+
+
+@app.post("/api/ie/extract-all")
+def api_ie_extract_all():
+    body = request.get_json(silent=True) or {}
+    try:
+        variant = _normalize_ie_variant(
+            body.get("variant") or request.args.get("variant"),
+            allow_api_variant=False,
+        )
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    ie = SkillsIESystem(_ie_config, variant=variant)
+    ie.load_data()
+    ie.extract_all()
+    files = ie.save_results()
+    bundle = _set_ie_variant_bundle(_build_ie_bundle(ie, variant))
+    _invalidate_ie_summary_cache(variant)
+    return jsonify(
+        {
+            "ok": True,
+            "mode": "full_reextract",
+            "variant": variant,
+            "document_count": len(ie.documents),
+            "extraction_count": len(ie.extraction_results),
+            "files": files,
+            "report": bundle["report"],
+            "auto_eval": bundle["auto_eval"],
+        }
+    )
+
+
+@app.post("/api/ie/events/<skill_id>/reextract")
+def api_ie_reextract_event(skill_id: str):
+    body = request.get_json(silent=True) or {}
+    try:
+        variant = _normalize_ie_variant(
+            body.get("variant") or request.args.get("variant"),
+            allow_api_variant=False,
+        )
+        bundle = _get_ie_variant_bundle(variant)
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    persist_cache = _parse_bool(body.get("persist_cache", request.args.get("persist_cache")), default=True)
+    include_debug = _parse_bool(body.get("include_debug", request.args.get("include_debug")), default=True)
+
+    try:
+        event, debug_payload = bundle["ie"].reextract_document_by_skill_id(
+            skill_id,
+            persist_cache=persist_cache,
+            collect_debug=include_debug,
+        )
+    except KeyError:
+        return jsonify({"ok": False, "error": "skill not found"}), 404
+
+    bundle = _set_ie_variant_bundle(_build_ie_bundle(bundle["ie"], variant))
+    _invalidate_ie_summary_cache(variant, skill_id=skill_id)
+    response = {
+        "ok": True,
+        "mode": "single_reextract",
+        "variant": variant,
+        "persist_cache": persist_cache,
+        "event": _serialize_ie_event_detail(bundle, bundle["events_by_skill_id"][skill_id]),
+        "report": bundle["report"],
+    }
+    if include_debug:
+        response["debug"] = debug_payload
+    return jsonify(response)
 
 
 @app.get("/api/ie/healthz")

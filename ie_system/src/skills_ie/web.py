@@ -84,6 +84,19 @@ def _primary_remote_model_name(model_value: str) -> str:
     return str(model_value).split(",")[0].strip()
 
 
+def _parse_bool(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 def create_app(config_path: Path | None = None) -> Flask:
     config = load_config(config_path)
     app = Flask(__name__, template_folder="templates")
@@ -133,7 +146,7 @@ def create_app(config_path: Path | None = None) -> Flask:
 
         ie = SkillsIESystem(config, variant=variant)
         ie.load_data()
-        ie.extract_all()
+        ie.load_or_extract_results(persist_cache=True)
 
         bundle = {
             "variant": variant,
@@ -156,9 +169,33 @@ def create_app(config_path: Path | None = None) -> Flask:
             variant_cache.setdefault(variant, bundle)
             return variant_cache[variant]
 
+    def store_variant_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
+        with variant_lock:
+            variant_cache[bundle["variant"]] = bundle
+            return variant_cache[bundle["variant"]]
+
     def get_variant_bundle(variant: str) -> Dict[str, Any]:
         normalized = normalize_variant(variant)
         return build_variant_bundle(normalized)
+
+    def rebuild_variant_bundle(ie: SkillsIESystem, variant: str) -> Dict[str, Any]:
+        bundle = {
+            "variant": variant,
+            "ie": ie,
+            "report": ie.generate_report(),
+            "auto_eval": evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {},
+            "events_by_skill_id": {
+                str(event.get("skill_id") or ""): event
+                for event in ie.extraction_results
+                if str(event.get("skill_id") or "")
+            },
+            "docs_by_skill_id": {
+                str(doc.get("skill_id") or ""): doc
+                for doc in ie.documents
+                if str(doc.get("skill_id") or "")
+            },
+        }
+        return store_variant_bundle(bundle)
 
     def serialize_event_summary(event: Dict[str, Any]) -> Dict[str, Any]:
         extraction = event.get("extraction", {})
@@ -288,7 +325,14 @@ def create_app(config_path: Path | None = None) -> Flask:
             api_summary_cache.setdefault(cache_key, normalized)
             return api_summary_cache[cache_key]
 
-    build_variant_bundle(DEFAULT_VARIANT)
+    def invalidate_api_summary_cache(variant: str, skill_id: str | None = None) -> None:
+        with api_summary_lock:
+            if skill_id is not None:
+                api_summary_cache.pop((variant, skill_id), None)
+                return
+            to_remove = [key for key in api_summary_cache if key[0] == variant]
+            for key in to_remove:
+                api_summary_cache.pop(key, None)
 
     @app.get("/")
     def index():
@@ -348,6 +392,67 @@ def create_app(config_path: Path | None = None) -> Flask:
         except (ValueError, RuntimeError) as exc:
             return jsonify({"error": str(exc)}), 400
         return jsonify(bundle["ie"].extract_debug_payload(text, variant=variant))
+
+    @app.post("/api/extract-all")
+    def api_extract_all():
+        body = request.get_json(silent=True) or {}
+        try:
+            variant = normalize_variant(body.get("variant") or request.args.get("variant"))
+        except (ValueError, RuntimeError) as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+        ie = SkillsIESystem(config, variant=variant)
+        ie.load_data()
+        ie.extract_all()
+        files = ie.save_results()
+        bundle = rebuild_variant_bundle(ie, variant)
+        invalidate_api_summary_cache(variant)
+        return jsonify(
+            {
+                "ok": True,
+                "mode": "full_reextract",
+                "variant": variant,
+                "document_count": len(ie.documents),
+                "extraction_count": len(ie.extraction_results),
+                "files": files,
+                "report": bundle["report"],
+                "auto_eval": bundle["auto_eval"],
+            }
+        )
+
+    @app.post("/api/events/<skill_id>/reextract")
+    def api_reextract_event(skill_id: str):
+        body = request.get_json(silent=True) or {}
+        try:
+            variant = normalize_variant(body.get("variant") or request.args.get("variant"))
+            bundle = get_variant_bundle(variant)
+        except (ValueError, RuntimeError) as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+        persist_cache = _parse_bool(body.get("persist_cache", request.args.get("persist_cache")), default=True)
+        include_debug = _parse_bool(body.get("include_debug", request.args.get("include_debug")), default=True)
+        try:
+            event, debug_payload = bundle["ie"].reextract_document_by_skill_id(
+                skill_id,
+                persist_cache=persist_cache,
+                collect_debug=include_debug,
+            )
+        except KeyError:
+            return jsonify({"ok": False, "error": "skill not found"}), 404
+
+        bundle = rebuild_variant_bundle(bundle["ie"], variant)
+        invalidate_api_summary_cache(variant, skill_id=skill_id)
+        payload = {
+            "ok": True,
+            "mode": "single_reextract",
+            "variant": variant,
+            "persist_cache": persist_cache,
+            "event": serialize_event_detail(bundle, event),
+            "report": bundle["report"],
+        }
+        if include_debug:
+            payload["debug"] = debug_payload
+        return jsonify(payload)
 
     @app.get("/api/search")
     def api_search():

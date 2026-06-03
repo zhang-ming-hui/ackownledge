@@ -36,9 +36,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 from .config import IEConfig
@@ -1728,6 +1730,7 @@ class SkillsIESystem:
             "doc": doc,
             "bundle": bundle,
             "description_preview": self._short_text(description, 200) if description else "",
+            "source_fingerprint": self._compute_text_fingerprint(bundle.get("full_text", "")),
         }
 
     def get_document_source_text(self, doc: Dict[str, Any]) -> str:
@@ -1738,6 +1741,77 @@ class SkillsIESystem:
             self.load_data()
 
         return [self._prepare_document_input(doc) for doc in self.documents]
+
+    @staticmethod
+    def _compute_text_fingerprint(text: str) -> str:
+        normalized = (text or "").encode("utf-8", errors="ignore")
+        return hashlib.sha1(normalized).hexdigest()
+
+    @staticmethod
+    def _cache_key_from_doc(doc: Dict[str, Any]) -> str:
+        for field in ("skill_id", "detail_url", "skill_name"):
+            value = str(doc.get(field) or "").strip()
+            if value:
+                return value
+        return ""
+
+    @staticmethod
+    def _cache_key_from_event(event: Dict[str, Any]) -> str:
+        for field in ("skill_id", "detail_url", "skill_name"):
+            value = str(event.get(field) or "").strip()
+            if value:
+                return value
+        return ""
+
+    def _variant_results_path(self) -> Path:
+        results_path = self.config.paths.extraction_results_file
+        return results_path.with_name(f"{results_path.stem}.{self.variant}{results_path.suffix}")
+
+    def _results_cache_candidates(self) -> List[Path]:
+        variant_path = self._variant_results_path()
+        legacy_path = self.config.paths.extraction_results_file
+        paths = [variant_path]
+        if legacy_path != variant_path:
+            paths.append(legacy_path)
+        return paths
+
+    def _load_cached_results_payload(self) -> Dict[str, Any] | None:
+        for path in self._results_cache_candidates():
+            if not path.exists():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            events = payload.get("events")
+            if not isinstance(events, list):
+                continue
+            payload_variant = str(payload.get("variant") or "").strip()
+            if payload_variant and payload_variant != self.variant:
+                continue
+            return payload
+        return None
+
+    @staticmethod
+    def _is_cached_event_usable(
+        event: Dict[str, Any],
+        expected_variant: str,
+        source_fingerprint: str,
+    ) -> bool:
+        if not isinstance(event, dict):
+            return False
+        event_variant = str(event.get("variant") or "").strip()
+        if event_variant and event_variant != expected_variant:
+            return False
+        extraction = event.get("extraction")
+        if not isinstance(extraction, dict):
+            return False
+        cached_fingerprint = str(event.get("source_fingerprint") or "").strip()
+        if cached_fingerprint and cached_fingerprint != source_fingerprint:
+            return False
+        return True
 
     def _extract_documents_variant(
         self,
@@ -1777,6 +1851,32 @@ class SkillsIESystem:
             extractions.append(extraction)
         return extractions
 
+    def _extract_prepared_doc_variant(
+        self,
+        prepared_doc: Dict[str, Any],
+        variant: str,
+        collect_debug: bool = False,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any] | None]:
+        bundle = prepared_doc["bundle"]
+        if variant == "baseline":
+            extraction = self._extract_structured_baseline(bundle["full_text"], use_action_aliases=False)
+            debug_payload = self._build_gliner_debug_stub(bundle, reason="baseline_variant")
+            return extraction, debug_payload if collect_debug else None
+
+        if variant == "api":
+            extraction, debug_payload = self._extract_structured_api(bundle["full_text"])
+            return extraction, debug_payload if collect_debug else None
+
+        gliner_predictions: List[Dict[str, Any]] | None = None
+        if bundle.get("gliner_eligible"):
+            gliner_predictions = self._predict_gliner_single(bundle["gliner_text"])
+        extraction, debug_payload = self._extract_structured_enhanced(
+            bundle=bundle,
+            gliner_predictions=gliner_predictions,
+            collect_debug=collect_debug,
+        )
+        return extraction, debug_payload if collect_debug else None
+
     # ────────────────────────────────────────────────────────────────
     # (L) 事件构建与输出（extract_all, generate_report, save_results, search）
     # ────────────────────────────────────────────────────────────────
@@ -1787,6 +1887,7 @@ class SkillsIESystem:
         description_preview: str,
         extraction: Dict[str, Any],
         variant: str,
+        source_fingerprint: str = "",
     ) -> Dict[str, Any]:
         return {
             "skill_id": doc.get("skill_id", ""),
@@ -1796,6 +1897,7 @@ class SkillsIESystem:
             "detail_url": doc.get("detail_url", ""),
             "description_preview": description_preview,
             "variant": variant,
+            "source_fingerprint": source_fingerprint,
             "evidence_count": sum(len(items or []) for items in extraction.get("evidence", {}).values()),
             "extraction": extraction,
             "event_summary": self._build_event_summary(doc.get("skill_name", ""), extraction),
@@ -1811,6 +1913,7 @@ class SkillsIESystem:
                 description_preview=item["description_preview"],
                 extraction=extraction,
                 variant=variant,
+                source_fingerprint=item.get("source_fingerprint", ""),
             )
             for item, extraction in zip(prepared_docs, extractions)
         ]
@@ -1824,10 +1927,122 @@ class SkillsIESystem:
                 description_preview=item["description_preview"],
                 extraction=extraction,
                 variant=self.variant,
+                source_fingerprint=item.get("source_fingerprint", ""),
             )
             for item, extraction in zip(prepared_docs, extractions)
         ]
         return self.extraction_results
+
+    def load_or_extract_results(self, persist_cache: bool = True) -> List[Dict[str, Any]]:
+        if not self.documents:
+            self.load_data()
+        if self.extraction_results and len(self.extraction_results) == len(self.documents):
+            return self.extraction_results
+
+        prepared_docs = self._prepare_document_inputs()
+        cached_payload = self._load_cached_results_payload()
+        cached_events = cached_payload.get("events", []) if cached_payload else []
+        cached_by_key = {
+            self._cache_key_from_event(event): event
+            for event in cached_events
+            if self._cache_key_from_event(event)
+        }
+
+        ordered_events: List[Dict[str, Any] | None] = [None] * len(prepared_docs)
+        missing_indices: List[int] = []
+        missing_docs: List[Dict[str, Any]] = []
+
+        for index, item in enumerate(prepared_docs):
+            cache_key = self._cache_key_from_doc(item["doc"])
+            cached_event = cached_by_key.get(cache_key) if cache_key else None
+            if cached_event and self._is_cached_event_usable(
+                cached_event,
+                expected_variant=self.variant,
+                source_fingerprint=item.get("source_fingerprint", ""),
+            ):
+                ordered_events[index] = cached_event
+                continue
+            missing_indices.append(index)
+            missing_docs.append(item)
+
+        if missing_docs:
+            missing_extractions = self._extract_documents_variant(missing_docs, variant=self.variant)
+            for index, item, extraction in zip(missing_indices, missing_docs, missing_extractions):
+                ordered_events[index] = self._build_event_from_doc(
+                    doc=item["doc"],
+                    description_preview=item["description_preview"],
+                    extraction=extraction,
+                    variant=self.variant,
+                    source_fingerprint=item.get("source_fingerprint", ""),
+                )
+
+        self.extraction_results = [event for event in ordered_events if event is not None]
+        should_persist_cache = (
+            bool(missing_docs)
+            or not cached_payload
+            or not self._variant_results_path().exists()
+        )
+        if persist_cache and should_persist_cache:
+            self.save_cached_results(include_legacy=self.variant == "enhanced")
+        return self.extraction_results
+
+    def _find_document_index(self, skill_id: str) -> int:
+        target = skill_id.strip()
+        if not target:
+            return -1
+        for index, doc in enumerate(self.documents):
+            if str(doc.get("skill_id") or "").strip() == target:
+                return index
+        return -1
+
+    def _find_event_index(self, skill_id: str) -> int:
+        target = skill_id.strip()
+        if not target:
+            return -1
+        for index, event in enumerate(self.extraction_results):
+            if str(event.get("skill_id") or "").strip() == target:
+                return index
+        return -1
+
+    def reextract_document_by_skill_id(
+        self,
+        skill_id: str,
+        persist_cache: bool = True,
+        collect_debug: bool = False,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any] | None]:
+        if not self.documents:
+            self.load_data()
+        if not self.extraction_results:
+            self.load_or_extract_results(persist_cache=False)
+
+        doc_index = self._find_document_index(skill_id)
+        if doc_index < 0:
+            raise KeyError(skill_id)
+
+        doc = self.documents[doc_index]
+        prepared_doc = self._prepare_document_input(doc)
+        extraction, debug_payload = self._extract_prepared_doc_variant(
+            prepared_doc,
+            variant=self.variant,
+            collect_debug=collect_debug,
+        )
+        event = self._build_event_from_doc(
+            doc=prepared_doc["doc"],
+            description_preview=prepared_doc["description_preview"],
+            extraction=extraction,
+            variant=self.variant,
+            source_fingerprint=prepared_doc.get("source_fingerprint", ""),
+        )
+
+        event_index = self._find_event_index(skill_id)
+        if event_index >= 0:
+            self.extraction_results[event_index] = event
+        else:
+            self.extraction_results.append(event)
+
+        if persist_cache:
+            self.save_cached_results(include_legacy=self.variant == "enhanced")
+        return event, debug_payload
 
     @staticmethod
     def _build_event_summary(skill_name: str, extraction: Dict[str, Any]) -> str:
@@ -1972,15 +2187,16 @@ class SkillsIESystem:
     def save_results(self) -> Dict[str, str]:
         self.config.ensure_runtime_dirs()
         results_path = self.config.paths.extraction_results_file
-        save_json_atomic(
-            results_path,
-            {
-                "generated_at": utc_now_iso(),
-                "variant": self.variant,
-                "total": len(self.extraction_results),
-                "events": self.extraction_results,
-            },
-        )
+        payload = {
+            "generated_at": utc_now_iso(),
+            "variant": self.variant,
+            "total": len(self.extraction_results),
+            "events": self.extraction_results,
+        }
+        save_json_atomic(results_path, payload)
+        variant_path = self._variant_results_path()
+        if variant_path != results_path:
+            save_json_atomic(variant_path, payload)
 
         report = self.generate_report()
         save_json_atomic(self.config.paths.extraction_report_file, report)
@@ -1997,9 +2213,28 @@ class SkillsIESystem:
         )
         return {
             "results_file": str(results_path),
+            "variant_results_file": str(variant_path),
             "report_file": str(self.config.paths.extraction_report_file),
             "state_file": str(self.config.paths.project_state_file),
         }
+
+    def save_cached_results(self, include_legacy: bool = False) -> Dict[str, str]:
+        self.config.ensure_runtime_dirs()
+        payload = {
+            "generated_at": utc_now_iso(),
+            "variant": self.variant,
+            "total": len(self.extraction_results),
+            "events": self.extraction_results,
+        }
+        saved_paths: Dict[str, str] = {}
+        variant_path = self._variant_results_path()
+        save_json_atomic(variant_path, payload)
+        saved_paths["variant_results_file"] = str(variant_path)
+        if include_legacy:
+            legacy_path = self.config.paths.extraction_results_file
+            save_json_atomic(legacy_path, payload)
+            saved_paths["results_file"] = str(legacy_path)
+        return saved_paths
 
     def search_extractions(
         self, query: str, field: str | None = None, top_k: int = 10
