@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 import sys
-from threading import Lock
+import uuid
+from threading import Lock, Thread
 from pathlib import Path
 
 # ── 项目根路径 ────────────────────────────────────────────
@@ -118,6 +119,9 @@ _ie_variant_cache: dict = {}
 _ie_api_summary_cache: dict = {}
 _ie_api_summary_lock = Lock()
 _ie_api_summary_cache_path = _ie_config.paths.state_dir / "api_summary_cache.json"
+_ie_extract_job_lock = Lock()
+_ie_extract_jobs: dict[str, dict] = {}
+_ie_active_extract_jobs_by_variant: dict[str, str] = {}
 _ie_bootstrap = SkillsIESystem(_ie_config, variant=DEFAULT_VARIANT)
 _ie_bootstrap.load_data()
 
@@ -298,6 +302,140 @@ def _invalidate_ie_summary_cache(variant: str, skill_id: str | None = None) -> N
                 changed = True
         if changed:
             save_json_atomic(_ie_api_summary_cache_path, payload)
+
+
+def _snapshot_ie_extract_job(job: dict) -> dict:
+    return {
+        "job_id": job.get("job_id", ""),
+        "variant": job.get("variant", ""),
+        "status": job.get("status", ""),
+        "mode": job.get("mode", "full_reextract_async"),
+        "created_at": job.get("created_at", ""),
+        "started_at": job.get("started_at", ""),
+        "completed_at": job.get("completed_at", ""),
+        "processed_count": job.get("processed_count", 0),
+        "cached_count": job.get("cached_count", 0),
+        "document_count": job.get("document_count", 0),
+        "extraction_count": job.get("extraction_count", 0),
+        "last_skill_id": job.get("last_skill_id", ""),
+        "last_skill_name": job.get("last_skill_name", ""),
+        "files": job.get("files", {}),
+        "error": job.get("error", ""),
+    }
+
+
+def _run_ie_extract_all_job(job_id: str) -> None:
+    with _ie_extract_job_lock:
+        job = _ie_extract_jobs.get(job_id)
+        if not job:
+            return
+        job["status"] = "running"
+        job["started_at"] = utc_now_iso()
+        variant = str(job.get("variant") or "")
+
+    try:
+        ie = SkillsIESystem(_ie_config, variant=variant)
+        ie.load_data()
+        with _ie_extract_job_lock:
+            job = _ie_extract_jobs.get(job_id)
+            if job is not None:
+                job["document_count"] = len(ie.documents)
+
+        if variant == "api":
+            def on_progress(progress: dict) -> None:
+                with _ie_extract_job_lock:
+                    progress_job = _ie_extract_jobs.get(job_id)
+                    if progress_job is None:
+                        return
+                    progress_job.update(progress)
+
+            ie.extract_all_incremental(
+                persist_every=5,
+                progress_callback=on_progress,
+                reuse_cached=True,
+            )
+            files = ie.save_results(include_legacy=False)
+        else:
+            ie.extract_all()
+            files = ie.save_results()
+        bundle = _set_ie_variant_bundle(_build_ie_bundle(ie, variant))
+        _invalidate_ie_summary_cache(variant)
+        result = {
+            "status": "completed",
+            "completed_at": utc_now_iso(),
+            "processed_count": len(ie.extraction_results),
+            "document_count": len(ie.documents),
+            "extraction_count": len(ie.extraction_results),
+            "files": files,
+            "report": bundle["report"],
+            "auto_eval": bundle["auto_eval"],
+            "error": "",
+        }
+    except Exception as exc:
+        result = {
+            "status": "failed",
+            "completed_at": utc_now_iso(),
+            "error": str(exc),
+        }
+
+    with _ie_extract_job_lock:
+        job = _ie_extract_jobs.get(job_id)
+        if not job:
+            return
+        job.update(result)
+        if _ie_active_extract_jobs_by_variant.get(variant) == job_id:
+            _ie_active_extract_jobs_by_variant.pop(variant, None)
+
+
+def _start_ie_extract_all_job(variant: str) -> dict:
+    with _ie_extract_job_lock:
+        active_job_id = _ie_active_extract_jobs_by_variant.get(variant)
+        if active_job_id:
+            active_job = _ie_extract_jobs.get(active_job_id)
+            if active_job and active_job.get("status") in {"queued", "running"}:
+                return _snapshot_ie_extract_job(active_job)
+
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id,
+            "variant": variant,
+            "mode": "full_reextract_async",
+            "status": "queued",
+            "created_at": utc_now_iso(),
+            "started_at": "",
+            "completed_at": "",
+            "processed_count": 0,
+            "cached_count": 0,
+            "document_count": 0,
+            "extraction_count": 0,
+            "last_skill_id": "",
+            "last_skill_name": "",
+            "files": {},
+            "error": "",
+        }
+        _ie_extract_jobs[job_id] = job
+        _ie_active_extract_jobs_by_variant[variant] = job_id
+
+    thread = Thread(target=_run_ie_extract_all_job, args=(job_id,), daemon=True)
+    thread.start()
+    return _snapshot_ie_extract_job(job)
+
+
+def _get_ie_extract_job(job_id: str) -> dict | None:
+    with _ie_extract_job_lock:
+        job = _ie_extract_jobs.get(job_id)
+        return _snapshot_ie_extract_job(job) if job else None
+
+
+def _get_ie_active_extract_job_for_variant(variant: str) -> dict | None:
+    with _ie_extract_job_lock:
+        job_id = _ie_active_extract_jobs_by_variant.get(variant)
+        if not job_id:
+            return None
+        job = _ie_extract_jobs.get(job_id)
+        if not job:
+            return None
+        return _snapshot_ie_extract_job(job)
 
 
 def _normalize_ie_summary_payload(payload: object) -> dict:
@@ -576,6 +714,7 @@ def api_ie_workbench():
             "total_docs": len(ie.documents),
             "total_extractions": len(ie.extraction_results),
             "api_description_enabled": bool(_ie_config.remote_llm.enabled),
+            "active_job": _get_ie_active_extract_job_for_variant(variant),
         },
         "available_variants": [
             {"id": v, "label": VARIANT_LABELS[v], "description": VARIANT_DESCRIPTIONS[v],
@@ -712,6 +851,26 @@ def api_ie_extract_all():
             "auto_eval": bundle["auto_eval"],
         }
     )
+
+
+@app.post("/api/ie/extract-all/jobs")
+def api_ie_extract_all_job_start():
+    body = request.get_json(silent=True) or {}
+    try:
+        variant = _normalize_ie_variant(body.get("variant") or request.args.get("variant"))
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    job = _start_ie_extract_all_job(variant)
+    return jsonify({"ok": True, "job": job})
+
+
+@app.get("/api/ie/extract-all/jobs/<job_id>")
+def api_ie_extract_all_job_status(job_id: str):
+    job = _get_ie_extract_job(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    return jsonify({"ok": True, "job": job})
 
 
 @app.post("/api/ie/events/<skill_id>/reextract")

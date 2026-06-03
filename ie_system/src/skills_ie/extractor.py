@@ -2055,6 +2055,76 @@ class SkillsIESystem:
             self.save_cached_results(include_legacy=self.variant == "enhanced")
         return event, debug_payload
 
+    def extract_all_incremental(
+        self,
+        persist_every: int = 10,
+        progress_callback: Any | None = None,
+        reuse_cached: bool = True,
+    ) -> List[Dict[str, Any]]:
+        if not self.documents:
+            self.load_data()
+
+        prepared_docs = self._prepare_document_inputs()
+        total = len(prepared_docs)
+        ordered_events: List[Dict[str, Any] | None] = [None] * total
+        cached_count = 0
+
+        cached_by_key: Dict[str, Dict[str, Any]] = {}
+        if reuse_cached:
+            cached_events = self.load_cached_results_only()
+            cached_by_key = {
+                self._cache_key_from_event(event): event
+                for event in cached_events
+                if self._cache_key_from_event(event)
+            }
+
+        processed = 0
+        for index, item in enumerate(prepared_docs):
+            cache_key = self._cache_key_from_doc(item["doc"])
+            cached_event = cached_by_key.get(cache_key) if cache_key else None
+            if cached_event and self._is_cached_event_usable(
+                cached_event,
+                expected_variant=self.variant,
+                source_fingerprint=item.get("source_fingerprint", ""),
+            ):
+                event = cached_event
+                cached_count += 1
+            else:
+                extraction, _ = self._extract_prepared_doc_variant(
+                    item,
+                    variant=self.variant,
+                    collect_debug=False,
+                )
+                event = self._build_event_from_doc(
+                    doc=item["doc"],
+                    description_preview=item["description_preview"],
+                    extraction=extraction,
+                    variant=self.variant,
+                    source_fingerprint=item.get("source_fingerprint", ""),
+                )
+
+            ordered_events[index] = event
+            processed += 1
+            self.extraction_results = [result for result in ordered_events if result is not None]
+
+            if processed % max(1, persist_every) == 0 or processed == total:
+                self.save_cached_results(include_legacy=self.variant == "enhanced")
+
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "processed_count": processed,
+                        "document_count": total,
+                        "cached_count": cached_count,
+                        "extraction_count": len(self.extraction_results),
+                        "last_skill_id": str(event.get("skill_id") or ""),
+                        "last_skill_name": str(event.get("skill_name") or ""),
+                    }
+                )
+
+        self.extraction_results = [result for result in ordered_events if result is not None]
+        return self.extraction_results
+
     @staticmethod
     def _build_event_summary(skill_name: str, extraction: Dict[str, Any]) -> str:
         parts = [f"[{skill_name}]"]
@@ -2195,7 +2265,7 @@ class SkillsIESystem:
         }
         return report
 
-    def save_results(self) -> Dict[str, str]:
+    def save_results(self, include_legacy: bool | None = None) -> Dict[str, str]:
         self.config.ensure_runtime_dirs()
         results_path = self.config.paths.extraction_results_file
         payload = {
@@ -2204,13 +2274,17 @@ class SkillsIESystem:
             "total": len(self.extraction_results),
             "events": self.extraction_results,
         }
-        save_json_atomic(results_path, payload)
+        if include_legacy is None:
+            include_legacy = self.variant == "enhanced"
+        if include_legacy:
+            save_json_atomic(results_path, payload)
         variant_path = self._variant_results_path()
-        if variant_path != results_path:
+        if variant_path != results_path or not include_legacy:
             save_json_atomic(variant_path, payload)
 
         report = self.generate_report()
         save_json_atomic(self.config.paths.extraction_report_file, report)
+        stored_results_path = results_path if include_legacy else variant_path
         save_json_atomic(
             self.config.paths.project_state_file,
             {
@@ -2219,11 +2293,11 @@ class SkillsIESystem:
                 "document_count": len(self.documents),
                 "extraction_count": len(self.extraction_results),
                 "report_path": str(self.config.paths.extraction_report_file),
-                "results_path": str(results_path),
+                "results_path": str(stored_results_path),
             },
         )
         return {
-            "results_file": str(results_path),
+            "results_file": str(results_path) if include_legacy else "",
             "variant_results_file": str(variant_path),
             "report_file": str(self.config.paths.extraction_report_file),
             "state_file": str(self.config.paths.project_state_file),

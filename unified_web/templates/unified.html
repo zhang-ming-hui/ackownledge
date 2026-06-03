@@ -209,6 +209,10 @@
     .ie-hero .variant-box { display:flex; align-items:center; gap:8px; }
     .ie-hero .variant-box label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; }
     .ie-hero select { width:200px; }
+    .ie-hero-actions { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+    .ie-hero-actions .row { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+    .ie-job-status { font-size:12px; color:var(--muted); text-align:right; max-width:420px; }
+    .ie-job-status strong { color:var(--ink); }
 
     .ie-grid { display:grid; grid-template-columns:300px minmax(0,1fr) 280px; gap:14px; align-items:start; }
     .ie-panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); overflow:hidden; }
@@ -426,6 +430,12 @@
         <option value="baseline">Baseline</option>
         <option value="enhanced" selected>Enhanced</option>
       </select>
+    </div>
+    <div class="ie-hero-actions">
+      <div class="row">
+        <button class="btn btn-primary" id="ieExtractAllBtn" onclick="ieStartFullExtract()">Run Full Extract</button>
+      </div>
+      <div class="ie-job-status" id="ieJobStatus">No full extraction job started.</div>
     </div>
   </div>
 
@@ -663,6 +673,8 @@ let _ieJudgments = {};
 let _ieDetailFeedback = {};
 let _ieSummaryTimer = null;
 let _ieSummaryRequestSeq = 0;
+let _ieExtractJob = null;
+let _ieExtractJobTimer = null;
 
 function syncIEVariants(variants, selectedVariant) {
   const select = document.getElementById('ieVariant');
@@ -671,6 +683,98 @@ function syncIEVariants(variants, selectedVariant) {
     .filter(v => v.enabled)
     .map(v => `<option value="${escAttr(v.id)}"${v.id === selectedVariant ? ' selected' : ''}>${esc(v.label)}</option>`)
     .join('');
+}
+
+function ieStopJobPolling() {
+  if (_ieExtractJobTimer) {
+    clearTimeout(_ieExtractJobTimer);
+    _ieExtractJobTimer = null;
+  }
+}
+
+function ieRenderJobStatus() {
+  const btn = document.getElementById('ieExtractAllBtn');
+  const statusEl = document.getElementById('ieJobStatus');
+  if (!btn || !statusEl) return;
+  const variant = document.getElementById('ieVariant').value || (_ieSummary?.variant || 'enhanced');
+  const activeJob = _ieExtractJob && _ieExtractJob.variant === variant ? _ieExtractJob : null;
+  const isRunning = activeJob && (activeJob.status === 'queued' || activeJob.status === 'running');
+  btn.disabled = Boolean(isRunning);
+  btn.textContent = isRunning ? '鍏ㄩ噺鎶藉彇杩涜涓?..' : '鍏ㄩ噺鎶藉彇骞朵繚瀛?';
+
+  if (activeJob) {
+    if (activeJob.status === 'queued') {
+      statusEl.innerHTML = `褰撳墠鍙樹綋 <strong>${esc(activeJob.variant)}</strong> 鐨勫叏閲忔娊鍙栧凡鎻愪氦锛屾鍦ㄦ帓闃熴€?`;
+      return;
+    }
+    if (activeJob.status === 'running') {
+      statusEl.innerHTML = `褰撳墠鍙樹綋 <strong>${esc(activeJob.variant)}</strong> 鐨勫叏閲忔娊鍙栨鍦ㄨ繍琛岋紝璇风◢鍚庛€?`;
+      return;
+    }
+    if (activeJob.status === 'completed') {
+      statusEl.innerHTML = `鍏ㄩ噺鎶藉彇宸插畬鎴愶細<strong>${activeJob.extraction_count || 0}</strong> / <strong>${activeJob.document_count || 0}</strong> 鏉°€?`;
+      return;
+    }
+    if (activeJob.status === 'failed') {
+      statusEl.innerHTML = `鍏ㄩ噺鎶藉彇澶辫触锛?${esc(activeJob.error || 'unknown error')}`;
+      return;
+    }
+  }
+
+  if ((_ieSummary?.variant || variant) === 'api') {
+    const count = Number(_ieSummary?.total_extractions || 0);
+    if (count > 0) {
+      statusEl.innerHTML = `API 缂撳瓨宸叉湁 <strong>${count}</strong> 鏉℃妧鑳界粨鏋溿€傜偣鍑诲彲缁х画鍏ㄩ噺鎶藉彇鍜屼繚瀛樸€?`;
+    } else {
+      statusEl.innerHTML = 'API 鍙樹綋褰撳墠杩樻病鏈夊叏閲忕紦瀛橈紝鐐瑰嚮鈥滃叏閲忔娊鍙栧苟淇濆瓨鈥濆悗浼氬 1000 鏉℃枃妗ｉ€愭潯璋冪敤 API銆?';
+    }
+    return;
+  }
+
+  statusEl.innerHTML = '鐐瑰嚮鈥滃叏閲忔娊鍙栧苟淇濆瓨鈥濆彲浠ラ噸鏂扮敓鎴愬綋鍓嶅彉浣撶殑鏈湴缂撳瓨銆?';
+}
+
+function ieScheduleJobPoll() {
+  ieStopJobPolling();
+  if (!_ieExtractJob || !['queued', 'running'].includes(_ieExtractJob.status)) {
+    return;
+  }
+  _ieExtractJobTimer = setTimeout(async () => {
+    try {
+      const data = await apiGet(`/api/ie/extract-all/jobs/${encodeURIComponent(_ieExtractJob.job_id)}`);
+      _ieExtractJob = data.job || null;
+      ieRenderJobStatus();
+      if (_ieExtractJob && ['queued', 'running'].includes(_ieExtractJob.status)) {
+        ieScheduleJobPoll();
+        return;
+      }
+      if (_ieExtractJob && _ieExtractJob.status === 'completed') {
+        await ieLoadWorkbench();
+        return;
+      }
+    } catch (err) {
+      _ieExtractJob = {status: 'failed', error: getErrorMessage(err), variant: document.getElementById('ieVariant').value || 'enhanced'};
+      ieRenderJobStatus();
+    }
+  }, 2000);
+}
+
+async function ieStartFullExtract() {
+  const variant = document.getElementById('ieVariant').value || 'enhanced';
+  if (variant === 'api') {
+    const confirmed = window.confirm('API 鍏ㄩ噺鎶藉彇浼氬 1000 鏉℃妧鑳芥枃妗ｉ€愭潯璋冪敤 DeepSeek API锛屽苟鎶婄粨鏋滀繚瀛樺埌鏈湴缂撳瓨銆傜‘璁ゅ紑濮嬪悧锛?');
+    if (!confirmed) return;
+  }
+  try {
+    const data = await apiPost(`/api/ie/extract-all/jobs?variant=${encodeURIComponent(variant)}`, {});
+    _ieExtractJob = data.job || null;
+    ieRenderJobStatus();
+    ieScheduleJobPoll();
+  } catch (err) {
+    _ieExtractJob = {status: 'failed', error: getErrorMessage(err), variant};
+    ieRenderJobStatus();
+    alert(`鍚姩鍏ㄩ噺鎶藉彇澶辫触锛?${getErrorMessage(err)}`);
+  }
 }
 
 async function ieLoadWorkbench() {
@@ -684,9 +788,16 @@ async function ieLoadWorkbench() {
     _ieAutoEval = data.auto_eval || {};
     _ieManualMetrics = data.manual_metrics || {};
     _ieLoaded = true;
+    _ieExtractJob = _ieSummary?.active_job || (_ieExtractJob && _ieExtractJob.variant === variant ? _ieExtractJob : null);
     document.getElementById('ieStatus').className = 'status-dot ok';
     document.getElementById('ieCount').textContent = `${_ieEvents.length} 个技能`;
     syncIEVariants(data.available_variants || [], _ieSummary.variant || variant);
+    ieRenderJobStatus();
+    if (_ieExtractJob && ['queued', 'running'].includes(_ieExtractJob.status)) {
+      ieScheduleJobPoll();
+    } else {
+      ieStopJobPolling();
+    }
 
     const cats = [...new Set(_ieEvents.map(e => e.category).filter(Boolean))].sort();
     const sel = document.getElementById('ieCatSelect');
@@ -704,6 +815,7 @@ async function ieLoadWorkbench() {
       ieSelectSkill(_ieSelectedSkillId);
     }
   } catch (err) {
+    ieStopJobPolling();
     document.getElementById('ieStatus').className = 'status-dot err';
     document.getElementById('ieSkillList').innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">加载失败：${esc(getErrorMessage(err))}</div>`;
   }
@@ -989,6 +1101,69 @@ function ieRenderStats() {
     ` : '<span style="font-size:12px;color:var(--muted)">暂无人工评估数据</span>';
   document.getElementById('ieAutoEval').innerHTML = autoEvalHtml;
   document.getElementById('ieManualEval').innerHTML = manualHtml;
+}
+
+function ieRenderJobStatus() {
+  const btn = document.getElementById('ieExtractAllBtn');
+  const statusEl = document.getElementById('ieJobStatus');
+  if (!btn || !statusEl) return;
+  const variant = document.getElementById('ieVariant').value || (_ieSummary?.variant || 'enhanced');
+  const activeJob = _ieExtractJob && _ieExtractJob.variant === variant ? _ieExtractJob : null;
+  const isRunning = activeJob && (activeJob.status === 'queued' || activeJob.status === 'running');
+  btn.disabled = Boolean(isRunning);
+  btn.textContent = isRunning ? 'Extracting...' : 'Run Full Extract';
+
+  if (activeJob) {
+    if (activeJob.status === 'queued') {
+      statusEl.innerHTML = `Variant <strong>${esc(activeJob.variant)}</strong> queued.`;
+      return;
+    }
+    if (activeJob.status === 'running') {
+      const processed = Number(activeJob.processed_count || 0);
+      const total = Number(activeJob.document_count || 0);
+      const lastSkill = activeJob.last_skill_name ? ` Last: ${esc(activeJob.last_skill_name)}.` : '';
+      statusEl.innerHTML = `Variant <strong>${esc(activeJob.variant)}</strong> is running in background. Progress: <strong>${processed}</strong>${total ? ` / <strong>${total}</strong>` : ''}.${lastSkill}`;
+      return;
+    }
+    if (activeJob.status === 'completed') {
+      statusEl.innerHTML = `Completed: <strong>${activeJob.extraction_count || 0}</strong> / <strong>${activeJob.document_count || 0}</strong> docs saved locally.`;
+      return;
+    }
+    if (activeJob.status === 'failed') {
+      statusEl.innerHTML = `Full extract failed: ${esc(activeJob.error || 'unknown error')}`;
+      return;
+    }
+  }
+
+  if ((_ieSummary?.variant || variant) === 'api') {
+    const count = Number(_ieSummary?.total_extractions || 0);
+    if (count > 0) {
+      statusEl.innerHTML = `API cache currently has <strong>${count}</strong> extracted docs.`;
+    } else {
+      statusEl.innerHTML = 'API cache is empty. Click "Run Full Extract" to extract all docs and save them locally.';
+    }
+    return;
+  }
+
+  statusEl.innerHTML = 'Click "Run Full Extract" to rebuild and save the local cache for the current variant.';
+}
+
+async function ieStartFullExtract() {
+  const variant = document.getElementById('ieVariant').value || 'enhanced';
+  if (variant === 'api') {
+    const confirmed = window.confirm('API full extract will call DeepSeek for all docs and save results locally. Continue?');
+    if (!confirmed) return;
+  }
+  try {
+    const data = await apiPost(`/api/ie/extract-all/jobs?variant=${encodeURIComponent(variant)}`, {});
+    _ieExtractJob = data.job || null;
+    ieRenderJobStatus();
+    ieScheduleJobPoll();
+  } catch (err) {
+    _ieExtractJob = {status: 'failed', error: getErrorMessage(err), variant};
+    ieRenderJobStatus();
+    alert(`Failed to start full extract: ${getErrorMessage(err)}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════
