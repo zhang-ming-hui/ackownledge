@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import sys
+from threading import Lock
 from pathlib import Path
 
 # ── 项目根路径 ────────────────────────────────────────────
@@ -104,6 +106,7 @@ def _compute_ir_manual_metrics(judgments: list) -> dict:
 from skills_ie.config import load_config as ie_load_config
 from skills_ie.evaluation import evaluate_extraction, load_manual_judgments as ie_load_manual, save_manual_judgment as ie_save_judgment
 from skills_ie.extractor import EXTRACTED_FIELDS, SkillsIESystem
+from skills_ie.remote_llm import call_openai_compatible_json
 from skills_ie.web import (
     DEFAULT_VARIANT, SUPPORTED_VARIANTS, VARIANT_DESCRIPTIONS, VARIANT_LABELS,
     _copy_extraction_values, _copy_full_extraction,
@@ -112,6 +115,8 @@ from skills_ie.web import (
 _ie_config = ie_load_config(_PROJECT_ROOT / "ie_system" / "configs" / "ie_config.json")
 
 _ie_variant_cache: dict = {}
+_ie_api_summary_cache: dict = {}
+_ie_api_summary_lock = Lock()
 _ie_bootstrap = SkillsIESystem(_ie_config, variant=DEFAULT_VARIANT)
 _ie_bootstrap.load_data()
 _ie_bootstrap.extract_all()
@@ -156,6 +161,121 @@ def _get_ie_variant_bundle(variant: str) -> dict:
     }
     _ie_variant_cache[variant] = bundle
     return bundle
+
+
+def _normalize_ie_summary_payload(payload: dict) -> dict:
+    summary = str(payload.get("summary", "")).strip()
+    highlights_raw = payload.get("highlights", [])
+    highlights: list[str] = []
+    if isinstance(highlights_raw, list):
+        for item in highlights_raw:
+            text = str(item).strip()
+            if text and text not in highlights:
+                highlights.append(text)
+    return {
+        "available": bool(summary or highlights),
+        "summary": summary,
+        "highlights": highlights[:4],
+    }
+
+
+def _build_ie_api_summary_prompt(detail: dict) -> str:
+    extraction_json = json.dumps(
+        _copy_extraction_values(detail.get("extraction", {})),
+        ensure_ascii=False,
+        indent=2,
+    )
+    source_text = str(detail.get("source_text", "")).strip()[:7000]
+    description_preview = str(detail.get("description_preview", "")).strip()
+    return (
+        "Summarize the following skill in Chinese and return strict JSON only.\n\n"
+        "Schema:\n"
+        "{\n"
+        '  "summary": "...",\n'
+        '  "highlights": ["...", "...", "..."]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Stay faithful to the source text and the structured extraction hints.\n"
+        "- The summary should be 2-4 Chinese sentences describing likely usage flow and capabilities.\n"
+        "- Do not invent outcomes, saved files, evaluated scores, or concrete execution results.\n"
+        "- Highlights should be short Chinese fragments, each under 18 characters.\n"
+        "- Return JSON only.\n\n"
+        f"Skill name: {detail.get('skill_name', '')}\n"
+        f"Owner: {detail.get('owner', '')}\n"
+        f"Category: {detail.get('category', '')}\n"
+        f"Extraction variant: {detail.get('variant', '')}\n"
+        f"Description preview: {description_preview}\n\n"
+        "Structured extraction hints:\n"
+        f"{extraction_json}\n\n"
+        "Source text:\n"
+        f"{source_text}"
+    )
+
+
+def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
+    cache_key = (bundle["variant"], skill_id)
+    with _ie_api_summary_lock:
+        cached = _ie_api_summary_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if not _ie_config.remote_llm.enabled:
+        payload = {
+            "available": False,
+            "summary": "",
+            "highlights": [],
+            "error": "remote_llm disabled in config",
+            "model": _ie_config.remote_llm.model,
+        }
+        with _ie_api_summary_lock:
+            _ie_api_summary_cache.setdefault(cache_key, payload)
+            return _ie_api_summary_cache[cache_key]
+
+    event = bundle["events_by_skill_id"].get(skill_id)
+    if not event:
+        raise KeyError(skill_id)
+
+    doc = bundle["docs_by_skill_id"].get(skill_id, {})
+    source_text = bundle["ie"].get_document_source_text(doc) if doc else ""
+    detail = {
+        "skill_id": event.get("skill_id", ""),
+        "skill_name": event.get("skill_name", ""),
+        "owner": event.get("owner", ""),
+        "category": event.get("category", ""),
+        "detail_url": event.get("detail_url", ""),
+        "description_preview": event.get("description_preview", ""),
+        "variant": event.get("variant", ""),
+        "event_summary": event.get("event_summary", ""),
+        "info_point_count": event.get("info_point_count", 0),
+        "evidence_count": event.get("evidence_count", 0),
+        "source_text": source_text,
+        "extraction": _copy_full_extraction(event.get("extraction", {})),
+    }
+    summary_config = replace(
+        _ie_config.remote_llm,
+        system_prompt="You are a skill capability summarization engine. Return strict JSON only.",
+        temperature=0.0,
+        max_output_tokens=min(_ie_config.remote_llm.max_output_tokens, 600),
+    )
+    prompt = _build_ie_api_summary_prompt(detail)
+    try:
+        raw_payload = call_openai_compatible_json(summary_config, prompt)
+        normalized = _normalize_ie_summary_payload(raw_payload)
+        normalized["model"] = summary_config.model
+        if not normalized["available"]:
+            normalized["error"] = "empty summary payload"
+    except Exception as exc:
+        normalized = {
+            "available": False,
+            "summary": "",
+            "highlights": [],
+            "error": str(exc),
+            "model": summary_config.model,
+        }
+
+    with _ie_api_summary_lock:
+        _ie_api_summary_cache.setdefault(cache_key, normalized)
+        return _ie_api_summary_cache[cache_key]
 
 
 # ── Multimedia ────────────────────────────────────────────
@@ -301,6 +421,7 @@ def api_ie_workbench():
             "variant_label": VARIANT_LABELS[variant],
             "total_docs": len(ie.documents),
             "total_extractions": len(ie.extraction_results),
+            "api_description_enabled": bool(_ie_config.remote_llm.enabled),
         },
         "available_variants": [
             {"id": v, "label": VARIANT_LABELS[v], "description": VARIANT_DESCRIPTIONS[v],
@@ -352,6 +473,17 @@ def api_ie_event_detail(skill_id: str):
         "extraction": _copy_full_extraction(event.get("extraction", {})),
     }
     return jsonify({"ok": True, "event": detail})
+
+
+@app.get("/api/ie/describe/<skill_id>")
+def api_ie_describe(skill_id: str):
+    try:
+        bundle = _get_ie_variant_bundle(request.args.get("variant"))
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    if skill_id not in bundle["events_by_skill_id"]:
+        return jsonify({"ok": False, "error": "skill not found"}), 404
+    return jsonify({"ok": True, "description": _get_ie_api_summary(bundle, skill_id)})
 
 
 @app.get("/api/ie/search")

@@ -230,10 +230,40 @@
     .ie-detail-empty { text-align:center; padding:60px 20px; color:var(--muted); }
     .ie-detail h3 { margin:0 0 8px; font-size:20px; line-height:1.3; word-break:break-word; }
     .ie-detail .detail-meta { font-size:12px; color:var(--muted); margin-bottom:14px; display:flex; gap:12px; flex-wrap:wrap; }
+    .ie-detail .detail-actions { margin-bottom:12px; }
+    .ie-detail .detail-link { color:var(--accent); text-decoration:none; font-size:12px; font-weight:600; }
+    .ie-detail .detail-link:hover { text-decoration:underline; }
+    .ie-summary-box {
+      border:1px solid var(--line); border-radius:var(--radius-md); background:#f9fafb;
+      padding:12px 14px; margin-bottom:12px;
+    }
+    .ie-summary-box.api { background:linear-gradient(180deg, var(--ie-soft), #fff); border-color:rgba(124,58,237,.18); }
+    .ie-summary-box .label { display:block; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:.04em; text-transform:uppercase; margin-bottom:6px; }
+    .ie-summary-box .summary-text { font-size:13px; color:var(--ink2); line-height:1.65; }
+    .ie-summary-box .summary-sub { margin-top:8px; font-size:12px; color:var(--muted); }
+    .ie-highlight-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .ie-highlight {
+      display:inline-flex; align-items:center; padding:4px 9px; border-radius:999px;
+      background:var(--ie-soft); color:var(--ie); font-size:11px; font-weight:600;
+    }
     .ie-field-section { margin-bottom:14px; }
+    .ie-field-card { border:1px solid var(--line); border-radius:var(--radius-md); padding:12px; background:#fff; margin-bottom:12px; }
     .ie-field-section .field-name { font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
     .ie-field-section .field-values { display:flex; flex-wrap:wrap; gap:5px; }
     .ie-field-section .no-value { font-size:12px; color:#9ca3af; }
+    .ie-evidence-list { margin-top:8px; font-size:12px; color:var(--muted); line-height:1.5; }
+    .ie-evidence-list code { background:#f3f4f6; padding:2px 6px; border-radius:999px; font-size:11px; }
+    .ie-judge-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; }
+    .ie-judge-label { font-size:12px; color:var(--muted); font-weight:600; }
+    .ie-judge-btn {
+      border:1px solid var(--line2); border-radius:999px; padding:4px 10px;
+      font-size:12px; cursor:pointer; background:var(--panel); color:var(--ink2); transition:all .15s;
+    }
+    .ie-judge-btn:hover { border-color:var(--ie); color:var(--ie); }
+    .ie-judge-btn.active-correct { background:var(--green-soft); border-color:#0f766e; color:#0f766e; }
+    .ie-judge-btn.active-partial { background:var(--amber-soft); border-color:#92400e; color:#92400e; }
+    .ie-judge-btn.active-incorrect { background:var(--red-soft); border-color:#991b1b; color:#991b1b; }
+    .ie-judge-feedback { font-size:12px; color:var(--muted); }
 
     .ie-sidebar-panel { margin-bottom:12px; }
     .ie-stat { display:flex; justify-content:space-between; padding:4px 0; font-size:12px; }
@@ -424,6 +454,10 @@
         <div class="ie-panel-head"><h4>📈 自动评测</h4></div>
         <div class="panel-body" id="ieAutoEval"></div>
       </div>
+      <div class="ie-panel ie-sidebar-panel">
+        <div class="ie-panel-head"><h4>🧪 人工评估</h4></div>
+        <div class="panel-body" id="ieManualEval"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -613,10 +647,14 @@ async function loadIRMetrics() {
 let _ieLoaded = false;
 let _ieEvents = [];
 let _ieSelectedSkillId = null;
+let _ieSelectedDetail = null;
 let _ieSummary = null;
 let _ieReport = null;
 let _ieAutoEval = null;
 let _ieManualMetrics = null;
+let _ieApiSummaryCache = {};
+let _ieJudgments = {};
+let _ieDetailFeedback = {};
 
 function syncIEVariants(variants, selectedVariant) {
   const select = document.getElementById('ieVariant');
@@ -648,11 +686,15 @@ async function ieLoadWorkbench() {
 
     if (_ieSelectedSkillId && !_ieEvents.some(e => e.skill_id === _ieSelectedSkillId)) {
       _ieSelectedSkillId = null;
+      _ieSelectedDetail = null;
       document.getElementById('ieDetail').innerHTML = '<div class="ie-detail-empty">👈 从左侧列表选择一个技能<br>查看抽取结果</div>';
     }
 
     ieFilterSkills();
     ieRenderStats();
+    if (_ieSelectedSkillId && _ieEvents.some(e => e.skill_id === _ieSelectedSkillId)) {
+      ieSelectSkill(_ieSelectedSkillId);
+    }
   } catch (err) {
     document.getElementById('ieStatus').className = 'status-dot err';
     document.getElementById('ieSkillList').innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">加载失败：${esc(getErrorMessage(err))}</div>`;
@@ -699,10 +741,128 @@ async function ieSelectSkill(skillId) {
       document.getElementById('ieDetail').innerHTML = `<div class="ie-detail-empty">加载失败: ${data.error}</div>`;
       return;
     }
+    _ieSelectedDetail = data.event;
     ieRenderDetail(data.event);
+    ieLoadApiSummary(skillId);
   } catch (err) {
+    _ieSelectedDetail = null;
     document.getElementById('ieDetail').innerHTML = `<div class="ie-detail-empty">加载失败: ${esc(getErrorMessage(err))}</div>`;
   }
+}
+
+function ieJudgeCacheKey(skillId, field) {
+  const variant = document.getElementById('ieVariant').value || (_ieSummary?.variant || '');
+  return `${variant}::${skillId}::${field}`;
+}
+
+function ieGetLocalJudgment(skillId, field) {
+  return _ieJudgments[ieJudgeCacheKey(skillId, field)] || '';
+}
+
+function ieGetApiSummary(skillId) {
+  const variant = document.getElementById('ieVariant').value || (_ieSummary?.variant || '');
+  return _ieApiSummaryCache[`${variant}::${skillId}`] || null;
+}
+
+async function ieLoadApiSummary(skillId) {
+  const variant = document.getElementById('ieVariant').value || (_ieSummary?.variant || '');
+  const cacheKey = `${variant}::${skillId}`;
+  if (_ieApiSummaryCache[cacheKey]) {
+    return;
+  }
+  _ieApiSummaryCache[cacheKey] = {loading: true};
+  if (_ieSelectedDetail?.skill_id === skillId) {
+    ieRenderDetail(_ieSelectedDetail);
+  }
+  try {
+    const data = await apiGet(`/api/ie/describe/${skillId}?variant=${variant}`);
+    _ieApiSummaryCache[cacheKey] = data.description || {available: false, summary: '', highlights: [], error: 'empty summary payload'};
+  } catch (err) {
+    _ieApiSummaryCache[cacheKey] = {available: false, summary: '', highlights: [], error: getErrorMessage(err)};
+  }
+  if (_ieSelectedDetail?.skill_id === skillId) {
+    ieRenderDetail(_ieSelectedDetail);
+  }
+}
+
+async function ieJudge(btn) {
+  const {skillId, skillName, field, label} = btn.dataset;
+  const cacheKey = ieJudgeCacheKey(skillId, field);
+  _ieJudgments[cacheKey] = label;
+  _ieDetailFeedback[cacheKey] = '保存中...';
+  if (_ieSelectedDetail?.skill_id === skillId) {
+    ieRenderDetail(_ieSelectedDetail);
+  }
+  try {
+    const data = await apiPost('/api/ie/judge', {
+      skill_name: skillName,
+      field,
+      label,
+      value: '',
+      variant: document.getElementById('ieVariant').value || (_ieSummary?.variant || ''),
+    });
+    _ieManualMetrics = data.summary || {};
+    _ieDetailFeedback[cacheKey] = '已保存';
+    ieRenderStats();
+  } catch (err) {
+    delete _ieJudgments[cacheKey];
+    _ieDetailFeedback[cacheKey] = `保存失败：${getErrorMessage(err)}`;
+  }
+  if (_ieSelectedDetail?.skill_id === skillId) {
+    ieRenderDetail(_ieSelectedDetail);
+  }
+}
+
+function ieRenderJudgeBar(skillId, skillName, field) {
+  const current = ieGetLocalJudgment(skillId, field);
+  const feedback = _ieDetailFeedback[ieJudgeCacheKey(skillId, field)] || '';
+  return `
+    <div class="ie-judge-bar">
+      <span class="ie-judge-label">人工评价</span>
+      <button class="ie-judge-btn ${current === 'correct' ? 'active-correct' : ''}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-field="${escAttr(field)}" data-label="correct" onclick="ieJudge(this)">正确</button>
+      <button class="ie-judge-btn ${current === 'partial' ? 'active-partial' : ''}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-field="${escAttr(field)}" data-label="partial" onclick="ieJudge(this)">部分正确</button>
+      <button class="ie-judge-btn ${current === 'incorrect' ? 'active-incorrect' : ''}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-field="${escAttr(field)}" data-label="incorrect" onclick="ieJudge(this)">错误</button>
+      ${feedback ? `<span class="ie-judge-feedback">${esc(feedback)}</span>` : ''}
+    </div>
+  `;
+}
+
+function ieRenderApiSummary(event) {
+  const apiEnabled = Boolean(_ieSummary?.api_description_enabled);
+  if (!apiEnabled) {
+    return `
+      <div class="ie-summary-box api">
+        <span class="label">API 总结</span>
+        <div class="summary-text">当前未启用远程总结接口。</div>
+        <div class="summary-sub">请在 <code>ie_system/configs/ie_config.json</code> 中启用 <code>remote_llm.enabled</code>，并配置可用的 GLM / OpenAI-compatible 接口。</div>
+      </div>
+    `;
+  }
+  const description = ieGetApiSummary(event.skill_id);
+  if (!description || description.loading) {
+    return `
+      <div class="ie-summary-box api">
+        <span class="label">API 总结</span>
+        <div class="summary-text">正在生成总结...</div>
+      </div>
+    `;
+  }
+  if (!description.available) {
+    return `
+      <div class="ie-summary-box api">
+        <span class="label">API 总结</span>
+        <div class="summary-text">暂时无法生成总结。</div>
+        <div class="summary-sub">${esc(description.error || 'unknown error')}</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="ie-summary-box api">
+      <span class="label">API 总结${description.model ? ` · ${esc(description.model)}` : ''}</span>
+      <div class="summary-text">${esc(description.summary || '')}</div>
+      ${(description.highlights || []).length ? `<div class="ie-highlight-row">${description.highlights.map(item => `<span class="ie-highlight">${esc(item)}</span>`).join('')}</div>` : ''}
+    </div>
+  `;
 }
 
 function ieRenderDetail(event) {
@@ -718,11 +878,14 @@ function ieRenderDetail(event) {
 
   const fieldsHtml = fields.map(f => {
     const vals = ext[f.key] || [];
-    return `<div class="ie-field-section">
+    const evidenceList = (ext.evidence?.[f.key] || []).slice(0, 3);
+    return `<div class="ie-field-card ie-field-section">
       <div class="field-name">${f.name}${vals.length ? ` (${vals.length})` : ''}</div>
       <div class="field-values">
         ${vals.length ? vals.map(v => `<span class="tag ${f.cls}">${esc(typeof v==='string'?v:v.name||v)}</span>`).join('') : '<span class="no-value">—</span>'}
       </div>
+      ${evidenceList.length ? `<div class="ie-evidence-list">${evidenceList.map(item => `<div><code>${esc(item.value || '')}</code> ${esc(item.quote || '')}</div>`).join('')}</div>` : ''}
+      ${ieRenderJudgeBar(event.skill_id, event.skill_name, f.key)}
     </div>`;
   }).join('');
 
@@ -734,6 +897,13 @@ function ieRenderDetail(event) {
       <span>ℹ️ ${event.info_point_count||0} 信息点</span>
       <span>📎 ${event.evidence_count||0} 证据</span>
     </div>
+    ${event.detail_url ? `<div class="detail-actions"><a class="detail-link" href="${escAttr(event.detail_url)}" target="_blank" rel="noreferrer">打开原始技能页面</a></div>` : ''}
+    ${ieRenderApiSummary(event)}
+    <div class="ie-summary-box">
+      <span class="label">启发式总结</span>
+      <div class="summary-text">${esc(event.description_preview || event.event_summary || '暂无摘要')}</div>
+    </div>
+    ${ieRenderJudgeBar(event.skill_id, event.skill_name, 'overall')}
     ${fieldsHtml}
     ${event.source_text ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)">📄 源文本</summary><pre style="background:#f9fafb;padding:12px;border-radius:8px;font-size:12px;line-height:1.5;white-space:pre-wrap;max-height:400px;overflow-y:auto;margin-top:8px">${esc(event.source_text)}</pre></details>` : ''}
   `;
@@ -755,16 +925,18 @@ function ieRenderStats() {
       <div class="ie-stat"><span class="key">Precision</span><span class="val" style="color:var(--ie)">${(e.overall.precision*100).toFixed(1)}%</span></div>
       <div class="ie-stat"><span class="key">Recall</span><span class="val" style="color:var(--mm)">${(e.overall.recall*100).toFixed(1)}%</span></div>
       <div class="ie-stat"><span class="key">F1</span><span class="val" style="color:var(--accent)">${(e.overall.f1*100).toFixed(1)}%</span></div>
+      <div class="ie-stat"><span class="key">GT 样本</span><span class="val">${e.ground_truth_count||0}</span></div>
+      <div class="ie-stat"><span class="key">匹配文档</span><span class="val">${e.matched_documents||0}</span></div>
     ` : '<span style="font-size:12px;color:var(--muted)">无自动评测数据</span>';
   const manualHtml = m.total_judgments ? `
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
-        <div class="ie-stat"><span class="key">人工标注</span><span class="val">${m.total_judgments}</span></div>
-        <div class="ie-stat"><span class="key">Correct</span><span class="val">${m.correct||0}</span></div>
-        <div class="ie-stat"><span class="key">Partial</span><span class="val">${m.partial||0}</span></div>
-        <div class="ie-stat"><span class="key">Accuracy</span><span class="val">${((m.overall_accuracy||0)*100).toFixed(1)}%</span></div>
-      </div>
-    ` : '';
-  document.getElementById('ieAutoEval').innerHTML = autoEvalHtml + manualHtml;
+      <div class="ie-stat"><span class="key">Overall Accuracy</span><span class="val">${((m.overall_accuracy||0)*100).toFixed(1)}%</span></div>
+      <div class="ie-stat"><span class="key">Total Judgments</span><span class="val">${m.total_judgments}</span></div>
+      <div class="ie-stat"><span class="key">Correct</span><span class="val">${m.correct||0}</span></div>
+      <div class="ie-stat"><span class="key">Partial</span><span class="val">${m.partial||0}</span></div>
+      <div class="ie-stat"><span class="key">Incorrect</span><span class="val">${m.incorrect||0}</span></div>
+    ` : '<span style="font-size:12px;color:var(--muted)">暂无人工评估数据</span>';
+  document.getElementById('ieAutoEval').innerHTML = autoEvalHtml;
+  document.getElementById('ieManualEval').innerHTML = manualHtml;
 }
 
 // ═══════════════════════════════════════════════════
