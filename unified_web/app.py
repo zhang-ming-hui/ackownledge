@@ -117,6 +117,7 @@ _ie_config = ie_load_config(_PROJECT_ROOT / "ie_system" / "configs" / "ie_config
 _ie_variant_cache: dict = {}
 _ie_api_summary_cache: dict = {}
 _ie_api_summary_lock = Lock()
+_ie_api_summary_cache_path = _ie_config.paths.state_dir / "api_summary_cache.json"
 _ie_bootstrap = SkillsIESystem(_ie_config, variant=DEFAULT_VARIANT)
 _ie_bootstrap.load_data()
 
@@ -131,8 +132,6 @@ def _normalize_ie_variant(variant: str | None, *, allow_api_variant: bool = True
         raise ValueError(f"unsupported variant: {normalized}")
     if not _is_ie_variant_enabled(normalized):
         raise RuntimeError(f"variant unavailable: {normalized}")
-    if normalized == "api" and not allow_api_variant:
-        raise RuntimeError("api variant is disabled in the unified workbench to avoid bulk remote API calls")
     return normalized
 
 
@@ -151,11 +150,45 @@ def _parse_bool(value: object, default: bool = False) -> bool:
 
 def _build_ie_bundle(ie: SkillsIESystem, variant: str) -> dict:
     gt_path = _ie_config.resolve_eval_path(None)
+    if ie.extraction_results:
+        report = ie.generate_report()
+        auto_eval = evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {}
+    else:
+        report = {
+            "generated_at": utc_now_iso(),
+            "variant": variant,
+            "total_documents": len(ie.documents),
+            "field_extraction_rates": {
+                field: {"count": 0, "rate": 0.0}
+                for field in EXTRACTED_FIELDS
+            },
+            "top_values_per_field": {},
+            "info_point_distribution": {},
+            "documents_with_all_fields": 0,
+            "documents_with_no_extraction": len(ie.documents),
+            "total_evidence_items": 0,
+            "explainability": {
+                "total_documents": 0,
+                "field_summary": {
+                    field: {
+                        "documents_with_evidence": 0,
+                        "coverage_rate": 0.0,
+                        "evidence_items": 0,
+                        "evidence_per_document": 0.0,
+                        "top_sources": [],
+                        "samples": [],
+                    }
+                    for field in EXTRACTED_FIELDS
+                },
+                "global_source_distribution": [],
+            },
+        }
+        auto_eval = {}
     return {
         "variant": variant,
         "ie": ie,
-        "report": ie.generate_report(),
-        "auto_eval": evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {},
+        "report": report,
+        "auto_eval": auto_eval,
         "events_by_skill_id": {
             str(event.get("skill_id") or ""): event
             for event in ie.extraction_results
@@ -174,13 +207,55 @@ def _set_ie_variant_bundle(bundle: dict) -> dict:
     return bundle
 
 
+def _ie_api_summary_cache_key(variant: str, skill_id: str) -> str:
+    return f"{variant}::{skill_id}"
+
+
+def _load_ie_api_summary_cache_payload() -> dict:
+    payload = load_json(_ie_api_summary_cache_path, default={"items": {}})
+    if not isinstance(payload, dict):
+        return {"items": {}}
+    items = payload.get("items", {})
+    if not isinstance(items, dict):
+        payload["items"] = {}
+    return payload
+
+
+def _get_ie_api_summary_cache_entry(variant: str, skill_id: str) -> dict | None:
+    cache_key = _ie_api_summary_cache_key(variant, skill_id)
+    with _ie_api_summary_lock:
+        cached = _ie_api_summary_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        payload = _load_ie_api_summary_cache_payload()
+        disk_entry = payload.get("items", {}).get(cache_key)
+        if isinstance(disk_entry, dict):
+            _ie_api_summary_cache[cache_key] = disk_entry
+            return disk_entry
+    return None
+
+
+def _set_ie_api_summary_cache_entry(variant: str, skill_id: str, value: dict) -> dict:
+    cache_key = _ie_api_summary_cache_key(variant, skill_id)
+    with _ie_api_summary_lock:
+        _ie_api_summary_cache[cache_key] = value
+        payload = _load_ie_api_summary_cache_payload()
+        items = payload.setdefault("items", {})
+        items[cache_key] = value
+        save_json_atomic(_ie_api_summary_cache_path, payload)
+        return _ie_api_summary_cache[cache_key]
+
+
 def _get_ie_variant_bundle(variant: str) -> dict:
     variant = _normalize_ie_variant(variant)
     if variant in _ie_variant_cache:
         return _ie_variant_cache[variant]
     ie = SkillsIESystem(_ie_config, variant=variant)
     ie.load_data()
-    ie.load_or_extract_results(persist_cache=True)
+    if variant == "api":
+        ie.load_cached_results_only()
+    else:
+        ie.load_or_extract_results(persist_cache=True)
     return _set_ie_variant_bundle(_build_ie_bundle(ie, variant))
 
 
@@ -208,11 +283,21 @@ def _invalidate_ie_summary_cache(variant: str, skill_id: str | None = None) -> N
     with _ie_api_summary_lock:
         targets = []
         if skill_id is not None:
-            targets.append((variant, skill_id))
+            targets.append(_ie_api_summary_cache_key(variant, skill_id))
         else:
-            targets.extend([key for key in _ie_api_summary_cache if key[0] == variant])
+            prefix = f"{variant}::"
+            targets.extend([key for key in _ie_api_summary_cache if str(key).startswith(prefix)])
         for key in targets:
             _ie_api_summary_cache.pop(key, None)
+        payload = _load_ie_api_summary_cache_payload()
+        items = payload.get("items", {})
+        changed = False
+        for key in targets:
+            if key in items:
+                items.pop(key, None)
+                changed = True
+        if changed:
+            save_json_atomic(_ie_api_summary_cache_path, payload)
 
 
 def _normalize_ie_summary_payload(payload: object) -> dict:
@@ -282,12 +367,6 @@ def _build_ie_api_summary_prompt(detail: dict) -> str:
 
 
 def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
-    cache_key = (bundle["variant"], skill_id)
-    with _ie_api_summary_lock:
-        cached = _ie_api_summary_cache.get(cache_key)
-    if cached is not None:
-        return cached
-
     if not _ie_config.remote_llm.enabled:
         payload = {
             "available": False,
@@ -296,13 +375,19 @@ def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
             "error": "remote_llm disabled in config",
             "model": _primary_remote_model_name(_ie_config.remote_llm.model),
         }
-        with _ie_api_summary_lock:
-            _ie_api_summary_cache.setdefault(cache_key, payload)
-            return _ie_api_summary_cache[cache_key]
+        return _set_ie_api_summary_cache_entry(bundle["variant"], skill_id, payload)
 
     event = bundle["events_by_skill_id"].get(skill_id)
     if not event:
         raise KeyError(skill_id)
+    event_fingerprint = str(event.get("source_fingerprint") or "").strip()
+
+    cached = _get_ie_api_summary_cache_entry(bundle["variant"], skill_id)
+    if (
+        isinstance(cached, dict)
+        and str(cached.get("source_fingerprint") or "").strip() == event_fingerprint
+    ):
+        return cached
 
     doc = bundle["docs_by_skill_id"].get(skill_id, {})
     source_text = bundle["ie"].get_document_source_text(doc) if doc else ""
@@ -342,10 +427,9 @@ def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
             "error": str(exc),
             "model": _primary_remote_model_name(summary_config.model),
         }
-
-    with _ie_api_summary_lock:
-        _ie_api_summary_cache.setdefault(cache_key, normalized)
-        return _ie_api_summary_cache[cache_key]
+    normalized["source_fingerprint"] = event_fingerprint
+    normalized["saved_at"] = utc_now_iso()
+    return _set_ie_api_summary_cache_entry(bundle["variant"], skill_id, normalized)
 
 
 # ── Multimedia ────────────────────────────────────────────
@@ -471,7 +555,7 @@ def api_ir_healthz():
 def api_ie_variants():
     return jsonify([
         {"id": v, "label": VARIANT_LABELS[v], "description": VARIANT_DESCRIPTIONS[v],
-         "enabled": _is_ie_variant_enabled(v) and v != "api"}
+         "enabled": _is_ie_variant_enabled(v)}
         for v in SUPPORTED_VARIANTS
     ])
 
@@ -479,7 +563,7 @@ def api_ie_variants():
 @app.get("/api/ie/workbench")
 def api_ie_workbench():
     try:
-        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
+        variant = _normalize_ie_variant(request.args.get("variant"))
     except (ValueError, RuntimeError):
         variant = DEFAULT_VARIANT
     bundle = _get_ie_variant_bundle(variant)
@@ -495,7 +579,7 @@ def api_ie_workbench():
         },
         "available_variants": [
             {"id": v, "label": VARIANT_LABELS[v], "description": VARIANT_DESCRIPTIONS[v],
-             "enabled": _is_ie_variant_enabled(v) and v != "api"}
+             "enabled": _is_ie_variant_enabled(v)}
             for v in SUPPORTED_VARIANTS
         ],
         "events": [{
@@ -520,7 +604,7 @@ def api_ie_workbench():
 @app.get("/api/ie/events/<skill_id>")
 def api_ie_event_detail(skill_id: str):
     try:
-        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
+        variant = _normalize_ie_variant(request.args.get("variant"))
         bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
@@ -551,7 +635,7 @@ def api_ie_search():
     except ValueError:
         top_k = 10
     try:
-        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
+        variant = _normalize_ie_variant(request.args.get("variant"))
         bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -580,7 +664,7 @@ def api_ie_judge():
 @app.get("/api/ie/report")
 def api_ie_report():
     try:
-        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
+        variant = _normalize_ie_variant(request.args.get("variant"))
         bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -606,7 +690,6 @@ def api_ie_extract_all():
     try:
         variant = _normalize_ie_variant(
             body.get("variant") or request.args.get("variant"),
-            allow_api_variant=False,
         )
     except (ValueError, RuntimeError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
@@ -637,7 +720,6 @@ def api_ie_reextract_event(skill_id: str):
     try:
         variant = _normalize_ie_variant(
             body.get("variant") or request.args.get("variant"),
-            allow_api_variant=False,
         )
         bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:

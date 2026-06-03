@@ -1986,6 +1986,17 @@ class SkillsIESystem:
             self.save_cached_results(include_legacy=self.variant == "enhanced")
         return self.extraction_results
 
+    def load_cached_results_only(self) -> List[Dict[str, Any]]:
+        if not self.documents:
+            self.load_data()
+        cached_payload = self._load_cached_results_payload()
+        cached_events = cached_payload.get("events", []) if cached_payload else []
+        self.extraction_results = [
+            event for event in cached_events
+            if isinstance(event, dict)
+        ]
+        return self.extraction_results
+
     def _find_document_index(self, skill_id: str) -> int:
         target = skill_id.strip()
         if not target:
@@ -2013,7 +2024,7 @@ class SkillsIESystem:
         if not self.documents:
             self.load_data()
         if not self.extraction_results:
-            self.load_or_extract_results(persist_cache=False)
+            self.load_cached_results_only()
 
         doc_index = self._find_document_index(skill_id)
         if doc_index < 0:

@@ -146,13 +146,51 @@ def create_app(config_path: Path | None = None) -> Flask:
 
         ie = SkillsIESystem(config, variant=variant)
         ie.load_data()
-        ie.load_or_extract_results(persist_cache=True)
+        if variant == "api":
+            ie.load_cached_results_only()
+        else:
+            ie.load_or_extract_results(persist_cache=True)
+
+        if ie.extraction_results:
+            report = ie.generate_report()
+            auto_eval = evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {}
+        else:
+            report = {
+                "generated_at": "",
+                "variant": variant,
+                "total_documents": len(ie.documents),
+                "field_extraction_rates": {
+                    field: {"count": 0, "rate": 0.0}
+                    for field in EXTRACTED_FIELDS
+                },
+                "top_values_per_field": {},
+                "info_point_distribution": {},
+                "documents_with_all_fields": 0,
+                "documents_with_no_extraction": len(ie.documents),
+                "total_evidence_items": 0,
+                "explainability": {
+                    "total_documents": 0,
+                    "field_summary": {
+                        field: {
+                            "documents_with_evidence": 0,
+                            "coverage_rate": 0.0,
+                            "evidence_items": 0,
+                            "evidence_per_document": 0.0,
+                            "top_sources": [],
+                            "samples": [],
+                        }
+                        for field in EXTRACTED_FIELDS
+                    },
+                    "global_source_distribution": [],
+                },
+            }
+            auto_eval = {}
 
         bundle = {
             "variant": variant,
             "ie": ie,
-            "report": ie.generate_report(),
-            "auto_eval": evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {},
+            "report": report,
+            "auto_eval": auto_eval,
             "events_by_skill_id": {
                 str(event.get("skill_id") or ""): event
                 for event in ie.extraction_results
@@ -179,11 +217,46 @@ def create_app(config_path: Path | None = None) -> Flask:
         return build_variant_bundle(normalized)
 
     def rebuild_variant_bundle(ie: SkillsIESystem, variant: str) -> Dict[str, Any]:
+        if ie.extraction_results:
+            report = ie.generate_report()
+            auto_eval = evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {}
+        else:
+            report = {
+                "generated_at": "",
+                "variant": variant,
+                "total_documents": len(ie.documents),
+                "field_extraction_rates": {
+                    field: {"count": 0, "rate": 0.0}
+                    for field in EXTRACTED_FIELDS
+                },
+                "top_values_per_field": {},
+                "info_point_distribution": {},
+                "documents_with_all_fields": 0,
+                "documents_with_no_extraction": len(ie.documents),
+                "total_evidence_items": 0,
+                "explainability": {
+                    "total_documents": 0,
+                    "field_summary": {
+                        field: {
+                            "documents_with_evidence": 0,
+                            "coverage_rate": 0.0,
+                            "evidence_items": 0,
+                            "evidence_per_document": 0.0,
+                            "top_sources": [],
+                            "samples": [],
+                        }
+                        for field in EXTRACTED_FIELDS
+                    },
+                    "global_source_distribution": [],
+                },
+            }
+            auto_eval = {}
+
         bundle = {
             "variant": variant,
             "ie": ie,
-            "report": ie.generate_report(),
-            "auto_eval": evaluate_extraction(ie.extraction_results, gt_path) if gt_path.exists() else {},
+            "report": report,
+            "auto_eval": auto_eval,
             "events_by_skill_id": {
                 str(event.get("skill_id") or ""): event
                 for event in ie.extraction_results
