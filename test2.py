@@ -1,8 +1,13 @@
+import os
 import requests
 import json
 
+# 从环境变量中读取 NVIDIA API Key，如果没有设置则报错退出
+api_key = os.getenv("NVIDIA_API_KEY")
+if not api_key:
+    raise ValueError("请在环境变量中设置 NVIDIA_API_KEY")
+
 url = "https://integrate.api.nvidia.com/v1/chat/completions"
-api_key = "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"
 
 headers = {
     "Authorization": f"Bearer {api_key}",

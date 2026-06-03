@@ -52,7 +52,19 @@ def _copy_full_extraction(extraction: Dict[str, Any]) -> Dict[str, Any]:
     return payload
 
 
-def _normalize_summary_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_summary_payload(payload: Any) -> Dict[str, Any]:
+    if isinstance(payload, list):
+        if payload and isinstance(payload[0], dict):
+            payload = payload[0]
+        else:
+            payload = {
+                "summary": "",
+                "highlights": [str(item).strip() for item in payload if str(item).strip()],
+            }
+    elif isinstance(payload, str):
+        payload = {"summary": payload, "highlights": []}
+    elif not isinstance(payload, dict):
+        payload = {"summary": "", "highlights": []}
     summary = str(payload.get("summary", "")).strip()
     highlights_raw = payload.get("highlights", [])
     highlights = []
@@ -66,6 +78,10 @@ def _normalize_summary_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         "summary": summary,
         "highlights": highlights[:4],
     }
+
+
+def _primary_remote_model_name(model_value: str) -> str:
+    return str(model_value).split(",")[0].strip()
 
 
 def create_app(config_path: Path | None = None) -> Flask:
@@ -194,7 +210,7 @@ def create_app(config_path: Path | None = None) -> Flask:
             ensure_ascii=False,
             indent=2,
         )
-        source_text = str(detail.get("source_text", "")).strip()[:7000]
+        source_text = str(detail.get("source_text", "")).strip()[:900]
         description_preview = str(detail.get("description_preview", "")).strip()
         return (
             "Summarize the following skill in Chinese and return strict JSON only.\n\n"
@@ -205,9 +221,10 @@ def create_app(config_path: Path | None = None) -> Flask:
             "}\n\n"
             "Rules:\n"
             "- Stay faithful to the source text and the structured extraction hints.\n"
-            "- The summary should be 2-4 Chinese sentences describing likely usage flow and capabilities.\n"
+            "- The summary should be 1 concise Chinese sentence describing likely usage flow and capabilities.\n"
             "- Do not invent outcomes, saved files, evaluated scores, or concrete execution results.\n"
             "- Highlights should be short Chinese fragments, each under 18 characters.\n"
+            "- Prefer short output; do not repeat the skill name excessively.\n"
             "- Return JSON only.\n\n"
             f"Skill name: {detail.get('skill_name', '')}\n"
             f"Owner: {detail.get('owner', '')}\n"
@@ -233,7 +250,7 @@ def create_app(config_path: Path | None = None) -> Flask:
                 "summary": "",
                 "highlights": [],
                 "error": "remote_llm disabled in config",
-                "model": config.remote_llm.model,
+                "model": _primary_remote_model_name(config.remote_llm.model),
             }
             with api_summary_lock:
                 api_summary_cache.setdefault(cache_key, payload)
@@ -248,13 +265,14 @@ def create_app(config_path: Path | None = None) -> Flask:
             config.remote_llm,
             system_prompt="You are a skill capability summarization engine. Return strict JSON only.",
             temperature=0.0,
-            max_output_tokens=min(config.remote_llm.max_output_tokens, 600),
+            max_output_tokens=min(config.remote_llm.max_output_tokens, 160),
+            timeout_seconds=min(config.remote_llm.timeout_seconds, 25),
         )
         prompt = build_api_summary_prompt(detail)
         try:
             raw_payload = call_openai_compatible_json(summary_config, prompt)
             normalized = _normalize_summary_payload(raw_payload)
-            normalized["model"] = summary_config.model
+            normalized["model"] = _primary_remote_model_name(summary_config.model)
             if not normalized["available"]:
                 normalized["error"] = "empty summary payload"
         except Exception as exc:
@@ -263,7 +281,7 @@ def create_app(config_path: Path | None = None) -> Flask:
                 "summary": "",
                 "highlights": [],
                 "error": str(exc),
-                "model": summary_config.model,
+                "model": _primary_remote_model_name(summary_config.model),
             }
 
         with api_summary_lock:

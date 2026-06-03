@@ -251,8 +251,14 @@
     .ie-field-section .field-name { font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
     .ie-field-section .field-values { display:flex; flex-wrap:wrap; gap:5px; }
     .ie-field-section .no-value { font-size:12px; color:#9ca3af; }
-    .ie-evidence-list { margin-top:8px; font-size:12px; color:var(--muted); line-height:1.5; }
-    .ie-evidence-list code { background:#f3f4f6; padding:2px 6px; border-radius:999px; font-size:11px; }
+    .ie-evidence-list { margin-top:10px; font-size:12px; color:var(--muted); line-height:1.5; }
+    .ie-evidence-title { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+    .ie-evidence-item { padding:8px 10px; border-radius:10px; background:#f9fafb; border:1px solid var(--line); margin-bottom:6px; }
+    .ie-evidence-head { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:4px; }
+    .ie-evidence-value { background:#eef2ff; color:#4f46e5; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+    .ie-evidence-source { font-size:11px; color:#9ca3af; }
+    .ie-evidence-text { color:var(--ink2); }
+    .ie-evidence-more { font-size:11px; color:#9ca3af; margin-top:2px; }
     .ie-judge-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; }
     .ie-judge-label { font-size:12px; color:var(--muted); font-weight:600; }
     .ie-judge-btn {
@@ -655,6 +661,8 @@ let _ieManualMetrics = null;
 let _ieApiSummaryCache = {};
 let _ieJudgments = {};
 let _ieDetailFeedback = {};
+let _ieSummaryTimer = null;
+let _ieSummaryRequestSeq = 0;
 
 function syncIEVariants(variants, selectedVariant) {
   const select = document.getElementById('ieVariant');
@@ -766,23 +774,36 @@ function ieGetApiSummary(skillId) {
 
 async function ieLoadApiSummary(skillId) {
   const variant = document.getElementById('ieVariant').value || (_ieSummary?.variant || '');
+  if (!_ieSummary?.api_description_enabled) {
+    return;
+  }
   const cacheKey = `${variant}::${skillId}`;
   if (_ieApiSummaryCache[cacheKey]) {
     return;
+  }
+  _ieSummaryRequestSeq += 1;
+  const requestSeq = _ieSummaryRequestSeq;
+  if (_ieSummaryTimer) {
+    clearTimeout(_ieSummaryTimer);
   }
   _ieApiSummaryCache[cacheKey] = {loading: true};
   if (_ieSelectedDetail?.skill_id === skillId) {
     ieRenderDetail(_ieSelectedDetail);
   }
-  try {
-    const data = await apiGet(`/api/ie/describe/${skillId}?variant=${variant}`);
-    _ieApiSummaryCache[cacheKey] = data.description || {available: false, summary: '', highlights: [], error: 'empty summary payload'};
-  } catch (err) {
-    _ieApiSummaryCache[cacheKey] = {available: false, summary: '', highlights: [], error: getErrorMessage(err)};
-  }
-  if (_ieSelectedDetail?.skill_id === skillId) {
-    ieRenderDetail(_ieSelectedDetail);
-  }
+  _ieSummaryTimer = setTimeout(async () => {
+    try {
+      if (_ieSelectedSkillId !== skillId || requestSeq !== _ieSummaryRequestSeq) {
+        return;
+      }
+      const data = await apiGet(`/api/ie/describe/${skillId}?variant=${variant}`);
+      _ieApiSummaryCache[cacheKey] = data.description || {available: false, summary: '', highlights: [], error: 'empty summary payload'};
+    } catch (err) {
+      _ieApiSummaryCache[cacheKey] = {available: false, summary: '', highlights: [], error: getErrorMessage(err)};
+    }
+    if (_ieSelectedDetail?.skill_id === skillId) {
+      ieRenderDetail(_ieSelectedDetail);
+    }
+  }, 450);
 }
 
 async function ieJudge(btn) {
@@ -865,6 +886,37 @@ function ieRenderApiSummary(event) {
   `;
 }
 
+function ieRenderEvidenceList(entries) {
+  if (!entries.length) return '';
+  const deduped = [];
+  const seen = new Set();
+  for (const item of entries) {
+    const evidenceText = item.matched_text || item.context || item.quote || item.value || '';
+    const source = item.rule_source || item.pattern_source || 'unknown';
+    const value = item.value || '';
+    const key = `${value}::${evidenceText}::${source}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push({value, evidenceText, source});
+    if (deduped.length >= 3) break;
+  }
+  return `
+    <div class="ie-evidence-list">
+      <div class="ie-evidence-title">证据片段</div>
+      ${deduped.map(item => `
+        <div class="ie-evidence-item">
+          <div class="ie-evidence-head">
+            <span class="ie-evidence-value">${esc(item.value || 'value')}</span>
+            <span class="ie-evidence-source">${esc(item.source)}</span>
+          </div>
+          <div class="ie-evidence-text">${esc(item.evidenceText || '—')}</div>
+        </div>
+      `).join('')}
+      ${entries.length > deduped.length ? `<div class="ie-evidence-more">另有 ${entries.length - deduped.length} 条同类命中未展开</div>` : ''}
+    </div>
+  `;
+}
+
 function ieRenderDetail(event) {
   const ext = event.extraction || {};
   const fields = [
@@ -878,13 +930,13 @@ function ieRenderDetail(event) {
 
   const fieldsHtml = fields.map(f => {
     const vals = ext[f.key] || [];
-    const evidenceList = (ext.evidence?.[f.key] || []).slice(0, 3);
+    const evidenceList = ext.evidence?.[f.key] || [];
     return `<div class="ie-field-card ie-field-section">
       <div class="field-name">${f.name}${vals.length ? ` (${vals.length})` : ''}</div>
       <div class="field-values">
         ${vals.length ? vals.map(v => `<span class="tag ${f.cls}">${esc(typeof v==='string'?v:v.name||v)}</span>`).join('') : '<span class="no-value">—</span>'}
       </div>
-      ${evidenceList.length ? `<div class="ie-evidence-list">${evidenceList.map(item => `<div><code>${esc(item.value || '')}</code> ${esc(item.quote || '')}</div>`).join('')}</div>` : ''}
+      ${ieRenderEvidenceList(evidenceList)}
       ${ieRenderJudgeBar(event.skill_id, event.skill_name, f.key)}
     </div>`;
   }).join('');

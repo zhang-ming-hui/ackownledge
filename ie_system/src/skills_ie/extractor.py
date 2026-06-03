@@ -722,7 +722,13 @@ class SkillsIESystem:
                 f"- target_domains: {', '.join(self.config.domain_keywords[:80])}\n"
                 f"- output_formats: {', '.join(self.config.output_format_keywords[:80])}\n"
             )
-        return template.format(text=text, schema_hints=schema_hints)
+        # Keep JSON braces in prompt templates literal. The config only needs
+        # two substitutions, so avoid str.format() parsing schema braces.
+        return (
+            template
+            .replace("{schema_hints}", schema_hints)
+            .replace("{text}", text)
+        )
 
     def _extract_structured_api(self, text: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         debug_payload = self._build_api_debug_stub(reason="disabled")
@@ -741,8 +747,13 @@ class SkillsIESystem:
             debug_payload["model_error"] = str(exc)
             return extraction, debug_payload
 
+        if not isinstance(raw_response, dict):
+            debug_payload["model_error"] = "remote_llm returned non-object JSON"
+            debug_payload["raw_response"] = raw_response
+            return extraction, debug_payload
+
         debug_payload["raw_response"] = raw_response
-        evidence_section = raw_response.get("evidence", {}) if isinstance(raw_response, dict) else {}
+        evidence_section = raw_response.get("evidence", {})
 
         for field in ENUM_FIELDS:
             normalized_values = self._normalize_llm_enum_values(raw_response.get(field, []), field)

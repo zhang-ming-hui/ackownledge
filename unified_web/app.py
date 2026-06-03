@@ -126,12 +126,14 @@ def _is_ie_variant_enabled(variant: str) -> bool:
     return variant != "api" or _ie_config.remote_llm.enabled
 
 
-def _normalize_ie_variant(variant: str | None) -> str:
+def _normalize_ie_variant(variant: str | None, *, allow_api_variant: bool = True) -> str:
     normalized = (variant or "").strip() or DEFAULT_VARIANT
     if normalized not in SUPPORTED_VARIANTS:
         raise ValueError(f"unsupported variant: {normalized}")
     if not _is_ie_variant_enabled(normalized):
         raise RuntimeError(f"variant unavailable: {normalized}")
+    if normalized == "api" and not allow_api_variant:
+        raise RuntimeError("api variant is disabled in the unified workbench to avoid bulk remote API calls")
     return normalized
 
 
@@ -163,7 +165,19 @@ def _get_ie_variant_bundle(variant: str) -> dict:
     return bundle
 
 
-def _normalize_ie_summary_payload(payload: dict) -> dict:
+def _normalize_ie_summary_payload(payload: object) -> dict:
+    if isinstance(payload, list):
+        if payload and isinstance(payload[0], dict):
+            payload = payload[0]
+        else:
+            payload = {
+                "summary": "",
+                "highlights": [str(item).strip() for item in payload if str(item).strip()],
+            }
+    elif isinstance(payload, str):
+        payload = {"summary": payload, "highlights": []}
+    elif not isinstance(payload, dict):
+        payload = {"summary": "", "highlights": []}
     summary = str(payload.get("summary", "")).strip()
     highlights_raw = payload.get("highlights", [])
     highlights: list[str] = []
@@ -179,13 +193,17 @@ def _normalize_ie_summary_payload(payload: dict) -> dict:
     }
 
 
+def _primary_remote_model_name(model_value: str) -> str:
+    return str(model_value).split(",")[0].strip()
+
+
 def _build_ie_api_summary_prompt(detail: dict) -> str:
     extraction_json = json.dumps(
         _copy_extraction_values(detail.get("extraction", {})),
         ensure_ascii=False,
         indent=2,
     )
-    source_text = str(detail.get("source_text", "")).strip()[:7000]
+    source_text = str(detail.get("source_text", "")).strip()[:900]
     description_preview = str(detail.get("description_preview", "")).strip()
     return (
         "Summarize the following skill in Chinese and return strict JSON only.\n\n"
@@ -196,9 +214,10 @@ def _build_ie_api_summary_prompt(detail: dict) -> str:
         "}\n\n"
         "Rules:\n"
         "- Stay faithful to the source text and the structured extraction hints.\n"
-        "- The summary should be 2-4 Chinese sentences describing likely usage flow and capabilities.\n"
+        "- The summary should be 1 concise Chinese sentence describing usage flow and capabilities.\n"
         "- Do not invent outcomes, saved files, evaluated scores, or concrete execution results.\n"
         "- Highlights should be short Chinese fragments, each under 18 characters.\n"
+        "- Prefer short output; do not repeat the skill name excessively.\n"
         "- Return JSON only.\n\n"
         f"Skill name: {detail.get('skill_name', '')}\n"
         f"Owner: {detail.get('owner', '')}\n"
@@ -225,7 +244,7 @@ def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
             "summary": "",
             "highlights": [],
             "error": "remote_llm disabled in config",
-            "model": _ie_config.remote_llm.model,
+            "model": _primary_remote_model_name(_ie_config.remote_llm.model),
         }
         with _ie_api_summary_lock:
             _ie_api_summary_cache.setdefault(cache_key, payload)
@@ -255,13 +274,14 @@ def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
         _ie_config.remote_llm,
         system_prompt="You are a skill capability summarization engine. Return strict JSON only.",
         temperature=0.0,
-        max_output_tokens=min(_ie_config.remote_llm.max_output_tokens, 600),
+        max_output_tokens=min(_ie_config.remote_llm.max_output_tokens, 160),
+        timeout_seconds=min(_ie_config.remote_llm.timeout_seconds, 25),
     )
     prompt = _build_ie_api_summary_prompt(detail)
     try:
         raw_payload = call_openai_compatible_json(summary_config, prompt)
         normalized = _normalize_ie_summary_payload(raw_payload)
-        normalized["model"] = summary_config.model
+        normalized["model"] = _primary_remote_model_name(summary_config.model)
         if not normalized["available"]:
             normalized["error"] = "empty summary payload"
     except Exception as exc:
@@ -270,7 +290,7 @@ def _get_ie_api_summary(bundle: dict, skill_id: str) -> dict:
             "summary": "",
             "highlights": [],
             "error": str(exc),
-            "model": summary_config.model,
+            "model": _primary_remote_model_name(summary_config.model),
         }
 
     with _ie_api_summary_lock:
@@ -401,7 +421,7 @@ def api_ir_healthz():
 def api_ie_variants():
     return jsonify([
         {"id": v, "label": VARIANT_LABELS[v], "description": VARIANT_DESCRIPTIONS[v],
-         "enabled": _is_ie_variant_enabled(v)}
+         "enabled": _is_ie_variant_enabled(v) and v != "api"}
         for v in SUPPORTED_VARIANTS
     ])
 
@@ -409,7 +429,7 @@ def api_ie_variants():
 @app.get("/api/ie/workbench")
 def api_ie_workbench():
     try:
-        variant = _normalize_ie_variant(request.args.get("variant"))
+        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
     except (ValueError, RuntimeError):
         variant = DEFAULT_VARIANT
     bundle = _get_ie_variant_bundle(variant)
@@ -425,7 +445,7 @@ def api_ie_workbench():
         },
         "available_variants": [
             {"id": v, "label": VARIANT_LABELS[v], "description": VARIANT_DESCRIPTIONS[v],
-             "enabled": _is_ie_variant_enabled(v)}
+             "enabled": _is_ie_variant_enabled(v) and v != "api"}
             for v in SUPPORTED_VARIANTS
         ],
         "events": [{
@@ -450,7 +470,8 @@ def api_ie_workbench():
 @app.get("/api/ie/events/<skill_id>")
 def api_ie_event_detail(skill_id: str):
     try:
-        bundle = _get_ie_variant_bundle(request.args.get("variant"))
+        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
+        bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     event = bundle["events_by_skill_id"].get(skill_id)
@@ -496,7 +517,7 @@ def api_ie_search():
     except ValueError:
         top_k = 10
     try:
-        variant = _normalize_ie_variant(request.args.get("variant"))
+        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
         bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -525,7 +546,8 @@ def api_ie_judge():
 @app.get("/api/ie/report")
 def api_ie_report():
     try:
-        bundle = _get_ie_variant_bundle(request.args.get("variant"))
+        variant = _normalize_ie_variant(request.args.get("variant"), allow_api_variant=False)
+        bundle = _get_ie_variant_bundle(variant)
     except (ValueError, RuntimeError) as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify(bundle["report"])
